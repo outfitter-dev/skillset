@@ -26,7 +26,7 @@ bun run docs:check
 
 The gate checks Markdown syntax and structure, frontmatter descriptions, local links and anchors, public-page reachability, generated-block markers, and path migrations. It also checks generated documentation for drift.
 
-Existing corpus violations are recorded in `docs/docs-check-baseline.json`. That baseline is shrink-only: a new violation fails, and fixing a recorded violation also fails until its exact entry is removed. Normal checks never rewrite the baseline. Use `bun scripts/docs.ts baseline` only when intentionally refreshing it during the overhaul, inspect every change, and do not add new violations to make a check pass.
+Existing corpus violations would be recorded in `docs/docs-check-baseline.json`. The baseline is empty today, so that file does not exist and `bun run docs:check` reports `0 baselined diagnostics`; keep it that way. The baseline is shrink-only: a new violation fails, and fixing a recorded violation also fails until its exact entry is removed. Normal checks never rewrite the baseline. `bun scripts/docs.ts baseline` rewrites the file from the current violations and deletes it when there are none. Use it only when intentionally refreshing the baseline, inspect every change, and do not add new violations to make a check pass.
 
 ## Generated blocks
 

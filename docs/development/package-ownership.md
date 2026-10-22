@@ -16,8 +16,9 @@ Package roots represent intentional APIs. Private `internal/*` imports are [work
 
 | Package | Owns | Does not own |
 | --- | --- | --- |
-| `apps/skillset` | The singular CLI source implementation: entrypoint, argument parsing, terminal presentation, confirmations, exit mapping, and command composition | Compiler semantics, source-graph shape, provider facts, shared schema vocabulary, reusable lint rules, or runtime helper libraries |
+| `apps/skillset` | The singular CLI source implementation: entrypoint, argument parsing, terminal presentation, confirmations, exit mapping, and command composition. Also `src/launcher.ts`, the native launcher bundled into the unscoped `skillset` package | Compiler semantics, source-graph shape, provider facts, shared schema vocabulary, reusable lint rules, or runtime helper libraries |
 | `apps/cli` | Public `@skillset/cli` Bun package metadata and the canonical bundled CLI artifact | A second CLI implementation or command-specific behavior |
+| `apps/native-*` | Public per-platform `@skillset/native-*` package metadata for the compiled executable the launcher selects | Source code, a second CLI implementation, or platform-specific command behavior |
 | `@skillset/core` | Source resolution, compiler operations, [render](../glossary.md#render) orchestration, provider adaptation decisions, operation results, diagnostics, provenance, conformance, and compiler reports | CLI-only presentation, publication policy, schema field lists, or standalone editor UX |
 | `@skillset/schema` | Shared config/frontmatter structure, value contracts, structural validation, examples, and generated JSON Schema artifacts | Path resolution, [destination](../glossary.md#destination) policy, release severity, dependency-graph semantics, rendering, or CLI formatting |
 | `@skillset/lint` | Lint registry, rule types, shell, and [source-unit](../glossary.md#source-unit) rule primitives | Loading a workspace graph or deciding compiler writes |
@@ -26,7 +27,7 @@ Package roots represent intentional APIs. Private `internal/*` imports are [work
 | `@skillset/toolkit` | Runtime helpers used by generated hooks and compiler-owned wrappers | Source resolution or CLI orchestration |
 | `@skillset/workbench` | Authoring diagnostics, parsing, Markdown analysis, compatibility views, presets, and fixtures | Public CLI command ownership or compiler render semantics |
 
-The unscoped `skillset` app and scoped `@skillset/cli` app are public distribution packages. They project the same CLI implementation while the unscoped package transitions to the native launcher. Other scoped workspace packages remain private implementation packages; see [Package Releases](package-releases.md) and [ADR-0029](../adrs/0029-global-cli-native-distribution.md).
+The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages are public distribution packages. `@skillset/cli` ships the bundled JS CLI; the unscoped `skillset` package ships the launcher (`scripts/build-package.ts` bundles `apps/skillset/src/launcher.ts` as its `dist/cli.js`), which runs the matching native executable from its `@skillset/native-*` optional dependency. Other scoped workspace packages remain private implementation packages; see [Package Releases](package-releases.md) and [ADR-0029](../adrs/0029-global-cli-native-distribution.md).
 
 ## Import Policy
 
@@ -66,7 +67,7 @@ File size alone does not justify extraction. Split an anchor when a coherent res
 | `packages/core/src/render-hooks.ts` | Adaptive and native hook materialization, runtime-context wrapping, normalization, and validation | No manifest or generic companion orchestration |
 | `packages/core/src/resolver.ts` | Graph construction, layout and path validation, target filtering, source loading, and path-dependent semantic validation | Shared structural fields move through Schema; extraction follows discovery or validation responsibilities |
 | `packages/core/src/build.ts` | Build/diff/check orchestration, destination policy, drift, write/backup behavior, scope filtering, and operation results | CLI presentation remains in the app; a write/report slice must stand alone |
-| `apps/skillset/src/cli-core.ts` | Command dispatch, argument validation, terminal presentation, exit mapping, and command composition | Reusable compiler behavior moves to its package before another command consumes it |
+| `apps/skillset/src/cli-core.ts` | The thin command router: `--version` and `--help` fast paths, then lazy dispatch to each command's `*-cli.ts` module. Argument parsing lives in `cli-args.ts`; terminal presentation in `cli-presentation.ts` and `cli-renderers.ts` | Reusable compiler behavior moves to its package before another command consumes it |
 | `packages/core/src/feature-registry.ts` | Feature vocabulary, support decisions, owner links, and evidence normalization | Provider facts remain in Registry; generated documentation consumes Core decisions |
 
 ## Troubleshooting Ownership
