@@ -205,8 +205,10 @@ async function applySetupPlan(
         files.push({ path: file.path, status: "exists" });
         continue;
       }
-      // The scaffolded CI workflow is user-owned after creation; keep edits.
-      if (file.path === CI_WORKFLOW_PATH) {
+      // Setup files are user-owned once written: the CI workflow always, and
+      // every scaffold file in a workspace that already exists, so a rerun such
+      // as `init --include ci` adds components without touching edited files.
+      if (file.path === CI_WORKFLOW_PATH || (kind === "init" && alreadyAdopted)) {
         files.push({ path: file.path, status: "exists" });
         continue;
       }
