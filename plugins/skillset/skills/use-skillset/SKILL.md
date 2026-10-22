@@ -18,39 +18,40 @@ Repos keep workspace config at the root and Skillset source inside `.skillset/`:
 ```text
 skillset.yaml
 .skillset/
-  shared/
-    assets/
-    references/
-    scripts/
-    templates/
-  partials/
+  RULES.md       # front page for root AGENTS.md and .claude/CLAUDE.md
   rules/
     <topic>.md
   skills/
     <skill-name>/
       SKILL.md
+  subagents/
+  hooks/
   plugins/
     <plugin-name>/
       skillset.yaml
+      skills/
+      subagents/
       shared/
+        partials/
         references/
         scripts/
-        partials/
-      subagents/
-      skills/
-  hooks/
-  RULES.md
-  rules/
+      _claude/   # plugin-local provider source
   shared/
+    assets/
     partials/
-  subagents/
-  _claude/
-  _codex/
+    references/
+    scripts/
+    templates/
+  _claude/       # mirrors to .claude/**
+  _codex/        # mirrors to .codex/**
+  _cursor/       # mirrors to .cursor/**
   changes/
-  cache/       # logical cache boundary; .gitignore sentinel tracked
-  snapshots/   # ignored Git-backed recovery snapshots; .gitignore sentinel tracked
+  cache/         # logical cache boundary; .gitignore sentinel tracked
+  snapshots/     # ignored Git-backed recovery snapshots; .gitignore sentinel tracked
 skillset.lock
 ```
+
+Partials live only under `shared/partials/`. A top-level `.skillset/partials/` is the retired layout and blocks the build until you move it.
 
 The workspace manifest controls provider defaults, output roots, source identity, schema, version, owner, and root support metadata. Repos use root `skillset.yaml` with source in `.skillset/`. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupportedDestination: error | warn | skip | force` for explicit lossy or unsupported destination policy. `error` remains the fail-loud default; non-error policies preserve warning diagnostics and lock provenance, and never soften failed render results. `skillset build` plans by default and writes only with `--yes`; `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `<source-root>/plugins/<plugin-name>/skillset.yaml`. Plugin content is not copied into project-local provider roots unless root `plugins.internal_use` selects it; omitting that key selects none. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level provider blocks such as `claude`, `codex`, and `cursor`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
 
@@ -69,7 +70,7 @@ skillset new skill "Docs CLI Expert"   # preview a new source skill
 skillset new skill --id docs-cli --name "Docs CLI Expert" --yes
 skillset new agent "Release Reviewer" --scope repo --yes
 skillset new rule "Review Guidance" --yes
-skillset new hook "Shell Policy" --event PreToolUse --command "echo check" --attach plugin:guard --yes
+skillset new hook "Shell Policy" --event PreToolUse --command "echo check" --attach skill:docs-cli --yes
 ```
 
 `skillset init` is plan-first like `build`: it writes only with `--yes`. It handles existing repositories or directories, resolves the Git root when no directory is given, and creates root `skillset.yaml` plus `.skillset/` source placeholders. Init creates operational ignore sentinels, detects adoptable repo-local provider artifacts, skips generated output roots with Skillset locks, and can import all or selected detected candidates through `--adopt`. Use `skillset import` for external existing work. `skillset create [name]` creates a normalized named child under the current directory or explicit `--root` parent, defaults to all supported providers, and initializes a local Git repository. Operational cache payloads reported under `.skillset/cache/` physically resolve to the repo's Skillset-owned XDG cache bucket; Git-backed recovery snapshots stay repo-local under `.skillset/snapshots/`. `--targets claude,codex,cursor` controls generated `compile.targets`; `--include ci` writes a user-owned `.github/workflows/skillset-ci.yml` running `skillset check --ci`.
@@ -120,15 +121,15 @@ paths:
 - Keep docs concise and current.
 ```
 
-Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Root `<source-root>/RULES.md` becomes the bare first section of root `AGENTS.md`; it does not render into Claude or Cursor rule directories. Other rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated in source order, each preceded by a `<!-- source: ... -->` boundary comment (path only, no frontmatter). Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset` warns when generated output crosses it — split instructions across nested directories or raise the limit. Confirmed builds back up unmanaged root `AGENTS.md` collisions before replacing them; move existing root guidance into `<source-root>/RULES.md` when you want `skillset` to own the destination long term, and use `skillset restore <backup-id> --yes` to recover a backed-up file.
+Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Root `<source-root>/RULES.md` becomes the bare first section of root `AGENTS.md` and is also written to `.claude/CLAUDE.md` (or root `CLAUDE.md` with `compile.instruction_front_page: repo-root`); do not hand-author that Claude file beside it, because `check` reports a duplicate root. `RULES.md` does not render into Claude or Cursor rule directories, and Cursor has no supported root `AGENTS.md` placement, so the scaffolded `RULES.md` carries `cursor: false`; keep it when Cursor is a target. Cursor rules are generated as `.cursor/rules/**/<name>.mdc` with `globs` from `paths`, or `alwaysApply: true` when a rule has no `paths`. Other rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated in source order, each preceded by a `<!-- source: ... -->` boundary comment (path only, no frontmatter). Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset` warns when generated output crosses it — split instructions across nested directories or raise the limit. Confirmed builds back up unmanaged root `AGENTS.md` collisions before replacing them; move existing root guidance into `<source-root>/RULES.md` when you want `skillset` to own the destination long term, and use `skillset restore <backup-id> --yes` to recover a backed-up file.
 
 Skill and rule bodies are preprocessed before target serialization. Use nested `{{this.<field>}}` for current-frontmatter references, `{{{this.description}}}` to keep a literal `{{this.description}}` token, and `{{skillset.source_path}}` or `{{parent.tree depth:2}}` for source context. Exact workspace partials use `{{> intro}}` or `{{> writing/tone}}` and resolve only under `<source-root>/shared/partials/`; a plugin skill uses `{{> plugin:intro}}` for its own `shared/partials/` root. Explicit includes such as `{{> shared:references/common.md}}` and `{{> plugin:references/checklist.md}}` resolve under the corresponding shared root. There is no workspace-to-plugin fallback or basename search. Skill links use `@{{shared:references/common.md}}` or `@{{plugin:references/checklist.md}}`; the leading `@` remains in generated Markdown and the linked file is copied beside `SKILL.md`. Marked links accept only `references`, `scripts`, `assets`, and `templates` groups. Code spans and fences keep preprocessing syntax literal, copied Markdown is not recursively preprocessed, and `skillset.preprocess: false` preserves all recognized syntax without implied copies. Missing files, traversal, cycles, invalid groups, symlink escapes, and collisions fail. Object and array frontmatter values render as fenced `json` blocks in Markdown prose unless already inside a fenced code block, while structured sidecars receive compact JSON. Rule bodies can also use `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`; these render per generated file, so a nested `docs/AGENTS.md` can point back to `..` while a root `AGENTS.md` points to `.`. Missing `this` fields and unknown Skillset variables fail the build.
 
-Use provider blocks such as `claude: false`, `codex: false`, or `cursor: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not implemented yet because Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
+Use provider blocks such as `claude: false`, `codex: false`, or `cursor: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not supported, and the schema rejects it: Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
 
-Use portable project agents for reusable project-scoped roles. Source lives at `<source-root>/subagents/*.md` with YAML frontmatter plus a Markdown body. `description` and a non-empty body are required; `name` defaults from the filename and resolves the generated filename. Claude emits `.claude/agents/<resolved-name>.md`; Codex emits `.codex/agents/<resolved-name>.toml` with `developer_instructions`. Shared `skills` become a Codex instructions preface (customizable with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`), and shared `initialPrompt` is appended in an `<initial_prompt>...</initial_prompt>` block. Keep target-native fields under `claude` and `codex`; top-level `model` warns unless each enabled target has a target-specific model.
+Use portable project agents for reusable project-scoped roles. Source lives at `<source-root>/subagents/*.md` with YAML frontmatter plus a Markdown body. `description` and a non-empty body are required; `name` defaults from the filename and resolves the generated filename. Claude emits `.claude/agents/<resolved-name>.md`; Cursor emits `.cursor/agents/<resolved-name>.md`; Codex emits `.codex/agents/<resolved-name>.toml` with `developer_instructions`. Shared `skills` become a Codex instructions preface (customizable with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`), and shared `initialPrompt` is appended in an `<initial_prompt>...</initial_prompt>` block. Keep target-native fields under `claude` and `codex`; top-level `model` warns unless each enabled target has a target-specific model.
 
-Use provider source for explicit provider files that are not adaptive: `<source-root>/_claude/**` mirrors to `.claude/**`, `<source-root>/_codex/**` mirrors to `.codex/**`, and plugin-local provider source under `<source-root>/plugins/<plugin>/_claude/**` or `<source-root>/plugins/<plugin>/_codex/**` mirrors into that generated plugin bundle only. Project provider source and project agents are workspace-managed files in the root `skillset.lock`, not ownership claims on the whole `.claude/` or `.codex/` directory. Codex `.rules` are command execution policy and pass through only from `<source-root>/_codex/rules/**/*.rules`; adaptive rules never render to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including provider source and project agents.
+Use provider source for explicit provider files that are not adaptive: `<source-root>/_claude/**` mirrors to `.claude/**`, `<source-root>/_codex/**` mirrors to `.codex/**`, `<source-root>/_cursor/**` mirrors to `.cursor/**`, and plugin-local provider source under `<source-root>/plugins/<plugin>/_claude/**`, `_codex/**`, or `_cursor/**` mirrors into that generated plugin bundle only. Project provider source and project agents are workspace-managed files in the root `skillset.lock`, not ownership claims on the whole `.claude/`, `.codex/`, or `.cursor/` directory. Codex `.rules` are command execution policy and pass through only from `<source-root>/_codex/rules/**/*.rules`; adaptive rules never render to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including provider source and project agents.
 
 Use source-only `resources` frontmatter for directories, unlinked files, or destination remaps from root `<source-root>/shared/` or plugin-local `<source-root>/plugins/<plugin-name>/shared/`:
 
@@ -147,6 +148,8 @@ resources:
 `shared:` resolves under root `<source-root>/shared/`. `plugin:` resolves under the current plugin's `shared/` directory and is not valid for standalone skills. A marked link implies the same copy with a default `<group>/<rest>` target; an exact or directory `resources.to` mapping wins. Declared and implied resources share copying, modes, collisions, lock provenance, hashing, explain, and drift behavior. Ordinary Markdown `shared:` or `plugin:` links still require an explicit declaration. Resource mappings cannot write outside the generated skill, overwrite generated control files, escape through symlinks, or collide with skill-local files. Cursor receives the same literal leading-`@` text; Skillset does not claim that Cursor treats it as a native UI mention.
 
 Plugin companion paths remain target-native inside one package. The root `plugin.json`, `.claude-plugin/plugin.json`, and `.cursor-plugin/plugin.json` sit side by side under `plugins/<plugin>/`; enabled providers share one immediate-child `skills/<effective-name>/SKILL.md` tree. Authored grouping directories do not appear in output. Compatible provider-only frontmatter keys are combined, while conflicting values or body bytes fail before writes. Authored package presentation assets render once under package-root `assets/`; skill-local assets and declared shared resources stay inside their skill. Authored plugin `subagents/` render to the documented `agents/` component for Claude and Cursor. The closed `extensions.com.openai` delta may reference `./.app.json` and `./hooks/hooks.json`; Cursor paths remain limited to pinned provider facts. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to the portable ChatGPT MCP component for the Codex target and to the target-native destination elsewhere, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional MCP files and Claude `bin/` paths. ChatGPT and Cursor plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Authored plugin `subagents/` are not copied into the ChatGPT bundle; a Codex-enabled plugin with `subagents/` fails loudly because Agent Plugins do not document a plugin agent component. Hooks are rendered definitions only and must be JSON objects. The ChatGPT bundle references normalized hooks at `./hooks/hooks.json`; no legacy Codex provider hook translation or overlay is emitted. `skillset` does not install, trust, or enable hooks in user-level config.
+
+Under the default `compile.unsupportedDestination: error`, a plugin component outside the Agent Plugins envelope blocks the build even when only one provider is enabled. Today only skills and MCP build from plain plugin source; commands, hooks, `subagents/`, LSP, monitors, output styles, themes, `bin/`, and Cursor `rules/` report `unsupported`. Put provider-only components in the plugin's `_claude/` (or `_codex/`, `_cursor/`) provider source, or set a non-error policy for a bounded migration. Workspace hooks attached to a workspace skill (`--attach skill:<id>`) build under the default policy.
 
 Skill source can also use normalized policy keys:
 
