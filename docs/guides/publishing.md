@@ -12,7 +12,7 @@ Skillset has no general `publish` command. Choose the workflow that owns the thi
 | Inspect a downstream sync of built files | `skillset distribute plan` |
 | Curate provider catalog entries | [Marketplace workflow](marketplaces.md) |
 | Make individual skills installable from a repository | Commit eligible generated `.agents/skills/` output |
-| Publish the `skillset` npm package | Maintainer-owned Changesets and GitHub Actions |
+| Publish the Skillset npm packages | Maintainer-owned Changesets and GitHub Actions |
 
 A workspace release can refresh [generated output](../glossary.md#generated-output), but it does not upload it to an external [destination](../glossary.md#destination) or prove runtime [activation](../glossary.md#activation).
 
@@ -27,13 +27,15 @@ skillset change status
 If a changed source unit has no pending record, create one with the scope and release impact you intend:
 
 ```bash
-skillset change add --scope skill:review-notes --bump patch --reason "Describe the reader-visible change."
+skillset change add --scope skill:review-notes --bump patch --reason "Explain what readers of the review-notes skill will notice."
 ```
+
+A reason must be at least 40 characters by default; `change add` accepts a shorter one, but `release plan` then fails with `change-reason-too-short`. Workspaces can change the minimum with `changes.reason.minLength` in `skillset.yaml`.
 
 To revise an existing record, use the reference returned by `change add` or run `skillset change list` to find it, then replace the example `@abcdef`:
 
 ```bash
-skillset change reason @abcdef --reason "Clarify the reader-visible change."
+skillset change reason @abcdef --reason "Clarify which review-notes prompts changed and why it matters."
 ```
 
 Both commands write source-side release evidence. Once the reasons and version impact are correct, preview and apply the release:
@@ -69,12 +71,15 @@ See [Distributions](../reference/features/distributions.md) for configuration, s
 
 ## Publish Individual Agent Skills
 
-When Agent Skills is adopted, Skillset intrinsically renders each eligible standalone skill under `.agents/skills/<skill>/`. To make those standalone skills available from a Git repository, commit the generated skill directories and their nearby `skillset.lock` after a successful build and check:
+When Agent Skills is adopted, Skillset intrinsically renders each eligible standalone skill under `.agents/skills/<skill>/`. To make those standalone skills available from a Git repository, preview the build, confirm it, check the result, and then commit the generated skill directories and their nearby `skillset.lock`:
 
 ```bash
 skillset build
+skillset build --yes
 skillset check
 ```
+
+Bare `skillset build` only previews; nothing is written until the `--yes` run.
 
 A downstream consumer can then select one skill from the repository root. For example, the pinned Skills consumer used by this repository accepts:
 
@@ -90,7 +95,7 @@ Generation and consumer installation are separate actions. `skillset build` does
 
 ## Publish the Compiler Package
 
-This lane applies only to maintainers of the Skillset repository. Package-facing changes carry a `.changeset/*.md` entry, and the repository's Release workflow versions and publishes the unscoped `skillset` npm package after its policy gates pass.
+This lane applies only to maintainers of the Skillset repository. Package-facing changes carry a `.changeset/*.md` entry, and the repository's Release workflow versions and publishes the public npm packages after its policy gates pass: the unscoped `skillset` launcher, `@skillset/cli`, and the `@skillset/native-*` platform packages.
 
 The safe local checks are:
 
