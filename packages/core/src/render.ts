@@ -39,8 +39,10 @@ import { assertCasePortableRenderedPaths, planRenderedFiles } from "./output-pla
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 import {
   isDefaultPluginOutputRoot,
+  LEGACY_CHATGPT_BUNDLE_SEGMENT,
   pluginBundleRoot,
   pluginLockRootPath,
+  pluginManifestDirectory,
   pluginManifestPath,
 } from "./plugin-output";
 import { pluginComponentPath, pluginPackageComponentFile } from "./plugin-component-paths";
@@ -487,20 +489,15 @@ function targetLabel(target: TargetName): string {
 }
 
 function marketplaceReadmeLines(outputRoot: string, target: TargetName): readonly string[] {
-  if (target === "claude") {
-    return [
-      isDefaultPluginOutputRoot(outputRoot) ? "- `../.claude-plugin/marketplace.json` indexes generated Claude plugins." : "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
-      "- `plugins/<plugin-id>/` contains each shared plugin package.",
-    ];
-  }
-  if (target === "cursor") {
-    return [
-      isDefaultPluginOutputRoot(outputRoot) ? "- `../.cursor-plugin/marketplace.json` indexes generated Cursor plugins." : "- `.cursor-plugin/marketplace.json` indexes the generated plugins.",
-      "- `plugins/<plugin-id>/` contains each shared plugin package.",
-    ];
-  }
+  const packages = "- `plugins/<plugin-id>/` contains each shared plugin package.";
+  const directory = pluginManifestDirectory(target);
+  if (directory === "") return [packages];
+  const catalog = `${directory}/marketplace.json`;
   return [
-    "- `plugins/<plugin-id>/` contains each shared plugin package.",
+    isDefaultPluginOutputRoot(outputRoot)
+      ? `- \`../${catalog}\` indexes generated ${targetLabel(target)} plugins.`
+      : `- \`${catalog}\` indexes the generated plugins.`,
+    packages,
   ];
 }
 
@@ -3154,7 +3151,7 @@ async function hashMarketplaceSource(
   target: TargetName
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update(`skillset-${target === "codex" ? "chatgpt" : target}-marketplace-source-v1\0`);
+  hash.update(`skillset-${target === "codex" ? LEGACY_CHATGPT_BUNDLE_SEGMENT : target}-marketplace-source-v1\0`);
   const paths = [graph.rootConfigPath, ...graph.plugins.map((plugin) => plugin.configPath)]
     .sort(compareStrings);
   for (const path of paths) {

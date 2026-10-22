@@ -15,6 +15,7 @@ import {
 } from "./provider-format-conformance-validation";
 import type { JsonRecord } from "./types";
 import { isJsonRecord } from "./yaml";
+import { isTargetMarketplacePath } from "./plugin-output";
 
 export function checkClaudeMarketplace(
   file: ProviderFormatConformanceFile
@@ -1130,8 +1131,5 @@ export function checkClaudeAuthorObject(
 }
 
 export function isClaudeMarketplacePath(path: string): boolean {
-  return (
-    path === ".claude-plugin/marketplace.json" ||
-    path.endsWith("/.claude-plugin/marketplace.json")
-  );
+  return isTargetMarketplacePath(path, "claude");
 }

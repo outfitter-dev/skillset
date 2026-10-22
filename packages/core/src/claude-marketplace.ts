@@ -1,5 +1,6 @@
 import type { JsonRecord } from "./types";
 import { isJsonRecord } from "./yaml";
+import { isTargetPluginManifestPath, pluginManifestDirectory } from "./plugin-output";
 
 export function storedClaudeMarketplaceProviderEntry(entry: JsonRecord): JsonRecord | undefined {
   if (
@@ -41,9 +42,10 @@ export function claudeMarketplaceRepoSource(repo: string): string {
 }
 
 export function claudeMarketplacePluginRoot(generatedPath: string): string {
-  const suffix = "/.claude-plugin/plugin.json";
-  if (!generatedPath.endsWith(suffix)) return generatedPath.slice(0, generatedPath.lastIndexOf("/"));
-  return generatedPath.slice(0, -suffix.length);
+  if (!isTargetPluginManifestPath(generatedPath, "claude")) {
+    return generatedPath.slice(0, generatedPath.lastIndexOf("/"));
+  }
+  return generatedPath.slice(0, -`/${pluginManifestDirectory("claude")}/plugin.json`.length);
 }
 
 function isPortableMarketplacePath(value: string): boolean {

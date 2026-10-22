@@ -4,6 +4,7 @@ import { dirname, join, posix, sep } from "node:path";
 import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
 
 import { compareStrings } from "./path";
+import { targetNames } from "./targets";
 import { mapPlannedOutputPaths, stalePlannedOutputPaths } from "./output-plan";
 import { hasValidLockProvenance, withLockProvenance } from "./lock-provenance";
 import {
@@ -14,7 +15,11 @@ import {
 } from "./generated-file-mode";
 import { parseGeneratedLock } from "./generated-lock";
 import { isInsideOutputRoot, scopeForPath } from "./output-scope";
-import { isPluginManifestOutputPath } from "./plugin-output";
+import {
+  isLegacyCodexPluginManifestPath,
+  isPluginManifestOutputPath,
+  isTargetPluginManifestPath,
+} from "./plugin-output";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
@@ -2388,10 +2393,9 @@ function generatedVersion(
     return generatedSkillVersion(path, content, label);
   }
   if (
-    path.endsWith("/.claude-plugin/plugin.json") ||
-    path.endsWith("/.codex-plugin/plugin.json") ||
-    isPluginManifestOutputPath(graph, path, "codex") ||
-    path.endsWith("/.cursor-plugin/plugin.json")
+    targetNames().some((target) => isTargetPluginManifestPath(path, target)) ||
+    isLegacyCodexPluginManifestPath(path) ||
+    isPluginManifestOutputPath(graph, path, "codex")
   ) {
     return generatedPluginVersion(content);
   }

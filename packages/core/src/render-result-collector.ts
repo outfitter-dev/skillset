@@ -42,7 +42,10 @@ import {
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
+  isLegacyChatGptManifestPath,
+  isLegacyCodexPluginManifestPath,
   isPluginManifestOutputPath,
+  isTargetPluginManifestPath,
   pluginBundleRoot,
   pluginManifestPath,
   pluginPackagePathParts,
@@ -783,10 +786,9 @@ function primaryOutputPathsForLockItem(
   if (item.kind !== "plugin") return outputPaths;
   const target = targetForLockItem(graph, lock, item, outputPaths);
   return outputPaths.filter((path) =>
-    path.endsWith("/.claude-plugin/plugin.json") ||
-    path.endsWith("/.codex-plugin/plugin.json") ||
-    path.endsWith("/.cursor-plugin/plugin.json") ||
-    path.endsWith("/chatgpt/plugin.json") ||
+    targetNames().some((manifestTarget) => isTargetPluginManifestPath(path, manifestTarget)) ||
+    isLegacyCodexPluginManifestPath(path) ||
+    isLegacyChatGptManifestPath(path) ||
     path.endsWith("/agents/plugin.json") ||
     (target !== undefined && isPluginManifestOutputPath(graph, path, target)) ||
     path.endsWith("/LICENSE.txt")

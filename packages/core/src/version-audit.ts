@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import {
   isPluginManifestOutputPath,
+  isTargetMarketplacePath,
   pluginPathPartsForOutput,
   pluginTargetForOutputPath,
 } from "./plugin-output";
@@ -113,7 +114,7 @@ async function auditVersionLocus(
 }
 
 function expectedVersionLoci(graph: BuildGraph, file: RenderedFile): readonly ExpectedVersionLocus[] {
-  if (file.path === ".claude-plugin/marketplace.json" || file.path.endsWith("/.claude-plugin/marketplace.json")) {
+  if (isTargetMarketplacePath(file.path, "claude")) {
     return expectedMarketplaceVersionLoci(graph, file);
   }
 
@@ -189,7 +190,7 @@ function identifyVersionPath(
   path: string
 ): { readonly scope: string; readonly target?: TargetName } | undefined {
   const target = targetForPath(graph, path);
-  if (path === ".claude-plugin/marketplace.json" || path.endsWith("/.claude-plugin/marketplace.json")) {
+  if (isTargetMarketplacePath(path, "claude")) {
     return { scope: selectorForRootConfig(), target: target ?? "claude" };
   }
   if (target === "codex" && isPluginManifestOutputPath(graph, path, target)) {
@@ -295,7 +296,7 @@ function extractJsonVersion(content: Uint8Array, path: readonly string[]): strin
 
 function versionFieldForPath(path: string): string {
   if (path.endsWith("/SKILL.md")) return "metadata.version";
-  if (path.endsWith("/.claude-plugin/marketplace.json")) return "metadata.version@marketplace";
+  if (isTargetMarketplacePath(path, "claude")) return "metadata.version@marketplace";
   return "version";
 }
 
