@@ -56,6 +56,7 @@ import {
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
 import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, SourceSkill, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
+import { SKILL_FILE } from "@skillset/registry";
 
 const textDecoder = new TextDecoder();
 
@@ -955,7 +956,7 @@ function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
   if (graph.projectAgents.some((agent) => relative(graph.rootPath, agent.sourcePath) === target)) {
     return "source-project-agent";
   }
-  if (target.endsWith("/SKILL.md") || target.endsWith("SKILL.md")) return "source-skill";
+  if (target.endsWith("/SKILL.md") || target.endsWith(SKILL_FILE)) return "source-skill";
   return "source-plugin";
 }
 

@@ -17,6 +17,7 @@ import {
   validateSkillFrontmatter,
   validateSourceMetadata,
 } from "@skillset/schema";
+import { SKILL_FILE } from "@skillset/registry";
 
 const ROOT_FILES = new Set([
   "CHANGELOG.md",
@@ -334,7 +335,7 @@ async function validateImmediateChildSkills(sourcePath: string): Promise<void> {
         `skillset: Agent Plugins skills must be immediate child directories containing SKILL.md; found skills/${entry.name}`
       );
     }
-    const skillFile = join(skillsPath, entry.name, "SKILL.md");
+    const skillFile = join(skillsPath, entry.name, SKILL_FILE);
     if (!(await isFile(skillFile))) {
       throw new Error(
         `skillset: Agent Plugins skill skills/${entry.name} is missing SKILL.md; nested skill groups cannot be imported`

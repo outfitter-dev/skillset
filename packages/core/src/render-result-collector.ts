@@ -7,6 +7,7 @@ import {
   getStandardProfileSupportEnvelope,
   isCodexAgentsMdPath,
   listProviderPluginManifestFields,
+  SKILL_FILE,
   type StandardProfileId,
 } from "@skillset/registry";
 import { SOURCE_PORTABLE_MANIFEST_KEYS } from "@skillset/schema";
@@ -1434,7 +1435,7 @@ function featureOutcomesForLockItem(
       : outputPaths.filter((path) =>
           target === "codex"
             ? path.endsWith("/agents/openai.yaml")
-            : path.endsWith("/SKILL.md") || path === "SKILL.md"
+            : path.endsWith("/SKILL.md") || path === SKILL_FILE
         );
   // A coalesced Agent Skills baseline item is also visited for its Codex
   // consumer, but the policy lives on the Codex-owned auxiliary item; only the
@@ -1471,7 +1472,7 @@ function featureOutcomesForLockItem(
 
   const claudeToolIntentOutputPaths =
     target === "claude" && skillHasClaudeToolIntent(graph, item)
-      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
+      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === SKILL_FILE)
       : [];
   if (claudeToolIntentOutputPaths.length > 0) {
     const plan = toolsRealizationPlanForLockItem(graph, item, "claude");
@@ -1495,7 +1496,7 @@ function featureOutcomesForLockItem(
 
   const cursorToolIntentOutputPaths =
     target === "cursor" && toolsRealizationPlanForLockItem(graph, item, target) !== undefined
-      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
+      ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === SKILL_FILE)
       : [];
   if (cursorToolIntentOutputPaths.length > 0) {
     const plan = toolsRealizationPlanForLockItem(graph, item, "cursor");

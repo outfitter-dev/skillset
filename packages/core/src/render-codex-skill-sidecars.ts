@@ -21,6 +21,7 @@ import type {
   TargetName,
 } from "./types";
 import { parseYamlRecord } from "./yaml";
+import { CODEX_SKILL_SIDECAR_FILE } from "@skillset/registry";
 
 export interface RenderedSkillAuxiliaryFile {
   readonly file: RenderedFile;
@@ -39,7 +40,7 @@ export async function renderCodexSkillAgentFile(
 
   const label = path.relative(graph.rootPath, skill.sourcePath);
   const generated = renderCodexSkillAgentConfig(skill, label);
-  const sourceOpenAiPath = path.join(sourceDir, "agents/openai.yaml");
+  const sourceOpenAiPath = path.join(sourceDir, CODEX_SKILL_SIDECAR_FILE);
   const hasSourceOpenAi = await exists(sourceOpenAiPath);
   if (!hasSourceOpenAi && Object.keys(generated).length === 0) return undefined;
 
@@ -70,10 +71,10 @@ export async function renderCodexSkillAgentFile(
   const merged = mergeRecords(source, generated);
   return {
     file: textFile(
-      path.join(targetSkillDir, "agents/openai.yaml"),
+      path.join(targetSkillDir, CODEX_SKILL_SIDECAR_FILE),
       renderValidatedYaml(
         merged,
-        `${path.relative(graph.rootPath, sourceOpenAiPath)} -> ${path.join(targetSkillDir, "agents/openai.yaml")}`
+        `${path.relative(graph.rootPath, sourceOpenAiPath)} -> ${path.join(targetSkillDir, CODEX_SKILL_SIDECAR_FILE)}`
       ),
       path.relative(graph.rootPath, sourceOpenAiPath)
     ),

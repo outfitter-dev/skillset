@@ -52,6 +52,7 @@ import type {
   SourceSkill,
 } from "@skillset/core/internal/types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "@skillset/core/internal/yaml";
+import { CODEX_SKILL_SIDECAR_FILE } from "@skillset/registry";
 
 export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v3";
 const SOURCE_HASH_DOMAIN = "skillset-source-unit-v2";
@@ -651,7 +652,7 @@ async function skillPreprocessDependencies(
   };
   await preprocessText(skill.body, context);
 
-  const sourceOpenAiPath = join(dirname(skill.sourcePath), "agents/openai.yaml");
+  const sourceOpenAiPath = join(dirname(skill.sourcePath), CODEX_SKILL_SIDECAR_FILE);
   if (await exists(sourceOpenAiPath)) {
     await preprocessText(await readFile(sourceOpenAiPath, "utf8"), {
       ...context,

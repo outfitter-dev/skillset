@@ -35,6 +35,7 @@ import type {
   SourceResource,
   SourceSkill,
 } from "./types";
+import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/registry";
 
 const AGENT_SKILLS_OUTPUT_ROOT = ".agents/skills";
 
@@ -326,11 +327,11 @@ async function pushSourceFiles(
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = normalizePath(path.relative(sourceDir, file));
     if (
-      relativeFile === "SKILL.md" ||
+      relativeFile === SKILL_FILE ||
       relativeFile === "CHANGELOG.md" ||
       relativeFile === "LICENSE.txt" ||
       relativeFile === ".skillset.tools.yaml" ||
-      relativeFile === "agents/openai.yaml"
+      relativeFile === CODEX_SKILL_SIDECAR_FILE
     ) {
       continue;
     }

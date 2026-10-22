@@ -16,10 +16,7 @@ import {
   renameDirectoryNoReplace,
   type DirectoryRenameNoReplaceResult,
 } from "@skillset/core/internal/directory-rename-no-replace";
-import {
-  listProviderPluginComponentManifestFields,
-  listProviderSkillFrontmatterFields,
-} from "@skillset/registry";
+import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import {
@@ -358,7 +355,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
           { cause: error }
         );
       } else {
-        const targetSkillPath = join(targetPath, "SKILL.md");
+        const targetSkillPath = join(targetPath, SKILL_FILE);
         try {
           await prepareRepositoryMutationPath(options.rootPath, targetSkillPath);
           await writeFile(targetSkillPath, mergedOriginal);
@@ -791,7 +788,7 @@ async function scopeImportedInvocationFrontmatter(
   if (providers.length === 0) return;
   if (kind === "skill") {
     await scopeSkillInvocationFrontmatter(
-      join(targetPath, "SKILL.md"),
+      join(targetPath, SKILL_FILE),
       frontmatter,
       providers
     );
@@ -852,8 +849,8 @@ async function mergeImportedProviderSkill(
   stagingPath: string
 ): Promise<string> {
   await assertMatchingImportedSkillResources(targetPath, stagingPath);
-  const targetSkillPath = join(targetPath, "SKILL.md");
-  const stagedSkillPath = join(stagingPath, "SKILL.md");
+  const targetSkillPath = join(targetPath, SKILL_FILE);
+  const stagedSkillPath = join(stagingPath, SKILL_FILE);
   const targetSource = await readFile(targetSkillPath, "utf8");
   const stagedSource = await readFile(stagedSkillPath, "utf8");
   const targetParts = parseMarkdown(targetSource, targetSkillPath);
@@ -907,10 +904,10 @@ async function assertMatchingImportedSkillResources(
 ): Promise<void> {
   const targetFiles = (await collectFiles(targetPath))
     .map((path) => relative(targetPath, path).replaceAll("\\", "/"))
-    .filter((path) => path !== "SKILL.md");
+    .filter((path) => path !== SKILL_FILE);
   const stagedFiles = (await collectFiles(stagingPath))
     .map((path) => relative(stagingPath, path).replaceAll("\\", "/"))
-    .filter((path) => path !== "SKILL.md");
+    .filter((path) => path !== SKILL_FILE);
   if (!isDeepStrictEqual(targetFiles, stagedFiles)) {
     throw importedSkillMergeConflict(targetPath);
   }
@@ -995,14 +992,14 @@ function importSourcePath(
 ): string {
   const path =
     kind === "skill"
-      ? join(targetPath, "SKILL.md")
+      ? join(targetPath, SKILL_FILE)
       : join(targetPath, "skillset.yaml");
   return relative(rootPath, path).replaceAll("\\", "/");
 }
 
 async function readImportedFrontmatter(targetPath: string, kind: SingularImportKind): Promise<JsonRecord> {
   if (kind === "skill") {
-    const skillFile = join(targetPath, "SKILL.md");
+    const skillFile = join(targetPath, SKILL_FILE);
     if (!(await exists(skillFile))) return {};
     return parseMarkdown(await readFile(skillFile, "utf8"), skillFile).frontmatter;
   }
@@ -1074,7 +1071,7 @@ async function copyImportSource(options: {
   const { agentPluginImport, kind, name, rootPath, sourcePath, targetPath } = options;
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
-    if (kind !== "skill" || basename(sourcePath) !== "SKILL.md") {
+    if (kind !== "skill" || basename(sourcePath) !== SKILL_FILE) {
       throw new Error("skillset: importing a file is only supported for skill SKILL.md files");
     }
   }
@@ -1325,7 +1322,7 @@ async function stampImportedOrigins(
   }
 
   for (const file of copiedFiles) {
-    if (basename(file) !== "SKILL.md") continue;
+    if (basename(file) !== SKILL_FILE) continue;
     await writeMarkdownSourceOrigin(join(targetPath, file), sourceOrigin(sourcePath, file));
   }
 }
@@ -1428,7 +1425,7 @@ function isImportScaffold(
 async function resolveSkillFile(sourcePath: string): Promise<string> {
   const stats = await stat(sourcePath);
   if (stats.isFile()) return sourcePath;
-  return join(sourcePath, "SKILL.md");
+  return join(sourcePath, SKILL_FILE);
 }
 
 async function resolvePluginConfig(sourcePath: string): Promise<string | undefined> {
@@ -1553,9 +1550,9 @@ async function planImports(sourcePath: string, requestedKind: ImportKind | undef
 async function isSkillSource(sourcePath: string): Promise<boolean> {
   if (!(await exists(sourcePath))) return false;
   const stats = await stat(sourcePath);
-  if (stats.isFile()) return basename(sourcePath) === "SKILL.md";
+  if (stats.isFile()) return basename(sourcePath) === SKILL_FILE;
   if (!stats.isDirectory()) return false;
-  return exists(join(sourcePath, "SKILL.md"));
+  return exists(join(sourcePath, SKILL_FILE));
 }
 
 async function isPluginSource(sourcePath: string): Promise<boolean> {

@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
 import { isJsonRecord } from "./yaml";
+import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/registry";
 
 const RESOURCE_GROUP_NAMES = ["references", "scripts", "assets", "templates"] as const;
 const RESOURCE_GROUPS = new Set<string>(RESOURCE_GROUP_NAMES);
@@ -296,8 +297,8 @@ function validateResourceTargetPath(raw: string, label: string): string {
     throw new Error(`skillset: ${label}.resources target paths must stay inside the generated skill`);
   }
   if (
-    value === "SKILL.md" ||
-    value === "agents/openai.yaml" ||
+    value === SKILL_FILE ||
+    value === CODEX_SKILL_SIDECAR_FILE ||
     value === ".skillset.tools.yaml"
   ) {
     throw new Error(`skillset: ${label}.resources cannot write generated skill control file ${value}`);
