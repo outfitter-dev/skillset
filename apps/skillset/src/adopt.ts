@@ -32,6 +32,7 @@ import {
   type SurveySkip,
 } from "./setup";
 import type { PluginAdoptionDiagnostic } from "./plugin-adoption";
+import { adoptExistingMarketplace, type AdoptedMarketplace } from "./marketplace-adoption";
 import {
   preparePluginAdoptionSource,
   preparedPluginOriginPath,
@@ -128,6 +129,8 @@ export interface AdoptReport {
   readonly cutover: readonly string[];
   readonly imports: readonly AdoptImportResult[];
   readonly lintIssues: readonly LintIssue[];
+  /** The repo's existing Claude catalog, and what adoption kept of it. */
+  readonly marketplace?: AdoptedMarketplace;
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly rootPath: string;
@@ -382,6 +385,16 @@ async function adoptResolvedRoot(
       )
     );
   }
+  // Builds own the Claude catalog, so an existing one's identity has to land in
+  // skillset.yaml before the build below renders it, and the original joins
+  // the cutover list like any other path a live build now owns.
+  const marketplace = await adoptExistingMarketplace(
+    init.rootPath,
+    imports.flatMap((result) =>
+      result.units.flatMap((unit) => (unit.kind === "plugin" ? [unit.name] : []))
+    )
+  );
+  if (marketplace !== undefined) cutover.push(marketplace.path);
   // Dialect declaration must land before the graph loads: the isolated build
   // below is what translates the Codex projection of the marked files.
   const transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
@@ -443,6 +456,7 @@ async function adoptResolvedRoot(
     cutover,
     imports,
     lintIssues,
+    ...(marketplace === undefined ? {} : { marketplace }),
     renderResults,
     ok:
       imports.every((result) => result.ok) &&
@@ -1085,6 +1099,17 @@ export function renderAdoptReportMarkdown(
       "Full structured render results are in `report.json` and in the isolated `skillset.lock` files when the isolated build completes.",
       ""
     );
+  }
+
+  if (report.marketplace !== undefined) {
+    lines.push("## Marketplace", "");
+    lines.push(
+      report.marketplace.catalog === undefined
+        ? `- \`${report.marketplace.path}\` was not declared in \`skillset.yaml\``
+        : `- declared \`${report.marketplace.path}\` as marketplace \`${report.marketplace.catalog}\`, keeping its name, owner and description`
+    );
+    for (const warning of report.marketplace.warnings) lines.push(`- warning: ${warning}`);
+    lines.push("");
   }
 
   lines.push("## Cutover", "");

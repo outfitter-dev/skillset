@@ -326,7 +326,18 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   ]);
   expect(report.builtFiles).toBeGreaterThan(0);
   expect(report.buildError).toBeUndefined();
-  expect(report.cutover).toEqual(["AGENTS.md"]);
+  // SET-731: the build owns the catalog now, so its identity is declared and
+  // the original joins the cutover list.
+  expect(report.cutover).toEqual(["AGENTS.md", ".claude-plugin/marketplace.json"]);
+  expect(report.marketplace).toEqual({
+    catalog: "demo-marketplace",
+    path: ".claude-plugin/marketplace.json",
+    skippedPlugins: [],
+    warnings: [],
+  });
+  expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain(
+    "marketplaces:\n  demo-marketplace:\n    targets:\n      - claude\n    plugins:\n      - plugin: demo\n"
+  );
 
   // Imported source lands in canonical .skillset/ homes with source-origin metadata.
   expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("targets:");
@@ -937,7 +948,7 @@ test("adopt records an instructions collision as a failed import without throwin
   );
   // The collision must not block the rest of the migration.
   expect(report.imports.find((result) => result.candidate.kind === "plugin")?.ok).toBe(true);
-  expect(report.cutover).toEqual([]);
+  expect(report.cutover).toEqual([".claude-plugin/marketplace.json"]);
   expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("## Failed imports");
 });
 
@@ -1135,6 +1146,52 @@ test("adopt CLI rejects isolation and build-shape flags", async () => {
   const include = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--include", "ci");
   expect(include.exitCode).toBe(0);
   expect(include.stdout).toContain(".github/workflows/skillset-ci.yml");
+});
+
+test("SET-731: adoption keeps an existing marketplace's name, owner and description", async () => {
+  const root = await fixture({
+    ".claude-plugin/marketplace.json": JSON.stringify({
+      name: "acme",
+      owner: { name: "Acme" },
+      description: "Acme tools",
+      plugins: [
+        { name: "helper", source: "./plugins/helper" },
+        { name: "remote", source: { source: "github", repo: "acme/remote" } },
+      ],
+    }),
+    "plugins/helper/.claude-plugin/plugin.json": JSON.stringify({ name: "helper", version: "1.2.0" }),
+    "plugins/helper/skills/tidy/SKILL.md":
+      "---\nname: tidy\ndescription: Tidy up imports.\n---\n\nSort imports.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.marketplace).toEqual({
+    catalog: "acme",
+    path: ".claude-plugin/marketplace.json",
+    skippedPlugins: ["remote"],
+    warnings: ["marketplace acme entries not imported as Skillset plugins: remote"],
+  });
+  expect(report.cutover).toContain(".claude-plugin/marketplace.json");
+  const config = await readFile(join(root, "skillset.yaml"), "utf8");
+  expect(config).toContain("  author:\n    name: Acme\n");
+  expect(config).toContain(
+    "marketplaces:\n  acme:\n    description: Acme tools\n    targets:\n      - claude\n    plugins:\n      - plugin: helper\n"
+  );
+  // Cut over, then let a live build own the catalog.
+  await rm(join(root, ".claude-plugin"), { recursive: true });
+  await rm(join(root, "plugins"), { recursive: true });
+  await buildSkillset(root);
+  const rendered = JSON.parse(
+    await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8")
+  ) as { readonly description?: string; readonly name: string; readonly owner: { readonly name: string } };
+  expect(rendered).toMatchObject({ description: "Acme tools", name: "acme", owner: { name: "Acme" } });
+  const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
+  expect(markdown).toContain(
+    "- declared `.claude-plugin/marketplace.json` as marketplace `acme`, keeping its name, owner and description"
+  );
+  expect(markdown).toContain("- warning: marketplace acme entries not imported as Skillset plugins: remote");
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {

@@ -28,6 +28,10 @@ An entry without `repo` resolves from `.skillset/plugins/<plugin>/` in the marke
 
 An external entry may select at most one revision policy: `channel`, `ref`, `sha`, or `version`. Use the [marketplace feature reference](../reference/features/marketplaces.md) and generated [workspace schema](../reference/schemas/README.md) for the complete contract.
 
+### Adopt an existing Claude catalog
+
+`skillset init --adopt` keeps an existing `.claude-plugin/marketplace.json`. It declares the catalog under `marketplaces:` with its name and description, records its owner as `skillset.author` (or `skillset.owner` when the workspace already names a different author), and lists the adopted plugins as entries. Entries that adoption did not import as Skillset plugins, such as remote sources, are reported so you can declare them yourself. The original file joins the adoption cutover list, because the next live build owns that path.
+
 ### Choose the ChatGPT catalog
 
 ChatGPT has one repository catalog path, `.agents/plugins/marketplace.json`, so an ordinary build selects at most one declared catalog whose targets include `codex`. If more than one declared catalog targets `codex`, the build stops before writing. If none does, Skillset derives one implicit catalog from every enabled local Codex plugin in source order. A declared catalog preserves its plugin-entry order and can include reviewed OpenAI-native entry settings under `codex`:
