@@ -24,7 +24,7 @@
       ],
       "kind": "rule",
       "name": "AGENTS.md",
-      "outputHash": "sha256:17164764efd397cf4debd20c34bf60f31ca278bdc757c107b06d7653dd27ac2a",
+      "outputHash": "sha256:7c953db81994787f02d3f947d9349c295c6b9b0f5ecf289a0d7957ec321c69ac",
       "outputPath": "AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
@@ -36,7 +36,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:1940174c452f5e5fe6d41468c0b7bb6e31df33c16da230b9d43262f67d658a2b",
+  "provenanceHash": "sha256:c330b02248c2a9c92398891da92a55fa25e0329af7284e95baa88e76f7eeb57b",
   "renderResults": [
     {
       "destination": "rule",
