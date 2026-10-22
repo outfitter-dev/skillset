@@ -90,11 +90,10 @@ export const ALLOWLIST_PATHS: readonly string[] = [
   "docs/adrs/",
   // The docs migration map records moved pages under their historical paths.
   "docs/migration-map.json",
-  // Goal packets describe the old vocabulary they are cutting over.
+  // Plan packets describe the old vocabulary they are cutting over, and the
+  // archive under it keeps historical records verbatim (including the
+  // 2026-07-18 drift audit's evidence for finding 03.5).
   ".agents/plans/",
-  // The committed 2026-07-18 audit preserves the retired term as historical
-  // evidence for finding 03.5; SET-327 owns its governance disposition.
-  ".agents/notes/2026-07-18-drift-audit/03-governance-and-docs-lag.md",
   // Generated output trees are validated against `.skillset/` source by check --only outputs.
   ".agents/skills/",
   ".claude/",

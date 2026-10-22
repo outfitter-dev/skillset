@@ -45,6 +45,16 @@ Record every moved, split, archived, or deleted Markdown path in [`docs/migratio
 
 Active, upcoming, paused, and otherwise actionable plans live in `docs/project/plans/`. Completed, abandoned, and superseded plans move to `docs/project/plans/archive/` with a disposition banner and outcome summary; the migration map and both plan indexes move their ownership at the same time.
 
+## Agent working records
+
+`.agents/` holds tracked working records for agents developing this repository. They are not product documentation, so the documentation gate and migration map do not cover them. Generated `.agents/skills/` and `.agents/plugins/` are build output, not working records.
+
+- **Plans** (`.agents/plans/<YYYY-MM-DD-slug>/`) are goal packets for multi-step work, following [`PLANNING.md`](../../.agents/plans/PLANNING.md). The executing agent owns a packet until it is archived.
+- **Goals** (`.agents/goals/`) are local goal-loop packets. The directory is gitignored, so they stay on the machine that ran them. Commit one only when it needs to outlive that machine, and archive it like a plan when it finishes.
+- **Notes** (`.agents/notes/<YYYY-MM-DD-slug>/`) are investigation evidence and branch pointers for in-flight work. The branch or issue that created a note owns it.
+
+When the work finishes, ships, or is abandoned, move the record into `.agents/plans/archive/<dated-slug>/` with `git mv`. Add a disposition banner (completed, abandoned, or superseded) under its first heading and list it in the archive `README.md`; leave the historical body unchanged. Fold any rationale that should outlive the record into `docs/development/` or an ADR first. Actionable product plans belong in `docs/project/plans/`, not `.agents/`.
+
 ## Review contract
 
 Documentation changes identify their truth sources, keep generated and authored ownership distinct, and run the narrowest relevant checks while editing. Before a pull request leaves draft, run `bun run docs:check` and the repository aggregate `bun run check`, inspect generated diffs, and resolve every review finding. A mismatch between runtime behavior and an accepted tenet or ADR is an implementation or decision issue, not something prose should silently reconcile.

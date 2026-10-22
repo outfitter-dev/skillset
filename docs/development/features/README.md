@@ -11,6 +11,7 @@ These pages answer maintainer questions about compiler and Workbench machinery r
 - [Runtime adapters](runtime-adapters.md) separates the planned general adapter contract from implemented runtime evidence and test harnesses.
 - [Workbench diagnostics package](workbench.md) explains internal parsing, diagnostics, lint integration, presets, and fixtures.
 - [Hook guardrails](hook-guardrails.md) documents maintainer integration snippets and runtime context boundaries.
+- [Generated output merge safety](generated-output-merge-safety.md) records the merge policy, lock format, and repair and resolve invariants.
 
 ## Maintainer Loop
 

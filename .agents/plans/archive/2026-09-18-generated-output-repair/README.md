@@ -1,5 +1,7 @@
 # SET-599 — `skillset build --repair`
 
+> **Disposition: completed and archived, 2026-10-22.** SET-599 shipped; this was its branch-pointer note, moved from `.agents/notes/`. The lasting rationale is in [Generated output merge safety](../../../../docs/development/features/generated-output-merge-safety.md).
+
 https://linear.app/outfitter/issue/SET-599
 
 The spec lives in the issue. This note exists so the branch carries its own

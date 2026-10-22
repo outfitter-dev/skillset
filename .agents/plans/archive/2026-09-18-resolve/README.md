@@ -1,5 +1,7 @@
 # SET-600 — `skillset resolve`
 
+> **Disposition: completed and archived, 2026-10-22.** SET-600 shipped; this was its branch-pointer note, moved from `.agents/notes/`. The lasting rationale is in [Generated output merge safety](../../../../docs/development/features/generated-output-merge-safety.md).
+
 https://linear.app/outfitter/issue/SET-600
 
 Blocked by SET-599: resolve cannot repair what build cannot restore.
