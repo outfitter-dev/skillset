@@ -976,9 +976,10 @@ export type FetchWithRetryOptions = {
 
 /**
  * Retries the transient failures a single release run should ride out:
- * network errors, 429, and 5xx. Other statuses return at once so callers
- * keep their own 404 and error handling. A GitHub API 500 on one
- * `/commits/{sha}/pulls` read failed a whole Release run on 2026-10-22.
+ * network errors (including a body cut off after the headers), 429, and 5xx.
+ * Other statuses return at once so callers keep their own 404 and error
+ * handling. A GitHub API 500 on one `/commits/{sha}/pulls` read failed a
+ * whole Release run on 2026-10-22.
  */
 export async function fetchWithRetry(
   url: string,
@@ -989,7 +990,15 @@ export async function fetchWithRetry(
     let failure: string;
     try {
       const response = await fetchImpl(url, init);
-      if (response.status !== 429 && response.status < 500) return response;
+      if (response.status !== 429 && response.status < 500) {
+        // Buffer the body here so a connection dropped mid-body is retried too.
+        const body = await response.text();
+        return new Response(body, {
+          headers: response.headers,
+          status: response.status,
+          statusText: response.statusText,
+        });
+      }
       if (attempt >= attempts) return response;
       failure = `${response.status} ${response.statusText}`;
     } catch (error) {

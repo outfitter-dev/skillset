@@ -438,6 +438,24 @@ describe("fetchWithRetry", () => {
     expect(calls).toHaveLength(3);
   });
 
+  test("retries a body cut off after the headers arrived", async () => {
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      if (calls > 1) return new Response('{"ok":true}', { status: 200 });
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"ok":'));
+          controller.error(new Error("socket closed mid-body"));
+        },
+      });
+      return new Response(body, { status: 200 });
+    };
+    const response = await fetchWithRetry("https://api.github.com/repos/o/r/pulls", {}, { fetchImpl, sleep: noSleep });
+    expect(await response.json()).toEqual({ ok: true });
+    expect(calls).toBe(2);
+  });
+
   test("returns non-transient statuses without retrying", async () => {
     const { calls, fetchImpl } = scripted([404]);
     const response = await fetchWithRetry(
