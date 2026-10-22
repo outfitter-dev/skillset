@@ -152,5 +152,5 @@ codes; the shared classifier never infers them.
 Human and JSON modes use the same exit class for the same result. Controlled
 JSON failures preserve one finite result envelope and keep stdout machine-pure.
 
-The design and security rationale live in the draft
-[Global Immutable Operational Reports ADR](../../adrs/drafts/20260814-global-immutable-operational-reports.md).
+The design and security rationale live in
+[Global Immutable Operational Reports ADR](../../adrs/0043-global-immutable-operational-reports.md).

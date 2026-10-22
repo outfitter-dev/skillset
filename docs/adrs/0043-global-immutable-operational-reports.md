@@ -1,15 +1,18 @@
 ---
+id: 43
 slug: global-immutable-operational-reports
 title: Global Immutable Operational Reports
-status: draft
+status: accepted
 created: 2026-08-14
-updated: 2026-09-22
+updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 4, 19, 22, 23]
 amends: [19, 22]
 ---
 
-# ADR: Global Immutable Operational Reports
+# ADR-0043: Global Immutable Operational Reports
+
+> Accepted 2026-10-22 as written. Shipped in [#430](https://github.com/outfitter-dev/skillset/pull/430) and [#437](https://github.com/outfitter-dev/skillset/pull/437) (`skillset report show`).
 
 ## Context
 
@@ -22,12 +25,12 @@ output must remain deterministic.
 
 The current decisions leave three contracts to reconcile:
 
-- [ADR-0019](../0019-deterministic-projection-and-adapter-conformance.md#projection-comparison)
+- [ADR-0019](0019-deterministic-projection-and-adapter-conformance.md#projection-comparison)
   treats Skillset-owned reports as deterministic comparison material and places
   external-conformance reports under a logical workspace cache path;
-- [ADR-0022](../0022-workflow-oriented-cli.md#final-command-roster)
+- [ADR-0022](0022-workflow-oriented-cli.md#final-command-roster)
   freezes a 21-command public roster without a report domain;
-- [ADR-0023](../0023-versioned-structured-output-for-cli-automation.md#json-is-one-finite-result-envelope)
+- [ADR-0023](0023-versioned-structured-output-for-cli-automation.md#json-is-one-finite-result-envelope)
   requires every finite `--json` route to emit one shared CLI result envelope,
   not a command-specific object on stdout.
 
@@ -430,17 +433,17 @@ without changing report ownership.
 
 ## References
 
-- [Tenets](../../project/tenets.md) - generated-output determinism, inspectable provenance, explicit authority, and visible drift.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.
-- [ADR-0004: Core Library and CLI Boundary](../0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.
-- [ADR-0019: Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md) - amended to distinguish deterministic projection evidence from retained operational receipts.
-- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended with the report domain and 21-to-22 accepted base-roster delta.
-- [ADR-0023: Versioned Structured Output For CLI Automation](../0023-versioned-structured-output-for-cli-automation.md) - finite report retrieval applies its shared result framing without amendment.
-- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - current retained test/eval evidence boundaries remain producer-owned until explicit migration.
-- [Skillset beta release record](../../project/plans/beta-release.md#13--globally-retained-reports) - owner-approved global report product decision.
-- [Schema contracts](../../development/schema-contracts.md) - shared structural fields and generated artifacts remain schema-first.
-- [Tests and evals](../../reference/features/tests-and-evals.md) - current `.skillset/cache/tests` and `.skillset/cache/evals` layouts and reader commands.
-- [Skillset CI](../../reference/features/ci.md) - current caller-selected CI Markdown export contract.
+- [Tenets](../project/tenets.md) - generated-output determinism, inspectable provenance, explicit authority, and visible drift.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.
+- [ADR-0004: Core Library and CLI Boundary](0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.
+- [ADR-0019: Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - amended to distinguish deterministic projection evidence from retained operational receipts.
+- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - amended with the report domain and 21-to-22 accepted base-roster delta.
+- [ADR-0023: Versioned Structured Output For CLI Automation](0023-versioned-structured-output-for-cli-automation.md) - finite report retrieval applies its shared result framing without amendment.
+- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - current retained test/eval evidence boundaries remain producer-owned until explicit migration.
+- [Skillset beta release record](../project/plans/beta-release.md#13--globally-retained-reports) - owner-approved global report product decision.
+- [Schema contracts](../development/schema-contracts.md) - shared structural fields and generated artifacts remain schema-first.
+- [Tests and evals](../reference/features/tests-and-evals.md) - current `.skillset/cache/tests` and `.skillset/cache/evals` layouts and reader commands.
+- [Skillset CI](../reference/features/ci.md) - current caller-selected CI Markdown export contract.
 - [SET-453](https://linear.app/outfitter/issue/SET-453) - secure report-store implementation and acceptance owner.
 - [SET-445](https://linear.app/outfitter/issue/SET-445) - adoption and external-fixture producer integration owner.
 - [SET-180](https://linear.app/outfitter/issue/SET-180) - current retained-test path and lifecycle owner.

@@ -54,3 +54,7 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0037](0037-one-shared-plugin-package-per-plugin.md) | One Shared Plugin Package per Plugin | Accepted |
 | [0038](0038-change-ledger-append-order.md) | Change Ledger Append Order Is Authoritative | Accepted |
 | [0039](0039-rules-name-authored-guidance-source.md) | Rules Name Authored Guidance Source | Accepted |
+| [0040](0040-path-references-resolve-and-rename-together.md) | Source References Resolve And Rename Together | Accepted |
+| [0041](0041-portable-skill-eval-source-contract.md) | Portable Skill Eval Source Contract | Accepted |
+| [0042](0042-ungraded-cross-provider-eval-runs.md) | Ungraded Cross-Provider Eval Runs | Accepted |
+| [0043](0043-global-immutable-operational-reports.md) | Global Immutable Operational Reports | Accepted |

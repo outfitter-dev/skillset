@@ -229,7 +229,7 @@ SET-131 owns this decision and closes after a clean contract review plus impleme
 - [ADR-0023: Versioned Structured Output](0023-versioned-structured-output-for-cli-automation.md) - machine-readable command contracts.
 - [Declarative User-Scope Config](drafts/20260604-declarative-user-scope-config.md) - future explicit activation mutation, out of scope here.
 - [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - future settings planning and apply boundary.
-- [Ungraded Cross-Provider Eval Runs](drafts/20260723-ungraded-cross-provider-eval-runs.md) - current provider runtime evidence.
+- [Ungraded Cross-Provider Eval Runs](0042-ungraded-cross-provider-eval-runs.md) - current provider runtime evidence.
 - [Claude MCP](https://code.claude.com/docs/en/mcp) and [plugins](https://code.claude.com/docs/en/discover-plugins) - approval, connection, installation, enablement, and reload evidence.
 - [Codex MCP](https://developers.openai.com/codex/mcp), [CLI reference](https://developers.openai.com/codex/cli/reference), and [authentication](https://developers.openai.com/codex/auth) - machine-readable inventory and auth evidence.
 - [Cursor plugins](https://cursor.com/docs/plugins) and [headless CLI](https://cursor.com/docs/cli/headless) - plugin and runtime inspection boundaries.

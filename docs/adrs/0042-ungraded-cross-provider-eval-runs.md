@@ -1,14 +1,17 @@
 ---
+id: 42
 slug: ungraded-cross-provider-eval-runs
 title: Ungraded Cross-Provider Eval Runs
-status: draft
+status: accepted
 created: 2026-07-23
-updated: 2026-07-23
+updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
 amends: [12, 22]
 ---
 
-# ADR: Ungraded Cross-Provider Eval Runs
+# ADR-0042: Ungraded Cross-Provider Eval Runs
+
+> Accepted 2026-10-22 as written. Shipped in [#378](https://github.com/outfitter-dev/skillset/pull/378) (`skillset eval run`).
 
 ## Context
 
@@ -66,6 +69,6 @@ completed trial, not a quality verdict against `expected_output` or
 
 ## References
 
-- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.
-- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.
-- [Tests and Evals](../../reference/features/tests-and-evals.md) - current command, retention, and non-grading contract.
+- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.
+- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.
+- [Tests and Evals](../reference/features/tests-and-evals.md) - current command, retention, and non-grading contract.

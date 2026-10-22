@@ -1,14 +1,17 @@
 ---
+id: 40
 slug: path-references-resolve-and-rename-together
 title: Source References Resolve And Rename Together
-status: draft
+status: accepted
 created: 2026-07-01
-updated: 2026-07-24
+updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [10, 9, first-class-sets, 6]
+depends_on: [34, 9, first-class-sets, 6]
 ---
 
-# ADR: Source References Resolve And Rename Together
+# ADR-0040: Source References Resolve And Rename Together
+
+> Accepted 2026-10-22 as written. Shipped in [#382](https://github.com/outfitter-dev/skillset/pull/382) (`skillset rename`, SET-370).
 
 ## Context
 
@@ -30,7 +33,7 @@ because that content lives outside the skill's own directory and must be
 copied in — it does not fire for a plain relative link, a backtick-wrapped
 mention, or a frontmatter path field.
 
-Named Partials (draft) already solved half of this shape of problem for
+Named Partials (ADR-0010, since superseded by ADR-0034) already solved half of this shape of problem for
 *embedded* content: `{{> name}}` decouples prose from a physical path so a
 reusable fragment can be renamed without touching every place it's included.
 But `references/foo.md` in the SKILL.md progressive-disclosure sense is never
@@ -44,7 +47,7 @@ surface early instead of failing silently at read time.
 
 Skills are not the only surface with this problem. Rules already support the
 same `shared:`/`plugin:`/named-partial preprocessing as skills
-([Instructions](../../reference/features/rules.md)), so a rule body can mention
+([Instructions](../reference/features/rules.md)), so a rule body can mention
 a stale path exactly the same way a skill body can. Project agents
 (`.skillset/agents/*.md`) run their bodies through the identical
 `preprocessText` pipeline
@@ -95,7 +98,7 @@ path-resolution system:
 The bare form is deliberately `{{@...}}`, never unwrapped `@path/to/file.md`.
 Skillset's own authored prose — this repo included — mentions scoped package
 names like `@outfitter/*` and `@acme/docs-cli` constantly (see
-[skill-frontmatter.yaml](../../reference/examples/skill-frontmatter.yaml)). An
+[skill-frontmatter.yaml](../reference/examples/skill-frontmatter.yaml)). An
 unwrapped `@` marker would collide with that on sight. `{{...}}` is already
 reserved for preprocessing, so wrapping the marker removes the ambiguity for
 free.
@@ -196,7 +199,7 @@ source-authoring question, and this ADR does not resolve it: Claude's actual
 runtime convention for cross-plugin skill references needs verification
 before implementation (see Non-Decisions). Codex's `skills` handling is
 already a shimmed compatibility preface, not a native mechanism
-([Agents](../../reference/features/agents.md)), so a plugin-qualified entry may simply
+([Agents](../reference/features/agents.md)), so a plugin-qualified entry may simply
 render into that preface's text rather than needing its own Codex-native
 form.
 
@@ -341,24 +344,25 @@ visibility without false confidence.
 
 ## References
 
-- ADR: Named Partials (draft) - `{{@...}}` is the resolve-only sibling of the
-  embed-only `{{> name}}` grammar that ADR establishes; both reuse the same
-  scheme vocabulary and reject cross-plugin references the same way.
-- ADR: Skillset Workspace Layout (draft) - defines the `.skillset/`
+- [ADR-0034: Exact Shared References](0034-exact-shared-references.md) -
+  successor to Named Partials (ADR-0010); `{{@...}}` is the resolve-only sibling
+  of its embed-only `{{> name}}` grammar; both reuse the same scheme vocabulary
+  and reject cross-plugin references the same way.
+- [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - defines the `.skillset/`
   workspace/plugin boundary this ADR's scoping rules for `skillset rename`
   follow.
 - ADR: First-Class Sets (draft) - owns the `plugin.<plugin>.skill:<name>`
   selector grammar this ADR reuses for plugin-qualified `skills:` entries,
   rather than defining a second selector shape.
-- ADR: Agent / Subagent Source Model (draft) - establishes the project agent
+- [ADR-0006: Agent / Subagent Source Model](0006-agent-source-model.md) - establishes the project agent
   `skills:` frontmatter field this ADR adds identity validation and
   rename-cascade support for.
-- [Skills](../../reference/features/skills.md) - current skill body preprocessing
+- [Skills](../reference/features/skills.md) - current skill body preprocessing
   contract this ADR extends.
-- [Instructions](../../reference/features/rules.md) - current rule body
+- [Instructions](../reference/features/rules.md) - current rule body
   preprocessing contract this ADR extends.
-- [Agents](../../reference/features/agents.md) - current project agent `skills:`
+- [Agents](../reference/features/agents.md) - current project agent `skills:`
   frontmatter and body preprocessing contract this ADR extends.
-- [Tenets](../../project/tenets.md) - "Drift should become visible early" is the
+- [Tenets](../project/tenets.md) - "Drift should become visible early" is the
   governing principle behind failing the build instead of shipping a stale
   reference.

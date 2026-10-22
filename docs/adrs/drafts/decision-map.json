@@ -169,21 +169,6 @@
     {
       "amended_by": [],
       "amends": [],
-      "created": "2026-07-01",
-      "depends_on": ["10", "9", "first-class-sets", "6"],
-      "inbound": [],
-      "number": null,
-      "owners": ["[galligan](https://github.com/galligan)"],
-      "path": "docs/adrs/drafts/20260701-path-references-resolve-and-rename-together.md",
-      "slug": "path-references-resolve-and-rename-together",
-      "status": "draft",
-      "superseded_by": null,
-      "title": "Source References Resolve And Rename Together",
-      "updated": "2026-07-24"
-    },
-    {
-      "amended_by": [],
-      "amends": [],
       "created": "2026-07-10",
       "depends_on": ["0", "declarative-user-scope-config"],
       "inbound": [],
@@ -195,63 +180,6 @@
       "superseded_by": null,
       "title": "Catalog-Owned Marketplace Refresh Pull Requests",
       "updated": "2026-07-10"
-    },
-    {
-      "amended_by": [],
-      "amends": ["12", "22"],
-      "created": "2026-07-23",
-      "depends_on": [],
-      "inbound": [],
-      "number": null,
-      "owners": ["[galligan](https://github.com/galligan)"],
-      "path": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md",
-      "slug": "portable-skill-eval-source-contract",
-      "status": "draft",
-      "superseded_by": null,
-      "title": "Portable Skill Eval Source Contract",
-      "updated": "2026-07-23"
-    },
-    {
-      "amended_by": [],
-      "amends": ["12", "22"],
-      "created": "2026-07-23",
-      "depends_on": [],
-      "inbound": [
-        {
-          "context": "- [Ungraded Cross-Provider Eval Runs](drafts/20260723-ungraded-cross-provider-eval-runs.md) - current provider runtime evidence.",
-          "from": "0027",
-          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
-        }
-      ],
-      "number": null,
-      "owners": ["[galligan](https://github.com/galligan)"],
-      "path": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md",
-      "slug": "ungraded-cross-provider-eval-runs",
-      "status": "draft",
-      "superseded_by": null,
-      "title": "Ungraded Cross-Provider Eval Runs",
-      "updated": "2026-07-23"
-    },
-    {
-      "amended_by": [],
-      "amends": ["19", "22"],
-      "created": "2026-08-14",
-      "depends_on": ["0", "4", "19", "22", "23"],
-      "inbound": [
-        {
-          "context": "[Global Immutable Operational Reports ADR](../../adrs/drafts/20260814-global-immutable-operational-reports.md).",
-          "from": "operational-reports",
-          "fromPath": "docs/reference/features/operational-reports.md"
-        }
-      ],
-      "number": null,
-      "owners": ["[galligan](https://github.com/galligan)"],
-      "path": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md",
-      "slug": "global-immutable-operational-reports",
-      "status": "draft",
-      "superseded_by": null,
-      "title": "Global Immutable Operational Reports",
-      "updated": "2026-09-22"
     }
   ],
   "version": 1
