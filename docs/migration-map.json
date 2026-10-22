@@ -7,6 +7,26 @@
       "status": "archived"
     },
     {
+      "from": "docs/adrs/drafts/20260701-path-references-resolve-and-rename-together.md",
+      "primary": "docs/adrs/0040-path-references-resolve-and-rename-together.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md",
+      "primary": "docs/adrs/0041-portable-skill-eval-source-contract.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md",
+      "primary": "docs/adrs/0042-ungraded-cross-provider-eval-runs.md",
+      "status": "moved"
+    },
+    {
+      "from": "docs/adrs/drafts/20260814-global-immutable-operational-reports.md",
+      "primary": "docs/adrs/0043-global-immutable-operational-reports.md",
+      "status": "moved"
+    },
+    {
       "from": "docs/evidence/2026-07-20-set-313-cursor-runtime-smoke.md",
       "primary": "docs/development/evidence/2026-07-20-set-313-cursor-runtime-smoke.md",
       "status": "moved"
