@@ -61,14 +61,16 @@ Repair compares each managed output with its recorded hash and a fresh render. I
 
 ## A rebase or merge conflicts in generated output
 
-Generated-output conflicts carry no information of their own: the answer is always to regenerate from the merged source. Resolve authored source conflicts first, then preview and confirm:
+Generated-output conflicts carry no information of their own, so the usual answer is to regenerate from the merged source. Resolve authored source conflicts first, then preview and confirm:
 
 ```bash
 skillset resolve
 skillset resolve --yes
 ```
 
-`resolve` regenerates conflicted generated paths and stages only paths the lock confirms as generated. It names authored conflicts for you to fix by hand and refuses to render source that still carries conflict markers. It works inside a linked Git worktree. See the [`resolve` reference](reference/cli/resolve.md).
+`resolve` regenerates conflicted generated paths and stages the result: conflicted paths the lock confirms as generated, plus any output the merged source newly generates. It names authored conflicts for you to fix by hand and refuses to render source that still carries conflict markers. It works inside a linked Git worktree.
+
+If either side of a conflicted generated file no longer matches its own lock, someone edited it after it was generated. `resolve` then blocks without regenerating or staging anything, because regenerating would silently discard that edit. `resolve` names those paths. Carry any edit worth keeping into canonical source, settle those files by hand, and then run `resolve` again for the rest. See the [`resolve` reference](reference/cli/resolve.md).
 
 ## A lock is reported as rebuild-only
 
