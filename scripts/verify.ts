@@ -85,8 +85,17 @@ export type ReceiptStatus =
   | { readonly valid: true; readonly receipt: VerifyReceipt }
   | { readonly valid: false; readonly reason: string };
 
-/** Decide whether a parsed receipt certifies `tree` under the current gates. */
-export function checkReceipt(value: unknown, tree: string): ReceiptStatus {
+/**
+ * Decide whether a parsed receipt certifies `tree` on `mergeBase` under the
+ * current gates. The trunk-scoped `skillset check --ci` report diffs the tree
+ * against its merge base with trunk, so the same tree on a different base is a
+ * different verification.
+ */
+export function checkReceipt(
+  value: unknown,
+  tree: string,
+  mergeBase: string | null
+): ReceiptStatus {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { valid: false, reason: "receipt is not an object" };
   }
@@ -96,6 +105,9 @@ export function checkReceipt(value: unknown, tree: string): ReceiptStatus {
   }
   if (receipt.tree !== tree) {
     return { valid: false, reason: "receipt names a different tree" };
+  }
+  if (receipt.mergeBase !== mergeBase) {
+    return { valid: false, reason: "merge base with trunk changed" };
   }
   const gates = Array.isArray(receipt.gates) ? receipt.gates : [];
   const argvs = gates.map((gate) => gate?.argv);
@@ -108,23 +120,41 @@ export function checkReceipt(value: unknown, tree: string): ReceiptStatus {
   return { valid: true, receipt: receipt as VerifyReceipt };
 }
 
+/** One verification: a tree on a merge base. Names receipts and log dirs. */
+export function verificationKey(
+  tree: string,
+  mergeBase: string | null
+): string {
+  return `${tree}-${mergeBase ?? "no-base"}`;
+}
+
 /** Where receipts live: the shared Git directory, visible to every worktree. */
-export function receiptPath(gitCommonDir: string, tree: string): string {
-  return join(gitCommonDir, "skillset", "receipts", `${tree}.json`);
+export function receiptPath(
+  gitCommonDir: string,
+  tree: string,
+  mergeBase: string | null
+): string {
+  return join(
+    gitCommonDir,
+    "skillset",
+    "receipts",
+    `${verificationKey(tree, mergeBase)}.json`
+  );
 }
 
 export async function readReceiptStatus(
   gitCommonDir: string,
-  tree: string
+  tree: string,
+  mergeBase: string | null
 ): Promise<ReceiptStatus> {
   let raw: string;
   try {
-    raw = await readFile(receiptPath(gitCommonDir, tree), "utf8");
+    raw = await readFile(receiptPath(gitCommonDir, tree, mergeBase), "utf8");
   } catch {
     return { valid: false, reason: "no receipt" };
   }
   try {
-    return checkReceipt(JSON.parse(raw), tree);
+    return checkReceipt(JSON.parse(raw), tree, mergeBase);
   } catch {
     return { valid: false, reason: "receipt is not valid JSON" };
   }
@@ -135,11 +165,11 @@ export async function writeReceipt(
   gitCommonDir: string,
   receipt: VerifyReceipt
 ): Promise<string> {
-  const status = checkReceipt(receipt, receipt.tree);
+  const status = checkReceipt(receipt, receipt.tree, receipt.mergeBase);
   if (!status.valid) {
     throw new Error(`refusing to write receipt: ${status.reason}`);
   }
-  const path = receiptPath(gitCommonDir, receipt.tree);
+  const path = receiptPath(gitCommonDir, receipt.tree, receipt.mergeBase);
   await mkdir(join(gitCommonDir, "skillset", "receipts"), { recursive: true });
   const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(temp, `${JSON.stringify(receipt, null, 2)}\n`);
@@ -148,10 +178,20 @@ export async function writeReceipt(
   return path;
 }
 
+/** A disposable checkout and the Bun its own `.bun-version` pins. */
+export interface PreparedCheckout {
+  readonly dir: string;
+  readonly bun: {
+    readonly binPath: string;
+    readonly binDir: string;
+    readonly version: string;
+  };
+}
+
 /** Runs one gate in a checkout and resolves to its exit code. */
 export type GateRunner = (
   argv: readonly string[],
-  cwd: string,
+  checkout: PreparedCheckout,
   logPath: string
 ) => Promise<number>;
 
@@ -159,6 +199,8 @@ export interface VerifyTarget {
   readonly ref: string;
   readonly commit: string;
   readonly tree: string;
+  /** Merge base of `commit` with the trunk; null when they share no history. */
+  readonly mergeBase: string | null;
 }
 
 export interface VerifyContext {
@@ -166,9 +208,11 @@ export interface VerifyContext {
   readonly gitCommonDir: string;
   readonly trunk: { readonly ref: string; readonly commit: string };
   readonly originUrl: string | null;
-  readonly bunVersion: string;
-  /** Prepares the disposable checkout; returns its path. */
-  readonly prepare: (target: VerifyTarget, logDir: string) => Promise<string>;
+  /** Prepares the disposable checkout under the target's own Bun pin. */
+  readonly prepare: (
+    target: VerifyTarget,
+    logDir: string
+  ) => Promise<PreparedCheckout>;
   readonly runGate: GateRunner;
   readonly keep: boolean;
 }
@@ -191,11 +235,21 @@ export async function verifyTarget(
   target: VerifyTarget,
   context: VerifyContext
 ): Promise<VerifyOutcome> {
-  const logDir = join(context.gitCommonDir, "skillset", "verify", target.tree);
+  const logDir = join(
+    context.gitCommonDir,
+    "skillset",
+    "verify",
+    verificationKey(target.tree, target.mergeBase)
+  );
+  // A rerun (--force) must not leave an older pass standing if it fails or is
+  // interrupted, so retire the receipt before any gate runs.
+  await rm(receiptPath(context.gitCommonDir, target.tree, target.mergeBase), {
+    force: true,
+  });
   await rm(logDir, { force: true, recursive: true });
   await mkdir(logDir, { recursive: true });
   const startedAt = new Date();
-  let checkout: string | null = null;
+  let checkout: PreparedCheckout | null = null;
   let keepCheckout = context.keep;
   try {
     checkout = await context.prepare(target, logDir);
@@ -214,7 +268,7 @@ export async function verifyTarget(
       });
       if (exitCode !== 0) {
         keepCheckout = true;
-        return { kind: "failed", gate: argv, logDir, checkout };
+        return { kind: "failed", gate: argv, logDir, checkout: checkout.dir };
       }
     }
     const receipt: VerifyReceipt = {
@@ -222,14 +276,10 @@ export async function verifyTarget(
       tree: target.tree,
       commit: target.commit,
       trunk: context.trunk,
-      mergeBase: await mergeBase(
-        context.repoRoot,
-        target.commit,
-        context.trunk.commit
-      ),
+      mergeBase: target.mergeBase,
       gates,
-      bunVersion: context.bunVersion,
-      lockfileSha256: await lockfileDigest(checkout),
+      bunVersion: checkout.bun.version,
+      lockfileSha256: await lockfileDigest(checkout.dir),
       host: { platform: platform(), arch: arch(), release: release() },
       startedAt: startedAt.toISOString(),
       endedAt: new Date().toISOString(),
@@ -242,7 +292,7 @@ export async function verifyTarget(
     };
   } finally {
     if (checkout && !keepCheckout) {
-      await rm(checkout, { force: true, recursive: true });
+      await rm(checkout.dir, { force: true, recursive: true });
     }
   }
 }
@@ -256,7 +306,7 @@ async function lockfileDigest(checkout: string): Promise<string> {
   }
 }
 
-async function mergeBase(
+export async function mergeBase(
   repoRoot: string,
   commit: string,
   trunk: string
@@ -334,8 +384,7 @@ async function spawnLogged(
  * trunk-relative gates see the same trunk the source checkout does.
  */
 function clonePreparer(
-  context: Pick<VerifyContext, "repoRoot" | "trunk" | "originUrl">,
-  pinned: { readonly binPath: string; readonly binDir: string }
+  context: Pick<VerifyContext, "repoRoot" | "trunk" | "originUrl">
 ): VerifyContext["prepare"] {
   return async (target, logDir) => {
     const dir = await mkdtemp(
@@ -374,22 +423,26 @@ function clonePreparer(
       if (context.originUrl) {
         await git(["remote", "set-url", "origin", context.originUrl], dir);
       }
-      const code = await spawnLogged(
-        [pinned.binPath, "install", "--frozen-lockfile"],
-        dir,
-        gateEnv(pinned.binDir),
-        join(logDir, "0-install.log")
-      );
-      if (code !== 0) {
-        throw new Error(
-          `bun install --frozen-lockfile exited ${code}; see ${join(logDir, "0-install.log")}`
-        );
-      }
-      return dir;
     } catch (error) {
       await rm(dir, { force: true, recursive: true });
       throw error;
     }
+    // The target's own pin, not the caller's: an older or newer ref may pin a
+    // different Bun.
+    const bun = await resolvePinnedBun(dir);
+    const code = await spawnLogged(
+      [bun.binPath, "install", "--frozen-lockfile"],
+      dir,
+      gateEnv(bun.binDir),
+      join(logDir, "0-install.log")
+    );
+    if (code !== 0) {
+      // Keep the checkout: a failed install is easier to debug in place.
+      throw new Error(
+        `bun install --frozen-lockfile exited ${code}; see ${join(logDir, "0-install.log")}, checkout kept at ${dir}`
+      );
+    }
+    return { dir, bun };
   };
 }
 
@@ -428,16 +481,22 @@ export function parseOptions(argv: readonly string[]): Options {
 
 async function resolveTarget(
   repoRoot: string,
-  ref: string
+  ref: string,
+  trunkCommit: string
 ): Promise<VerifyTarget> {
   const commit = (
     await git(["rev-parse", "--verify", `${ref}^{commit}`], repoRoot)
   ).stdout;
   const tree = (await git(["rev-parse", `${commit}^{tree}`], repoRoot)).stdout;
-  return { ref, commit, tree };
+  return {
+    ref,
+    commit,
+    tree,
+    mergeBase: await mergeBase(repoRoot, commit, trunkCommit),
+  };
 }
 
-async function resolveTrunk(
+export async function resolveTrunk(
   repoRoot: string
 ): Promise<{ readonly ref: string; readonly commit: string }> {
   const symbolic = await git(
@@ -501,17 +560,22 @@ async function main(argv: readonly string[]): Promise<number> {
   const gitCommonDir = isAbsolute(commonRaw)
     ? commonRaw
     : resolve(repoRoot, commonRaw);
+  const trunk = await resolveTrunk(repoRoot);
   const targets = await Promise.all(
-    options.refs.map((ref) => resolveTarget(repoRoot, ref))
+    options.refs.map((ref) => resolveTarget(repoRoot, ref, trunk.commit))
   );
 
-  // Refs that share a tree share a receipt and a log directory, so verify each
-  // tree once.
+  // Refs that share a tree and merge base share a receipt and a log directory,
+  // so verify each such pair once.
   const pending: VerifyTarget[] = [];
   const queued = new Map<string, VerifyTarget>();
   let missing = 0;
   for (const target of targets) {
-    const status = await readReceiptStatus(gitCommonDir, target.tree);
+    const status = await readReceiptStatus(
+      gitCommonDir,
+      target.tree,
+      target.mergeBase
+    );
     const label = `${target.ref} (${short(target.commit)}, tree ${short(target.tree)})`;
     if (status.valid && !options.force) {
       console.log(`verify: ${label}: verified ${status.receipt.endedAt}`);
@@ -523,12 +587,13 @@ async function main(argv: readonly string[]): Promise<number> {
       missing += 1;
       continue;
     }
-    const twin = queued.get(target.tree);
+    const key = verificationKey(target.tree, target.mergeBase);
+    const twin = queued.get(key);
     if (twin) {
       console.log(`verify: ${label}: same tree as ${twin.ref}, verifying once`);
       continue;
     }
-    queued.set(target.tree, target);
+    queued.set(key, target);
     pending.push(target);
   }
   if (options.status) return missing === 0 ? 0 : 1;
@@ -541,10 +606,10 @@ async function main(argv: readonly string[]): Promise<number> {
     );
   }
 
-  const pinned = await resolvePinnedBun(repoRoot);
-  const trunk = await resolveTrunk(repoRoot);
+  // Checkouts must get committed file modes, as the repository bootstrap and
+  // the test sandbox ensure, whatever the caller's umask.
+  process.umask(0o022);
   const origin = await git(["remote", "get-url", "origin"], repoRoot, true);
-  const env = gateEnv(pinned.binDir);
   const base = {
     repoRoot,
     trunk,
@@ -553,14 +618,13 @@ async function main(argv: readonly string[]): Promise<number> {
   const context: VerifyContext = {
     ...base,
     gitCommonDir,
-    bunVersion: pinned.version,
     keep: options.keep,
-    prepare: clonePreparer(base, pinned),
+    prepare: clonePreparer(base),
     runGate: (gateArgv, checkout, logPath) =>
       spawnLogged(
-        [pinned.binPath, ...gateArgv.slice(1)],
-        checkout,
-        env,
+        [checkout.bun.binPath, ...gateArgv.slice(1)],
+        checkout.dir,
+        gateEnv(checkout.bun.binDir),
         logPath
       ),
   };

@@ -18,8 +18,11 @@ import {
   writeReceipt,
   type GateRunner,
   type VerifyContext,
+  type VerifyTarget,
   type VerifyReceipt,
 } from "../verify";
+
+const BASE = "c".repeat(40);
 
 function receipt(overrides: Partial<VerifyReceipt> = {}): VerifyReceipt {
   return {
@@ -27,7 +30,7 @@ function receipt(overrides: Partial<VerifyReceipt> = {}): VerifyReceipt {
     tree: "a".repeat(40),
     commit: "b".repeat(40),
     trunk: { ref: "origin/main", commit: "c".repeat(40) },
-    mergeBase: "c".repeat(40),
+    mergeBase: BASE,
     gates: VERIFY_GATES.map((argv) => ({ argv, exitCode: 0, durationMs: 1 })),
     bunVersion: "1.4.0",
     lockfileSha256: "d".repeat(64),
@@ -62,12 +65,11 @@ function context(
     gitCommonDir: gitDir,
     trunk: { ref: "origin/main", commit: "HEAD" },
     originUrl: null,
-    bunVersion: "1.4.0",
     keep: false,
     prepare: async (target) => {
       const dir = join(checkoutRoot, target.tree);
       await mkdir(dir, { recursive: true });
-      return dir;
+      return { dir, bun: { binPath: "bun", binDir: "", version: "1.4.0" } };
     },
     runGate,
   };
@@ -75,11 +77,11 @@ function context(
 
 describe("checkReceipt", () => {
   test("accepts a passing receipt for its own tree", () => {
-    expect(checkReceipt(receipt(), "a".repeat(40)).valid).toBe(true);
+    expect(checkReceipt(receipt(), "a".repeat(40), BASE).valid).toBe(true);
   });
 
   test("rejects a receipt for another tree", () => {
-    expect(checkReceipt(receipt(), "e".repeat(40))).toEqual({
+    expect(checkReceipt(receipt(), "e".repeat(40), BASE)).toEqual({
       valid: false,
       reason: "receipt names a different tree",
     });
@@ -89,7 +91,7 @@ describe("checkReceipt", () => {
     const stale = receipt({
       gates: [{ argv: ["bun", "run", "test"], exitCode: 0, durationMs: 1 }],
     });
-    expect(checkReceipt(stale, stale.tree)).toEqual({
+    expect(checkReceipt(stale, stale.tree, BASE)).toEqual({
       valid: false,
       reason: "gate list changed since this receipt",
     });
@@ -103,12 +105,19 @@ describe("checkReceipt", () => {
         durationMs: 1,
       })),
     });
-    expect(checkReceipt(failed, failed.tree).valid).toBe(false);
+    expect(checkReceipt(failed, failed.tree, BASE).valid).toBe(false);
+  });
+
+  test("the same tree on another merge base is not verified", () => {
+    expect(checkReceipt(receipt(), "a".repeat(40), "f".repeat(40))).toEqual({
+      valid: false,
+      reason: "merge base with trunk changed",
+    });
   });
 
   test("rejects other schema versions", () => {
     const old = { ...receipt(), schemaVersion: 0 };
-    expect(checkReceipt(old, old.tree).valid).toBe(false);
+    expect(checkReceipt(old, old.tree, BASE).valid).toBe(false);
   });
 });
 
@@ -121,7 +130,7 @@ describe("receipts on disk", () => {
     await expect(writeReceipt(gitDir, failed)).rejects.toThrow(
       "refusing to write receipt"
     );
-    expect(await readReceiptStatus(gitDir, failed.tree)).toEqual({
+    expect(await readReceiptStatus(gitDir, failed.tree, BASE)).toEqual({
       valid: false,
       reason: "no receipt",
     });
@@ -134,15 +143,17 @@ describe("receipts on disk", () => {
     await runTestGit(repo, "commit", "--amend", "-m", "reworded");
     const rewordedTree = await runTestGit(repo, "rev-parse", "HEAD^{tree}");
     expect(rewordedTree).toBe(tree);
-    expect((await readReceiptStatus(gitDir, rewordedTree)).valid).toBe(true);
+    expect((await readReceiptStatus(gitDir, rewordedTree, BASE)).valid).toBe(
+      true
+    );
   });
 
   test("corrupt receipts read as invalid instead of throwing", async () => {
     const { gitDir } = await fixtureRepo();
     const tree = "f".repeat(40);
     await mkdir(join(gitDir, "skillset", "receipts"), { recursive: true });
-    await writeFile(receiptPath(gitDir, tree), "{not json");
-    expect(await readReceiptStatus(gitDir, tree)).toEqual({
+    await writeFile(receiptPath(gitDir, tree, BASE), "{not json");
+    expect(await readReceiptStatus(gitDir, tree, BASE)).toEqual({
       valid: false,
       reason: "receipt is not valid JSON",
     });
@@ -156,7 +167,7 @@ describe("verifyTarget", () => {
     const tree = await runTestGit(repo, "rev-parse", "HEAD^{tree}");
     const ran: string[] = [];
     const outcome = await verifyTarget(
-      { ref: "HEAD", commit, tree },
+      { ref: "HEAD", commit, tree, mergeBase: commit },
       context(
         repo,
         gitDir,
@@ -170,7 +181,7 @@ describe("verifyTarget", () => {
     );
     expect(outcome.kind).toBe("passed");
     expect(ran).toEqual(VERIFY_GATES.map((argv) => argv.join(" ")));
-    const status = await readReceiptStatus(gitDir, tree);
+    const status = await readReceiptStatus(gitDir, tree, commit);
     expect(status.valid).toBe(true);
     if (status.valid) {
       expect(status.receipt.commit).toBe(commit);
@@ -186,7 +197,7 @@ describe("verifyTarget", () => {
     const tree = await runTestGit(repo, "rev-parse", "HEAD^{tree}");
     const ran: string[] = [];
     const outcome = await verifyTarget(
-      { ref: "HEAD", commit, tree },
+      { ref: "HEAD", commit, tree, mergeBase: commit },
       context(
         repo,
         gitDir,
@@ -200,7 +211,7 @@ describe("verifyTarget", () => {
     );
     expect(outcome.kind).toBe("failed");
     expect(ran).toHaveLength(1);
-    expect((await readReceiptStatus(gitDir, tree)).valid).toBe(false);
+    expect((await readReceiptStatus(gitDir, tree, commit)).valid).toBe(false);
     if (outcome.kind === "failed") {
       const logs = await readdir(outcome.logDir);
       expect(logs).toHaveLength(1);
@@ -210,6 +221,31 @@ describe("verifyTarget", () => {
       // A failed checkout is kept for debugging.
       expect(outcome.checkout).not.toBeNull();
     }
+  });
+});
+
+describe("forced reruns", () => {
+  test("a failed rerun retires the earlier passing receipt", async () => {
+    const { root, repo, gitDir } = await fixtureRepo();
+    const commit = await runTestGit(repo, "rev-parse", "HEAD");
+    const tree = await runTestGit(repo, "rev-parse", "HEAD^{tree}");
+    const target: VerifyTarget = {
+      ref: "HEAD",
+      commit,
+      tree,
+      mergeBase: commit,
+    };
+    await writeReceipt(gitDir, receipt({ tree, commit, mergeBase: commit }));
+    expect((await readReceiptStatus(gitDir, tree, commit)).valid).toBe(true);
+    const outcome = await verifyTarget(
+      target,
+      context(repo, gitDir, join(root, "checkouts"), async () => 1)
+    );
+    expect(outcome.kind).toBe("failed");
+    expect(await readReceiptStatus(gitDir, tree, commit)).toEqual({
+      valid: false,
+      reason: "no receipt",
+    });
   });
 });
 
