@@ -23,7 +23,12 @@ import {
   supportedBunRangeProblem,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
-import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
+import {
+  describeGhStackViewFailure,
+  extensionListIncludesGhStack,
+  isLinkedWorktree,
+  readRepoHealth,
+} from "../bootstrap/git";
 import { detectHost, resolveRepoRoot } from "../bootstrap/host";
 import { parseBootstrapArgs } from "../bootstrap/main";
 import {
@@ -941,6 +946,38 @@ describe("bootstrap repo policy", () => {
     expect(config.cleanup.directories).toContain("dist");
     expect(config.cleanup.directories).not.toContain(".skillset/cache");
     expect(config.cleanup.directories).not.toContain(".skillset/snapshots");
+  });
+});
+
+describe("agent stack diagnostics", () => {
+  test("recognizes the gh-stack extension in list output", () => {
+    expect(
+      extensionListIncludesGhStack("gh stack\tgithub/gh-stack\tv0.2.1\n")
+    ).toBe(true);
+    expect(
+      extensionListIncludesGhStack(
+        "NAME REPO VERSION\ngh stack    github/gh-stack    v0.2.1\n"
+      )
+    ).toBe(true);
+    expect(
+      extensionListIncludesGhStack("gh copilot\tgithub/gh-copilot\tv1\n")
+    ).toBe(false);
+    expect(extensionListIncludesGhStack("")).toBe(false);
+  });
+
+  test("reports only an unstacked branch as having no stack", () => {
+    expect(describeGhStackViewFailure(2)).toBe(
+      "  gh stack: no stack for this branch"
+    );
+    expect(describeGhStackViewFailure(4)).toBe(
+      "  gh stack: GitHub auth or API failure (stack inspection disabled)"
+    );
+    expect(describeGhStackViewFailure(6)).toBe(
+      "  gh stack: branch belongs to multiple stacks"
+    );
+    expect(describeGhStackViewFailure(1)).toBe(
+      "  gh stack: unavailable (stack inspection disabled)"
+    );
   });
 });
 
