@@ -63,8 +63,8 @@ test("keeps legacy evidence out of refresh guidance and withholds confirmed migr
     changeReport: changeReport({
       entries: [entry],
       issues: [{
-        code: "change-evidence-stale",
-        message: "stale",
+        code: "change-evidence-missing",
+        message: "missing",
         path: entry.path,
         ref: "@abcdef123456",
         severity: "error",
@@ -78,6 +78,28 @@ test("keeps legacy evidence out of refresh guidance and withholds confirmed migr
     commands: [],
   }));
   expect(recovery.some((item) => item.action === "change-refresh")).toBe(false);
+});
+
+// Migration carries recorded hashes forward without comparing them to the
+// current source, so stale evidence alone does not stop `change migrate`.
+test("offers migration for a legacy entry whose only error is stale evidence", () => {
+  const entry = pendingEntry({ format: "frontmatter", id: "abcdef123456" });
+  const recovery = classifyRecoveryGuidance(input({
+    changeReport: changeReport({
+      entries: [entry],
+      issues: [{
+        code: "change-evidence-stale",
+        message: "stale",
+        path: entry.path,
+        ref: "@abcdef123456",
+        severity: "error",
+      }],
+    }),
+  }));
+
+  const migrate = recovery.find((item) => item.action === "change-migrate");
+  expect(migrate).toMatchObject({ commands: ["skillset change migrate", "skillset change migrate --yes"] });
+  expect(migrate).not.toHaveProperty("blocked");
 });
 
 test("uses preview-only reconciliation and never chooses target or source authority", () => {

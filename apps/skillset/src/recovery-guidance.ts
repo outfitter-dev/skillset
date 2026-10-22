@@ -2,7 +2,7 @@ import type { SkillsetDiagnostic, SkillsetDiff } from "@skillset/core";
 import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import { compareStrings } from "@skillset/core/internal/path";
 
-import type { ChangeCheckIssue, ChangeCheckReport, ChangeCheckSeverity, PendingChangeEntry } from "./change-entries";
+import type { ChangeCheckIssue, ChangeCheckReport, PendingChangeEntry } from "./change-entries";
 import type { LintIssue } from "@skillset/core/internal/types";
 import type { ProviderFormatUpdateReport } from "./provider-format-updates";
 
@@ -226,12 +226,18 @@ function classifyChangeRecovery(
   return guidance;
 }
 
+/**
+ * Migration carries recorded hashes forward without comparing them to the
+ * current source, so stale evidence does not block it; refresh fixes it after.
+ */
 function isLegacyMigrationSafe(
   entry: PendingChangeEntry,
-  issuesByRef: ReadonlyMap<string, readonly { readonly severity: ChangeCheckSeverity }[]>
+  issuesByRef: ReadonlyMap<string, readonly Pick<ChangeCheckIssue, "code" | "severity">[]>
 ): boolean {
   if (entry.id === undefined) return false;
-  return !(issuesByRef.get(`@${entry.id}`) ?? []).some((issue) => issue.severity === "error");
+  return !(issuesByRef.get(`@${entry.id}`) ?? []).some(
+    (issue) => issue.severity === "error" && issue.code !== "change-evidence-stale"
+  );
 }
 
 function classifyProviderRecovery(
