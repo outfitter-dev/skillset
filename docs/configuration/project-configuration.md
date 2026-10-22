@@ -153,7 +153,7 @@ until their owning package-placement features land.
 
 The root `skillset` block carries workspace source metadata such as `name`, `version`, `license`, `author`, and `repository`, the same block that [frontmatter](frontmatter.md) uses for source units. Plugin `skillset.yaml` files use the same block for their own metadata.
 
-Root `defaults` supplies per-provider defaults for one feature surface at a time: `defaults.<target>.<surface>`, where the surface is `agents`, `plugins`, `rules`, or `skills`. For example, `defaults.codex.agents.model` sets the Codex model for project agents that do not name one. Plugin configuration can declare its own `defaults`; source-unit fields still win. See [target overrides](target-overrides.md) for the cascade.
+Root `defaults` supplies per-provider defaults for one feature surface at a time: `defaults.<target>.<surface>`, where the surface is `agents`, `plugins`, `rules`, or `skills`. For example, `defaults.codex.agents.model` sets the Codex model for project agents that do not name one. Plugin configuration can declare its own `defaults`. Fields in a source unit's own provider block override these defaults; a shared top-level field such as `model` does not, so the provider default still applies for that target. See [target overrides](target-overrides.md) for the cascade.
 
 `workspace.cacheKey` names this repository's machine-local cache bucket. Most repositories should omit it and keep the automatically derived key; see [workspace layout](../reference/source/workspace-layout.md) for the cache paths.
 
