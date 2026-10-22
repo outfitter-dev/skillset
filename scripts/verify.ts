@@ -28,7 +28,7 @@
  * Refs default to `HEAD`. `--status` reports receipts without running gates
  * and exits non-zero when any ref lacks a valid one.
  */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   appendFile,
   mkdir,
@@ -141,7 +141,7 @@ export async function writeReceipt(
   }
   const path = receiptPath(gitCommonDir, receipt.tree);
   await mkdir(join(gitCommonDir, "skillset", "receipts"), { recursive: true });
-  const temp = `${path}.${process.pid}.tmp`;
+  const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(temp, `${JSON.stringify(receipt, null, 2)}\n`);
   // Rename so a concurrent reader never sees a half-written receipt.
   await rename(temp, path);
@@ -505,7 +505,10 @@ async function main(argv: readonly string[]): Promise<number> {
     options.refs.map((ref) => resolveTarget(repoRoot, ref))
   );
 
+  // Refs that share a tree share a receipt and a log directory, so verify each
+  // tree once.
   const pending: VerifyTarget[] = [];
+  const queued = new Map<string, VerifyTarget>();
   let missing = 0;
   for (const target of targets) {
     const status = await readReceiptStatus(gitCommonDir, target.tree);
@@ -520,6 +523,12 @@ async function main(argv: readonly string[]): Promise<number> {
       missing += 1;
       continue;
     }
+    const twin = queued.get(target.tree);
+    if (twin) {
+      console.log(`verify: ${label}: same tree as ${twin.ref}, verifying once`);
+      continue;
+    }
+    queued.set(target.tree, target);
     pending.push(target);
   }
   if (options.status) return missing === 0 ? 0 : 1;
