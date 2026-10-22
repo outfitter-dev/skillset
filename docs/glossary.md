@@ -34,7 +34,7 @@ The scoped inheritance of workspace and plugin defaults into a source unit, with
 
 ## Consumer
 
-A provider or standard that reads a generated file. One physical file can have one [owner](#owner) and several logical consumers; for example, the Agent Skills baseline and Codex both consume `.agents/skills/`. The [lock](#lock) records every consumer.
+A logical projection that a generated file represents: a standard [baseline](#baseline) or a provider [delta](#delta). One physical file has one [owner](#owner) and can have several consumers; for example, `.agents/skills/` serves both the Agent Skills baseline and the Codex delta. The [lock](#lock) records every consumer. A consumer is provenance, not proof that a provider has discovered or [activated](#activation) the file.
 
 ## Delta
 
@@ -86,7 +86,7 @@ A structured record of what one renderer emitted, skipped, degraded, or could no
 
 ## Rule
 
-Authored guidance under `.skillset/rules/**/*.md`, optionally scoped to paths. Rules render to Claude rules, Cursor rules, and `AGENTS.md` files, the last owned by the Agent Instructions standard. See the [Rules reference](reference/features/rules.md).
+Authored agent guidance. The front page, `.skillset/RULES.md`, renders to Claude's project instruction file and the first section of root `AGENTS.md`. Scoped rules under `.skillset/rules/**/*.md` can be limited to paths and render to Claude rules, Cursor rules, and root or scoped `AGENTS.md` files. `AGENTS.md` output is owned by the Agent Instructions standard. See the [Rules reference](reference/features/rules.md).
 
 ## Source root
 
