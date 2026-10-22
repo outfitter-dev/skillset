@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { chmod, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
 import { renderResultsForLock } from "../build";
@@ -525,7 +525,11 @@ marketplaces:
       schemaVersion: number;
       selectedStandards?: unknown;
     };
-    expect(legacy.items).toEqual([]);
+    // The only generated output is the build-owned catalog; drop it to reach a
+    // coherent empty v2 lock with no generated files behind it.
+    expect(legacy.items).toEqual([expect.objectContaining({ name: "claude-marketplace" })]);
+    legacy.items = [];
+    await rm(join(root, ".claude-plugin"), { recursive: true });
     legacy.schemaVersion = 2;
     delete legacy.provenanceHash;
     delete legacy.selectedStandards;
@@ -2385,7 +2389,7 @@ Help with the task.
 
       const preview = await diffSkillsetResult(root);
       const marketplaceOutcomes = preview.renderResults.filter(
-        (outcome) => outcome.featureId === "marketplaces"
+        (outcome) => outcome.featureId === "marketplaces" && outcome.destination === "marketplace"
       );
       expect(marketplaceOutcomes).toHaveLength(2);
       const diagnostics = marketplaceOutcomes.flatMap(
@@ -2680,7 +2684,7 @@ Help with the other task.
     );
     const preview = await diffSkillsetResult(warnRoot);
     const marketplaceOutcomes = preview.renderResults.filter(
-      (outcome) => outcome.featureId === "marketplaces"
+      (outcome) => outcome.featureId === "marketplaces" && outcome.destination === "marketplace"
     );
     expect(
       marketplaceOutcomes.flatMap((outcome) => outcome.diagnostics ?? [])

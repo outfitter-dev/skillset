@@ -448,6 +448,12 @@ export interface BuildGraph {
   /** Complete discovered skill inventory, including drafts excluded from projections. */
   readonly discoveredSkills?: readonly SourceSkill[];
   readonly hookAttachments: readonly SourceHookAttachment[];
+  /**
+   * Marketplace selection and provider entries to render instead of the live
+   * `skillset.lock`. `marketplace update` sets it so its resolved plan renders
+   * through the ordinary build, which owns every catalog.
+   */
+  readonly marketplaceState?: MarketplaceLockState;
   /** The source subdirectory instructions were loaded from. */
   readonly rulesDir: string;
   readonly outputRoots: readonly string[];
@@ -472,6 +478,12 @@ export interface BuildGraph {
   readonly standardProjections: StandardProjectionPlan;
   /** Non-fatal source warnings surfaced by the CLI. */
   readonly warnings: readonly string[];
+}
+
+/** Live-lock-owned marketplace selection and resolved provider entries. */
+export interface MarketplaceLockState {
+  readonly activeCatalogs: JsonRecord;
+  readonly entries: readonly JsonRecord[];
 }
 
 export interface WorkspacePluginPlan {

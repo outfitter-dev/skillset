@@ -37,6 +37,7 @@ import type {
   JsonRecord,
   JsonValue,
   MarketplaceCatalogConfig,
+  MarketplaceLockState,
   MarketplacePluginEntryConfig,
   RenderedFile,
   SourcePlugin,
@@ -212,7 +213,7 @@ interface ClaudeMarketplaceProjection {
 async function projectClaudeMarketplace(
   graph: BuildGraph
 ): Promise<ClaudeMarketplaceProjection | undefined> {
-  const existingState = await readExistingMarketplaceState(graph.rootPath);
+  const existingState = await marketplaceStateFor(graph);
   const declaredCatalog = selectClaudeMarketplaceCatalog(graph, existingState);
   const rootLicense = await resolveRootLicense(graph);
   if (declaredCatalog !== undefined) {
@@ -423,7 +424,7 @@ function copyOptionalStrings(
   return value === undefined ? undefined : [...value];
 }
 
-export function renderClaudeMarketplaceDocument(
+function renderClaudeMarketplaceDocument(
   graph: BuildGraph,
   catalogName: string,
   catalog: MarketplaceCatalogConfig,
@@ -697,10 +698,7 @@ export function marketplaceLockProvenance(
       };
 }
 
-interface ExistingMarketplaceState {
-  readonly activeCatalogs: JsonRecord;
-  readonly entries: readonly JsonRecord[];
-}
+type ExistingMarketplaceState = MarketplaceLockState;
 
 const EMPTY_MARKETPLACE_STATE: ExistingMarketplaceState = {
   activeCatalogs: {},
@@ -713,6 +711,13 @@ const EMPTY_MARKETPLACE_STATE: ExistingMarketplaceState = {
  * Isolated builds read them here too, never from the mirror lock, which
  * never receives them.
  */
+/** The marketplace state a render uses: the graph's override, else the live lock. */
+export async function marketplaceStateFor(
+  graph: BuildGraph
+): Promise<ExistingMarketplaceState> {
+  return graph.marketplaceState ?? readExistingMarketplaceState(graph.rootPath);
+}
+
 export async function readExistingMarketplaceState(
   rootPath: string
 ): Promise<ExistingMarketplaceState> {

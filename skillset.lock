@@ -39,6 +39,33 @@
           "target": "claude"
         }
       ],
+      "feature": "marketplaces",
+      "fileModes": {
+        ".claude-plugin/marketplace.json": "0644"
+      },
+      "files": [
+        ".claude-plugin/marketplace.json"
+      ],
+      "kind": "plugin-feature",
+      "name": "claude-marketplace",
+      "outputHash": "sha256:73980450d2e0bf7884d4ecfb99495771aaf16bd76fb4c1966787d1c15a9fb16e",
+      "outputPath": ".claude-plugin/marketplace.json",
+      "owner": {
+        "target": "claude"
+      },
+      "role": "bundle",
+      "sourceHash": "sha256:a4586ac6504ed511640de31cb2d69e6892b964eab1f5b89ca2abc88ef01b481c",
+      "sourcePath": "skillset.yaml",
+      "targetState": "generated",
+      "validation": "structured"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "delta",
+          "target": "claude"
+        }
+      ],
       "fileModes": {
         ".claude/CLAUDE.md": "0644"
       },
@@ -92,6 +119,33 @@
       "sourcePath": ".skillset/_codex/hooks/hooks.json",
       "validation": "structured",
       "version": "0.1.1"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "delta",
+          "target": "cursor"
+        }
+      ],
+      "feature": "marketplaces",
+      "fileModes": {
+        ".cursor-plugin/marketplace.json": "0644"
+      },
+      "files": [
+        ".cursor-plugin/marketplace.json"
+      ],
+      "kind": "plugin-feature",
+      "name": "cursor-marketplace",
+      "outputHash": "sha256:730b59789a0c28f601d90f0d383ce3a34bc4408bc7722bcabb6b93ae08b83753",
+      "outputPath": ".cursor-plugin/marketplace.json",
+      "owner": {
+        "target": "cursor"
+      },
+      "role": "bundle",
+      "sourceHash": "sha256:e8ab0e8a20551d714f4c80eb30f6a060af237ad8777fd53a2bd54a8669a8d98d",
+      "sourcePath": "skillset.yaml",
+      "targetState": "generated",
+      "validation": "structured"
     },
     {
       "fileModes": {
@@ -216,7 +270,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:b91893be9c3214fd3cfa942c08761501877f0e97553a9d770329e4b00880faeb",
+  "provenanceHash": "sha256:4f635c49a50e5fbbf718cffe46f4444d7ff65e2598871b9297f445031ffa0cef",
   "renderResults": [
     {
       "destination": "changelog",
@@ -282,6 +336,87 @@
       "sourceUnit": "codex.hooks:hooks/hooks.json",
       "status": "target_native",
       "target": "codex"
+    },
+    {
+      "destination": "marketplace",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/marketplaces.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805",
+          "ref": "claude-marketplace-schema",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "marketplaces",
+      "outputs": [
+        {
+          "kind": "marketplace",
+          "path": ".claude-plugin/marketplace.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": "skillset.yaml",
+      "sourceUnit": "config:root",
+      "status": "rendered",
+      "target": "claude"
+    },
+    {
+      "destination": "marketplace",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/marketplaces.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:a7b7f1c5cc6f6af685d2d1d9b1787d555b20666a8826050b5b3b9fe86f2b6bf7",
+          "ref": "cursor-marketplace-schema",
+          "verifiedAt": "2026-08-14"
+        }
+      ],
+      "featureId": "marketplaces",
+      "outputs": [
+        {
+          "kind": "marketplace",
+          "path": ".cursor-plugin/marketplace.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": "skillset.yaml",
+      "sourceUnit": "config:root",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "marketplace",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/marketplaces.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805",
+          "ref": "claude-marketplace-schema",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "marketplaces",
+      "outputs": [
+        {
+          "kind": "marketplace",
+          "path": ".claude-plugin/marketplace.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset",
+      "sourceUnit": "plugin.skillset.config:root",
+      "status": "rendered",
+      "target": "claude"
     },
     {
       "destination": "rule",
@@ -504,6 +639,33 @@
           "ref": "docs/reference/features/marketplaces.md"
         },
         {
+          "kind": "provider-schema",
+          "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805",
+          "ref": "claude-marketplace-schema",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "marketplaces",
+      "outputs": [
+        {
+          "kind": "plugin-feature",
+          "path": ".claude-plugin/marketplace.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": "skillset.yaml",
+      "sourceUnit": "skillset.yaml",
+      "status": "target_native",
+      "target": "claude"
+    },
+    {
+      "destination": "marketplaces",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/marketplaces.md"
+        },
+        {
           "kind": "source",
           "ref": "packages/core/src/openai-marketplace.ts"
         },
@@ -534,6 +696,33 @@
       "sourceUnit": "skillset.yaml",
       "status": "target_native",
       "target": "codex"
+    },
+    {
+      "destination": "marketplaces",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/marketplaces.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:a7b7f1c5cc6f6af685d2d1d9b1787d555b20666a8826050b5b3b9fe86f2b6bf7",
+          "ref": "cursor-marketplace-schema",
+          "verifiedAt": "2026-08-14"
+        }
+      ],
+      "featureId": "marketplaces",
+      "outputs": [
+        {
+          "kind": "plugin-feature",
+          "path": ".cursor-plugin/marketplace.json"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": "skillset.yaml",
+      "sourceUnit": "skillset.yaml",
+      "status": "target_native",
+      "target": "cursor"
     }
   ],
   "schemaVersion": 4,
