@@ -120,9 +120,7 @@ export const SOURCE_LICENSE_NONE = "none";
 
 const SHARED_CONFIG_KEYS = [
   "changes",
-  "claude",
-  "codex",
-  "cursor",
+  ...TARGET_NAMES,
   "defaults",
   "dependencies",
   "skillset",
@@ -144,9 +142,7 @@ export const SINGLE_FILE_ROOT_CONFIG_KEYS = [
 /** Allowed keys in split-layout `.skillset/config.yaml`. */
 export const SPLIT_WORKSPACE_CONFIG_KEYS = [
   "changes",
-  "claude",
-  "codex",
-  "cursor",
+  ...TARGET_NAMES,
   "compile",
   "defaults",
   "dependencies",
@@ -236,10 +232,8 @@ export const SOURCE_PORTABLE_MANIFEST_KEYS = [
 export const COMMON_FRONTMATTER_KEYS = [
   "allowed_tools",
   "bin",
-  "claude",
+  ...TARGET_NAMES,
   "compatibility",
-  "codex",
-  "cursor",
   "dependencies",
   "description",
   "dialect",
@@ -260,9 +254,7 @@ export const COMMON_FRONTMATTER_KEYS = [
 ] as const;
 
 export const AGENT_FRONTMATTER_KEYS = [
-  "claude",
-  "codex",
-  "cursor",
+  ...TARGET_NAMES,
   "description",
   "hooks",
   "initialPrompt",
@@ -275,9 +267,7 @@ export const AGENT_FRONTMATTER_KEYS = [
 ] as const;
 
 export const RULE_FRONTMATTER_KEYS = [
-  "claude",
-  "codex",
-  "cursor",
+  ...TARGET_NAMES,
   "dialect",
   "metadata",
   "name",
@@ -341,9 +331,9 @@ export const pluginConfigContract = contract(
     properties: {
       bin: targetOverrideSchema(),
       changes: { type: "object" },
-      claude: pluginTargetOverrideSchema("claude"),
-      codex: pluginTargetOverrideSchema("codex"),
-      cursor: pluginTargetOverrideSchema("cursor"),
+      ...Object.fromEntries(
+        TARGET_NAMES.map((target) => [target, pluginTargetOverrideSchema(target)])
+      ),
       defaults: { type: "object" },
       dependencies: dependenciesSchema(),
       drafts: draftSelectorsSchema(PLUGIN_DRAFT_SELECTOR_PATTERN),
