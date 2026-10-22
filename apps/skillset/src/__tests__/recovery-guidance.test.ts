@@ -253,6 +253,14 @@ test("keeps ordinary classification when layout-only drift sits beside a real ed
   expect(mixed.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
   expect(mixed).toContainEqual(expect.objectContaining({ action: "reconcile", path: other }));
 
+  const withNewOutput = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, added: [".claude/skills/new/SKILL.md"], changed: [skill] },
+    layoutOnlyDriftPaths: [skill],
+    outputEditedPaths: [skill],
+    sourceSuggestions: [sourceSuggestion("suggestible")],
+  }));
+  expect(withNewOutput.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
+
   const blocked = classifyRecoveryGuidance(input({
     drift: { ...EMPTY_DRIFT, changed: [skill] },
     layoutOnlyDriftPaths: [skill],

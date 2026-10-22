@@ -184,6 +184,11 @@ function selfContainedOutputDrift(input: RecoveryGuidanceInput): SelfContainedDr
     .filter((path) => !isLockPath(path))
     .toSorted(compareStrings);
   if (paths.length === 0) return undefined;
+  const covered = new Set(paths);
+  const { added, changed, missing, removed } = input.drift;
+  if ([...added, ...changed, ...missing, ...removed].some((path) => !isLockPath(path) && !covered.has(path))) {
+    return undefined;
+  }
   const report = input.providerReport;
   const plannedProviderPaths = new Set(
     [...(report?.safeUpdates ?? []), ...(report?.manualReviews ?? [])].flatMap((action) => action.affectedPaths)

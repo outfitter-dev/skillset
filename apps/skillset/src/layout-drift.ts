@@ -3,18 +3,20 @@
  * signature of a repository formatter run over generated files (SET-618).
  *
  * The comparison is deliberately conservative. JSON counts as layout-only
- * when both sides parse to equal values. Markdown counts when frontmatter and
- * fenced code are byte-identical (ignoring trailing spaces) and each
- * blank-line-separated prose block has the same words, the same first-line
- * indentation, and the same list-item indentation. Everything else keeps its
- * ordinary drift classification.
+ * when both sides parse to equal values and no number is too long to survive
+ * parsing exactly. Markdown counts when frontmatter, fenced code, and every
+ * block that carries line-sensitive syntax (headings, setext underlines,
+ * quotes, tables, HTML, indented code, hard breaks) are identical, and each
+ * remaining prose block has the same words, the same first-line indentation,
+ * and the same list-item indentation. Everything else keeps its ordinary
+ * drift classification. Isolated builds are not compared.
  */
 
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { scopedRenderedFiles } from "@skillset/core/internal/build";
+import { MISSING_PATH_ENOENT, readOptionalText } from "@skillset/core/internal/fs-existence";
 import { resolveInside } from "@skillset/core/internal/path";
 import { renderBuildGraph } from "@skillset/core/internal/render";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
@@ -29,7 +31,7 @@ export async function layoutOnlyDriftPaths(
   options: SkillsetOptions = {}
 ): Promise<readonly string[]> {
   const candidates = paths.filter(isLayoutComparablePath);
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0 || options.isolated === true) return [];
   const graph = await loadBuildGraph(rootPath, options);
   const expected = new Map(
     scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes)
@@ -39,7 +41,7 @@ export async function layoutOnlyDriftPaths(
   for (const path of candidates) {
     const rendered = expected.get(path);
     if (rendered === undefined) continue;
-    const actual = await readFile(resolveInside(resolve(rootPath), path), "utf8").catch(() => undefined);
+    const actual = await readOptionalText(resolveInside(resolve(rootPath), path), { missing: MISSING_PATH_ENOENT });
     if (actual === undefined || actual === rendered) continue;
     if (isLayoutOnlyDifference(path, rendered, actual)) layoutOnly.push(path);
   }
@@ -57,7 +59,11 @@ function isLayoutComparablePath(path: string): boolean {
   return (path.endsWith(".json") || path.endsWith(".md")) && !path.endsWith("skillset.lock");
 }
 
+/** Longer digit runs can round when parsed, hiding a real value change. */
+const UNSAFE_JSON_NUMBER = /\d{16,}/;
+
 function jsonValuesEqual(expected: string, actual: string): boolean {
+  if (UNSAFE_JSON_NUMBER.test(expected) || UNSAFE_JSON_NUMBER.test(actual)) return false;
   try {
     return isDeepStrictEqual(JSON.parse(expected), JSON.parse(actual));
   } catch {
@@ -88,7 +94,7 @@ function markdownLayoutEqual(expected: string, actual: string): boolean {
  * blank-line-separated prose blocks (compared by words and structure).
  */
 function markdownSegments(text: string): readonly MarkdownSegment[] {
-  const lines = text.replaceAll("\r\n", "\n").split("\n").map((line) => line.trimEnd());
+  const lines = text.replaceAll("\r\n", "\n").split("\n").map(trimLayoutWhitespace);
   const segments: MarkdownSegment[] = [];
   let index = 0;
   if (lines[0] === "---") {
@@ -128,11 +134,25 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
 }
 
 function proseBlockLayoutEqual(left: readonly string[], right: readonly string[]): boolean {
+  if (left.some(isLineSensitive) || right.some(isLineSensitive)) return isDeepStrictEqual(left, right);
   return (
     collapseWhitespace(left) === collapseWhitespace(right) &&
     leadingIndent(left[0] ?? "") === leadingIndent(right[0] ?? "") &&
     isDeepStrictEqual(listItemIndents(left), listItemIndents(right))
   );
+}
+
+/** Trailing spaces are layout, except the two-space hard line break. */
+function trimLayoutWhitespace(line: string): string {
+  const trimmed = line.trimEnd();
+  return / {2,}$/.test(line) && trimmed.length > 0 ? `${trimmed}  ` : trimmed;
+}
+
+/** Lines whose meaning depends on where the line breaks fall. */
+function isLineSensitive(line: string): boolean {
+  if (/ {2}$|\\$/.test(line)) return true;
+  if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
+  return /^\s{0,3}(?:#|>|\||<|=+\s*$|-+\s*$)/.test(line);
 }
 
 function collapseWhitespace(lines: readonly string[]): string {

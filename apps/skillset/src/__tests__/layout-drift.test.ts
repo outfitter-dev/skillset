@@ -27,12 +27,17 @@ test("treats JSON with equal parsed values as layout-only", () => {
   expect(isLayoutOnlyDifference("assets/schema.json", expected, actual)).toBe(true);
   expect(isLayoutOnlyDifference("assets/schema.json", expected, '{"type":"object","required":["b","a"]}\n')).toBe(false);
   expect(isLayoutOnlyDifference("assets/schema.json", expected, "{not json")).toBe(false);
+  expect(isLayoutOnlyDifference(
+    "assets/schema.json",
+    '{"id":9007199254740992}',
+    '{ "id": 9007199254740993 }'
+  )).toBe(false);
 });
 
 test("treats rewrapped Markdown prose and trailing spaces as layout-only", () => {
   const rewrapped = SKILL
     .replace("might rewrap onto several", "might rewrap\nonto several")
-    .replace("# Demo", "# Demo  ");
+    .replace("shorter lines.", "shorter lines. ");
   expect(isLayoutOnlyDifference("SKILL.md", SKILL, rewrapped)).toBe(true);
 });
 
@@ -44,6 +49,9 @@ test("keeps Markdown drift that changes words, markers, structure, frontmatter, 
     SKILL.replace("shorter lines.", "shorter lines.\n\nsplit"),
     SKILL.replace("description: Demo skill.", "description:   Demo skill."),
     SKILL.replace("skillset build   --yes", "skillset build --yes"),
+    SKILL.replace("# Demo", "# Demo\nheading"),
+    SKILL.replace("A paragraph that", "A paragraph  \nthat"),
+    SKILL.replace("A paragraph that a formatter", "    A paragraph that a formatter"),
   ];
   for (const actual of cases) {
     expect(isLayoutOnlyDifference("SKILL.md", SKILL, actual)).toBe(false);
