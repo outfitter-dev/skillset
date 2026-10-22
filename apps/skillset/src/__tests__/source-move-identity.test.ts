@@ -182,6 +182,40 @@ describe("source move identity epochs", () => {
     expect((await changeCheck(root)).ok).toBe(true);
   });
 
+  test("retires a moved-away selector from its own version, not the workspace version", async () => {
+    const skill = (body: string): string => `---\nname: demo\ndescription: Demo skill.\nversion: 1.2.3\n---\n\n${body}\n`;
+    const disposableRoot = await createTestFixtureRoot("skillset-move-version-lineage-");
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    for (const [path, content] of Object.entries({
+      ".skillset/plugins/tools/skillset.yaml": "skillset:\n  name: tools\n",
+      ".skillset/skills/demo/SKILL.md": skill("Demo."),
+      "skillset.yaml": "skillset:\n  name: move-fixture\n  version: 0.1.0\ncompile:\n  targets: [claude]\n",
+    })) {
+      const target = join(root, path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, content, "utf8");
+    }
+    await buildSkillset(root);
+    await initializeTestGitRepository(root, { disposableRoot });
+    await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Demo changed before the move."), "utf8");
+    await buildSkillset(root);
+    const added = await addChangeEntry(root, {
+      bump: "patch",
+      reason: { kind: "inline", value: "Describe the demo skill change with enough detail for validation." },
+      scopes: ["skill:demo"],
+    });
+    const request = { from: ".skillset/skills/demo", rootPath: root, to: ".skillset/plugins/tools/skills/demo" };
+    await moveSource({ ...request, expectedPlanHash: (await planSourceMove(request)).planHash });
+    await refreshChangeEvidence(root, { ref: added.entry.id, write: true });
+
+    const release = await planRelease(root);
+    expect(release.scopes.find((scope) => scope.scope === "skill:demo")).toMatchObject({
+      currentVersion: "1.2.3",
+      nextVersion: "1.2.4",
+      removed: true,
+    });
+  });
+
   describe("moved-away coverage for a reused selector", () => {
     let line = 0;
     const move = (from: string, to: string): ChangeLedgerEvent => ({

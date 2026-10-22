@@ -215,16 +215,28 @@ export function movedAwaySourceChanges<Change extends { readonly id: string; rea
   scopes: readonly string[],
   events: readonly ChangeLedgerEvent[]
 ): readonly Change[] {
+  return movedAwaySourceMoves(changes, scopes, events).map((move) => move.change);
+}
+
+/**
+ * {@link movedAwaySourceChanges}, paired with the scope each removed selector
+ * now lives at, so a release can read the moved unit's version from it.
+ */
+export function movedAwaySourceMoves<Change extends { readonly id: string; readonly status: string }>(
+  changes: readonly Change[],
+  scopes: readonly string[],
+  events: readonly ChangeLedgerEvent[]
+): readonly { readonly change: Change; readonly to: string }[] {
   const lastRelease = events.findLastIndex((event) => event.type === "release.applied");
   const moves = sourceMappingsAfterEvent(sourceIdentityMappings(events), lastRelease);
   const added = new Set(changes.filter((change) => change.status === "added").map((change) => change.id));
   const targets = new Set(scopes);
-  return changes.filter((change) => {
-    if (change.status !== "removed") return false;
+  return changes.flatMap((change) => {
+    if (change.status !== "removed") return [];
     const latest = moves.findLast((mapping) => mapping.from === change.id);
-    if (latest === undefined) return false;
+    if (latest === undefined) return [];
     const current = currentSourceIdentity(latest.to, sourceMappingsAfterEvent(moves, latest.eventIndex));
-    return added.has(current) && targets.has(current);
+    return added.has(current) && targets.has(current) ? [{ change, to: current }] : [];
   });
 }
 

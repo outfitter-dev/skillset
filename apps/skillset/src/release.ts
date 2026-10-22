@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { buildSkillsetResult, SkillsetBuildBlockedError } from "@skillset/core";
 import { nextJsonlTimestampForPaths } from "@skillset/core/internal/change-ledger-write";
-import { changeCheck, movedAwaySourceChanges, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
+import { changeCheck, movedAwaySourceMoves, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
 import {
   withChangeLedgerMutation,
   type ChangeLedgerLockOptions,
@@ -301,10 +301,14 @@ function releaseScopePlans(
   options: { readonly bumpEntries: boolean; readonly events: readonly ChangeLedgerEvent[] }
 ): readonly ReleaseScopePlan[] {
   const accumulators = new Map<string, ReleaseScopeAccumulator>();
+  // Replay moved the old selector's release state to its destination, so a
+  // retired selector reads its version from where the unit lives now.
+  const versionScopes = new Map<string, string>();
   for (const entry of entries) {
     // A reason that follows a move also retires the moved-away selector.
-    const movedAway = movedAwaySourceChanges([...sourceChanges.values()], entry.scopes, options.events);
-    for (const scope of [...entry.scopes, ...movedAway.map((change) => change.id)]) {
+    const movedAway = movedAwaySourceMoves([...sourceChanges.values()], entry.scopes, options.events);
+    for (const move of movedAway) versionScopes.set(move.change.id, move.to);
+    for (const scope of [...entry.scopes, ...movedAway.map((move) => move.change.id)]) {
       addScope(accumulators, scope, entry, options);
       const aggregate = aggregateScope(scope);
       if (aggregate !== undefined && aggregate !== scope) addScope(accumulators, aggregate, entry, options);
@@ -313,7 +317,7 @@ function releaseScopePlans(
 
   return [...accumulators.entries()]
     .map(([scope, item]): ReleaseScopePlan => {
-      const currentVersion = versionForScope(graph, scope);
+      const currentVersion = versionForScope(graph, versionScopes.get(scope) ?? scope);
       const nextVersion = bumpVersion(currentVersion, item.bump);
       const change = sourceChanges.get(scope);
       const sourceHash = sourceUnits.get(scope)?.hash ?? change?.currentHash ?? change?.baselineHash;
