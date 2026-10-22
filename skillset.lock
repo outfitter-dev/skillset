@@ -286,7 +286,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:a71a55d7fd4978b167474c6269b1528395c36430b41fe7754bc9b2996667fe59",
+  "provenanceHash": "sha256:a04ac094902c96952562ca28975dd6dec0c88bc322e1d60c285314ddb3556382",
   "renderResults": [
     {
       "destination": "changelog",
@@ -782,7 +782,7 @@
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
-    "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
+    "agent-instructions": "sha256:0f5ffa22e849bd64d2552d9a22eb582d1caae59b657b0dcac85853950307fbdb",
     "agent-plugins-1.0": "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
     "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
