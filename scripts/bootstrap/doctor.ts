@@ -3,6 +3,7 @@ import type { BootstrapConfig } from "./config";
 import { readRepoHealth } from "./git";
 import type { HostInfo } from "./host";
 import { hasRepoInstallState } from "./repo";
+import { has } from "./shared";
 import { collectToolStatus, printToolStatuses } from "./tools";
 
 export const runDoctor = async (
@@ -26,6 +27,21 @@ export const runDoctor = async (
     `  dependencies: ${(await hasRepoInstallState(repoRoot)) ? "ok" : "missing"}`
   );
 
+  if (has("git")) {
+    printRepoHealth(repoRoot);
+  } else {
+    console.error("  git: missing (repo health checks skipped)");
+  }
+
+  console.error("");
+  printToolStatuses(
+    "Optional capabilities",
+    collectToolStatus(config.checks.optionalTools, repoRoot),
+    true
+  );
+};
+
+const printRepoHealth = (repoRoot: string): void => {
   const health = readRepoHealth(repoRoot);
   console.error(
     `  core.bare: ${health.coreBare ? "TRUE — broken; run: git config core.bare false" : "ok"}`
@@ -39,11 +55,4 @@ export const runDoctor = async (
       "    remove with: git worktree remove --force <path> && git worktree prune"
     );
   }
-
-  console.error("");
-  printToolStatuses(
-    "Optional capabilities",
-    collectToolStatus(config.checks.optionalTools, repoRoot),
-    true
-  );
 };

@@ -54,10 +54,13 @@ jobs:
           bun scripts/test-sandbox.ts bun test
           packages/core/src/__tests__/workspace-transaction.test.ts
           --test-name-pattern "fresh-write rollback"
+      # /cmd is Git for Windows' launcher directory for git.exe. Since the
+      # Git 2.56 runner image, git is not found on this PATH without it.
       - name: Bootstrap doctor finds the cached pin under Git Bash without a global Bun
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/no-global-bun"
-          BUN_INSTALL="$RUNNER_TEMP/no-global-bun" PATH="/mingw64/bin:/usr/bin:/bin" \
+          BUN_INSTALL="$RUNNER_TEMP/no-global-bun" PATH="/cmd:/mingw64/bin:/usr/bin:/bin" \
             bash scripts/bootstrap.sh doctor 2>&1 | tee "$RUNNER_TEMP/doctor.log"
           grep -q "bun: ok" "$RUNNER_TEMP/doctor.log"
+          grep -q "core.bare: ok" "$RUNNER_TEMP/doctor.log"

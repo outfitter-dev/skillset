@@ -218,6 +218,26 @@ describe("bootstrap dispatcher", () => {
     );
   });
 
+  test("doctor reports a missing git instead of crashing", async () => {
+    // PATH holds only a link to the running Bun, as on a Windows runner whose
+    // Git layout drops git from the trimmed CI PATH. Bun's own install
+    // directory may also hold git, so it is not used directly.
+    const binDir = await createTestFixtureRoot("skillset-bootstrap-no-git-");
+    await symlink(process.execPath, join(binDir, "bun"));
+    const proc = Bun.spawnSync({
+      cmd: [process.execPath, "./scripts/bootstrap/main.ts", "doctor"],
+      cwd: repoRoot,
+      env: { HOME: process.env.HOME ?? "", PATH: binDir },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    expect(proc.exitCode).toBe(0);
+    expect(proc.stderr.toString()).toContain(
+      "git: missing (repo health checks skipped)"
+    );
+  });
+
   test("cold session bootstrap uses a versioned cache without creating global Bun", async () => {
     const fixture = await makeShellBootstrapFixture();
     const result = runShellBootstrapFixture(fixture, "claude");
