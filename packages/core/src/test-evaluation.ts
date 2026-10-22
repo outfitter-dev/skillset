@@ -52,6 +52,7 @@ import type {
 } from "./types";
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
+import { SKILL_FILE } from "@skillset/registry";
 
 export type { SkillsetTestCheckResult } from "./test-declaration";
 export {
@@ -419,7 +420,7 @@ function activationExpectationCandidatePaths(
         join(
           graph.root.outputs.skills[target],
           dirname(skill.relativePath),
-          "SKILL.md"
+          SKILL_FILE
         )
       ),
     ...graph.plugins.flatMap((plugin) =>
@@ -433,7 +434,7 @@ function activationExpectationCandidatePaths(
               plugin
             ),
             dirname(skill.relativePath),
-            "SKILL.md"
+            SKILL_FILE
           )
         )
     ),

@@ -42,7 +42,7 @@ import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName }
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 import type { ImportProvider } from "./source-arg-values";
-import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory } from "@skillset/registry";
+import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory, SKILL_FILE } from "@skillset/registry";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly candidates?: readonly string[];
@@ -582,7 +582,7 @@ async function importCandidate(
     const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
       for (const file of report.copiedFiles) {
-        if (basename(file) !== "SKILL.md") continue;
+        if (basename(file) !== SKILL_FILE) continue;
         await normalizeImportedPromptArguments(join(report.targetPath, file));
         previewSources.push(
           relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/")
@@ -840,7 +840,7 @@ async function buildTransformPreviews(
   const previews: TransformPreview[] = [];
   for (const path of paths) {
     const raw = await readFile(join(rootPath, path), "utf8");
-    const body = basename(path) === "SKILL.md" ? markdownBody(raw, path) : raw;
+    const body = basename(path) === SKILL_FILE ? markdownBody(raw, path) : raw;
     const matches = recognizeTransforms(maskSkillsetPromptArguments(body), "claude");
     if (matches.length === 0) continue;
     const transformable = matches.some((match) => match.lowering !== "none");

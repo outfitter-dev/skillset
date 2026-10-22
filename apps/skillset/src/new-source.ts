@@ -23,6 +23,7 @@ import { formatList } from "@skillset/schema";
 import { withChangeLedgerMutation } from "./change-ledger-mutation";
 import { CliUsageError } from "./cli-output";
 import { planNewAdaptiveHook } from "./new-hook";
+import { SKILL_FILE } from "@skillset/registry";
 
 export type NewSourceKind = "agent" | "hook" | "plugin" | "rule" | "skill";
 export type NewSourceScope = "repo";
@@ -508,7 +509,7 @@ async function planSkill(
   const files: NewSourcePlannedFile[] = [
     {
       content: renderSkill(id, displayName),
-      path: join(skillRoot, "SKILL.md"),
+      path: join(skillRoot, SKILL_FILE),
     },
   ];
 

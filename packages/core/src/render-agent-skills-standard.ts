@@ -32,6 +32,7 @@ import type {
   TargetName,
 } from "./types";
 import { skillVersion } from "./versioning";
+import { SKILL_FILE } from "@skillset/registry";
 
 export const AGENT_SKILLS_FRONTMATTER_KEYS = [
   "allowed-tools",
@@ -234,7 +235,7 @@ export async function renderAgentSkillStandardMarkdown(
     content,
     file: asAgentSkillStandardFile(
       textFile(
-        path.join(targetSkillDir, "SKILL.md"),
+        path.join(targetSkillDir, SKILL_FILE),
         content,
         path.relative(graph.rootPath, skill.sourcePath)
       ),

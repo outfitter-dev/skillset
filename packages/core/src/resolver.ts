@@ -106,6 +106,7 @@ import {
   standardProjectionSourceInventory,
   standardProjectionTopology,
 } from "./standard-projections";
+import { SKILL_FILE } from "@skillset/registry";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
@@ -124,7 +125,6 @@ const ROOT_RULES_FILE = "RULES.md";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
-const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
 const PROJECT_AGENTS_DIR = "subagents";
 const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {

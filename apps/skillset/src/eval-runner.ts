@@ -23,6 +23,7 @@ import {
   type AtomicFilePublicationTestHooks,
   type RetainedRunPaths,
 } from "./retained-runs";
+import { SKILL_FILE } from "@skillset/registry";
 
 const EVAL_ROOT = ".skillset/cache/evals";
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -387,7 +388,7 @@ async function renderedSkillExists(workspacePath: string, graph: BuildGraph, ent
     const skill = graph.standaloneSkills.find((candidate) => candidate.sourcePath === sourcePath);
     return skill === undefined
       ? false
-      : pathExists(join(workspacePath, graph.root.outputs.skills[entry.target], dirname(skill.relativePath), "SKILL.md"));
+      : pathExists(join(workspacePath, graph.root.outputs.skills[entry.target], dirname(skill.relativePath), SKILL_FILE));
   }
   const owner = entry.owner;
   if (owner.kind !== "plugin") return false;
@@ -395,7 +396,7 @@ async function renderedSkillExists(workspacePath: string, graph: BuildGraph, ent
   const skill = plugin?.skills.find((candidate) => candidate.sourcePath === sourcePath);
   return plugin === undefined || skill === undefined
     ? false
-    : pathExists(join(workspacePath, pluginBundleRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin), "skills", skill.id, "SKILL.md"));
+    : pathExists(join(workspacePath, pluginBundleRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin), "skills", skill.id, SKILL_FILE));
 }
 
 function evalRunPaths(rootPath: string, graph: BuildGraph, runId: string, xdg: SkillsetOptions["xdg"] = undefined): EvalRunPaths {

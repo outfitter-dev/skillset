@@ -19,6 +19,12 @@ export const PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA = "skillset-provider-de
 
 export type ProviderDestinationFormatTarget = (typeof TARGET_NAMES)[number];
 
+/** The skill entry file every target's pinned skill format requires. */
+export const SKILL_FILE = "SKILL.md";
+
+/** Codex's per-skill metadata sidecar, relative to the skill directory. */
+export const CODEX_SKILL_SIDECAR_FILE = "agents/openai.yaml";
+
 /** The conventional plugin hook file every provider format snapshot pins. */
 const DEFAULT_PLUGIN_HOOKS_PATH = "hooks/hooks.json";
 
@@ -143,7 +149,7 @@ const snapshots = [
         ],
         recommendedFields: ["description"],
       },
-      requiredFiles: ["SKILL.md"],
+      requiredFiles: [SKILL_FILE],
       serialization: "markdown-with-yaml-frontmatter",
       supportingDirectories: ["examples/", "references/", "scripts/"],
     },
@@ -297,7 +303,7 @@ const snapshots = [
       frontmatter: {
         requiredFields: ["name", "description"],
       },
-      requiredFiles: ["SKILL.md"],
+      requiredFiles: [SKILL_FILE],
       serialization: "markdown-with-yaml-frontmatter",
       supportingDirectories: ["agents/", "assets/", "references/", "scripts/"],
     },
@@ -420,7 +426,7 @@ const snapshots = [
         optionalFields: ["disable-model-invocation"],
         requiredFields: ["name", "description"],
       },
-      requiredFiles: ["SKILL.md"],
+      requiredFiles: [SKILL_FILE],
       serialization: "markdown-with-yaml-frontmatter",
       supportingDirectories: ["assets/", "references/", "scripts/"],
     },

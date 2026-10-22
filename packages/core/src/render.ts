@@ -93,6 +93,7 @@ import type {
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { parseMarkdown, stringifyJson } from "./yaml";
+import { SKILL_FILE } from "@skillset/registry";
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
 import {
@@ -750,7 +751,7 @@ async function renderPluginSharedSkillFiles(
 
   const sourceDir = dirname(skill.sourcePath);
   const targetSkillDir = join(packageRoot, "skills", skill.id);
-  const targetSkillFile = join(targetSkillDir, "SKILL.md");
+  const targetSkillFile = join(targetSkillDir, SKILL_FILE);
   const skillLicense = await resolveLicense({
     graph,
     label: relative(graph.rootPath, skill.sourcePath),
@@ -876,7 +877,7 @@ async function renderPluginSharedSkillFiles(
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (
-      relativeFile === "SKILL.md" ||
+      relativeFile === SKILL_FILE ||
       relativeFile === "CHANGELOG.md" ||
       relativeFile === "LICENSE.txt" ||
       relativeFile === ".skillset.tools.yaml" ||
@@ -1492,7 +1493,7 @@ async function renderStandaloneSkill(
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
   const targetSkillDir = join(outputRoot, skill.id);
-  const targetSkillFile = join(targetSkillDir, "SKILL.md");
+  const targetSkillFile = join(targetSkillDir, SKILL_FILE);
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
     undefined,
@@ -1565,7 +1566,7 @@ async function renderStandaloneSkill(
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
-    if (relativeFile === "SKILL.md") continue;
+    if (relativeFile === SKILL_FILE) continue;
     if (relativeFile === "CHANGELOG.md") continue;
     if (relativeFile === "LICENSE.txt") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
@@ -1719,7 +1720,7 @@ async function renderProjectSkillCopy(
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
   pushSkillRenderedFile(rendered, textFile(
-    join(targetSkillDir, "SKILL.md"),
+    join(targetSkillDir, SKILL_FILE),
     skillMarkdown.content,
     relative(graph.rootPath, skill.sourcePath)
   ), targetSkillDir, renderedRelativeFiles, `${skill.sourcePath}.SKILL.md`);
@@ -1737,7 +1738,7 @@ async function renderProjectSkillCopy(
   );
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
-    if (["SKILL.md", "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
+    if ([SKILL_FILE, "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
     // Skill-local hook definitions are not hydrated into project-use copies.
     // Explicit resources are still copied by renderSkillResources below.
     if (relativeFile.startsWith(`hooks${sep}`)) continue;

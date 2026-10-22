@@ -27,7 +27,12 @@ import {
   hasAgentPluginManifest,
   inspectAgentPluginImport,
 } from "./agent-plugin-import";
-import { codexAgentsMdFormat, LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory } from "@skillset/registry";
+import {
+  codexAgentsMdFormat,
+  LEGACY_CODEX_SKILLS_DIRECTORY,
+  providerSkillsDirectory,
+  SKILL_FILE,
+} from "@skillset/registry";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
@@ -949,7 +954,7 @@ async function maybeRootSkillsCandidate(
     const skillPath = join(absolutePath, entry);
     if (!(await pathExists(skillPath))) continue;
     if (!(await stat(skillPath)).isDirectory()) continue;
-    if (!(await pathExists(join(skillPath, "SKILL.md")))) continue;
+    if (!(await pathExists(join(skillPath, SKILL_FILE)))) continue;
     candidates.push({ kind: "skills", path });
     return;
   }
