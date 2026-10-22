@@ -10,7 +10,7 @@ export type BunPolicy = "compatible" | "strict";
 
 export interface BootstrapConfig {
   readonly agent: {
-    readonly graphiteStackMaxLines: number;
+    readonly stackMaxLines: number;
   };
   readonly checks: {
     readonly optionalTools: readonly string[];
@@ -35,7 +35,7 @@ export interface BootstrapConfig {
 
 export const loadBootstrapConfig = (): BootstrapConfig => ({
   agent: {
-    graphiteStackMaxLines: 80,
+    stackMaxLines: 80,
   },
   checks: {
     optionalTools: ["git", "gh", "rg", "jq", "direnv"],

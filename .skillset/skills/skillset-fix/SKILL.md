@@ -89,7 +89,7 @@ reported `clean` regardless, because writing it would change nothing.
 4. Run `skillset resolve --root . --yes`. It repairs the generated paths and stages
    them.
 5. When it exits zero, continue the operation with the command that owns it:
-   `gt continue` under Graphite, `git rebase --continue` for a rebase, or
+   `gh stack rebase --continue` in a stack, `git rebase --continue` for a rebase, or
    `git merge --continue` for a merge.
 6. When it reports a `diverged` path, follow `## Escalate`.
 

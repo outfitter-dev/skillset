@@ -40,7 +40,7 @@ export const readWorktreeInfo = (repoRoot: string): WorktreeInfo => {
 
 export const printAgentGitDiagnostics = (
   repoRoot: string,
-  maxGraphiteLines: number
+  maxStackLines: number
 ): void => {
   const info = readWorktreeInfo(repoRoot);
   if (!info.linked) {
@@ -56,26 +56,26 @@ export const printAgentGitDiagnostics = (
     );
   }
   console.error(
-    "  Graphite branches and metadata are shared with the main checkout."
+    "  Branches and gh stack state are shared with the main checkout."
   );
   console.error(
-    "  Lifecycle hooks should avoid mutating Graphite stacks or deleting branches."
+    "  Lifecycle hooks should avoid mutating stacks or deleting branches."
   );
 
-  if (!has("gt")) {
-    console.error("  gt: missing (Graphite stack inspection disabled)");
+  if (!has("gh")) {
+    console.error("  gh: missing (stack inspection disabled)");
     return;
   }
 
-  const log = run(["gt", "log", "--no-interactive"], repoRoot);
-  if (log.exitCode !== 0) {
-    console.error("  gt log unavailable");
+  const view = run(["gh", "stack", "view", "--short"], repoRoot);
+  if (view.exitCode !== 0) {
+    console.error("  gh stack: no stack for this branch");
     return;
   }
 
   console.error("");
-  console.error(`Graphite stack (first ${String(maxGraphiteLines)} lines)`);
-  for (const line of log.stdout.split("\n").slice(0, maxGraphiteLines)) {
+  console.error(`gh stack (first ${String(maxStackLines)} lines)`);
+  for (const line of view.stdout.split("\n").slice(0, maxStackLines)) {
     if (line.length > 0) {
       console.error(line);
     }

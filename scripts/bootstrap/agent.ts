@@ -15,5 +15,5 @@ export const runAgentBootstrap = async (
   options: AgentBootstrapOptions
 ): Promise<void> => {
   await runRepoBootstrap(options);
-  printAgentGitDiagnostics(options.repoRoot, options.config.agent.graphiteStackMaxLines);
+  printAgentGitDiagnostics(options.repoRoot, options.config.agent.stackMaxLines);
 };
