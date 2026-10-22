@@ -334,7 +334,7 @@ skillset:
       )
     ).toEqual({
       content:
-        "---\ndescription: Reviewer\nskills:\n  - new\nclaude:\n  skills:\n    - new\n    - native: old\n---\n\nReview\n",
+        "---\ndescription: Reviewer\nskills: [new]\nclaude:\n  skills: [new, {native: old}]\n---\n\nReview\n",
       kind: "update",
       path: ".skillset/subagents/reviewer.md",
     });
@@ -391,7 +391,7 @@ skillset:
       )
     ).toEqual({
       content:
-        "---\ndescription: Reviewer\nskills:\n  - old\n  - plugin.tools.skill:new\n---\n\nReview\n",
+        "---\ndescription: Reviewer\nskills: [old, plugin.tools.skill:new]\n---\n\nReview\n",
       kind: "update",
       path: ".skillset/subagents/reviewer.md",
     });

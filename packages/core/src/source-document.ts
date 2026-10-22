@@ -25,7 +25,8 @@ export function updateYamlSourceDocument(
 
   reconcileRecord(document, [], current, next);
   moveRootSkillsetFirst(document);
-  return document.toString({ lineWidth: 0 });
+  // Authored flow collections are conventionally unpadded (`[a, b]`).
+  return document.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
 /** Renders newly-created authored YAML while retaining insertion order. */
@@ -106,7 +107,7 @@ function sourceRecord(document: Document.Parsed, label: string): JsonRecord {
 
 function reconcileRecord(
   document: Document.Parsed,
-  path: readonly string[],
+  path: readonly (number | string)[],
   current: JsonRecord,
   next: JsonRecord
 ): void {
@@ -115,14 +116,32 @@ function reconcileRecord(
   }
   for (const [key, nextValue] of Object.entries(next)) {
     if (nextValue === undefined) continue;
-    const currentValue = current[key];
-    if (isJsonRecord(currentValue) && isJsonRecord(nextValue)) {
-      reconcileRecord(document, [...path, key], currentValue, nextValue);
-      continue;
+    reconcileValue(document, [...path, key], current[key], nextValue);
+  }
+}
+
+/**
+ * Edit the narrowest node that changed. A same-length sequence is edited item
+ * by item, so its flow or block style and its comments survive.
+ */
+function reconcileValue(
+  document: Document.Parsed,
+  path: readonly (number | string)[],
+  currentValue: JsonValue | undefined,
+  nextValue: JsonValue
+): void {
+  if (isJsonRecord(currentValue) && isJsonRecord(nextValue)) {
+    reconcileRecord(document, path, currentValue, nextValue);
+    return;
+  }
+  if (Array.isArray(currentValue) && Array.isArray(nextValue) && currentValue.length === nextValue.length) {
+    for (const [index, item] of nextValue.entries()) {
+      reconcileValue(document, [...path, index], currentValue[index], item);
     }
-    if (!jsonValuesEqual(currentValue, nextValue)) {
-      document.setIn([...path, key], nextValue);
-    }
+    return;
+  }
+  if (!jsonValuesEqual(currentValue, nextValue)) {
+    document.setIn([...path], nextValue);
   }
 }
 
