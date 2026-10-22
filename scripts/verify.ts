@@ -402,6 +402,12 @@ function clonePreparer(
         ],
         context.repoRoot
       );
+      // A clone of a shallow source is not shared and copies only branches
+      // and tags, so fetch the two commits the gates need by id.
+      await git(
+        ["fetch", "--quiet", "origin", target.commit, context.trunk.commit],
+        dir
+      );
       await git(["checkout", "--quiet", "--detach", target.commit], dir);
       const trunkName = context.trunk.ref.replace(/^origin\//u, "");
       await git(
