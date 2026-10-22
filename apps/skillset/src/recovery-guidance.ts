@@ -40,6 +40,8 @@ export interface RecoveryGuidanceInput {
   readonly changesetError?: string;
   readonly changesetIssues: readonly string[];
   readonly drift: SkillsetDiff;
+  /** Drifted generated paths that differ from a fresh render only in whitespace or layout. */
+  readonly layoutOnlyDriftPaths?: readonly string[];
   readonly lintIssues: readonly LintIssue[];
   readonly mode: "ci" | "local";
   readonly outputDiagnostics: readonly SkillsetDiagnostic[];
@@ -47,6 +49,8 @@ export interface RecoveryGuidanceInput {
   readonly providerAnalysisError?: string;
   readonly providerReport?: ProviderFormatUpdateReport;
   readonly providerUpdatePaths: readonly string[];
+  /** For each edited path whose reconcile refused over other drift, the drifted paths it named. */
+  readonly reconcileScopeBlockers?: ReadonlyMap<string, readonly string[]>;
   readonly sourceSuggestions: readonly SourceSuggestionReport[];
   readonly unmanagedOutputCollisions: boolean;
 }
@@ -81,6 +85,11 @@ export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly
 
   if (input.changeReport !== undefined) {
     guidance.push(...classifyChangeRecovery(input.changeReport, baselineRef));
+  }
+  const selfContained = lockIntegrityMigrationPaths.length === 0 ? selfContainedOutputDrift(input) : undefined;
+  if (selfContained !== undefined) {
+    guidance.push(selfContainedRebuildGuidance(selfContained));
+    return dedupeGuidance(guidance);
   }
   const suggestions = new Map(input.sourceSuggestions.map((suggestion) => [suggestion.generatedPath, suggestion]));
   for (const path of input.outputEditedPaths.toSorted()) {
@@ -150,6 +159,64 @@ export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly
     }
   }
   return dedupeGuidance(guidance);
+}
+
+type SelfContainedDrift =
+  | { readonly kind: "layout"; readonly paths: readonly string[] }
+  | { readonly kind: "mutual"; readonly paths: readonly string[] };
+
+const SELF_CONTAINED_BLOCKERS = new Set([
+  "provider-format migration or unplanned drift",
+  "target-side generated edits",
+]);
+
+/**
+ * Recognize generated drift that `skillset build --yes` can repair on its own
+ * (SET-618): every drifted file is either a layout-only rewrite (usually a
+ * formatter) or an edit whose reconciliation is blocked only by the other
+ * drifted files. Anything else, including registered provider-format work,
+ * keeps the ordinary per-path classification.
+ */
+function selfContainedOutputDrift(input: RecoveryGuidanceInput): SelfContainedDrift | undefined {
+  const blockers = mechanicalFixEligibility(input).blockers;
+  if (blockers.some((blocker) => !SELF_CONTAINED_BLOCKERS.has(blocker))) return undefined;
+  const paths = [...new Set([...input.outputEditedPaths, ...input.providerUpdatePaths])]
+    .filter((path) => !isLockPath(path))
+    .toSorted(compareStrings);
+  if (paths.length === 0) return undefined;
+  const report = input.providerReport;
+  const plannedProviderPaths = new Set(
+    [...(report?.safeUpdates ?? []), ...(report?.manualReviews ?? [])].flatMap((action) => action.affectedPaths)
+  );
+  if (paths.some((path) => plannedProviderPaths.has(path))) return undefined;
+
+  const layoutOnly = new Set(input.layoutOnlyDriftPaths ?? []);
+  if (paths.every((path) => layoutOnly.has(path))) return { kind: "layout", paths };
+
+  const drifted = new Set(paths);
+  const edited = new Set(input.outputEditedPaths);
+  const mutual = paths.every((path) => {
+    const named = input.reconcileScopeBlockers?.get(path);
+    return edited.has(path) && named !== undefined && named.length > 0 &&
+      named.every((other) => drifted.has(other) || isLockPath(other));
+  });
+  return mutual ? { kind: "mutual", paths } : undefined;
+}
+
+function selfContainedRebuildGuidance(drift: SelfContainedDrift): RecoveryGuidance {
+  const files = `${drift.paths.length} generated file${drift.paths.length === 1 ? "" : "s"}`;
+  const reason = drift.kind === "layout"
+    ? `${files} differ from their source render only in whitespace or layout, which usually means a formatter ran over generated output; rebuild them from source (the build backs up the formatted copies under .skillset/snapshots/) and exclude generated paths from the formatter`
+    : `${files} were edited outside source and block only each other's reconciliation, so the set can be rebuilt from source; the build backs up the edited copies under .skillset/snapshots/, so copy any edit you want to keep into canonical source first`;
+  return {
+    action: "rebuild-generated-output",
+    commands: ["skillset build", "skillset build --yes"],
+    reason,
+  };
+}
+
+function isLockPath(path: string): boolean {
+  return path === "skillset.lock" || path.endsWith("/skillset.lock");
 }
 
 function classifyChangeRecovery(

@@ -31,9 +31,27 @@ export interface ReconcileReport {
   readonly choice?: ReconcileChoice;
   readonly generatedPath: string;
   readonly outputResolution: SourceSuggestionReport;
+  /**
+   * Other drifted generated paths that keep output resolution from writing.
+   * Present only when that scope check is why output cannot win.
+   */
+  readonly outputScopeBlockers?: readonly string[];
   readonly sourcePath?: string;
   readonly sourceResolutionAvailable: boolean;
   readonly writtenPaths: readonly string[];
+}
+
+/** Output resolution refused because other generated paths also drifted. */
+export class ReconcileScopeError extends Error {
+  readonly unrelatedPaths: readonly string[];
+
+  constructor(managedPath: string, unrelatedPaths: readonly string[]) {
+    super(
+      `skillset: reconcile ${managedPath} refuses to write while unrelated generated drift exists: ${unrelatedPaths.join(", ")}`
+    );
+    this.name = "ReconcileScopeError";
+    this.unrelatedPaths = unrelatedPaths;
+  }
 }
 
 export async function reconcileManagedPath(
@@ -98,7 +116,7 @@ export async function reconcileManagedPath(
     ? {
         entries: ownershipEntries,
         generatedPath,
-        message: outputScopeError,
+        message: outputScopeError.message,
         nextSteps: ["Resolve sibling generated drift before letting this output replace its source."],
         ...(sourcePath === undefined ? {} : { sourcePath }),
         status: "refused" as const,
@@ -178,6 +196,9 @@ export async function reconcileManagedPath(
     ...(backupRunId === undefined ? {} : { backupRunId }),
     ...(choice === undefined ? {} : { choice }),
     generatedPath,
+    ...(choice !== "source" && outputScopeError instanceof ReconcileScopeError
+      ? { outputScopeBlockers: outputScopeError.unrelatedPaths }
+      : {}),
     outputResolution,
     ...(sourcePath === undefined ? {} : { sourcePath }),
     sourceResolutionAvailable: true,
@@ -191,7 +212,7 @@ async function readReconcileScopeError(
   sourcePaths: readonly string[],
   options: SkillsetOptions,
   ownershipEntries: readonly GeneratedEntry[]
-): Promise<string | undefined> {
+): Promise<Error | undefined> {
   try {
     await assertReconcileDriftIsScoped(
       rootPath,
@@ -203,7 +224,7 @@ async function readReconcileScopeError(
     );
     return undefined;
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return error instanceof Error ? error : new Error(String(error));
   }
 }
 
@@ -251,9 +272,7 @@ async function assertReconcileDriftIsScoped(
   ].map(normalizeReconcilePath));
   const unrelated = driftPaths.filter((path) => !allowedPaths.has(normalizeReconcilePath(path)));
   if (unrelated.length > 0) {
-    throw new Error(
-      `skillset: reconcile ${managedPath} refuses to write while unrelated generated drift exists: ${unrelated.join(", ")}`
-    );
+    throw new ReconcileScopeError(managedPath, unrelated);
   }
 }
 

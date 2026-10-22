@@ -193,9 +193,15 @@ Other body.
   )).toBe(true);
   expect(report.sourceSuggestions?.every((suggestion) => suggestion.nextSteps.length === 0)).toBe(true);
   expect(report.recovery?.every((item) => item.action !== "reconcile")).toBe(true);
-  expect(report.recovery).toEqual(expect.arrayContaining([
-    expect.objectContaining({ action: "manual-review", blocked: true, commands: [] }),
-  ]));
+  // SET-618: edits that only block each other's reconciliation are one
+  // mechanically rebuildable set, not a manual-review deadlock.
+  expect(report.recovery).toEqual([
+    expect.objectContaining({
+      action: "rebuild-generated-output",
+      commands: ["skillset build", "skillset build --yes"],
+    }),
+  ]);
+  expect(JSON.stringify(report.recovery)).not.toContain("cannot be rebuilt mechanically");
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).not.toContain("--use source");
   expect(markdown).not.toContain("--use output");
@@ -204,6 +210,43 @@ Other body.
   expect(json.exitCode).toBe(1);
   expect(json.stdout).not.toContain("--use source");
   expect(json.stdout).not.toContain("--use output");
+});
+
+test("SET-618: ci names a formatter and offers a rebuild for layout-only generated drift", async () => {
+  const root = await fixture({
+    ...DEMO_FIXTURE,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+A paragraph long enough that a repository formatter would rewrap it.
+`,
+    ".skillset/skills/demo/assets/schema.json": '{"type":"object","required":["a"]}\n',
+  });
+  await commitFixture(root);
+  await buildSkillset(root);
+  const generatedPath = join(root, GENERATED_SKILL);
+  const formatted = (await readFile(generatedPath, "utf8")).replace("formatter would", "formatter\nwould");
+  await writeFile(generatedPath, formatted);
+  await writeFile(
+    join(root, ".claude/skills/demo/assets/schema.json"),
+    '{\n  "type": "object",\n  "required": ["a"]\n}\n'
+  );
+
+  const report = await ciSkillset(root, { since: "HEAD" });
+
+  expect(report.ok).toBe(false);
+  expect(report.recovery).toEqual([
+    expect.objectContaining({
+      action: "rebuild-generated-output",
+      commands: ["skillset build", "skillset build --yes"],
+    }),
+  ]);
+  expect(report.recovery?.[0]?.reason).toContain("only in whitespace or layout");
+  expect(report.recovery?.[0]?.reason).toContain("formatter");
+  expect(await readFile(generatedPath, "utf8")).toBe(formatted);
 });
 
 test("check JSON promotes readiness failures to envelope diagnostics", async () => {
