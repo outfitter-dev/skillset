@@ -11,7 +11,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import {
   isBunVersionAllowed,
@@ -218,13 +218,16 @@ describe("bootstrap dispatcher", () => {
     );
   });
 
-  test("doctor reports a missing git instead of crashing", () => {
-    // PATH holds only the running Bun, as on a Windows runner whose Git
-    // layout drops git from the trimmed CI PATH.
+  test("doctor reports a missing git instead of crashing", async () => {
+    // PATH holds only a link to the running Bun, as on a Windows runner whose
+    // Git layout drops git from the trimmed CI PATH. Bun's own install
+    // directory may also hold git, so it is not used directly.
+    const binDir = await createTestFixtureRoot("skillset-bootstrap-no-git-");
+    await symlink(process.execPath, join(binDir, "bun"));
     const proc = Bun.spawnSync({
       cmd: [process.execPath, "./scripts/bootstrap/main.ts", "doctor"],
       cwd: repoRoot,
-      env: { HOME: process.env.HOME ?? "", PATH: dirname(process.execPath) },
+      env: { HOME: process.env.HOME ?? "", PATH: binDir },
       stderr: "pipe",
       stdout: "pipe",
     });
