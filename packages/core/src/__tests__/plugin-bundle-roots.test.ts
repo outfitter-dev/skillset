@@ -3,9 +3,15 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
+import { TARGET_NAMES } from "@skillset/schema";
+
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { buildSkillsetResult, verifySkillsetResult } from "../build";
 import {
+  chatGptMarketplacePath,
+  claudeMarketplacePath,
+  cursorMarketplacePath,
+  isProviderMarketplaceOutputPath,
   pluginManifestPath,
   pluginPathPartsForOutput,
   pluginTargetRoot,
@@ -13,6 +19,22 @@ import {
 } from "../plugin-output";
 
 describe("shared plugin package root ownership", () => {
+  it("SET-546: recognizes every marketplace catalog path a build can write", () => {
+    for (const outputRoot of ["plugins", "dist"]) {
+      for (const path of [
+        claudeMarketplacePath(outputRoot),
+        cursorMarketplacePath(outputRoot),
+        chatGptMarketplacePath(),
+      ]) {
+        expect(isProviderMarketplaceOutputPath(path)).toBe(true);
+      }
+    }
+    for (const target of TARGET_NAMES) {
+      expect(isProviderMarketplaceOutputPath(pluginManifestPath("plugins", target, { id: "trails" }))).toBe(false);
+    }
+    expect(isProviderMarketplaceOutputPath("marketplace.json")).toBe(false);
+  });
+
   it("keeps package and manifest paths fixed across marketplace roots", () => {
     const plugin = { id: "trails" };
     for (const outputRoot of ["plugins", "dist", "generated/openai"]) {

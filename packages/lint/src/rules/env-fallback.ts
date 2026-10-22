@@ -1,12 +1,17 @@
+import { TARGET_NAMES } from "@skillset/schema";
+
 import type { LintDiagnostic, LintRule, LintSubject } from "../types";
 
 /**
- * Plain platform env-var placeholder, e.g. `${CLAUDE_PLUGIN_ROOT}` or
- * `${CODEX_SESSION_ID}`. A placeholder carrying a bash default
- * (`${CLAUDE_SKILL_DIR:-.}`) does not match: the `}` must directly follow
- * the variable name.
+ * Plain platform env-var placeholder for any target, e.g.
+ * `${CLAUDE_PLUGIN_ROOT}` or `${CURSOR_SESSION_ID}`. A placeholder carrying a
+ * bash default (`${CLAUDE_SKILL_DIR:-.}`) does not match: the `}` must
+ * directly follow the variable name.
  */
-const PLAIN_PLACEHOLDER_PATTERN = /\$\{(?:CLAUDE|CODEX)_[A-Z0-9_]+\}/u;
+const PLAIN_PLACEHOLDER_PATTERN = new RegExp(
+  `\\$\\{(?:${TARGET_NAMES.map((target) => target.toUpperCase()).join("|")})_[A-Z0-9_]+\\}`,
+  "u"
+);
 
 const hasFallbackMarker = (line: string): boolean =>
   line.includes(":-") || line.includes("||");

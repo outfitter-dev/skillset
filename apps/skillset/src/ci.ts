@@ -14,6 +14,7 @@ import {
 } from "@skillset/core";
 import { checkSkillsetSourceReadinessWithAuthority } from "@skillset/core/internal/source-readiness";
 import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
+import { isProviderMarketplaceOutputPath } from "@skillset/core/internal/plugin-output";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
 import type { WorkspaceTransactionOptions } from "@skillset/core/internal/workspace-transaction";
 import { runProviderFormatUpdates, type ProviderFormatUpdateReport } from "./provider-format-updates";
@@ -184,10 +185,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       const isEstablishedMarketplaceIndex =
         managedOutputPaths.size > 0 &&
         providerSourceDriftPaths.has(diagnostic.outputPath) &&
-        (diagnostic.outputPath.endsWith("/.claude-plugin/marketplace.json") ||
-          diagnostic.outputPath.endsWith("/.cursor-plugin/marketplace.json") ||
-          diagnostic.outputPath === ".claude-plugin/marketplace.json" ||
-          diagnostic.outputPath === ".cursor-plugin/marketplace.json");
+        isProviderMarketplaceOutputPath(diagnostic.outputPath);
       return !isEstablishedMarketplaceIndex;
     }
   );
