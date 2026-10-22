@@ -10,7 +10,6 @@ import {
 import { parseGeneratedLock } from "./generated-lock";
 import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
 import { collectRenderResults } from "./render-result-collector";
-import { policyBlockingRenderResults } from "./render-result-policy";
 import { exists } from "./render-support";
 import {
   SkillsetFeatureDiagnosticError,
@@ -21,6 +20,7 @@ import {
 import {
   diffSkillsetResult,
   includesProjectScope,
+  renderPolicyBlockingResults,
   ISOLATED_OUT_ROOT,
   scopedOutputRoots,
   scopedRenderedFiles,
@@ -174,7 +174,12 @@ export async function explainPath(
     scopes: options.scopes,
   });
   const match = explainMatch(graph, allRendered, renderResults, rootPath, inputPath, options);
-  return withOutputState(graph, match, renderResults);
+  const blocking = renderPolicyBlockingResults(
+    scopedRenderedFiles(graph, allRendered, options.scopes),
+    renderResults,
+    graph.root.compile.unsupportedDestination
+  );
+  return withOutputState(graph, match, blocking);
 }
 
 function explainMatch(
@@ -303,7 +308,7 @@ function explainMatch(
 async function withOutputState(
   graph: BuildGraph,
   match: ExplainMatch,
-  renderResults: readonly SkillsetRenderResult[]
+  blocking: readonly SkillsetRenderResult[]
 ): Promise<ExplainResult> {
   const targets = targetNames().filter((target) => graph.root.targets[target].enabled);
   if (match.kind === "unknown") {
@@ -319,7 +324,6 @@ async function withOutputState(
   for (const path of plannedPaths) {
     if (!(await exists(resolveInside(graph.rootPath, path)))) unwrittenOutputs.push(path);
   }
-  const blocking = policyBlockingRenderResults(renderResults, graph.root.compile.unsupportedDestination);
   const sourceUnits = new Set(match.renderResults.map((outcome) => outcome.sourceUnit));
   const blockingRenderResults = blocking.filter((outcome) => sourceUnits.has(outcome.sourceUnit));
   const notes = [...match.notes];

@@ -4,7 +4,8 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { explainPath } from "../authoring";
-import { buildSkillsetResult } from "../build";
+import { buildSkillsetResult, renderPolicyBlockingResults } from "../build";
+import { defineRenderResult } from "../render-result";
 
 const HOOKS =
   '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo pre"}]}]}}\n';
@@ -55,6 +56,27 @@ describe("SET-732: explain output state", () => {
     expect(explained.unwrittenOutputs).toEqual([]);
     expect(explained.blockingRenderResults).toEqual([]);
     expect(explained.notes.some((note) => note.startsWith("Not written"))).toBe(false);
+  });
+});
+
+describe("SET-732: render policy blockers", () => {
+  const unsupported = defineRenderResult({
+    featureId: "plugin-hooks",
+    reason: "agent-plugins-1.0 does not declare plugin-hooks",
+    sourceUnit: "plugin.toolkit.feature:hooks",
+    standardProfile: "agent-plugins-1.0",
+    status: "unsupported",
+  });
+  const lockOnly = [{ content: new Uint8Array(), mode: 0o644, path: "plugins/skillset.lock" }];
+  const usable = [...lockOnly, { content: new Uint8Array(), mode: 0o644, path: "plugins/toolkit/plugin.json" }];
+
+  it("blocks unsupported results under the error policy", () => {
+    expect(renderPolicyBlockingResults(usable, [unsupported], "error")).toHaveLength(1);
+  });
+
+  it("blocks a soft policy that leaves no usable output, as the build does", () => {
+    expect(renderPolicyBlockingResults(lockOnly, [unsupported], "warn")).toHaveLength(1);
+    expect(renderPolicyBlockingResults(usable, [unsupported], "warn")).toEqual([]);
   });
 });
 

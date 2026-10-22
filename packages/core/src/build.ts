@@ -1653,6 +1653,26 @@ function isSoftUnsupportedDestinationOutcome(outcome: SkillsetRenderResult): boo
   return outcome.status === "lossy" || outcome.status === "unsupported";
 }
 
+/**
+ * Render results that block output derivation, using the same two rules the
+ * build enforces (hard policy blocks, and soft policies with no usable output).
+ */
+export function renderPolicyBlockingResults(
+  rendered: readonly RenderedFile[],
+  renderResults: readonly SkillsetRenderResult[],
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): readonly SkillsetRenderResult[] {
+  const adjusted = applyUnsupportedDestinationPolicy(renderResults, unsupportedPolicy);
+  try {
+    enforceSoftPolicyHasUsableOutput(rendered, adjusted, unsupportedPolicy);
+    enforceRenderResultPolicy(adjusted, unsupportedPolicy);
+    return [];
+  } catch (error) {
+    if (error instanceof SkillsetRenderResultError) return error.renderResults;
+    throw error;
+  }
+}
+
 function enforceSoftPolicyHasUsableOutput(
   rendered: readonly RenderedFile[],
   renderResults: readonly SkillsetRenderResult[],

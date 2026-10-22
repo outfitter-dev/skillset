@@ -5,21 +5,13 @@ export function enforceRenderResultPolicy(
   renderResults: readonly SkillsetRenderResult[],
   unsupportedPolicy: UnsupportedDestinationPolicy
 ): void {
-  const blocked = policyBlockingRenderResults(renderResults, unsupportedPolicy);
+  const blocked = renderResults.filter((outcome) => isPolicyBlockingOutcome(outcome, unsupportedPolicy));
   if (blocked.length === 0) return;
 
   throw new SkillsetRenderResultError(
     formatRenderResultPolicyError(blocked, unsupportedPolicy),
     blocked
   );
-}
-
-/** Render results that block output derivation under the given policy. */
-export function policyBlockingRenderResults(
-  renderResults: readonly SkillsetRenderResult[],
-  unsupportedPolicy: UnsupportedDestinationPolicy
-): readonly SkillsetRenderResult[] {
-  return renderResults.filter((outcome) => isPolicyBlockingOutcome(outcome, unsupportedPolicy));
 }
 
 function isPolicyBlockingOutcome(

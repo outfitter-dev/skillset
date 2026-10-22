@@ -303,10 +303,13 @@ function printExplainResult(
     if (entry.version !== undefined) {
       writeLine(writer, `    version: ${entry.version}`);
     }
-    if (entry.outputPath !== result.path && result.kind === "generated") {
-      writeLine(writer, `    bundle file: ${result.path}`);
+    // A bundle query is about the member file, not the entry's manifest.
+    const shownPath =
+      result.kind === "generated" ? result.path : entry.outputPath;
+    if (shownPath !== entry.outputPath) {
+      writeLine(writer, `    bundle file: ${shownPath}`);
     }
-    if (result.unwrittenOutputs.includes(entry.outputPath)) {
+    if (result.unwrittenOutputs.includes(shownPath)) {
       writeLine(writer, "    target state: planned (not written)");
     } else if (entry.targetState !== undefined) {
       writeLine(writer, `    target state: ${entry.targetState}`);
