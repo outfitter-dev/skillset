@@ -92,6 +92,21 @@ export function chatGptMarketplacePath(): string {
   return ".agents/plugins/marketplace.json";
 }
 
+/**
+ * Whether a path is a provider marketplace catalog a build can write: each
+ * target's `<manifest dir>/marketplace.json` at the root or below a custom
+ * output root, plus the fixed ChatGPT catalog path.
+ */
+export function isProviderMarketplaceOutputPath(path: string): boolean {
+  if (path === chatGptMarketplacePath()) return true;
+  return targetNames().some((target) => {
+    const directory = pluginManifestDirectory(target);
+    if (directory === "") return false;
+    const catalog = `${directory}/marketplace.json`;
+    return path === catalog || path.endsWith(`/${catalog}`);
+  });
+}
+
 export function providerSourceForPlugin(
   _outputRoot: string,
   _target: TargetName,

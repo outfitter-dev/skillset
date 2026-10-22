@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { TARGET_NAMES } from "@skillset/schema";
+
 import {
   skillEnvVarNoFallbackRule,
   skillFileReferenceEscapeRule,
@@ -96,6 +98,14 @@ describe("skill-env-var-no-fallback", () => {
     expect(diagnostics[0]?.severity).toBe("warn");
     expect(diagnostics[0]?.message).toContain("${CLAUDE_PLUGIN_ROOT}");
     expect(diagnostics[0]?.guidance?.summary).toContain("relative");
+  });
+
+  test.each([...TARGET_NAMES])("SET-546: flags an un-fallbacked %s session placeholder", (target) => {
+    const placeholder = `\${${target.toUpperCase()}_SESSION_ID}`;
+    const diagnostics = skillEnvVarNoFallbackRule.check(makeSubject(`echo ${placeholder}`));
+    expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      `uses platform placeholder ${placeholder} without a fallback`,
+    ]);
   });
 
   test("flags CODEX placeholders and reports one diagnostic per line", () => {
