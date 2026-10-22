@@ -394,8 +394,8 @@ function unreadableAuthorDiagnostic(
     paths: [sourcePath],
     providers,
     recommendation:
-      "Give each provider manifest a non-empty string author or an object author with a non-empty name before adopting; import blocks these values instead of dropping them.",
-    severity: "error",
+      "Import will warn and keep each unreadable native author as that provider's manifest override; canonical author comes only from a readable author. Give each provider manifest a non-empty string author or an object author with a non-empty name to share one canonical author.",
+    severity: "warning",
   };
 }
 
