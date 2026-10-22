@@ -32,10 +32,10 @@ describe("plugin package output paths", () => {
         "codex",
         "toolbox"
       )
-    ).toThrow("SET-561");
+    ).toThrow("custom package placement is not yet supported");
     expect(() =>
       plannedPackageOutputPath({ ...defaults, path: "." }, "codex", "toolbox")
-    ).toThrow("SET-581");
+    ).toThrow("repository-root package placement, which is not yet supported");
     expect(() =>
       plannedPackageOutputPath(
         {
@@ -52,6 +52,6 @@ describe("plugin package output paths", () => {
     ).not.toThrow();
     expect(() =>
       validatePackageOutputConfig({ ...defaults, path: "dist/[name]" })
-    ).toThrow("SET-561");
+    ).toThrow("custom package placement is not yet supported");
   });
 });

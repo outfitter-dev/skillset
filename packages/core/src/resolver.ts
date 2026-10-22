@@ -1127,7 +1127,7 @@ async function loadPlugin(
     claudeBundlePath = readClaudeBundlePath(config, configRelativePath);
     if (claudeBundlePath !== undefined) {
       throw new Error(
-        `skillset: ${configRelativePath}.claude.bundle.path cannot split a shared plugin package; custom package placement is unsupported until SET-561`
+        `skillset: ${configRelativePath}.claude.bundle.path cannot split a shared plugin package; custom package placement is not yet supported`
       );
     }
     await validateSupports(config.supports, {
@@ -1940,7 +1940,7 @@ function validateSharedPackageOutputRoots(
       plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id)
     )) continue;
     throw new Error(
-      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement is unsupported until SET-561 (${target}.plugins.path or plugins.output.${target}.path)`
+      `skillset: ${target} plugin output root ${outputs.plugins[target]} would separate its marketplace from the shared package at plugins/<name>; custom package placement is not yet supported (${target}.plugins.path or plugins.output.${target}.path)`
     );
   }
 }
