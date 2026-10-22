@@ -14,6 +14,7 @@ import {
   type TestSandboxDescriptor,
 } from "../apps/skillset/src/verification-sandbox";
 import { prependExecutablePath, resolvePinnedBun } from "./pinned-bun";
+import { compileSandboxCli, TEST_CLI_ENV } from "./test-sandbox-cli";
 import {
   collectStaleTestSandboxes,
   removeOwnedSandbox,
@@ -112,6 +113,20 @@ try {
   // This PATH entry governs the whole run, including nested child processes.
   const pinnedBun = await resolvePinnedBun(repoRoot);
   env.PATH = prependExecutablePath(pinnedBun.binDir, env.PATH);
+  // Behavior tests spawn a CLI compiled from this tree into this sandbox
+  // (SET-629); `SKILLSET_TEST_CLI=source` keeps every spawn on cli.ts.
+  const cliMode = process.env[TEST_CLI_ENV];
+  if (cliMode !== undefined && cliMode !== "source") {
+    throw new Error(`${TEST_CLI_ENV} must be unset or "source"`);
+  }
+  if (cliMode === undefined) {
+    await compileSandboxCli({
+      bunPath: pinnedBun.binPath,
+      env,
+      repoRoot,
+      sandboxPath,
+    });
+  }
   const childCommand =
     basename(command[0] ?? "") === "bun"
       ? [pinnedBun.binPath, ...command.slice(1)]

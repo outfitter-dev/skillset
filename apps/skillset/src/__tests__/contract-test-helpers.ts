@@ -64,20 +64,4 @@ export async function runGit(root: string, ...args: readonly string[]): Promise<
   await runTestGit(root, ...args);
 }
 
-export async function runSkillsetCli(...args: readonly string[]): Promise<{
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly stdout: string;
-}> {
-  const proc = Bun.spawn({
-    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { exitCode, stderr, stdout };
-}
+export { runSkillsetCli } from "../../../../scripts/test-helpers/skillset-cli";
