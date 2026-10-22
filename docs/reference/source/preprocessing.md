@@ -38,7 +38,7 @@ Rules additionally support `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, 
 
 ## Prompt arguments
 
-Skill Markdown can contain `{{$ARGUMENTS}}`, positional forms such as `{{$ARGUMENTS[0]}}`, and named forms such as `{{$ARGUMENTS.topic}}`. Claude receives its native `$ARGUMENTS...` form. Codex retains the marker and receives a short replacement instruction. Cursor retains the marker without the Codex notice.
+Skill Markdown can contain `{{$ARGUMENTS}}`, positional forms such as `{{$ARGUMENTS[0]}}`, and named forms such as `{{$ARGUMENTS.topic}}`. Claude receives its native `$ARGUMENTS...` form. The Agent Skills baseline retains the marker and adds a short replacement instruction ahead of the body; Codex reads that same file, so it gets the same instruction. Cursor retains the marker without the notice.
 
 The workspace setting `compile.features.promptArguments` defaults to enabled. When disabled, Skillset-owned prompt argument expressions are rejected. See [project configuration](../../configuration/project-configuration.md) for the owning setting.
 

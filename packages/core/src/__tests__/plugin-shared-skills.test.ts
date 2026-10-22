@@ -182,6 +182,30 @@ cursor:
     );
   });
 
+  it("keeps prompt-argument markers in the shared package when Claude is off", async () => {
+    const root = await fixture("", "Use {{$ARGUMENTS}} to review changes.");
+    await Bun.write(
+      join(root, "skillset.yaml"),
+      `skillset:
+  name: shared-plugin-skill
+  license: none
+claude: false
+codex: true
+cursor: true
+`
+    );
+
+    const result = await buildSkillsetResult(root);
+
+    expect(result.ok).toBe(true);
+    const skill = await readFile(
+      join(root, "plugins/demo/skills/review/SKILL.md"),
+      "utf8"
+    );
+    expect(skill).toContain("Use {{$ARGUMENTS}} to review changes.");
+    expect(skill).not.toContain("Before using commands");
+  });
+
   it("emits shared resources once across compatible provider renderings", async () => {
     const root = await fixture("");
 

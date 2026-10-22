@@ -9,7 +9,11 @@ import {
 import { classifyIndividualAgentSkillPublication } from "./agent-skill-publication";
 import { readRecord, readString } from "./config";
 import type { LogicalRenderedFile } from "./output-plan";
-import { formatPreprocessDependency, preprocessText } from "./preprocess";
+import {
+  formatPreprocessDependency,
+  preprocessText,
+  renderPromptArgumentsNotice,
+} from "./preprocess";
 import { textFile } from "./render-support";
 import {
   createEffectiveSkillResourcePlanner,
@@ -214,9 +218,16 @@ export async function renderAgentSkillStandardMarkdown(
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
   const resources = resourcePlanner.resources();
+  // Only the Agent Skills baseline carries the replacement notice. Plugin
+  // packages share one SKILL.md, and Cursor preserves the marker as written.
+  const notice =
+    standardProfile === "agent-skills"
+      ? renderPromptArgumentsNotice(body)
+      : undefined;
+  const linkedBody = rewriteResourceLinks(body, resources, skill.sourcePath);
   const content = renderValidatedMarkdown(
     classification.frontmatter,
-    rewriteResourceLinks(body, resources, skill.sourcePath),
+    notice === undefined ? linkedBody : `${notice}\n\n${linkedBody}`,
     `${path.relative(graph.rootPath, skill.sourcePath)} -> Agent Skills`
   );
   return {

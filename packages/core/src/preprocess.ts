@@ -518,6 +518,18 @@ function promptArgumentsVariable(
   return `{{${key}}}`;
 }
 
+const PROMPT_ARGUMENTS_MARKER =
+  /\{\{\$ARGUMENTS(?:\}\}|\[[0-9]+\]\}\}|\.[A-Za-z_][A-Za-z0-9_-]*\}\})/u;
+
+/**
+ * Guidance for consumers without native prompt-argument substitution. The
+ * Agent Skills baseline carries it, so Codex reuses the same bytes.
+ */
+export function renderPromptArgumentsNotice(body: string): string | undefined {
+  if (!PROMPT_ARGUMENTS_MARKER.test(body)) return undefined;
+  return "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments.";
+}
+
 function isPromptArgumentsVariable(key: string): boolean {
   return /^\$ARGUMENTS(?:\b|\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*)$/u.test(key);
 }

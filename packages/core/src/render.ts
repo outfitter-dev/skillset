@@ -57,6 +57,7 @@ import {
   formatPreprocessDependency,
   preprocessText,
   readPreprocessDependencySync,
+  renderPromptArgumentsNotice,
   resolveMarkedPathReferences,
 } from "./preprocess";
 import {
@@ -2099,11 +2100,15 @@ function renderCodexSkillBodyDelta(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   body: string,
-  promptArgumentBody = body
+  // Omitted when rendering from the Agent Skills baseline, which already
+  // carries the prompt-argument notice.
+  promptArgumentBody?: string
 ): TranslatedBody {
   const notices = [
     plugin === undefined ? undefined : renderCodexDependencyNotice(graph, plugin),
-    renderCodexPromptArgumentsNotice(promptArgumentBody),
+    promptArgumentBody === undefined
+      ? undefined
+      : renderPromptArgumentsNotice(promptArgumentBody),
   ].filter((notice): notice is string => notice !== undefined);
   const withNotices =
     notices.length === 0 ? body : `${notices.join("\n\n")}\n\n${body}`;
@@ -2139,13 +2144,6 @@ function renderSkillMetadata(
   metadata[RENDERED_METADATA_SCHEMA_KEY] = RENDERED_METADATA_SCHEMA_VERSION;
   if (Object.keys(metadata).length > 0) rendered.metadata = metadata;
   return rendered;
-}
-
-function renderCodexPromptArgumentsNotice(body: string): string | undefined {
-  if (!/\{\{\$ARGUMENTS(?:\}\}|\[[0-9]+\]\}\}|\.[A-Za-z_][A-Za-z0-9_-]*\}\})/u.test(body)) {
-    return undefined;
-  }
-  return "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments.";
 }
 
 function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
