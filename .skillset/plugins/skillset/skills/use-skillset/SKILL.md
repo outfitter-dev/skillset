@@ -1,6 +1,6 @@
 ---
 title: Use Skillset
-description: Use the skillset compiler to build, check, inspect, and import source skills or plugins.
+description: Use the skillset compiler in a repo with skillset.yaml or a .skillset/ directory. Covers creating a workspace, adding skills, rules, agents, hooks, and plugins, building and checking Claude, Codex, and Cursor output, repairing stale or hand-edited generated files, recording changes, cutting releases, importing existing skills, and marketplaces. Use when asked to add a rule, record a change, cut a release, or fix generated output.
 version: 0.1.0
 skillset:
   preprocess: false
@@ -189,6 +189,37 @@ tools:
 ```
 
 `tools: readonly` expands to `read: true`, `search: true`, and `write: false`. Portable keys are `read`, `search`, `write`, `shell`, and `mcp`; unknown keys fail lint/build. Provider-native strings belong under `tools.<provider>.allow` or `tools.<provider>.deny`, not at the top level and not under target-local `claude.tools` / `codex.tools`. Claude renders portable policy and `tools.claude` strings to `allowed-tools` and `disallowed-tools` (preapproval and denial rules, not a complete sandbox). Codex renders generated `.skillset.tools.yaml` metadata for portable and target-native policy; it does not install, trust, or mutate user-level Codex configuration.
+
+## Command Map
+
+| Task | Commands |
+| --- | --- |
+| Start a workspace | `skillset init`, `skillset create <name>` |
+| Add source | `skillset new skill\|plugin\|agent\|rule\|hook`, `skillset import <path> [--from <provider>] [--name <name>]` |
+| Reorganize source | `skillset draft`, `skillset promote`, `skillset move`, `skillset rename` |
+| Build output | `skillset build` (preview), `skillset build --yes`, `skillset dev [--write]`, `skillset update` |
+| Verify | `skillset check`, `skillset check --only outputs`, `skillset check --ci [--fix] [--report <path>]`, `skillset test` |
+| Inspect | `skillset diff`, `skillset explain <path>`, `skillset list`, `skillset status`, `skillset lookup [features\|hooks\|...]` |
+| Repair output | `skillset build --repair`, `skillset resolve`, `skillset restore --list`, `skillset restore <backup-id>`, `skillset reconcile` |
+| Record changes | `skillset change add\|list\|show\|status\|check\|refresh` |
+| Release | `skillset release plan\|apply\|audit` |
+| Distribute | `skillset distribute plan`, `skillset marketplace check\|update` |
+| Hooks | `skillset hooks print\|run\|context` |
+
+Every command that writes previews first and writes only with `--yes`. Run `skillset <command> --help` for the exact flags.
+
+## Repair Generated Output
+
+Generated files are derived from source. Never hand-edit or hand-merge them; fix the source and rebuild.
+
+1. Check whether a path is generated: `skillset explain <path>` labels it `(generated)` and names its source.
+2. Outside a rebase or merge, preview a repair with `skillset build --repair [path...]`. It reports a verdict per path: `clean`, `output-missing`, `source-ahead`, `output-obsolete`, `output-edited`, `lock-untrusted`, or `diverged`. When every verdict is one of the first four, rerun with `--yes` to restore, regenerate, and remove.
+3. `output-edited` means someone edited the generated file and not its source. Capture the edit with `git diff -- <path>`, apply it to the source `explain` names, then rebuild. Use `--discard-edits` only once the edit is in source or confirmed unwanted.
+4. `lock-untrusted` means `skillset.lock` failed its integrity check, not that the output is wrong. Rebuild with `skillset build --yes`, then repeat the repair preview.
+5. `diverged` means both the generated file and its source changed. Stop and report the paths; do not pick a side.
+6. During a rebase or merge, run `skillset resolve` to see which conflicts are generated, authored, or hand-edited. Resolve authored files yourself, then run `skillset resolve --yes` to repair and stage only the generated paths, and continue the rebase or merge.
+7. Confirmed builds back up files they replace. `skillset restore --list` shows those backups and `skillset restore <backup-id> --yes` restores one.
+8. Finish with `skillset check --only outputs`; it must pass.
 
 ## Build And Check
 
