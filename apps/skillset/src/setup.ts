@@ -39,8 +39,6 @@ const SETUP_SOURCE_PLACEHOLDERS = [
   "rules",
   "shared",
   "skills",
-  "_claude",
-  "_codex",
 ] as const;
 const OPERATIONAL_GITIGNORE = "cache/\nsnapshots/*\n!snapshots/.gitignore\n";
 const OPERATIONAL_DIR_GITIGNORE = "*\n!.gitignore\n";
@@ -274,7 +272,7 @@ async function setupNextSteps(
         Object.keys(graph.root.marketplaces).length > 0 ||
         graph.plugins.length > 0 ||
         graph.projectAgents.length > 0 ||
-        graph.projectIslands.some((island) => island.relativePath !== ".gitkeep") ||
+        graph.projectIslands.length > 0 ||
         graph.rules.length > 0 ||
         graph.standaloneSkills.length > 0
       ) {

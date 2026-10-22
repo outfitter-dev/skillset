@@ -593,7 +593,8 @@ async function loadTargetIsland(
 ): Promise<readonly SourceIslandFile[]> {
   if (!(await exists(islandPath))) return [];
   const files = await collectFiles(islandPath);
-  return files.map((sourcePath) => ({
+  // Scaffold placeholders keep an empty island in git; they are never provider source.
+  return files.filter((sourcePath) => basename(sourcePath) !== ".gitkeep").map((sourcePath) => ({
     relativePath: relative(islandPath, sourcePath),
     sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
     target,

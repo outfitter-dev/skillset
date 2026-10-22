@@ -7189,7 +7189,7 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
   expect(await fileExists(join(root, ".skillset/.gitkeep"))).toBe(true);
-  for (const directory of ["subagents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
+  for (const directory of ["subagents", "hooks", "plugins", "rules", "shared", "skills"]) {
     expect(await fileExists(join(root, `.skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(root, ".skillset/RULES.md"))).toBe(true);
@@ -7200,6 +7200,22 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(await fileExists(join(root, ".claude"))).toBe(false);
   expect(await fileExists(join(root, ".codex"))).toBe(false);
   expect(await fileExists(join(root, ".agents"))).toBe(false);
+});
+
+test("SET-696: provider-island .gitkeep placeholders never reach generated output", async () => {
+  const root = await createTestFixtureRoot("skillset-setup-island-gitkeep-");
+  const written = await runSkillsetCli("init", "--root", root, "--yes");
+  expect(written.exitCode).toBe(0);
+  for (const target of targetNames()) {
+    expect(await fileExists(join(root, `.skillset/_${target}`))).toBe(false);
+    // Workspaces scaffolded before SET-696 still carry these placeholders.
+    await mkdir(join(root, `.skillset/_${target}`), { recursive: true });
+    await writeFile(join(root, `.skillset/_${target}/.gitkeep`), "", "utf8");
+  }
+
+  const plan = await runSkillsetCli("build", "--root", root);
+  expect(plan.exitCode).toBe(0);
+  expect(plan.stdout).not.toContain(".gitkeep");
 });
 
 test("SET-209: init rejects retired layout flags", async () => {
@@ -7506,7 +7522,7 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   expect(config).toStartWith("# yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json\n");
   expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
-  for (const directory of ["subagents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
+  for (const directory of ["subagents", "hooks", "plugins", "rules", "shared", "skills"]) {
     expect(await fileExists(join(parent, `my-skillset/.skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(parent, "my-skillset/.skillset/changes/.gitkeep"))).toBe(true);
