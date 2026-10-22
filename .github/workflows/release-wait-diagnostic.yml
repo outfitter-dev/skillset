@@ -2,7 +2,7 @@ name: Release Wait Diagnostic
 
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "7 * * * *"
   workflow_run:
     workflows: [Release]
     types: [requested, in_progress, completed]

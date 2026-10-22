@@ -24,7 +24,7 @@ const workflow = Bun.YAML.parse(source) as {
 
 test("automatic diagnostics are independent of protected Release serialization", async () => {
   expect(workflow.permissions).toEqual({ contents: "read", actions: "read" });
-  expect(workflow.on.schedule).toEqual([{ cron: "7,22,37,52 * * * *" }]);
+  expect(workflow.on.schedule).toEqual([{ cron: "7 * * * *" }]);
   expect(workflow.on.workflow_run.workflows).toEqual(["Release"]);
   expect(workflow.on.workflow_run.types).toContain("completed");
   expect(workflow.jobs.observe.name).not.toBe("check");
