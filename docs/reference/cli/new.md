@@ -19,7 +19,7 @@ skillset new [plugin|skill|agent|rule|hook] [name] [--id <id>] [--name <name>] [
 
 | Option | Meaning |
 | --- | --- |
-| `--attach <value>` | Attach a new adaptive hook to an existing source-unit selector. |
+| `--attach <value>` | Attach a new adaptive hook to an existing source-unit selector; without it, new hook writes a shared definition to the source root hooks/ folder. |
 | `--command <value>` | Set the command action for a new adaptive hook. |
 | `--draft` | Create a new skill under the selected container's _drafts directory. |
 | `--event <value>...` | Select a hook event; repeat where the route permits. |

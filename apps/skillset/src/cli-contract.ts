@@ -65,7 +65,7 @@ export const CLI_FLAGS = {
   },
   "--attach": {
     family: "selection",
-    meaning: "Attach a new adaptive hook to an existing source-unit selector.",
+    meaning: "Attach a new adaptive hook to an existing source-unit selector; without it, new hook writes a shared definition to the source root hooks/ folder.",
     value: "value",
   },
   "--background": {

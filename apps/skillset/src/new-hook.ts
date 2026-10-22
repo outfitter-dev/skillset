@@ -59,14 +59,19 @@ export interface NewAdaptiveHookAttachmentTarget {
 }
 
 interface HookOwner {
-  readonly content: string;
-  readonly document: JsonRecord;
+  /** Owner source that lists the hook; root hooks are discovered without one. */
+  readonly attachment?: HookOwnerAttachment;
   readonly hookRoot: string;
   readonly ownerPath: string;
-  readonly path: string;
-  readonly render: (hook: string) => string;
   readonly scope: AdaptiveHookScope;
   readonly selector: string;
+}
+
+interface HookOwnerAttachment {
+  readonly content: string;
+  readonly document: JsonRecord;
+  readonly path: string;
+  readonly render: (hook: string) => string;
 }
 
 export async function planNewAdaptiveHook(
@@ -75,9 +80,6 @@ export async function planNewAdaptiveHook(
   displayName: string,
   options: NewAdaptiveHookOptions
 ): Promise<readonly NewSourcePlannedFile[]> {
-  if (options.attachment === undefined) {
-    throw new CliUsageError("skillset: new hook requires --attach <source-unit>");
-  }
   if (options.container !== undefined) {
     throw new CliUsageError("skillset: new hook uses --attach for placement; --in is not supported");
   }
@@ -87,7 +89,9 @@ export async function planNewAdaptiveHook(
   const events = uniqueRequired(options.events, "--event");
   const action = hookAction(options);
   const graph = await loadBuildGraph(rootPath, options.skillsetOptions);
-  const owner = await resolveHookOwner(rootPath, graph, options.attachment);
+  const owner = options.attachment === undefined
+    ? rootHookOwner(graph)
+    : await resolveHookOwner(rootPath, graph, options.attachment);
   const eventCatalog = new Map(
     adaptiveHookEventDefinitions().map((event) => [event.id, event])
   );
@@ -152,18 +156,21 @@ export async function planNewAdaptiveHook(
       options.script
     );
   }
-  appendAdaptiveHookAttachment(owner.document, id);
+  const hookFile: NewSourcePlannedFile = {
+    content: stringifyJson(hookDocument),
+    operation: "create",
+    path: relative(rootPath, hookPath),
+  };
+  const attachment = owner.attachment;
+  if (attachment === undefined) return [hookFile];
+  appendAdaptiveHookAttachment(attachment.document, id);
   return [
+    hookFile,
     {
-      content: stringifyJson(hookDocument),
-      operation: "create",
-      path: relative(rootPath, hookPath),
-    },
-    {
-      content: owner.render(id),
-      expectedContent: owner.content,
+      content: attachment.render(id),
+      expectedContent: attachment.content,
       operation: "update",
-      path: relative(rootPath, owner.path),
+      path: relative(rootPath, attachment.path),
     },
   ];
 }
@@ -259,6 +266,16 @@ function hookAction(options: NewAdaptiveHookOptions): JsonRecord {
     : { command };
 }
 
+/** Root hooks live in `<source-root>/hooks/` and apply to the whole workspace. */
+function rootHookOwner(graph: BuildGraph): HookOwner {
+  return {
+    hookRoot: join(graph.sourceRootPath, "hooks"),
+    ownerPath: graph.sourceRootPath,
+    scope: { kind: "root" },
+    selector: "root",
+  };
+}
+
 async function resolveHookOwner(
   rootPath: string,
   graph: BuildGraph,
@@ -272,12 +289,14 @@ async function resolveHookOwner(
     if (pluginSelectors.includes(selector)) {
       const content = await readFile(plugin.configPath, "utf8");
       return {
-        content,
-        document: parseYamlRecord(content, plugin.configPath),
+        attachment: {
+          content,
+          document: parseYamlRecord(content, plugin.configPath),
+          path: plugin.configPath,
+          render: (hook) => appendAdaptiveHookAttachmentToYaml(content, hook),
+        },
         hookRoot: join(plugin.path, "hooks"),
         ownerPath: plugin.path,
-        path: plugin.configPath,
-        render: (hook) => appendAdaptiveHookAttachmentToYaml(content, hook),
         scope: { kind: "plugin", pluginId: plugin.id },
         selector: `plugin:${plugin.id}`,
       };
@@ -334,12 +353,14 @@ async function markdownHookOwner(
   const content = await readFile(source.sourcePath, "utf8");
   const parts = parseMarkdown(content, source.sourcePath);
   return {
-    content,
-    document: parts.frontmatter,
+    attachment: {
+      content,
+      document: parts.frontmatter,
+      path: source.sourcePath,
+      render: (hook) => appendAdaptiveHookAttachmentToMarkdown(content, hook),
+    },
     hookRoot: join(hookRoot, "hooks"),
     ownerPath: hookRoot,
-    path: source.sourcePath,
-    render: (hook) => appendAdaptiveHookAttachmentToMarkdown(content, hook),
     scope,
     selector,
   };

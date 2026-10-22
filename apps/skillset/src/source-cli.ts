@@ -338,6 +338,12 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
   console.log(`skillset: ${action} ${result.kind} ${result.id} (${reason})`);
   console.log(`  source: ${result.sourceRoot}`);
   console.log(`  name: ${result.displayName}`);
+  // A hook with no owner update is a shared definition in <source-root>/hooks/.
+  if (result.kind === "hook" && result.files.every((file) => file.operation === "create")) {
+    console.log(
+      `  attach: list ${result.id} under hooks.auto in a plugin, skill, or project agent; shared hooks render only where attached`
+    );
+  }
   if (result.write) {
     for (const command of newSourceChecksAtRoot(result.rootPath)) {
       console.log(formatScaffoldNextStep(command));
