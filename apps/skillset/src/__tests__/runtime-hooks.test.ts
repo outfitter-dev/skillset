@@ -23,6 +23,12 @@ import {
   type RunSkillsetCommandOptions,
 } from "../runtime-hooks";
 
+const SESSION_START_GUIDANCE = [
+  "Preview: npx skillset build",
+  "Write: npx skillset build --yes",
+  "See the use-skillset skill for the build and repair walkthrough.",
+].join("\n");
+
 test("SET-632: source gate inspects the given root under inherited GIT_DIR", async () => {
   const root = await gitFixture();
   const decoy = await createTestGitFixtureRoot("skillset-hooks-decoy-");
@@ -602,8 +608,9 @@ test("session-start emits provider-native stale output for Claude and Codex", as
           "Stale paths:",
           "- plugins/demo/output.json",
           "",
-          "Run: npx skillset build",
-          "skillset-help",
+          "Preview: npx skillset build",
+          "Write: npx skillset build --yes",
+          "See the use-skillset skill for the build and repair walkthrough.",
         ].join("\n"),
         hookEventName: "SessionStart",
       },
@@ -680,7 +687,7 @@ test("session-start bounds unique stale paths and additional context", async () 
   expect(new Set(listedPaths).size).toBe(listedPaths.length);
   expect(context).toContain(`... and ${paths.length - listedPaths.length} more.`);
   expect(context.length).toBeLessThanOrEqual(8_000);
-  expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
+  expect(context.endsWith(SESSION_START_GUIDANCE)).toBe(true);
 });
 
 test("session-start bounds JSON-escaped hook output", async () => {
@@ -702,7 +709,7 @@ test("session-start bounds JSON-escaped hook output", async () => {
   expect(stale.output.length).toBeLessThanOrEqual(9_000);
   expect(listedPaths.length).toBeLessThan(paths.length);
   expect(context).toContain(`... and ${paths.length - listedPaths.length} more.`);
-  expect(context.endsWith("Run: npx skillset build\nskillset-help")).toBe(true);
+  expect(context.endsWith(SESSION_START_GUIDANCE)).toBe(true);
 });
 
 test("session-start exits zero when verification throws and stays silent for unsupported providers", async () => {

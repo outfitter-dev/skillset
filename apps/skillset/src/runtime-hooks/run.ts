@@ -240,7 +240,8 @@ function hasNonDriftErrors(
 }
 
 function renderSessionStartOutput(paths: readonly string[]): string {
-  const guidance = "Run: npx skillset build\nskillset-help";
+  const guidance =
+    "Preview: npx skillset build\nWrite: npx skillset build --yes\nSee the use-skillset skill for the build and repair walkthrough.";
   const visible = paths.slice(0, MAX_STALE_PATHS);
   while (true) {
     const context = sessionStartContext(visible, paths.length - visible.length, guidance);
