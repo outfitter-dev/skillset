@@ -758,6 +758,14 @@ async function loadRules(
           rootPath,
           sourcePath
         );
+    // The filename is the rule's topic; brackets belong only to directory
+    // segments, where they are literal names or reserved scopes.
+    if (/[[\]]/u.test(basename(sourcePath))) {
+      throw new Error(
+        `skillset: ${sourceLabel} has [ or ] in its filename; brackets are only valid in rule directory names`
+      );
+    }
+    const scopeSegments = segments.map((segment) => segment.value);
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
       validateRuleFrontmatter(frontmatter, sourceLabel).diagnostics,
@@ -776,6 +784,8 @@ async function loadRules(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      scopeDir: scopeSegments.join("/"),
+      scopeSegments,
       segments,
       ...(rootFrontPage ? { rootFrontPage: true } : {}),
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
