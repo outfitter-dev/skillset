@@ -43,7 +43,7 @@ import {
   pluginLockRootPath,
   pluginManifestPath,
 } from "./plugin-output";
-import { pluginComponentPath } from "./plugin-component-paths";
+import { pluginComponentPath, pluginPackageComponentFile } from "./plugin-component-paths";
 import {
   createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
@@ -229,7 +229,10 @@ export async function renderBuildGraph(
     });
   }
   rendered.push(...(await renderCursorMarketplace(graph)));
-  rendered.push(...(await renderAgentPluginStandardPackages(graph, lockRoots)));
+  rendered.push(...labelPackageWriter(
+    await renderAgentPluginStandardPackages(graph, lockRoots),
+    "agent-plugins-1.0"
+  ));
   rendered.push(
     ...(await renderAgentSkillStandards(
       graph,
@@ -251,7 +254,10 @@ export async function renderBuildGraph(
 
   for (const plugin of graph.plugins) {
     for (const target of targetNames()) {
-      rendered.push(...(await renderPluginTarget(graph, plugin, target, lockRoots)));
+      rendered.push(...labelPackageWriter(
+        await renderPluginTarget(graph, plugin, target, lockRoots),
+        target
+      ));
     }
   }
 
@@ -564,7 +570,7 @@ async function renderPluginTarget(
   rendered.push(...adaptiveHookFiles, ...companionFiles);
   pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
-  assertPluginPackagePathCompatibility(graph, pluginRootFiles);
+  assertPluginPackagePathCompatibility(graph, labelPackageWriter(pluginRootFiles, target));
   const pluginOwnedFiles = planRenderedFiles(pluginRootFiles);
   const pluginItem = lockItemForPlugin({
       files: pluginOwnedFiles,
@@ -612,6 +618,25 @@ function fallbackSupportPaths(target: TargetName): readonly string[] {
   }).map(({ path }) => path);
 }
 
+/** Which projection produced a package file, so path conflicts can name both writers. */
+const packageWriters = new WeakMap<RenderedFile, string>();
+
+function labelPackageWriter(
+  files: readonly RenderedFile[],
+  writer: string
+): readonly RenderedFile[] {
+  for (const file of files) {
+    if (!packageWriters.has(file)) packageWriters.set(file, writer);
+  }
+  return files;
+}
+
+function describePackageWriter(file: RenderedFile): string {
+  const source = file.sourcePath ?? "generated output";
+  const writer = packageWriters.get(file);
+  return writer === undefined ? source : `${writer} (from ${source})`;
+}
+
 function assertPluginPackagePathCompatibility(
   graph: BuildGraph,
   files: readonly RenderedFile[]
@@ -637,7 +662,7 @@ function assertPluginPackagePathCompatibility(
       featureId: "plugin-packages",
       message:
         `skillset: plugin ${pluginId} package path ${outputPath} has conflicting writers ` +
-        `${first.sourcePath ?? "generated output"} and ${conflict.sourcePath ?? "generated output"}`,
+        `${describePackageWriter(first)} and ${describePackageWriter(conflict)}`,
       path: outputPath,
     });
   }
@@ -2340,8 +2365,9 @@ function pluginFeatureTargetPath(feature: SourcePluginFeature, target: TargetNam
       case "claude":
         return feature.targetPath;
       case "codex":
-      case "cursor":
         return "mcp.json";
+      case "cursor":
+        return pluginPackageComponentFile("cursor", "mcp");
     }
   }
   return feature.targetPath;

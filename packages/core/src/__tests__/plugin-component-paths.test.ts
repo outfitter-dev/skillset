@@ -11,6 +11,7 @@ import {
   pluginComponentManifestField,
   pluginComponentPath,
   pluginComponents,
+  pluginPackageComponentPath,
 } from "../plugin-component-paths";
 import { checkProviderFormatConformance } from "../provider-format-conformance";
 import { renderBuildGraph } from "../render";
@@ -90,7 +91,7 @@ describe("registry-backed plugin component paths", () => {
           component.kind !== "skills"
         ) {
           expect(readDotted(manifest, component.manifestField)).toBe(
-            `./${component.defaultPath}`
+            pluginPackageComponentPath(target, component.kind)
           );
         }
       }

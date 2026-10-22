@@ -32,6 +32,7 @@ import {
 } from "./render-result";
 import { scopeForPath } from "./output-scope";
 import { compareStrings } from "./path";
+import { pluginPackageComponentFile } from "./plugin-component-paths";
 import {
   resolveProjectUseSkillCopies,
   resolveRenderedSkillCopies,
@@ -518,17 +519,15 @@ function adaptivePluginHookOutcomes(
   for (const plugin of graph.plugins) {
     for (const target of TARGETS) {
       if (!hasAdaptivePluginHookOutput(graph, plugin, target)) continue;
-      const hookRoot = normalizePath(
-        join(
-          pluginBundleRoot(
-            graph.root.outputs.plugins[target],
-            target,
-            plugin
-          ),
-          "hooks"
-        )
+      const bundleRoot = pluginBundleRoot(
+        graph.root.outputs.plugins[target],
+        target,
+        plugin
       );
-      const aggregatePath = `${hookRoot}/hooks.json`;
+      const hookRoot = normalizePath(join(bundleRoot, "hooks"));
+      const aggregatePath = normalizePath(
+        join(bundleRoot, pluginPackageComponentFile(target, "hooks"))
+      );
       const outputPaths = renderedOutputPaths.filter(
         (path) => path === aggregatePath || path.startsWith(`${hookRoot}/`)
       );
@@ -2356,7 +2355,7 @@ function companionForPath(
   if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "commands")) {
     return { featureId: "plugin-commands", featureKey: "commands", pluginId, sourceRelativePath: pluginPath };
   }
-  if (pluginPath === "hooks/hooks.json" || pluginPath.startsWith("hooks/")) {
+  if (pluginPath === pluginPackageComponentFile(target, "hooks") || pluginPath.startsWith("hooks/")) {
     return { featureId: "plugin-hooks", featureKey: "hooks", pluginId, sourceRelativePath: pluginPath };
   }
   if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "agents")) {

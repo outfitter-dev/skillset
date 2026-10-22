@@ -19,6 +19,7 @@ import { readRecord, readString, readStringArray } from "./config";
 import { nativeHookEventName } from "./hook-capabilities";
 import { validateHookDefinition } from "./hooks";
 import { compareStrings, isPathInside } from "./path";
+import { pluginPackageComponentFile } from "./plugin-component-paths";
 import { exists, textFile } from "./render-support";
 import { renderValidatedJson } from "./structured-output";
 import { targetDescriptor } from "./targets";
@@ -71,14 +72,15 @@ export async function renderAdaptivePluginHookFiles(
   }
 
   const normalized = normalizePluginHookEnvelope({ hooks }, target, `${plugin.id} adaptive hooks`);
+  const outputPath = join(basePath, pluginPackageComponentFile(target, "hooks"));
   validateHookDefinition(normalized, {
-    sourcePath: `${plugin.id} adaptive hooks -> ${join(basePath, "hooks", "hooks.json")}`,
+    sourcePath: `${plugin.id} adaptive hooks -> ${outputPath}`,
     target,
   });
 
   return [
     textFile(
-      join(basePath, "hooks", "hooks.json"),
+      outputPath,
       renderValidatedJson(normalized, `${plugin.id} ${target} adaptive hooks`),
       relative(graph.rootPath, plugin.configPath)
     ),
@@ -521,15 +523,16 @@ export async function renderNormalizedPluginHookFile(
     target,
     relative(graph.rootPath, canonicalSource)
   );
+  const outputPath = join(basePath, pluginPackageComponentFile(target, "hooks"));
   validateHookDefinition(providerNative, {
-    sourcePath: `${relative(graph.rootPath, canonicalSource)} -> ${join(basePath, "hooks", "hooks.json")}`,
+    sourcePath: `${relative(graph.rootPath, canonicalSource)} -> ${outputPath}`,
     target,
   });
   return textFile(
-    join(basePath, "hooks", "hooks.json"),
+    outputPath,
     renderValidatedJson(
       providerNative,
-      `${relative(graph.rootPath, canonicalSource)} -> ${join(basePath, "hooks", "hooks.json")}`
+      `${relative(graph.rootPath, canonicalSource)} -> ${outputPath}`
     ),
     relative(graph.rootPath, canonicalSource)
   );

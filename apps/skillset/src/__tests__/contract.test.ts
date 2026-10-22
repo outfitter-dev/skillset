@@ -623,9 +623,9 @@ Body.
 
 // SET-2: Codex plugin hooks emit at the documented hooks/hooks.json path with a
 // top-level "hooks" object. A canonical hooks/hooks.json is shared by both
-// targets.
+// targets. SET-687: Cursor's hooks differ, so they render under .cursor-plugin/.
 
-test("SET-2: divergent Claude and Codex hooks fail at the shared package path", async () => {
+test("SET-687: Claude and Codex share plugin hooks while Cursor renders its own", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -659,9 +659,13 @@ Body.
   const graph = await loadBuildGraph(root);
   expect(graph.warnings).toEqual([]);
 
-  await expect(buildSkillset(root)).rejects.toThrow(
-    "plugin alpha package path plugins/alpha/hooks/hooks.json has conflicting writers"
-  );
+  await buildSkillset(root);
+  const shared = JSON.parse(await readFile(join(root, "plugins/alpha/hooks/hooks.json"), "utf8"));
+  expect(shared.hooks.SessionStart).toHaveLength(1);
+  const cursor = JSON.parse(await readFile(join(root, "plugins/alpha/.cursor-plugin/hooks.json"), "utf8"));
+  expect(cursor).toMatchObject({ hooks: { sessionStart: [{ command: "./scripts/run.sh" }] }, version: 1 });
+  const cursorManifest = JSON.parse(await readFile(join(root, "plugins/alpha/.cursor-plugin/plugin.json"), "utf8"));
+  expect(cursorManifest.hooks).toBe("./.cursor-plugin/hooks.json");
 });
 
 test("SET-2: old root hooks.json is rejected for any enabled target", async () => {
@@ -6948,7 +6952,10 @@ Body.
   await expectFeatureDiagnosticError(buildSkillset(root), {
     code: "plugin-package-path-conflict",
     featureId: "plugin-packages",
-    path: "plugins/alpha/mcp.json",
+    message: expect.stringContaining(
+      "conflicting writers claude (from integrations/alpha-mcp.json) and claude (from .skillset/plugins/alpha/_claude/.mcp.json)"
+    ),
+    path: "plugins/alpha/.mcp.json",
   });
 });
 

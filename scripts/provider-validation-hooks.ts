@@ -47,11 +47,11 @@ export async function stageCursorHookConformanceInputs(
 
   const rendered = await renderBuildGraph(await loadBuildGraph(source));
   const hookFile = rendered.find(
-    ({ path }) => path === "plugins/hosted-hook/hooks/hooks.json"
+    ({ path }) => path === "plugins/hosted-hook/.cursor-plugin/hooks.json"
   );
   if (hookFile === undefined) {
     throw new Error(
-      "skillset: hosted Cursor hook conformance fixture did not render hooks/hooks.json"
+      "skillset: hosted Cursor hook conformance fixture did not render .cursor-plugin/hooks.json"
     );
   }
 

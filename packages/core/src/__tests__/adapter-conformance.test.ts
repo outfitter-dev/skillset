@@ -145,7 +145,7 @@ hooks:
         featureId: "adaptive-hooks",
         outputs: [
           expect.objectContaining({
-            path: "plugins/demo/hooks/hooks.json",
+            path: "plugins/demo/.cursor-plugin/hooks.json",
           }),
         ],
         reason:
@@ -191,7 +191,7 @@ skillset:
         featureId: "plugin-hooks",
         outputs: [
           expect.objectContaining({
-            path: "plugins/demo/hooks/hooks.json",
+            path: "plugins/demo/.cursor-plugin/hooks.json",
           }),
         ],
         sourceUnit: "plugin.demo.feature:hooks",

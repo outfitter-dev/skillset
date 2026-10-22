@@ -207,13 +207,13 @@ Run alpha checks.
     agents: "./agents/",
     commands: "./commands/",
     displayName: "Alpha Cursor",
-    hooks: "./hooks/hooks.json",
+    hooks: "./.cursor-plugin/hooks.json",
     name: "alpha",
     rules: "./rules/",
     skills: "./skills/",
   });
 
-  const hooks = JSON.parse(await readFile(join(root, "plugins/alpha/hooks/hooks.json"), "utf8")) as {
+  const hooks = JSON.parse(await readFile(join(root, "plugins/alpha/.cursor-plugin/hooks.json"), "utf8")) as {
     readonly hooks: Record<string, unknown>;
   };
   expect(Object.keys(hooks.hooks)).toEqual(["sessionStart"]);
@@ -259,7 +259,7 @@ skillset:
 
   await buildSkillset(root);
 
-  const hooks = JSON.parse(await readFile(join(root, "plugins/alpha/hooks/hooks.json"), "utf8")) as {
+  const hooks = JSON.parse(await readFile(join(root, "plugins/alpha/.cursor-plugin/hooks.json"), "utf8")) as {
     readonly hooks: Record<string, unknown>;
   };
   expect(Object.keys(hooks.hooks)).toEqual(["sessionStart"]);

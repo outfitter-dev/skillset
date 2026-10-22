@@ -245,21 +245,62 @@ cursor:
     );
   });
 
-  it("rejects incompatible same-package writers before write", async () => {
-    const root = await fixture("");
-    const hooksPath = join(
-      root,
-      ".skillset/plugins/demo/hooks/hooks.json"
-    );
-    await mkdir(dirname(hooksPath), { recursive: true });
-    await Bun.write(
-      hooksPath,
-      JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ command: "echo check", type: "command" }] }] } })
-    );
-    await expect(buildSkillsetResult(root)).rejects.toThrow(
-      "plugin demo package path plugins/demo/hooks/hooks.json has conflicting writers"
-    );
-  });
+  // SET-687: Cursor's MCP and hooks bytes differ from the Agent Plugins
+  // mcp.json and the Claude/Codex hooks/hooks.json, so Cursor renders them in
+  // its own metadata directory and points its manifest there.
+  for (const targets of [
+    ["claude", "codex", "cursor"],
+    ["claude", "cursor"],
+    ["codex", "cursor"],
+    ["cursor"],
+  ] as const) {
+    it(`builds plugin MCP and hooks with targets ${targets.join(", ")}`, async () => {
+      const root = await fixture("");
+      await Bun.write(
+        join(root, "skillset.yaml"),
+        `skillset:
+  name: shared-plugin-skill
+  license: none
+compile:
+  targets: [${targets.join(", ")}]
+  unsupportedDestination: warn
+`
+      );
+      const hooksPath = join(root, ".skillset/plugins/demo/hooks/hooks.json");
+      await mkdir(dirname(hooksPath), { recursive: true });
+      await Bun.write(
+        hooksPath,
+        JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ command: "echo check", type: "command" }] }] } })
+      );
+      await Bun.write(
+        join(root, ".skillset/plugins/demo/.mcp.json"),
+        JSON.stringify({ mcpServers: { review: { args: ["x.js"], command: "node" } } })
+      );
+
+      const result = await buildSkillsetResult(root);
+      const byPath = new Map(result.data.map((file) => [file.path, file]));
+      const json = (path: string): unknown => {
+        const file = byPath.get(path);
+        if (file === undefined) throw new Error(`missing ${path}`);
+        return JSON.parse(new TextDecoder().decode(file.content));
+      };
+      expect(json("plugins/demo/.cursor-plugin/plugin.json")).toMatchObject({
+        hooks: "./.cursor-plugin/hooks.json",
+        mcpServers: "./.cursor-plugin/mcp.json",
+      });
+      expect(json("plugins/demo/.cursor-plugin/hooks.json")).toEqual({
+        hooks: { preToolUse: [{ command: "echo check", type: "command" }] },
+        version: 1,
+      });
+      expect(json("plugins/demo/.cursor-plugin/mcp.json")).toEqual({
+        mcpServers: { review: { args: ["x.js"], command: "node", type: "stdio" } },
+      });
+      expect(json("plugins/demo/mcp.json")).toMatchObject({
+        mcpServers: { review: { command: "node" } },
+      });
+      expect(byPath.has("plugins/demo/hooks/hooks.json")).toBe(targets.length > 1);
+    });
+  }
 
   it("coalesces identical target hook bytes into one package file", async () => {
     const root = await fixture("");
