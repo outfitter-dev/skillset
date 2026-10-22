@@ -7,7 +7,7 @@ import { initializeTestGitRepository } from "../../../../scripts/test-helpers/gi
 
 import type { ChangeLedgerEvent } from "@skillset/core/internal/change-ledger";
 
-import { changeCheck, movedAwaySourceChanges, readPendingChangeEntries } from "../change-entries";
+import { changeCheck, movedAwaySourceChanges, readPendingChangeEntries, uncoveredSourceChanges } from "../change-entries";
 import { planRelease } from "../release";
 import { addChangeEntry, migratePendingChangeEntries, readAppliedChangeRecords, refreshChangeEvidence } from "../change-workflow";
 
@@ -265,6 +265,19 @@ describe("source move identity epochs", () => {
         { id: "skill:demo", status: "removed" },
       ];
       expect(movedAwaySourceChanges(changes, ["plugin.a.skill:demo"], events)).toEqual([]);
+    });
+
+    test("a moved-away plugin skill also covers its source plugin aggregate", () => {
+      for (const [from, to] of [["plugin.a.skill:demo", "skill:demo"], ["plugin.a.skill:demo", "plugin.b.skill:demo"]] as const) {
+        const events = [move(from, to)];
+        const changes = [
+          { id: from, status: "removed" },
+          { id: to, status: "added" },
+          { id: "plugin:a", status: "changed" },
+          ...(to.startsWith("plugin.b.") ? [{ id: "plugin:b", status: "changed" }] : []),
+        ];
+        expect(uncoveredSourceChanges(changes, [to], events)).toEqual([]);
+      }
     });
 
     test("follows a chain of moves inside the window", () => {

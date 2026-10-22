@@ -185,16 +185,19 @@ async function validateChangeCheck(
 
 /**
  * Source changes no scope covers. A scope also covers its owning plugin and
- * any removed selector the ledger records as moved to it: a move reports the
- * old selector removed and the new one added, and the pending reason follows.
+ * any removed selector the ledger records as moved to it, plus that removed
+ * selector's owning plugin: a move reports the old selector removed and the new
+ * one added, and the pending reason follows.
  */
-export function uncoveredSourceChanges(
-  changes: readonly SourceUnitChange[],
+export function uncoveredSourceChanges<Change extends { readonly id: string; readonly status: string }>(
+  changes: readonly Change[],
   scopes: readonly string[],
   events: readonly ChangeLedgerEvent[]
-): readonly SourceUnitChange[] {
-  const covered = new Set(movedAwaySourceChanges(changes, scopes, events).map((change) => change.id));
-  for (const scope of scopes) {
+): readonly Change[] {
+  const movedAway = movedAwaySourceChanges(changes, scopes, events).map((change) => change.id);
+  const covered = new Set<string>();
+  // A moved-away plugin skill also leaves its source plugin's aggregate changed.
+  for (const scope of [...scopes, ...movedAway]) {
     covered.add(scope);
     const pluginScope = pluginScopeFromSourceUnit(scope);
     if (pluginScope !== undefined) covered.add(pluginScope);
