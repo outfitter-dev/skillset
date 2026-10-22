@@ -218,7 +218,12 @@ export async function renderAgentSkillStandardMarkdown(
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
   const resources = resourcePlanner.resources();
-  const notice = renderPromptArgumentsNotice(body);
+  // Only the Agent Skills baseline carries the replacement notice. Plugin
+  // packages share one SKILL.md, and Cursor preserves the marker as written.
+  const notice =
+    standardProfile === "agent-skills"
+      ? renderPromptArgumentsNotice(body)
+      : undefined;
   const linkedBody = rewriteResourceLinks(body, resources, skill.sourcePath);
   const content = renderValidatedMarkdown(
     classification.frontmatter,
