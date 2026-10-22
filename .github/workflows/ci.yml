@@ -11,10 +11,13 @@
 # - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if
 #   branch protection requires checks on the fixed commit, push with a PAT instead.
 # - The comment step prefers gh >= 2.68 (--create-if-none) and falls back to a new comment.
+# - merge_group runs the required checks on the merge queue's candidate commit,
+#   read-only like push: no --fix, no mechanical-fix push, no PR comment.
 name: CI
 
 on:
   pull_request:
+  merge_group:
   workflow_dispatch: {}
   push:
     branches: [main]
