@@ -47,4 +47,6 @@ Do not open a public issue for a suspected vulnerability. Follow the private rep
 
 Use a Conventional Commit-style title. Explain the context, what changed, how you verified it, and any risks or rollout notes. Keep the pull request in draft until CI is green, and resolve every review thread before marking it ready.
 
+Use plain git for a single branch. For stacked work, use [`gh stack`](https://github.com/github/gh-stack) (`gh extension install github/gh-stack`). Update a branch by restacking it onto trunk with `gh stack rebase` or `gh stack sync`, or `git rebase` for a single branch. Do not merge trunk into a branch: `bun run change-stream:guard` rejects the result.
+
 By contributing, you agree that your contribution is licensed under the repository's [MIT License](LICENSE).
