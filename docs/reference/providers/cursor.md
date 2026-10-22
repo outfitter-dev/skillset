@@ -10,7 +10,7 @@ Cursor is a first-class Skillset [target](../../glossary.md#target), not a Claud
 
 ## Provider Shape
 
-Skillset [renders](../../glossary.md#render) project skills under `.cursor/skills/`, [adaptive rules](../features/rules.md) as `.cursor/rules/**/*.mdc`, project agents under `.cursor/agents/`, and plugin bundles with a native `.cursor-plugin/plugin.json` manifest as [generated output](../../glossary.md#generated-output). Cursor plugin output can include rules, skills, agents, commands, hooks, and MCP configuration. Marketplace source can render a Cursor-owned `.cursor-plugin/marketplace.json` index after explicit readiness checks and update confirmation.
+Skillset [renders](../../glossary.md#render) project skills under `.cursor/skills/`, [adaptive rules](../features/rules.md) as `.cursor/rules/**/*.mdc` with globs derived from each rule's directory and `paths` (unescaped, since Cursor documents no escape for `[`, `]`, `(` or `)`), project agents under `.cursor/agents/`, and plugin bundles with a native `.cursor-plugin/plugin.json` manifest as [generated output](../../glossary.md#generated-output). Cursor plugin output can include rules, skills, agents, commands, hooks, and MCP configuration. Marketplace source can render a Cursor-owned `.cursor-plugin/marketplace.json` index after explicit readiness checks and update confirmation.
 
 Cursor has no verified project SessionStart hook destination, so Skillset does not invent one. When Cursor is enabled, `compile.session_start_hook: auto` still checks whether its project skill output root is gitignored before enabling the Claude and Codex advisory entries. This does not change Cursor's separate plugin-hook support.
 

@@ -3788,7 +3788,7 @@ Draft body.
   version: 0.2.0`);
 });
 
-test("rules emit Claude rules and path-derived Codex AGENTS files", async () => {
+test("rules emit Claude rules and scope-derived Codex AGENTS files", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -3803,7 +3803,7 @@ title: Docs Writing
 summary: Source-only summary.
 version: 0.2.0
 paths:
-  - docs/**/*.md
+  - "**/*.md"
 skillset:
   name: docs-writing
 ---
@@ -3815,7 +3815,7 @@ skillset:
 - Output dir: {{skillset.output_dir}}
 - Source rule: {{skillset.source_rule}}
 `,
-    ".skillset/rules/typescript.md": `
+    ".skillset/rules/src/typescript.md": `
 ---
 paths:
   - "**/*.ts"

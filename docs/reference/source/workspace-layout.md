@@ -59,7 +59,7 @@ Use the [project configuration guide](../../configuration/project-configuration.
 | --- | --- |
 | `.skillset/skills/<skill>/` | Standalone skills and their skill-local support files. |
 | `.skillset/RULES.md` | Unscoped rule front page for root `AGENTS.md` and Claude's `.claude/CLAUDE.md`. |
-| `.skillset/rules/**/*.md` | Durable portable project rules. |
+| `.skillset/rules/**/*.md` | Durable portable project rules; a rule's directory is the repository directory it governs. |
 | `.skillset/subagents/*.md` | Portable project-agent definitions. |
 | `.skillset/hooks/` | Adaptive project hook definitions. |
 | `.skillset/plugins/<plugin>/` | Plugin-scoped source, including skills and native companion material. |
