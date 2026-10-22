@@ -10,32 +10,22 @@ import {
   type ChangeGroup,
   type PendingChangeEntry,
 } from "./change-entries";
-import { readChangeLedger, type ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
+import { readAppliedChangeRecords as readCoreAppliedChangeRecords, type AppliedChangeRecord } from "@skillset/core/internal/change-history";
+import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
 import { nextJsonlTimestampForPaths } from "@skillset/core/internal/change-ledger-write";
 import { changeStatus, detectWorkspaceOptions, SOURCE_HASH_SCHEMA, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { CliUsageError } from "./cli-output";
-import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
-import { currentSourceHashEvidence, currentSourceIdentities, sourceIdentityMappings, sourceMappingsAfterCursor } from "@skillset/core/internal/source-identity-mapping";
 import {
-  historicalRuleSelector,
   retiredRuleSelectorMessage,
-  selectorForPluginCompanion,
-  selectorForPluginConfig,
-  selectorForPluginFeature,
-  selectorForPluginSkill,
-  selectorForProjectAgent,
-  selectorForRootConfig,
-  selectorForStandaloneSkill,
-  selectorForTargetNativeIsland,
   sourceUnitDisplay,
   sourceUnitSelector,
 } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "@skillset/core/internal/types";
 import { workspaceChangeFile, workspaceChangesDir } from "@skillset/core";
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
-import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
+import { parseMarkdown } from "@skillset/core/internal/yaml";
 import {
   withChangeLedgerMutation,
   type ChangeLedgerLockOptions,
@@ -165,18 +155,6 @@ export interface ChangeMigrationReport {
 
 export type { ChangeIgnoreOptions, ChangeIgnoreReport } from "./change-ignore";
 
-export interface AppliedChangeRecord {
-  readonly bump?: ChangeBump;
-  readonly group?: ChangeGroup;
-  readonly id: string;
-  readonly ignored: boolean;
-  readonly path: string;
-  readonly reason: string;
-  readonly scopes: readonly string[];
-  readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
-}
-
-const HISTORY_FILE = "history.jsonl";
 const AMENDMENTS_FILE = "amendments.jsonl";
 const MIN_REF_LENGTH = 6;
 
@@ -741,15 +719,7 @@ function pendingView(entry: PendingChangeEntry, refs: ReadonlyMap<string, string
   };
 }
 
-interface HistoryEntry extends AppliedChangeRecord {
-  readonly bump?: ChangeBump;
-  readonly group?: ChangeGroup;
-  readonly id: string;
-  readonly path: string;
-  readonly reason: string;
-  readonly scopes: readonly string[];
-  readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
-}
+type HistoryEntry = AppliedChangeRecord;
 
 function historyView(entry: HistoryEntry, refs: ReadonlyMap<string, string>): ChangeEntryView {
   return {
@@ -766,82 +736,9 @@ function historyView(entry: HistoryEntry, refs: ReadonlyMap<string, string>): Ch
   };
 }
 
-async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions = {}): Promise<readonly HistoryEntry[]> {
-  const path = workspaceChangeFile(options.sourceDir, HISTORY_FILE);
-  const absolutePath = resolveInside(rootPath, path);
-  if (!(await exists(absolutePath))) return [];
-  const mappings = sourceIdentityMappings(await readChangeLedger(rootPath, options));
-  const entries: HistoryEntry[] = [];
-  const lines = (await readFile(absolutePath, "utf8")).split("\n");
-  for (const [index, line] of lines.entries()) {
-    if (line.trim().length === 0) continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line) as unknown;
-    } catch {
-      throw new Error(`skillset: invalid JSON in ${path}:${index + 1}`);
-    }
-    if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
-    const id = readString(parsed, "id");
-    if (id === undefined) continue;
-    const cursor = parsed.sourceMoveCursor;
-    if (cursor !== undefined && cursor !== null && typeof cursor !== "string") {
-      throw new Error(`skillset: ${path}:${index + 1} sourceMoveCursor must be a string or null`);
-    }
-    const recordMappings = sourceMappingsAfterCursor(mappings, cursor);
-    const historicalScopes = readHistoryScopes(parsed);
-    const scopes = currentSourceIdentities(historicalScopes, recordMappings);
-    const bump = readHistoryBump(parsed.bump);
-    const group = readHistoryGroup(parsed.group);
-    entries.push({
-      ...(bump === undefined ? {} : { bump }),
-      ...(group === undefined ? {} : { group }),
-      id,
-      ignored: parsed.ignored === true,
-      path: `${path}:${index + 1}`,
-      reason: readString(parsed, "reason") ?? readString(parsed, "body") ?? "",
-      scopes,
-      sourceHashes: currentSourceHashEvidence(readHistoryEvidence(parsed.evidence, historicalScopes), recordMappings),
-    });
-  }
-  const amended = await applyHistoryAmendments(rootPath, options.sourceDir, entries);
-  return [...amended].sort((left, right) => compareStrings(left.id, right.id));
-}
-
-async function applyHistoryAmendments(
-  rootPath: string,
-  sourceDir: string | undefined,
-  entries: readonly HistoryEntry[]
-): Promise<readonly HistoryEntry[]> {
-  const amendments = await readHistoryAmendments(rootPath, sourceDir);
-  if (amendments.size === 0) return entries;
-  return entries.map((entry) => {
-    const amendment = amendments.get(entry.id);
-    return amendment === undefined ? entry : { ...entry, reason: amendment.reason };
-  });
-}
-
-async function readHistoryAmendments(rootPath: string, sourceDir: string | undefined): Promise<ReadonlyMap<string, { readonly reason: string }>> {
-  const path = workspaceChangeFile(sourceDir, AMENDMENTS_FILE);
-  const absolutePath = resolveInside(rootPath, path);
-  if (!(await exists(absolutePath))) return new Map();
-  const amendments = new Map<string, { readonly reason: string }>();
-  const lines = (await readFile(absolutePath, "utf8")).split("\n");
-  for (const [index, line] of lines.entries()) {
-    if (line.trim().length === 0) continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line) as unknown;
-    } catch {
-      throw new Error(`skillset: invalid JSON in ${path}:${index + 1}`);
-    }
-    if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
-    const id = readString(parsed, "id");
-    const reason = readString(parsed, "reason");
-    if (id === undefined || reason === undefined) continue;
-    amendments.set(id, { reason });
-  }
-  return amendments;
+/** Applied history comes from Core's single reader; refs and views stay here. */
+function readHistoryEntries(rootPath: string, options: ChangeStatusOptions = {}): Promise<readonly HistoryEntry[]> {
+  return readCoreAppliedChangeRecords(rootPath, options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir });
 }
 
 async function readAllChangeEntries(rootPath: string, options: ChangeStatusOptions): Promise<readonly { readonly id: string }[]> {
@@ -931,84 +828,6 @@ function refIndex(
     refs.set(id, `@${id.slice(0, length)}`);
   }
   return refs;
-}
-
-function readHistoryScopes(record: JsonRecord): readonly string[] {
-  const values: string[] = [];
-  const scope = record.scope;
-  const scopes = record.scopes;
-  if (typeof scope === "string") values.push(scope);
-  if (Array.isArray(scopes)) {
-    for (const item of scopes) {
-      if (typeof item === "string") values.push(item);
-    }
-  }
-  return [...new Set(values.map(historicalSourceUnitSelector))].sort(compareStrings);
-}
-
-function readHistoryBump(value: JsonValue | undefined): ChangeBump | undefined {
-  return value === "major" || value === "minor" || value === "none" || value === "patch" ? value : undefined;
-}
-
-function readHistoryGroup(value: JsonValue | undefined): ChangeGroup | undefined {
-  if (typeof value === "string") return { id: value };
-  if (!isJsonRecord(value)) return undefined;
-  const id = readString(value, "id");
-  const provider = readString(value, "provider");
-  return id === undefined ? undefined : { id, ...(provider === undefined ? {} : { provider }) };
-}
-
-function readHistoryEvidence(raw: JsonValue | undefined, scopes: readonly string[]): ReadonlyMap<string, readonly string[]> {
-  const evidence = new Map<string, string[]>();
-  const add = (scope: string | undefined, hash: string | undefined): void => {
-    if (scope === undefined || hash === undefined) return;
-    const normalizedScope = historicalSourceUnitSelector(scope);
-    const current = evidence.get(normalizedScope) ?? [];
-    current.push(hash);
-    evidence.set(normalizedScope, current);
-  };
-  const singleScope = scopes.length === 1 ? scopes[0] : undefined;
-  if (!Array.isArray(raw)) return evidence;
-  for (const item of raw) {
-    if (!isJsonRecord(item)) continue;
-    add(readString(item, "scope") ?? singleScope, readString(item, "sourceHash") ?? readString(item, "hash") ?? readString(item, "currentHash"));
-  }
-  return evidence;
-}
-
-// Applied history is append-only, so records written before the SET-53 selector
-// cutover keep their original scope strings. Normalize only while reading
-// history; pending/current change scopes remain strict via sourceUnitSelector.
-function historicalSourceUnitSelector(raw: string): string {
-  if (raw === "root-config") return selectorForRootConfig();
-  if (raw.startsWith("standalone-skill:")) return selectorForStandaloneSkill(raw.slice("standalone-skill:".length));
-  if (raw.startsWith("project-agent:")) return selectorForProjectAgent(raw.slice("project-agent:".length));
-  const rule = historicalRuleSelector(raw);
-  if (rule !== undefined) return rule;
-  if (raw.startsWith("plugin-config:")) return selectorForPluginConfig(raw.slice("plugin-config:".length));
-  if (raw.startsWith("plugin-skill:")) {
-    const [pluginId, skillId] = raw.slice("plugin-skill:".length).split("/");
-    if (pluginId !== undefined && skillId !== undefined) return selectorForPluginSkill(pluginId, skillId);
-  }
-  if (raw.startsWith("plugin-feature:")) {
-    const [pluginId, featureKey] = raw.slice("plugin-feature:".length).split("/");
-    if (pluginId !== undefined && featureKey !== undefined) return selectorForPluginFeature(pluginId, featureKey);
-  }
-  if (raw.startsWith("plugin-companion:")) {
-    const [pluginId, ...pathParts] = raw.slice("plugin-companion:".length).split("/");
-    const companionPath = pathParts.join("/");
-    if (pluginId !== undefined && companionPath.length > 0) return selectorForPluginCompanion(pluginId, companionPath);
-  }
-  if (raw.startsWith("target-native-island:")) {
-    const [target, ownerKind, ownerIdOrPath, ...pathParts] = raw.slice("target-native-island:".length).split(":");
-    if (target === undefined || ownerKind === undefined || ownerIdOrPath === undefined) return raw;
-    if (ownerKind === "project") return selectorForTargetNativeIsland(target, "project", [ownerIdOrPath, ...pathParts].join(":"));
-    if (ownerKind === "plugin") {
-      const relativePath = pathParts.join(":");
-      if (relativePath.length > 0) return selectorForTargetNativeIsland(target, `plugin:${ownerIdOrPath}`, relativePath);
-    }
-  }
-  return sourceUnitSelector(raw);
 }
 
 async function exists(path: string): Promise<boolean> {
