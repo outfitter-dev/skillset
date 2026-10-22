@@ -1,5 +1,7 @@
 # Derive/Render Terminology Cutover Plan
 
+> **Disposition: completed and archived, 2026-10-22.** The cutover merged and `bun run terminology:guard` now enforces it. Commands and doc paths below are historical.
+
 ## Objective
 
 Complete the derive/render/destination terminology cutover as a focused stacked branch push. The work should remove old vocabulary from active code, schemas, config, CLI/help output, docs, generated Skillset guidance, fixtures, and tests where it is not intentionally historical, while preserving behavior until the deliberate config/data-model changes land.

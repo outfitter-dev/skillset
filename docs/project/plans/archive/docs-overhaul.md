@@ -4,7 +4,7 @@ description: Records the completed Skillset documentation overhaul, its delivere
 
 # Skillset documentation overhaul
 
-> **Disposition: completed and archived, 2026-08-10.** The overhaul shipped as an 11-PR Graphite stack. Every PR is ready for review with its exact-head Changeset, aggregate, and self-hosted Skillset checks green; no review threads remain open. The stack is intentionally unmerged and unqueued.
+> **Disposition: completed and archived, 2026-08-10.** The overhaul shipped as an 11-PR Graphite stack (#399–#409), merged on 2026-08-11 with its exact-head Changeset, aggregate, and self-hosted Skillset checks green.
 
 ## Delivered stack
 

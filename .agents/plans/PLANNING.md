@@ -10,7 +10,7 @@ Default packet location:
 `.agents/plans/{YYYY-MM-DD-slug}/`
 
 Archive location:
-`.agents/plans/archive/`
+`.agents/plans/archive/` (indexed by its `README.md`)
 
 ## Tracker
 
@@ -45,6 +45,9 @@ Plan packet commit policy:
 Archive before merge:
 - Move completed packets to `.agents/plans/archive/` before merge readiness when
   a merge flow exists.
+- Add a disposition banner (completed, abandoned, or superseded) under the H1 of
+  the archived `PLAN.md` and `GOAL.md`, list the packet in the archive
+  `README.md`, and leave the historical body unchanged.
 
 Retro policy:
 - `RETRO.md` is the durable ledger and must be updated after meaningful design,
@@ -89,9 +92,9 @@ Required gates:
 - `bun run check`
 
 Common narrow gates:
-- `bun test`
+- `bun run test:focused -- <paths>` (not bare `bun test`, which skips the test
+  sandbox)
 - `bun run typecheck`
-- `bun run skillset:lint`
 - `bun run skillset:check`
 - `git diff --check`
 

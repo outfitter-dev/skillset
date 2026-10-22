@@ -16,6 +16,15 @@ is the sole authority for work status, sequencing, dependencies, detailed
 implementation briefs, and acceptance evidence. Nothing here claims that a
 decision is implemented merely because it is recorded.
 
+> **Status note, 2026-10-22.** This record stays active: the Linear project is
+> still in progress. Skillset now ships on the stable npm `latest` 0.x line, and
+> the public plugin still ships the single `use-skillset` skill, so the Section
+> 07 family is the direction, not the shipped surface. The Section 04 `doctor`
+> reservation stands while
+> [SET-479](https://linear.app/outfitter/issue/SET-479/skillset-doctor-read-only-machine-state-inspection)
+> is open; until it ships, `doctor` stays on the CLI's retired-command list and
+> no documentation describes it as available.
+
 Keep this as one canonical record with stable numbered sections. Write a
 selective supporting design document only when a consequential decision needs
 durable detail beyond its implementation brief; use an ADR when the decision
@@ -281,6 +290,8 @@ more useful than a simple command-exists test.
 ## 07 — End-user Skillset skill family
 
 ### Decision
+
+> Current shipped surface (2026-10-22): the single `use-skillset` skill.
 
 Replace the comprehensive `use-skillset` skill with an action-oriented public
 family:

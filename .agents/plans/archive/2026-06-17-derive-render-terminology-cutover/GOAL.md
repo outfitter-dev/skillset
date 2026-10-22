@@ -1,5 +1,7 @@
 # Goal Prompt
 
+> **Disposition: completed and archived, 2026-10-22.** The cutover merged and `bun run terminology:guard` now enforces it. Commands and doc paths below are historical.
+
 ````text
 Work in /Users/mg/Developer/outfitter/skillset. Execute the terminology cutover stack in .agents/plans/2026-06-17-derive-render-terminology-cutover/PLAN.md. Objective: complete SET-122/123/124/125/126 so active Skillset code, schemas, config, CLI/help, docs, tests, fixtures, generated guidance, and self-hosted output consistently use derive/render/build, target vs destination, render result, and unsupported destination policy. This tees up the hooks sprint without old naming debt.
 
