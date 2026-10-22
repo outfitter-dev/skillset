@@ -38,6 +38,7 @@ import { AGENT_SKILLS_FRONTMATTER_KEYS } from "./render-agent-skills-standard";
 import type { SkillsetRenderResult } from "./render-result";
 import type { JsonRecord, JsonValue, RenderedFile, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT, isLegacyCodexPluginManifestPath, isTargetMarketplacePath, isTargetPluginManifestPath, LEGACY_CHATGPT_BUNDLE_SEGMENT } from "./plugin-output";
 
 const textDecoder = new TextDecoder();
 
@@ -145,10 +146,10 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (isChatGptMarketplacePath(file.path)) return true;
   if (isClaudeMarketplacePath(file.path)) return true;
   if (isCursorMarketplacePath(file.path)) return true;
-  if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
-  if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
+  if (isTargetPluginManifestPath(file.path, "claude")) return true;
+  if (isLegacyCodexPluginManifestPath(file.path)) return true;
   if (isSharedPluginRootManifestPath(file.path)) return true;
-  if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
+  if (isTargetPluginManifestPath(file.path, "cursor")) return true;
   if (isClaudeHookPath(file.path)) return true;
   if (isCodexHookPath(file.path)) return true;
   if (isCursorHookPath(file.path)) return true;
@@ -173,10 +174,10 @@ function checkProviderFormatConformanceFile(
   if (isCursorMarketplacePath(file.path)) {
     return checkCursorMarketplace(file);
   }
-  if (file.path.endsWith("/.claude-plugin/plugin.json")) {
+  if (isTargetPluginManifestPath(file.path, "claude")) {
     return checkClaudePluginManifest(file);
   }
-  if (file.path.endsWith("/.codex-plugin/plugin.json")) {
+  if (isLegacyCodexPluginManifestPath(file.path)) {
     return checkCodexPluginManifest(file);
   }
   if (isChatGptPluginManifest(file)) {
@@ -189,7 +190,7 @@ function checkProviderFormatConformanceFile(
     isChatGptFixedComponent(file.path) &&
     file.standardProfile !== "agent-skills"
   ) return [];
-  if (file.path.endsWith("/.cursor-plugin/plugin.json")) {
+  if (isTargetPluginManifestPath(file.path, "cursor")) {
     return checkCursorPluginManifest(file);
   }
   if (isClaudeHookFile(file)) {
@@ -1094,17 +1095,11 @@ function checkAuthorObject(
 }
 
 function isCursorMarketplacePath(path: string): boolean {
-  return (
-    path === ".cursor-plugin/marketplace.json" ||
-    path.endsWith("/.cursor-plugin/marketplace.json")
-  );
+  return isTargetMarketplacePath(path, "cursor");
 }
 
 function isChatGptMarketplacePath(path: string): boolean {
-  return (
-    path === ".agents/plugins/marketplace.json" ||
-    path.endsWith("/.agents/plugins/marketplace.json")
-  );
+  return isTargetMarketplacePath(path, "codex");
 }
 
 function pluginManifestFormat(id: "claude-plugin" | "codex-plugin" | "cursor-plugin"): {
@@ -1242,7 +1237,7 @@ function hasChatGptPluginSegment(path: string): boolean {
   const parts = path.split("/");
   return parts.some(
     (segment, index) =>
-      segment === "plugins" && parts[index + 2] === "chatgpt"
+      segment === DEFAULT_PLUGIN_OUTPUT_ROOT && parts[index + 2] === LEGACY_CHATGPT_BUNDLE_SEGMENT
   );
 }
 
@@ -1316,7 +1311,7 @@ function skillTarget(path: string): TargetName | undefined {
 function hasPluginTargetSegment(path: string, target: TargetName): boolean {
   const parts = path.split("/");
   for (let index = 0; index < parts.length - 2; index += 1) {
-    if (parts[index] === "plugins" && parts[index + 2] === target) return true;
+    if (parts[index] === DEFAULT_PLUGIN_OUTPUT_ROOT && parts[index + 2] === target) return true;
   }
   return false;
 }

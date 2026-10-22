@@ -92,19 +92,51 @@ export function chatGptMarketplacePath(): string {
   return ".agents/plugins/marketplace.json";
 }
 
+const PLUGIN_MANIFEST_FILE = "plugin.json";
+const PLUGIN_MARKETPLACE_FILE = "marketplace.json";
+
 /**
- * Whether a path is a provider marketplace catalog a build can write: each
- * target's `<manifest dir>/marketplace.json` at the root or below a custom
- * output root, plus the fixed ChatGPT catalog path.
+ * Legacy Codex manifest location, read only as adoption input and validated
+ * when present; builds write the Codex manifest at the package root.
  */
+export const LEGACY_CODEX_PLUGIN_MANIFEST = ".codex-plugin/plugin.json";
+
+/** Legacy per-target bundle directory that held ChatGPT manifests before the shared package root. */
+export const LEGACY_CHATGPT_BUNDLE_SEGMENT = "chatgpt";
+
+function isRelativeFile(path: string, file: string): boolean {
+  return path === file || path.endsWith(`/${file}`);
+}
+
+/** Whether a path is a target's dot-directory plugin manifest (`.claude-plugin/plugin.json`, …). */
+export function isTargetPluginManifestPath(path: string, target: TargetName): boolean {
+  const directory = pluginManifestDirectory(target);
+  return directory !== "" && isRelativeFile(path, `${directory}/${PLUGIN_MANIFEST_FILE}`);
+}
+
+/** Whether a path is the legacy `.codex-plugin/plugin.json` manifest. */
+export function isLegacyCodexPluginManifestPath(path: string): boolean {
+  return isRelativeFile(path, LEGACY_CODEX_PLUGIN_MANIFEST);
+}
+
+/** Whether a path is a legacy `chatgpt/plugin.json` bundle manifest. */
+export function isLegacyChatGptManifestPath(path: string): boolean {
+  return isRelativeFile(path, `${LEGACY_CHATGPT_BUNDLE_SEGMENT}/${PLUGIN_MANIFEST_FILE}`);
+}
+
+/**
+ * Whether a path is a target's marketplace catalog: `<manifest dir>/marketplace.json`
+ * at the root or below a custom output root, or the fixed ChatGPT catalog for Codex.
+ */
+export function isTargetMarketplacePath(path: string, target: TargetName): boolean {
+  const directory = pluginManifestDirectory(target);
+  if (directory === "") return isRelativeFile(path, chatGptMarketplacePath());
+  return isRelativeFile(path, `${directory}/${PLUGIN_MARKETPLACE_FILE}`);
+}
+
+/** Whether a path is any provider marketplace catalog a build can write. */
 export function isProviderMarketplaceOutputPath(path: string): boolean {
-  if (path === chatGptMarketplacePath()) return true;
-  return targetNames().some((target) => {
-    const directory = pluginManifestDirectory(target);
-    if (directory === "") return false;
-    const catalog = `${directory}/marketplace.json`;
-    return path === catalog || path.endsWith(`/${catalog}`);
-  });
+  return targetNames().some((target) => isTargetMarketplacePath(path, target));
 }
 
 export function providerSourceForPlugin(

@@ -1,6 +1,12 @@
 import { basename } from "node:path";
 
 import { compareStrings } from "./path";
+import {
+  isLegacyChatGptManifestPath,
+  isLegacyCodexPluginManifestPath,
+  isTargetMarketplacePath,
+  isTargetPluginManifestPath,
+} from "./plugin-output";
 import type { TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
@@ -49,50 +55,43 @@ export function classifyDestinationOwnership(args: {
   return { fields, file };
 }
 
+type OwnedManifestKind =
+  | "chatgpt-catalog"
+  | "chatgpt-manifest"
+  | "claude-catalog"
+  | "claude-manifest"
+  | "codex-legacy-manifest";
+
+/** The one classifier both file and field ownership consult, so they cannot drift apart. */
+function ownedManifestKind(
+  path: string,
+  target: TargetName,
+  chatGptManifest: boolean
+): OwnedManifestKind | undefined {
+  if (target === "codex" && isTargetMarketplacePath(path, "codex")) return "chatgpt-catalog";
+  if (chatGptManifest || isLegacyChatGptManifestPath(path)) return "chatgpt-manifest";
+  if (isLegacyCodexPluginManifestPath(path)) return "codex-legacy-manifest";
+  if (isTargetPluginManifestPath(path, "claude")) return "claude-manifest";
+  if (target === "claude" && isTargetMarketplacePath(path, "claude")) return "claude-catalog";
+  return undefined;
+}
+
+const OWNED_FILE_REASONS: Readonly<Record<OwnedManifestKind, string>> = {
+  "chatgpt-catalog": "ChatGPT marketplace catalogs are generated from the typed Skillset marketplace contract.",
+  "chatgpt-manifest": "ChatGPT Agent Plugins root manifests are generated from portable Skillset source.",
+  "claude-catalog": "Claude marketplace indexes are generated from the source plugin set.",
+  "claude-manifest": "Claude plugin manifests are generated from Skillset source.",
+  "codex-legacy-manifest": "Codex plugin manifests are generated from Skillset source, while selected metadata fields may be destination-owned.",
+};
+
 function classifyFileOwnership(
   path: string,
   target: TargetName,
   chatGptManifest: boolean
 ): DestinationOwnershipEntry {
-  if (
-    target === "codex" &&
-    (path.endsWith("/.agents/plugins/marketplace.json") ||
-      path === ".agents/plugins/marketplace.json")
-  ) {
-    return {
-      owner: "generated",
-      reason:
-        "ChatGPT marketplace catalogs are generated from the typed Skillset marketplace contract.",
-      selector: path,
-    };
-  }
-  if (chatGptManifest || path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
-    return {
-      owner: "generated",
-      reason: "ChatGPT Agent Plugins root manifests are generated from portable Skillset source.",
-      selector: path,
-    };
-  }
-  if (path.endsWith("/.codex-plugin/plugin.json") || path === ".codex-plugin/plugin.json") {
-    return {
-      owner: "generated",
-      reason: "Codex plugin manifests are generated from Skillset source, while selected metadata fields may be destination-owned.",
-      selector: path,
-    };
-  }
-  if (path.endsWith("/.claude-plugin/plugin.json") || path === ".claude-plugin/plugin.json") {
-    return {
-      owner: "generated",
-      reason: "Claude plugin manifests are generated from Skillset source.",
-      selector: path,
-    };
-  }
-  if (target === "claude" && (path.endsWith("/.claude-plugin/marketplace.json") || path === ".claude-plugin/marketplace.json")) {
-    return {
-      owner: "generated",
-      reason: "Claude marketplace indexes are generated from the source plugin set.",
-      selector: path,
-    };
+  const kind = ownedManifestKind(path, target, chatGptManifest);
+  if (kind !== undefined) {
+    return { owner: "generated", reason: OWNED_FILE_REASONS[kind], selector: path };
   }
   return {
     owner: "source-owned",
@@ -107,7 +106,8 @@ function classifyFieldOwnership(
   content: Uint8Array,
   chatGptManifest: boolean
 ): readonly DestinationOwnershipEntry[] {
-  if (!path.endsWith("plugin.json") && !path.endsWith("marketplace.json")) return [];
+  const kind = ownedManifestKind(path, target, chatGptManifest);
+  if (kind === undefined) return [];
   let record;
   try {
     const parsed = JSON.parse(textDecoder.decode(content)) as unknown;
@@ -116,37 +116,30 @@ function classifyFieldOwnership(
   } catch {
     return [];
   }
-  if (chatGptManifest || path.endsWith("/chatgpt/plugin.json") || path === "chatgpt/plugin.json") {
-    return Object.keys(record).sort(compareStrings).map((key) => ({
-      owner: "generated" as const,
-      reason: "Skillset owns the closed ChatGPT Agent Plugins manifest contract.",
-      selector: fieldSelector(path, key),
-    }));
+  switch (kind) {
+    case "chatgpt-manifest":
+      return generatedFields(path, record, "Skillset owns the closed ChatGPT Agent Plugins manifest contract.");
+    case "chatgpt-catalog":
+      return generatedFields(path, record, "Skillset owns the closed ChatGPT marketplace catalog contract.");
+    case "codex-legacy-manifest":
+      return classifyCodexPluginManifest(path, record);
+    case "claude-manifest":
+      return classifyClaudePluginManifest(path, record);
+    case "claude-catalog":
+      return classifyClaudeMarketplace(path, record);
   }
-  if (
-    target === "codex" &&
-    (path.endsWith("/.agents/plugins/marketplace.json") ||
-      path === ".agents/plugins/marketplace.json")
-  ) {
-    return Object.keys(record)
-      .sort(compareStrings)
-      .map((key) => ({
-        owner: "generated" as const,
-        reason:
-          "Skillset owns the closed ChatGPT marketplace catalog contract.",
-        selector: fieldSelector(path, key),
-      }));
-  }
-  if (path.endsWith("/.codex-plugin/plugin.json") || path === ".codex-plugin/plugin.json") {
-    return classifyCodexPluginManifest(path, record);
-  }
-  if (path.endsWith("/.claude-plugin/plugin.json") || path === ".claude-plugin/plugin.json") {
-    return classifyClaudePluginManifest(path, record);
-  }
-  if (target === "claude" && (path.endsWith("/.claude-plugin/marketplace.json") || path === ".claude-plugin/marketplace.json")) {
-    return classifyClaudeMarketplace(path, record);
-  }
-  return [];
+}
+
+function generatedFields(
+  path: string,
+  record: Record<string, unknown>,
+  reason: string
+): readonly DestinationOwnershipEntry[] {
+  return Object.keys(record).sort(compareStrings).map((key) => ({
+    owner: "generated" as const,
+    reason,
+    selector: fieldSelector(path, key),
+  }));
 }
 
 function classifyCodexPluginManifest(path: string, record: Record<string, unknown>): readonly DestinationOwnershipEntry[] {

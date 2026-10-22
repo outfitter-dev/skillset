@@ -10,6 +10,7 @@ import {
 import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { CHATGPT_INTERFACE_FIELDS } from "./manifest-field-contracts";
+import { LEGACY_CODEX_PLUGIN_MANIFEST } from "./plugin-output";
 import { isPathInside, validateSlug } from "./path";
 import {
   pluginComponentPath,
@@ -372,7 +373,7 @@ function readLegacyOpenAiExtension(
   canonical?: JsonRecord
 ): JsonRecord {
   const path = join(plugin.path, ".codex-plugin", "plugin.json");
-  if (!pluginHasPath(plugin, ".codex-plugin/plugin.json")) return {};
+  if (!pluginHasPath(plugin, LEGACY_CODEX_PLUGIN_MANIFEST)) return {};
   let parsed: JsonValue;
   try {
     parsed = JSON.parse(readFileSync(path, "utf8")) as JsonValue;
