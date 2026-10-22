@@ -6820,6 +6820,54 @@ Body.
   });
 });
 
+test("SET-733: invalid MCP server content is reported against the MCP source file", async () => {
+  const conventionalRoot = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/.mcp.json": JSON.stringify({
+      mcpServers: { docs: { command: "node", args: ["${PLUGIN_ROOT}/server.js"] } },
+    }),
+  });
+  await expectFeatureDiagnosticError(buildSkillset(conventionalRoot), {
+    code: "plugin-mcp-invalid",
+    featureId: "plugin-mcp",
+    message: expect.stringContaining("docs.args[0] must reference assets/, bin/, scripts/, or src/"),
+    path: ".skillset/plugins/alpha/.mcp.json",
+  });
+
+  const explicitRoot = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    "integrations/alpha-mcp.json": JSON.stringify({
+      mcpServers: { docs: { command: "node", args: ["${PLUGIN_ROOT}/server.js"] } },
+    }),
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:integrations/alpha-mcp.json
+`,
+  });
+  await expectFeatureDiagnosticError(buildSkillset(explicitRoot), {
+    code: "plugin-mcp-invalid",
+    featureId: "plugin-mcp",
+    message: expect.stringContaining("docs.args[0] must reference assets/, bin/, scripts/, or src/"),
+    path: "integrations/alpha-mcp.json",
+  });
+});
+
 test("SET-26: plugin feature source type mismatches fail loudly", async () => {
   const mcpDirectoryRoot = await contractFixture({
     "skillset.yaml": `

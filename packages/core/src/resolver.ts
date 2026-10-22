@@ -65,7 +65,7 @@ import {
   validateSlug,
 } from "./path";
 import { claudeMarketplacePath, cursorMarketplacePath, DEFAULT_PLUGIN_OUTPUT_ROOT, pluginBundleRoot } from "./plugin-output";
-import { parsePortableMcpSource } from "./portable-mcp";
+import { parsePortableMcpSource, type PortableMcpModel } from "./portable-mcp";
 import { pluginComponentPath } from "./plugin-component-paths";
 import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
@@ -1440,10 +1440,20 @@ async function loadPluginFeature(
   }
 
   if (key === "mcp") {
-    const portableMcp = await parsePortableMcpSource({
-      pluginRoot: pluginPath,
-      sourcePath,
-    });
+    let portableMcp: PortableMcpModel;
+    try {
+      portableMcp = await parsePortableMcpSource({
+        pluginRoot: pluginPath,
+        sourcePath,
+      });
+    } catch (error) {
+      // Content errors belong to the MCP source file, not the plugin config.
+      throw featureDiagnosticError(error, {
+        code: "plugin-mcp-invalid",
+        featureId: "plugin-mcp",
+        path: logicalDiagnosticPath(rootPath, sourcePath),
+      });
+    }
     return {
       key,
       origin,
