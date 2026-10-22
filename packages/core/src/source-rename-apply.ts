@@ -396,9 +396,20 @@ function shadowCopyExcluded(
     path === ".skillset/cache" ||
     path.startsWith(".skillset/cache/") ||
     first.startsWith(".skillset-workspace-transaction-") ||
+    isChangeLedgerLock(segments) ||
     outputRoots.some(
       (root) => root.length > 0 && (path === root || path.startsWith(`${root}/`))
     )
+  );
+}
+
+/**
+ * The change-ledger lock (`<source-root>/changes/ledger.jsonl.lock`) is live
+ * process state held by the running command, not workspace content.
+ */
+function isChangeLedgerLock(segments: readonly string[]): boolean {
+  return segments.some(
+    (segment, index) => segment === "ledger.jsonl.lock" && segments[index - 1] === "changes"
   );
 }
 
