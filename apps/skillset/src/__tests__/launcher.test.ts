@@ -283,7 +283,10 @@ describe("SET-420 npm native launcher", () => {
     );
     await writeFile(
       executable,
-      '#!/bin/sh\nhere=$(dirname "$0")\ntrap \'printf interrupted > "$here/interrupted"\' INT\ntrap \'printf terminated > "$here/terminated"; exit 42\' TERM\nprintf ready > "$here/ready"\nwhile :; do sleep 1; done\n'
+      // `sh` runs a trap only after its foreground child returns, so a bare
+      // `sleep 1` loop delays each marker by up to a second. Waiting on a
+      // background sleep lets the trap run as soon as the signal arrives.
+      '#!/bin/sh\nhere=$(dirname "$0")\ntrap \'printf interrupted > "$here/interrupted"\' INT\ntrap \'kill "$pid" 2>/dev/null; printf terminated > "$here/terminated"; exit 42\' TERM\nprintf ready > "$here/ready"\nwhile :; do sleep 1 & pid=$!; wait "$pid"; done\n'
     );
     await chmod(executable, 0o755);
     await writeFile(
@@ -307,14 +310,14 @@ describe("SET-420 npm native launcher", () => {
       stdout: "pipe",
     });
     try {
-      await waitForPath(ready, "launcher native process ready marker", { timeoutMs: 2_000 });
+      await waitForPath(ready, "launcher native process ready marker", { timeoutMs: 5_000 });
       process.kill(launcher.pid, "SIGINT");
-      await waitForPath(interrupted, "launcher native process interrupted marker", { timeoutMs: 2_000 });
+      await waitForPath(interrupted, "launcher native process interrupted marker", { timeoutMs: 5_000 });
       process.kill(launcher.pid, "SIGTERM");
       expect(await launcher.exited).toBe(42);
       expect(await readFile(terminated, "utf8")).toBe("terminated");
     } finally {
       await reapOwnedProcess(launcher);
     }
-  }, 10_000);
+  }, 15_000);
 });
