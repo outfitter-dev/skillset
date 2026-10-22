@@ -909,6 +909,21 @@ skillset:
     }
   });
 
+  test("leaves the live change-ledger lock out of the shadow workspace", async () => {
+    const root = await fixture({
+      ".skillset/changes/ledger.jsonl": "",
+      ".skillset/changes/ledger.jsonl.lock/owner.json": "{}\n",
+      "skillset.yaml": "skillset:\n  name: rename-fixture\n",
+    });
+    const shadowRoot = await createShadowWorkspace(root, []);
+    try {
+      expect(await readFile(join(shadowRoot, ".skillset/changes/ledger.jsonl"), "utf-8")).toBe("");
+      await expect(access(join(shadowRoot, ".skillset/changes/ledger.jsonl.lock"))).rejects.toThrow();
+    } finally {
+      await rm(shadowRoot, { force: true, recursive: true });
+    }
+  });
+
   test("refuses renames whose projected build is blocked, leaving an unmanaged destination intact", async () => {
     const root = await fixture({
       ".claude/skills/demo/SKILL.md": "hand written unmanaged guidance\n",

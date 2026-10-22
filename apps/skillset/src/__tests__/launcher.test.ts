@@ -151,7 +151,9 @@ describe("SET-420 npm native launcher", () => {
     const productManifest = join(root, "skillset", "package.json");
     const nativeManifest = join(root, "native", "package.json");
     const executable = join(root, "native", "bin", "skillset");
-    const argsPath = join(root, "args.txt");
+    // The fixture script finds its marker beside itself rather than having a
+    // host path interpolated into shell source.
+    const argsPath = join(dirname(executable), "args.txt");
     await mkdir(dirname(productManifest), { recursive: true });
     await mkdir(dirname(executable), { recursive: true });
     await writeFile(
@@ -167,7 +169,7 @@ describe("SET-420 npm native launcher", () => {
     );
     await writeFile(
       executable,
-      `#!/bin/sh\nprintf '%s\\n' "$@" > '${argsPath}'\nexit 7\n`
+      `#!/bin/sh\nprintf '%s\\n' "$@" > "$(dirname "$0")/args.txt"\nexit 7\n`
     );
     await chmod(executable, 0o755);
 
@@ -266,9 +268,11 @@ describe("SET-420 npm native launcher", () => {
       ...distribution.npmPackage.split("/")
     );
     const executable = join(packageRoot, "bin", distribution.executable);
-    const ready = join(root, "ready");
-    const interrupted = join(root, "interrupted");
-    const terminated = join(root, "terminated");
+    // Markers live beside the fixture script, which finds them through $0
+    // rather than having host paths interpolated into shell source.
+    const ready = join(dirname(executable), "ready");
+    const interrupted = join(dirname(executable), "interrupted");
+    const terminated = join(dirname(executable), "terminated");
     await mkdir(dirname(executable), { recursive: true });
     await writeFile(
       join(packageRoot, "package.json"),
@@ -279,7 +283,7 @@ describe("SET-420 npm native launcher", () => {
     );
     await writeFile(
       executable,
-      `#!/bin/sh\ntrap 'printf interrupted > "${interrupted}"' INT\ntrap 'printf terminated > "${terminated}"; exit 42' TERM\nprintf ready > "${ready}"\nwhile :; do sleep 1; done\n`
+      '#!/bin/sh\nhere=$(dirname "$0")\ntrap \'printf interrupted > "$here/interrupted"\' INT\ntrap \'printf terminated > "$here/terminated"; exit 42\' TERM\nprintf ready > "$here/ready"\nwhile :; do sleep 1; done\n'
     );
     await chmod(executable, 0o755);
     await writeFile(

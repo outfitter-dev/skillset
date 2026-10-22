@@ -135,8 +135,9 @@ The JSON plan reports `changedSinceDraft: null` without a fork baseline.
 Promotion keeps the shipped selector and its pre-fork release history, appends
 promotion provenance, and removes the draft path and its generated draft
 outputs. A refusal, stale plan, blocked generated
-effect, or interrupted write restores the exact pre-operation source, ledger,
-generated output, and lock state.
+effect, or interrupted write restores the pre-operation source, generated
+output, and lock state, and removes only the promotion's own ledger record, so
+records another command appended in the meantime stay.
 
 Use [`skillset move`](../cli/move.md) to move a shipped skill between the
 workspace collection and one plugin collection in the same workspace. The

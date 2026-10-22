@@ -4,7 +4,7 @@ slug: versioned-structured-output-for-cli-automation
 title: Versioned Structured Output For CLI Automation
 status: accepted
 created: 2026-07-12
-updated: 2026-07-20
+updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 4, 18, 19, 22]
 ---
@@ -84,6 +84,10 @@ owner. Shared result and event schemas fix the framing, while route-specific
 contract tests fix `command`, `kind`, data shape, diagnostic codes, and change
 records. Pre-route failures use the reserved `cli` command identity and the
 shared usage-diagnostic envelope because no canonical leaf exists yet.
+Changing a value that a payload already emits, such as a plan operation's
+`kind`, is a contract change for automation even when the shape is unchanged:
+the branch that makes it carries a package Changeset naming the old and new
+value.
 
 The schema source belongs in `@skillset/schema`. Generated JSON Schema artifacts live under the existing versioned schema reference. TypeScript result types derive from or stay mechanically checked against that source; command renderers do not maintain parallel field lists.
 

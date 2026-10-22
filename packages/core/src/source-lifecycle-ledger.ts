@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import type {
   SourceDraftDiscardedLedgerPayload,
@@ -17,26 +17,19 @@ export type SourceLifecycleLedgerEvent =
 
 /**
  * Build the ledger record for a lifecycle event from the ledger bytes read at
- * apply time. The id binds the event to the stream it extends; the timestamp
- * is `max(now, tail)` so the append never inverts the current tail.
+ * apply time. The timestamp is `max(now, tail)` so the append never inverts the
+ * current tail. Every id is minted per invocation: two branches running the
+ * same command from the same trunk ledger append distinct lines, and a union
+ * merge of both must stay readable (ids are unique ledger-wide).
  */
 export function sourceLifecycleLedgerRecord(
   current: string,
   event: SourceLifecycleLedgerEvent,
   nowMs = Date.now()
 ): object {
-  const id = `${event.type.replace(".", "-")}-${createHash("sha256")
-    .update(current)
-    .update("\0")
-    .update(event.type)
-    .update("\0")
-    .update(JSON.stringify(event.payload))
-    .digest("hex")}`;
   return {
     createdAt: nextJsonlTimestamp(jsonlTailTimestamp(current), nowMs),
-    // A fresh creation is an invocation, not a deterministic projection.
-    // Distinct branches closing the same fork must not emit the same id.
-    id: event.type === "source.draft-discarded" ? `source-draft-discarded-${randomUUID()}` : id,
+    id: `${event.type.replace(".", "-")}-${randomUUID()}`,
     payload: event.payload,
     schemaVersion: 1,
     type: event.type,

@@ -4,7 +4,7 @@ slug: change-ledger-append-order
 title: Change Ledger Append Order Is Authoritative
 status: accepted
 created: 2026-09-22
-updated: 2026-09-25
+updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 14, 15]
 amends: [15]
@@ -55,8 +55,11 @@ restores a whole-file snapshot of an append-only stream. Two concurrent
 successful mutations therefore keep both record sets, and a failed release
 cannot erase an unrelated writer's append. Source lifecycle transactions plan
 the event, not the ledger bytes: the workspace transaction's append operation
-reads the ledger when it applies, derives the record id and timestamp from
-those bytes, and on rollback removes only its own line.
+reads the ledger when it applies, derives the record timestamp from those
+bytes, mints a fresh record id per invocation, and on rollback removes only its
+own line. A content-derived id would let two branches running the same command
+from the same trunk ledger append two lines with one id, which union merge keeps
+and every reader rejects.
 
 New writers stamp `max(now, tailTimestamp)`. Equal timestamps are allowed.
 The guard does not compare timestamps, so this is not a merge rule: it keeps
@@ -73,8 +76,9 @@ keeps both sides' appended lines. It can place an older appended block after a
 newer tail. That is a merge-order fact, not a license to rewrite history.
 
 The change-stream guard checks what union cannot: trailing newline, one JSON
-object per line with an id and a parseable event timestamp, unique ids, the
-`merge=union` attribute, and that trunk's stream is an in-order prefix of the
+object per line with an id and a parseable event timestamp, unique ids (except
+in amendment streams, whose `id` names the amended record and repeats when that
+record is amended again), the `merge=union` attribute, and that trunk's stream is an in-order prefix of the
 working copy.
 
 The prefix check reads each stream at `git merge-base HEAD <trunk>` (trunk is
@@ -93,8 +97,9 @@ records after them.
 Restacking (rebasing onto trunk) is the supported way to update a branch:
 union replays the branch's appended block after trunk's records, so trunk stays
 a prefix. Merging trunk into a branch (`git merge main`, GitHub's "Update
-branch") puts trunk's new records after the branch's block; the guard rejects
-that result by design, because it reorders what the branch's readers folded.
+branch") puts trunk's new records after the branch's block, so trunk's stream
+is no longer a prefix of the working copy; the guard rejects that result by
+design.
 
 ## Consequences
 
@@ -107,9 +112,10 @@ and guidance no longer drifts from a count.
 
 ### Tradeoffs
 
-Live writers pay for exclusive locking; `release apply` holds the lock across
-its generated-output build, so a concurrent writer can wait up to its lock
-timeout. The guard needs the trunk ref and history locally (CI checks out with
+Live writers pay for exclusive locking. `release apply` holds the lock across
+its generated-output build, and the applying lifecycle commands (`draft`,
+`promote`, `move` with `--yes`) hold it across their plan, shadow build, and
+verify, so a concurrent writer can wait up to its lock timeout and then fail. The guard needs the trunk ref and history locally (CI checks out with
 full depth) and fails loudly when the merge-base cannot be resolved. It no
 longer catches a timestamp inversion inside a branch's own appended block;
 that block's order is the writer's, and live writers stamp `max(now, tail)`.

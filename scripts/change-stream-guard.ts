@@ -11,7 +11,9 @@
  *   onto one line;
  * - every non-empty line is one JSON object with an id and a parseable event
  *   timestamp (what the ledger/history readers require);
- * - record ids are unique within a file (`readChangeLedger` throws otherwise);
+ * - record ids are unique within a file (`readChangeLedger` throws otherwise),
+ *   except in amendment streams, where `id` names the amended record and a
+ *   later amendment of the same record supersedes an earlier one;
  * - trunk's stream is an in-order prefix of the working copy: every record at
  *   the merge-base with the remote trunk (`scripts/git-trunk.sh`) is still
  *   present, byte for byte, at the same line, and new records only follow it.
@@ -68,6 +70,12 @@ function readTimestamp(record: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+/**
+ * Amendment streams key each record by the history or release record it
+ * amends, so the same id legitimately repeats; readers let the last one win.
+ */
+const AMENDMENT_STREAM = /(?:^|\/)(?:release-)?amendments\.jsonl$/u;
+
 function scanFile(file: string, content: string): readonly ChangeStreamViolation[] {
   const violations: ChangeStreamViolation[] = [];
   if (content.length > 0 && !content.endsWith("\n")) {
@@ -99,7 +107,7 @@ function scanFile(file: string, content: string): readonly ChangeStreamViolation
     const record = parsed as Record<string, unknown>;
     const rawId = record.id;
     if (typeof rawId === "string" && rawId.length > 0) {
-      if (seenIds.has(rawId)) {
+      if (seenIds.has(rawId) && !AMENDMENT_STREAM.test(file)) {
         violations.push({ file, line, message: `duplicate record id ${rawId}`, rule: "duplicate-id" });
       }
       seenIds.add(rawId);
@@ -139,8 +147,9 @@ export type ChangeStreamInput = {
 const TRUNK_PREFIX_HINT =
   "keep trunk's records in their original order and append new records after them";
 
+/** Split records on LF or CRLF, so a CRLF checkout still matches trunk's LF blob. */
 function streamLines(content: string): readonly string[] {
-  const lines = content.split("\n");
+  const lines = content.split(/\r?\n/u);
   if (lines.at(-1) === "") lines.pop();
   return lines;
 }
