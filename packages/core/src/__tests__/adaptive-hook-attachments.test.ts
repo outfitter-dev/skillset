@@ -201,8 +201,8 @@ hooks:
     expect(adaptiveHookIntentIsRenderable(classification)).toBe(true);
     const hookOutputs = (await renderBuildGraph(graph))
       .map((file) => file.path)
-      .filter((path) => path.endsWith("/hooks/hooks.json"));
-    expect(hookOutputs).toEqual(["plugins/demo/hooks/hooks.json"]);
+      .filter((path) => path.endsWith("hooks.json"));
+    expect(hookOutputs).toEqual(["plugins/demo/.cursor-plugin/hooks.json"]);
   });
 
   test("rejects invalid plugin attachment providers through schema diagnostics", async () => {
@@ -530,7 +530,7 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    expect(rendered.map((file) => file.path)).toContain("plugins/demo/hooks/hooks.json");
+    expect(rendered.map((file) => file.path)).toContain("plugins/demo/.cursor-plugin/hooks.json");
   });
 
   test("renders definition hook status when an attachment does not override it", async () => {
@@ -634,7 +634,7 @@ skillset:
 
     const rendered = renderedJson(
       await renderBuildGraph(graph),
-      "plugins/demo/hooks/hooks.json"
+      "plugins/demo/.cursor-plugin/hooks.json"
     );
     expect(rendered).toMatchObject(pinnedRalphLoopHooks);
     expect(rendered).toEqual({

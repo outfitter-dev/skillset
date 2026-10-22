@@ -68,6 +68,35 @@ export function pluginComponentPath(target: TargetName, kind: string): string {
   return pluginComponent(target, kind).path;
 }
 
+/**
+ * Cursor's default MCP and hooks paths are already written in the shared
+ * package (ADR-0037): `mcp.json` by the Agent Plugins baseline and
+ * `hooks/hooks.json` by Claude and Codex, with different bytes. Cursor's
+ * manifest takes explicit component paths, so Cursor's own renderings live in
+ * its metadata directory instead (SET-687).
+ */
+const CURSOR_PACKAGE_COMPONENT_PATHS: Readonly<Record<string, string>> = {
+  hooks: "./.cursor-plugin/hooks.json",
+  mcp: "./.cursor-plugin/mcp.json",
+};
+
+/** Where a target's component renders inside the shared plugin package. */
+export function pluginPackageComponentPath(
+  target: TargetName,
+  kind: string
+): string {
+  const path = pluginComponentPath(target, kind);
+  return target === "cursor" ? CURSOR_PACKAGE_COMPONENT_PATHS[kind] ?? path : path;
+}
+
+/** {@link pluginPackageComponentPath} without the leading `./`. */
+export function pluginPackageComponentFile(
+  target: TargetName,
+  kind: string
+): string {
+  return pluginPackageComponentPath(target, kind).replace(/^\.\//u, "");
+}
+
 export function pluginComponentManifestField(
   target: TargetName,
   kind: string

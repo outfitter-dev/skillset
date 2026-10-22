@@ -13,6 +13,7 @@ import { isPathInside, validateSlug } from "./path";
 import {
   pluginComponentPath,
   pluginComponents,
+  pluginPackageComponentPath,
 } from "./plugin-component-paths";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import { renderAgentPluginManifest } from "./agent-plugin-manifest";
@@ -642,15 +643,19 @@ function pluginComponentManifestValue(
   }
   if (kind === "hooks") {
     const sourcePath = componentSourcePath(path);
-    const hasHooks =
-      target === "cursor"
-        ? pluginHasSurfacePath(graph, plugin, target, sourcePath)
-        : pluginHasPath(plugin, sourcePath);
-    return hasHooks || hasAdaptivePluginHookOutput(graph, plugin, target)
-      ? path
+    // A Cursor island keeps its verbatim bytes at the documented default path.
+    if (target === "cursor" && pluginHasTargetNativePath(graph, plugin, target, sourcePath)) {
+      return path;
+    }
+    return pluginHasPath(plugin, sourcePath) || hasAdaptivePluginHookOutput(graph, plugin, target)
+      ? pluginPackageComponentPath(target, kind)
       : undefined;
   }
-  if (kind === "mcp") return pluginHasFeature(plugin, "mcp") ? path : undefined;
+  if (kind === "mcp") {
+    return pluginHasFeature(plugin, "mcp")
+      ? pluginPackageComponentPath(target, kind)
+      : undefined;
+  }
   if (kind === "apps") return pluginHasFeature(plugin, "app") ? path : undefined;
   if (kind === "agents") {
     const hasAuthoredSubagents = pluginHasPath(plugin, "subagents");

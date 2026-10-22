@@ -139,7 +139,7 @@ describe("SET-550 Cursor parity evidence baseline", () => {
 
     expect(
       await fileExists(
-        path.join(root, "plugins/cursor-kit/hooks/hooks.json")
+        path.join(root, "plugins/cursor-kit/.cursor-plugin/hooks.json")
       )
     ).toBe(true);
   });
