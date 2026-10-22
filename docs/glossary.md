@@ -62,7 +62,7 @@ A generated `skillset.lock` file beside managed output. It records source paths,
 
 ## Owner
 
-The single standard or provider recorded as responsible for writing one physical generated file. When a standard and a provider share a file, the standard owns it and the provider is a [consumer](#consumer). `skillset explain` prints this as, for example, `owner: agent-skills baseline`.
+The single standard or provider recorded as responsible for writing one physical file in a standard or provider projection. Bundle entries in a lock, such as preserved target-native islands, carry no owner or consumers. When a standard and a provider share a file, the standard owns it and the provider is a [consumer](#consumer). `skillset explain` prints this as, for example, `owner: agent-skills baseline`.
 
 ## Project agent
 
