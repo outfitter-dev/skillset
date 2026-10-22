@@ -99,7 +99,7 @@ describe("shared plugin package root ownership", () => {
     async (target) => {
       const root = await fixture("dist", undefined, target);
       await expect(buildSkillsetResult(root)).rejects.toThrow(
-        `custom package placement is unsupported until SET-561 (${target}.plugins.path or plugins.output.${target}.path)`
+        `custom package placement is not yet supported (${target}.plugins.path or plugins.output.${target}.path)`
       );
       expect(await Bun.file(join(root, "plugins/trails/plugin.json")).exists()).toBe(false);
       expect(await Bun.file(join(root, "dist/.claude-plugin/marketplace.json")).exists()).toBe(false);
@@ -109,7 +109,7 @@ describe("shared plugin package root ownership", () => {
   it("refuses an internal distDir override when a shared package would be emitted", async () => {
     const root = await fixture("plugins", undefined, "claude", true);
     await expect(buildSkillsetResult(root, { distDir: "dist" })).rejects.toThrow(
-      "custom package placement is unsupported until SET-561 (claude.plugins.path or plugins.output.claude.path)"
+      "custom package placement is not yet supported (claude.plugins.path or plugins.output.claude.path)"
     );
     expect(await Bun.file(join(root, "plugins/trails/plugin.json")).exists()).toBe(false);
   });

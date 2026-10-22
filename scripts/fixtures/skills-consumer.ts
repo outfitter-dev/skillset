@@ -188,7 +188,7 @@ async function assertCustomRootRefusal(parent: string): Promise<void> {
     await buildSkillsetResult(fixtureRoot);
     throw new Error("skillset: custom plugin root unexpectedly built");
   } catch (error) {
-    if (!String(error).includes("custom package placement is unsupported until SET-561 (claude.plugins.path or plugins.output.claude.path)")) {
+    if (!String(error).includes("custom package placement is not yet supported (claude.plugins.path or plugins.output.claude.path)")) {
       throw error;
     }
   }

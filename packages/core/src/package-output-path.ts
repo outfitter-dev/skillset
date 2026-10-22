@@ -21,25 +21,25 @@ export function plannedPackageOutputPath(
   const targetConfig = config.targets[target];
   if (targetConfig.combine !== undefined) {
     throw new Error(
-      `skillset: plugins.output.${target}.combine is parsed but unsupported until SET-568`
+      `skillset: plugins.output.${target}.combine is parsed but not yet supported`
     );
   }
   if (targetConfig.name !== undefined) {
     throw new Error(
-      `skillset: plugins.output.${target}.name is parsed but unsupported until SET-561`
+      `skillset: plugins.output.${target}.name is parsed but not yet supported`
     );
   }
   const configuredPath = targetConfig.path ?? config.path;
   const expanded = expandPackageOutputPath(configuredPath, pluginId);
   if (expanded === ".") {
     throw new Error(
-      "skillset: plugins.output requests repository-root package placement, unsupported until SET-581"
+      "skillset: plugins.output requests repository-root package placement, which is not yet supported"
     );
   }
   const current = expandPackageOutputPath("plugins/[name]", pluginId);
   if (expanded !== current) {
     throw new Error(
-      `skillset: plugins.output plans ${expanded}; custom package placement is unsupported until SET-561`
+      `skillset: plugins.output plans ${expanded}; custom package placement is not yet supported`
     );
   }
   return expanded;

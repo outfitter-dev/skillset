@@ -464,10 +464,10 @@ ${output}`,
     });
 
     for (const [output, diagnostic] of [
-      ["plugins:\n  output:\n    path: dist/[name]\n", "SET-561"],
+      ["plugins:\n  output:\n    path: dist/[name]\n", "custom package placement is not yet supported"],
       [
         "plugins:\n  output:\n    codex:\n      path: dist/[name]\n",
-        "SET-561",
+        "custom package placement is not yet supported",
       ],
       [
         "plugins:\n  output:\n    codex:\n      name: combined\n",
@@ -504,7 +504,7 @@ description: Review skill.
 Review.
 `,
     });
-    await expect(loadBuildGraph(pluginRoot)).rejects.toThrow("SET-561");
+    await expect(loadBuildGraph(pluginRoot)).rejects.toThrow("custom package placement is not yet supported");
   });
 
   it("recognizes status: draft and rejects duplicate leaves across groups", async () => {
