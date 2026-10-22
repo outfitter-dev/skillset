@@ -12,6 +12,9 @@ Default packet location:
 Archive location:
 `.agents/plans/archive/` (indexed by its `README.md`)
 
+The lifecycle for all `.agents/` records (plans, goals, notes) is in
+[Documentation System](../../docs/development/documentation-system.md#agent-working-records).
+
 ## Tracker
 
 Primary tracker:

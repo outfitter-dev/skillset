@@ -1,5 +1,7 @@
 # Drift Audit — 2026-07-18
 
+> **Disposition: completed and archived, 2026-10-22.** Moved from `.agents/notes/`. All 51 findings are dispositioned (46 fixed, 5 wont-fix); rerun `bun .agents/plans/archive/2026-07-18-drift-audit/check-findings.ts` to confirm. Lasting rationale lives in the ADRs and `docs/development/`.
+
 Comprehensive intent-vs-implementation sweep of the Skillset codebase: where the
 code has drifted from documented/decided intent, where structures are
 hand-maintained and drift-prone, and where consolidation would simplify.

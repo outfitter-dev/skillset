@@ -1,5 +1,7 @@
 # Goal Execution Contract: Trails Migration Capability Unblock
 
+> **Disposition: completed and archived, 2026-10-22.** Moved from `.agents/goals/`; the `.agents/goals/...` paths below are historical.
+
 Date: 2026-08-07
 Status: Complete
 Spec: `.agents/goals/2026-08-07-trails-migration-capability-unblock/SPEC.md`

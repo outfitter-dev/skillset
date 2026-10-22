@@ -1,5 +1,7 @@
 # SET-601 — do not line-merge generated outputs
 
+> **Disposition: completed and archived, 2026-10-22.** SET-601 shipped; this was its branch-pointer note, moved from `.agents/notes/`. The lasting rationale is in [Generated output merge safety](../../../../docs/development/features/generated-output-merge-safety.md).
+
 https://linear.app/outfitter/issue/SET-601
 
 A half-merged generated file is the dangerous artifact here. It looks valid, it

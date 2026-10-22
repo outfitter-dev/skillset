@@ -1,5 +1,7 @@
 # SET-598 — make `skillset.lock` merge-safe
 
+> **Disposition: completed and archived, 2026-10-22.** SET-598 closed without a lock-format change; this was its investigation note, moved from `.agents/notes/`. The lasting rationale is in [Generated output merge safety](../../../../docs/development/features/generated-output-merge-safety.md).
+
 https://linear.app/outfitter/issue/SET-598/skillsetlock-conflicts-on-every-stacked-rebase-treat-it-as-a-snapshot
 
 ## Stack position
