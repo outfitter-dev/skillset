@@ -66,7 +66,7 @@ Preview the [render](../glossary.md#render) plan:
 skillset build
 ```
 
-The plan names the repo-local [destinations](../glossary.md#destination) that would change. `compile.targets` selects provider output such as `.claude/skills/` and `.cursor/skills/`. Separately, applicable skill source produces `.agents/skills/` whenever the Agent Skills profile is adopted. Codex can consume that same physical tree as a provider delta; the nearby lock records one owner and both logical consumers instead of treating `agents` as a provider.
+The plan names the repo-local [destinations](../glossary.md#destination) that would change. `compile.targets` selects provider output such as `.claude/skills/` and `.cursor/skills/`. Separately, applicable skill source produces `.agents/skills/` whenever the Agent Skills [standard profile](../glossary.md#standard-profile) is adopted. Codex can consume that same physical tree as a provider [delta](../glossary.md#delta); the nearby [lock](../glossary.md#lock) records one [owner](../glossary.md#owner) and both logical [consumers](../glossary.md#consumer) instead of treating `agents` as a provider.
 
 ## Write and verify
 
@@ -88,7 +88,7 @@ The comprehensive check should now pass too:
 skillset check
 ```
 
-Open one generated `SKILL.md` and its nearby `skillset.lock`. A rendered file may be an Agent Skills standard projection, a [provider-native](../glossary.md#provider-native) projection, or a shared physical file with both consumers; the lock records ownership, consumers, and hashes. Keep editing `.skillset/skills/review-notes/SKILL.md`, not the generated copy.
+Open one generated `SKILL.md` and its nearby `skillset.lock`. A rendered file may be an [Agent standard](../glossary.md#agent-standard) projection, a [provider-native](../glossary.md#provider-native) projection, or a shared physical file with both consumers; the lock records ownership, consumers, and hashes. Keep editing `.skillset/skills/review-notes/SKILL.md`, not the generated copy.
 
 ## Make one change
 

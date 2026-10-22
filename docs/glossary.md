@@ -12,6 +12,14 @@ Repository-owned Skillset source that expresses a shared authoring intent and ca
 
 A provider or user action that makes generated material discoverable, trusted, enabled, or connected at runtime. Activation is outside ordinary Skillset build operations.
 
+## Agent standard
+
+A provider-neutral format that Skillset renders inherently when the workspace has applicable source: Agent Instructions (`AGENTS.md`), Agent Skills (`.agents/skills/`), and Agent Plugins (`plugins/<plugin>/`). Standards are not [targets](#target) and have no selector in configuration; `compile.targets` chooses providers only. Each standard is adopted through a [standard profile](#standard-profile).
+
+## Baseline
+
+The portable output an [Agent standard](#agent-standard) produces from source, such as a `.agents/skills/<skill>/SKILL.md`. A provider that can read the same file adds a [delta](#delta) instead of writing its own copy. `skillset diff` and `skillset explain` label this as, for example, `agent-skills baseline`.
+
 ## Build
 
 The deterministic derivation and rendering of validated Skillset source into repo-local provider-native files. Builds preview by default and write only with explicit authority.
@@ -23,6 +31,14 @@ The one authored location that owns a fact or source unit. Generated projections
 ## Cascade
 
 The scoped inheritance of workspace and plugin defaults into a source unit, with narrower explicit configuration taking precedence. Cascade does not mean arbitrary filesystem inheritance.
+
+## Consumer
+
+A provider or standard that reads a generated file. One physical file can have one [owner](#owner) and several logical consumers; for example, the Agent Skills baseline and Codex both consume `.agents/skills/`. The [lock](#lock) records every consumer.
+
+## Delta
+
+The provider-specific part a [target](#target) contributes on top of a compatible [baseline](#baseline), instead of writing a separate file. `skillset diff` shows a shared file as, for example, `[agent-skills baseline + codex delta]`.
 
 ## Destination
 
@@ -40,6 +56,18 @@ Provider-native files derived from Skillset source. Generated output may be comm
 
 A reusable collection of agent-facing skills, rules, agents, hooks, plugins, and related resources prepared for one or more providers.
 
+## Lock
+
+A generated `skillset.lock` file beside managed output. It records source paths, generated paths, hashes, [owners](#owner), [consumers](#consumer), and projection roles, so checks can tell managed output from unrelated files. Locks are [generated output](#generated-output); never edit them by hand.
+
+## Owner
+
+The single standard or provider recorded as responsible for writing one physical generated file. When a standard and a provider share a file, the standard owns it and the provider is a [consumer](#consumer). `skillset explain` prints this as, for example, `owner: agent-skills baseline`.
+
+## Project agent
+
+A repository-scoped subagent authored under `.skillset/subagents/` and rendered to each provider's agent location, such as `.claude/agents/`. Project agents are source; provider settings for them, such as a default model, live under `defaults.<provider>.agents`.
+
 ## Projection
 
 A deterministic set of generated artifacts derived from canonical source or a typed contract. A projection is checked for freshness but is not edited as source truth.
@@ -56,6 +84,10 @@ To transform validated source intent into one target's provider-native destinati
 
 A structured record of what one renderer emitted, skipped, degraded, or could not support, including the evidence needed for diagnostics and provenance.
 
+## Rule
+
+Authored guidance under `.skillset/rules/**/*.md`, optionally scoped to paths. Rules render to Claude rules, Cursor rules, and `AGENTS.md` files, the last owned by the Agent Instructions standard. See the [Rules reference](reference/features/rules.md).
+
 ## Source root
 
 The directory containing authored Skillset units. In the canonical workspace layout it is `.skillset/`, configured by the root `skillset.yaml`.
@@ -63,6 +95,10 @@ The directory containing authored Skillset units. In the canonical workspace lay
 ## Source unit
 
 One addressable authored item—such as a skill, rule, agent, hook, plugin, or resource—that Skillset can validate, track, and project.
+
+## Standard profile
+
+The pinned, validated version of an [Agent standard](#agent-standard) that Skillset has adopted, with its conformance evidence. An applicable adopted profile is what makes a standard render inherently.
 
 ## Target
 

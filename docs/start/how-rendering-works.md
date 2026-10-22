@@ -18,7 +18,7 @@ provider-native files + skillset.lock provenance
 
 ## Resolve source intent
 
-Skillset loads addressable [source units](../glossary.md#source-unit)—skills, rules, project agents, plugins, hooks, and related resources—into one graph. Workspace and plugin defaults can [cascade](../glossary.md#cascade) into a unit, while narrower explicit configuration wins.
+Skillset loads addressable [source units](../glossary.md#source-unit)—skills, rules, [project agents](../glossary.md#project-agent), plugins, hooks, and related resources—into one graph. Workspace and plugin defaults can [cascade](../glossary.md#cascade) into a unit, while narrower explicit configuration wins.
 
 The graph expresses author intent, not a promise that every provider has the same file format or capability.
 
@@ -30,15 +30,15 @@ When a target cannot represent an intent faithfully, the build reports that boun
 
 ## Render target-native output
 
-Rendering has two independent axes. Each applicable adopted Agent standard produces its portable baseline from the source graph; `compile.targets` selects provider [renderers](../glossary.md#render), which emit independent [provider-native](../glossary.md#provider-native) files or add a native delta to a compatible baseline. There is no standards selector in workspace, plugin, or frontmatter configuration.
+Rendering has two independent axes. Each applicable adopted [Agent standard](../glossary.md#agent-standard) produces its portable [baseline](../glossary.md#baseline) from the source graph; `compile.targets` selects provider [renderers](../glossary.md#render), which emit independent [provider-native](../glossary.md#provider-native) files or add a native [delta](../glossary.md#delta) to a compatible baseline. There is no standards selector in workspace, plugin, or frontmatter configuration.
 
-In the first-author fixture, one rule becomes a Claude rule and contributes to Codex `AGENTS.md`; when Agent Instructions is adopted, the same source also inherently owns the portable root or scoped `AGENTS.md` baseline. The planner writes a compatible shared file once and records its standard owner plus provider consumer.
+In the first-author fixture, one [rule](../glossary.md#rule) becomes a Claude rule and contributes to Codex `AGENTS.md`; when Agent Instructions is adopted, the same source also inherently owns the portable root or scoped `AGENTS.md` baseline. The planner writes a compatible shared file once and records its standard [owner](../glossary.md#owner) plus provider [consumer](../glossary.md#consumer).
 
 A destination is the concrete path and format receiving one output. A render is the transformation that produces it. The complete deterministic set is a [projection](../glossary.md#projection).
 
 ## Preview, confirm, and record ownership
 
-`skillset build` computes and displays a destination plan. It writes nothing by default. `skillset build --yes` confirms that plan and writes managed files plus nearby `skillset.lock` provenance.
+`skillset build` computes and displays a destination plan. It writes nothing by default. `skillset build --yes` confirms that plan and writes managed files plus nearby `skillset.lock` provenance, the [lock](../glossary.md#lock).
 
 Locks connect source paths, generated paths, hashes, target state, and ownership. They let later checks distinguish managed output from unrelated neighboring files.
 
