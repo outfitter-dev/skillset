@@ -150,7 +150,7 @@ import { liveRenderDestination, type RenderDestination } from "./build-destinati
 import { hashOwnedSettingsEntries } from "./settings-entry";
 import {
   marketplaceLockProvenance,
-  readExistingMarketplaceState,
+  marketplaceStateFor,
   renderChatGptMarketplace,
   renderClaudeMarketplace,
   renderCursorMarketplace,
@@ -207,29 +207,34 @@ export async function renderBuildGraph(
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
-  rendered.push(...(await renderClaudeMarketplace(graph)));
-  const chatGptMarketplace = await renderChatGptMarketplace(graph);
-  rendered.push(...chatGptMarketplace);
-  const chatGptMarketplaceFile = chatGptMarketplace[0];
-  if (chatGptMarketplaceFile !== undefined) {
+  // Builds own every provider catalog they write, so each one is lock-recorded
+  // and `explain`, `check`, and later builds can trace it (SET-693).
+  const marketplaceCatalogs: readonly (readonly [TargetName, readonly RenderedFile[]])[] = [
+    ["claude", await renderClaudeMarketplace(graph)],
+    ["codex", await renderChatGptMarketplace(graph)],
+    ["cursor", await renderCursorMarketplace(graph)],
+  ];
+  for (const [target, files] of marketplaceCatalogs) {
+    rendered.push(...files);
+    const file = files[0];
+    if (file === undefined) continue;
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace").items.push({
-      consumers: [{ phase: "delta", target: "codex" }],
+      consumers: [{ phase: "delta", target }],
       feature: "marketplaces",
-      fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, chatGptMarketplace),
-      files: [chatGptMarketplaceFile.path],
+      fileModes: renderedFileModes(WORKSPACE_LOCK_ROOT, files),
+      files: [file.path],
       kind: "plugin-feature",
-      name: "chatgpt-marketplace",
-      outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, chatGptMarketplace),
-      outputPath: chatGptMarketplaceFile.path,
-      owner: { target: "codex" },
+      name: target === "codex" ? "chatgpt-marketplace" : `${target}-marketplace`,
+      outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, files),
+      outputPath: file.path,
+      owner: { target },
       role: "bundle",
-      sourceHash: await hashChatGptMarketplaceSource(graph),
+      sourceHash: await hashMarketplaceSource(graph, target),
       sourcePath: relative(graph.rootPath, graph.rootConfigPath),
       targetState: "generated",
       validation: "structured",
     });
   }
-  rendered.push(...(await renderCursorMarketplace(graph)));
   rendered.push(...labelPackageWriter(
     await renderAgentPluginStandardPackages(graph, lockRoots),
     "agent-plugins-1.0"
@@ -2376,7 +2381,7 @@ async function renderLockFiles(
   lockRoots: ReadonlyMap<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
-  const existingMarketplaceState = await readExistingMarketplaceState(graph.rootPath);
+  const existingMarketplaceState = await marketplaceStateFor(graph);
 
   for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const value: JsonRecord = {
@@ -3144,9 +3149,12 @@ async function hashResourceSource(
   }
 }
 
-async function hashChatGptMarketplaceSource(graph: BuildGraph): Promise<string> {
+async function hashMarketplaceSource(
+  graph: BuildGraph,
+  target: TargetName
+): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-chatgpt-marketplace-source-v1\0");
+  hash.update(`skillset-${target === "codex" ? "chatgpt" : target}-marketplace-source-v1\0`);
   const paths = [graph.rootConfigPath, ...graph.plugins.map((plugin) => plugin.configPath)]
     .sort(compareStrings);
   for (const path of paths) {

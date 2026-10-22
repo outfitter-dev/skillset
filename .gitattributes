@@ -44,9 +44,11 @@
 **/.claude/rules/** -merge
 **/.claude/settings.json -merge
 **/.claude/skills/** -merge
+**/.claude-plugin/marketplace.json -merge
 **/.codex/hooks/** -merge
 **/.cursor/rules/** -merge
 **/.cursor/skills/** -merge
+**/.cursor-plugin/marketplace.json -merge
 /plugins/*/** -merge
 **/skillset.lock -merge
 .skillset/plugins/*/CHANGELOG.md -merge

@@ -547,7 +547,12 @@ Use this demo skill.
       expect(detectHostLeaks(path, content, {
         forbiddenSubstrings: [parent, external, remote.remotePath, remote.xdg.homeDir],
       })).toEqual([]);
-      expect(content).not.toContain("sourcePath");
+      // Lock items name their repo-relative source (`skillset.yaml`); only the
+      // marketplace provenance must stay free of checkout source paths.
+      const provenance = path === "skillset.lock"
+        ? JSON.stringify((JSON.parse(content) as { readonly marketplaces?: unknown }).marketplaces)
+        : content;
+      expect(provenance).not.toContain("sourcePath");
       expect(content).not.toContain("cacheKey");
     }
     expect(JSON.parse(indexText)).toEqual(expect.objectContaining({

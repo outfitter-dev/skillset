@@ -83,7 +83,7 @@ skillset check --only outputs
 
 Catalog declaration and source resolution are not enough. Every selected entry must also be [renderable](../glossary.md#render), generated, and verified before Skillset can emit a provider marketplace entry.
 
-The confirmed ordinary build owns `.agents/plugins/marketplace.json` alongside the generated ChatGPT bundles. The file is reproducible output: change `skillset.yaml` or canonical plugin source, rebuild, and review the result instead of hand-editing the catalog.
+The confirmed ordinary build owns every provider catalog it writes: `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Each one stays at the repository-root path where its provider discovers it, and each is recorded in `skillset.lock`, so `skillset explain` traces it and switching from the implicit catalog to a declared one rebuilds in place. The files are reproducible output: change `skillset.yaml` or canonical plugin source, rebuild, and review the result instead of hand-editing a catalog.
 
 ### Claude local catalog paths
 
@@ -128,7 +128,7 @@ Review and commit the index and lock changes. `marketplace update` does not muta
 
 ## Know the Provider Outcomes
 
-An ordinary build renders the ChatGPT catalog at `.agents/plugins/marketplace.json`, Cursor's `.cursor-plugin/marketplace.json`, and supported provider bundles. `marketplace update` remains a deliberate Claude-only workflow: it can write `.claude-plugin/marketplace.json` plus marketplace lock provenance, but it does not write the ChatGPT or Cursor indexes.
+An ordinary build renders and lock-records the Claude catalog at `.claude-plugin/marketplace.json`, the ChatGPT catalog at `.agents/plugins/marketplace.json`, Cursor's `.cursor-plugin/marketplace.json`, and supported provider bundles. Without a declared catalog, the build derives an implicit one named after the workspace. `marketplace update` is the deliberate, network-using step that resolves external Claude entries, records them as lock provenance, and refreshes the Claude catalog; later builds keep those locked entries in it. It does not write the ChatGPT or Cursor indexes.
 
 Supported local clients discover a repo catalog at `$REPO_ROOT/.agents/plugins/marketplace.json`. `codex plugin marketplace add <source>` is a different operation: it explicitly registers and tracks a local or Git marketplace source in Codex runtime configuration. Generating the repository catalog does not run that command or mutate configuration.
 

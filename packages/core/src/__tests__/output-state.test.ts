@@ -15,6 +15,7 @@ import {
   verifySkillsetResult,
 } from "../build";
 import { parseGeneratedLock } from "../generated-lock";
+import { withLockProvenance } from "../lock-provenance";
 import { SkillsetFeatureDiagnosticError } from "../operation-result";
 import {
   classifySkillsetOutputFailure,
@@ -25,6 +26,8 @@ import {
   checkSkillsetSourceReadiness,
   checkSkillsetSourceReadinessWithAuthority,
 } from "../source-readiness";
+import type { JsonRecord } from "../types";
+import { isJsonRecord } from "../yaml";
 
 describe("output-state evidence classifier", () => {
   it("preserves the empty target default of setup-created schema-v1 locks", () => {
@@ -1377,6 +1380,7 @@ codex: true
   it("retains established-workspace source-driven marketplace refreshes", async () => {
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await dropCatalogLockItems(root);
     await Bun.write(
       join(root, ".skillset/plugins/local--tools/skillset.yaml"),
       "skillset:\n  name: local--tools\n  description: Updated plugin.\n"
@@ -1393,6 +1397,7 @@ codex: true
   it("backs up final source-driven marketplace collision bytes", async () => {
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await dropCatalogLockItems(root);
     await Bun.write(
       join(root, ".skillset/plugins/local--tools/skillset.yaml"),
       "skillset:\n  name: local--tools\n  description: Updated plugin.\n"
@@ -1429,6 +1434,7 @@ codex: true
   it("refuses a source-driven collision changed after backup persistence", async () => {
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await dropCatalogLockItems(root);
     await Bun.write(
       join(root, ".skillset/plugins/local--tools/skillset.yaml"),
       "skillset:\n  name: local--tools\n  description: Updated plugin.\n"
@@ -1481,6 +1487,7 @@ codex: true
   it("blocks a destination-only marketplace edit in an established workspace", async () => {
     const root = await marketplaceFixture("cursor");
     expect((await buildSkillsetResult(root)).ok).toBe(true);
+    await dropCatalogLockItems(root);
     const marketplacePath = join(root, ".cursor-plugin/marketplace.json");
     const handwritten = `${await Bun.file(marketplacePath).text()}\nhandwritten destination edit\n`;
     await Bun.write(marketplacePath, handwritten);
@@ -1593,6 +1600,24 @@ async function downgradeLockToV1(
   }
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
   return lock;
+}
+
+/**
+ * Simulates a workspace built before SET-693, when ordinary builds wrote the
+ * Claude and Cursor catalogs without recording them in the lock. Those
+ * workspaces still reach the legacy unmanaged-catalog safety paths.
+ */
+async function dropCatalogLockItems(root: string): Promise<void> {
+  const lockPath = join(root, "skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as JsonRecord;
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  const legacy = {
+    ...lock,
+    items: items.filter((item) =>
+      !(isJsonRecord(item) && (item.name === "claude-marketplace" || item.name === "cursor-marketplace"))
+    ),
+  };
+  await writeFile(lockPath, `${JSON.stringify(withLockProvenance(legacy), null, 2)}\n`);
 }
 
 async function marketplaceFixture(
