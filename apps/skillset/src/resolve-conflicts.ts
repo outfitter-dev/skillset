@@ -116,10 +116,6 @@ function requireGit(result: GitResult, operation: string): string {
   return result.stdout;
 }
 
-function splitLines(value: string): readonly string[] {
-  return value.split("\n").filter((line) => line.length > 0);
-}
-
 function splitNul(value: string): readonly string[] {
   return value.split("\0").filter((entry) => entry.length > 0);
 }
@@ -238,14 +234,18 @@ function lockOutputRoot(lockPath: string): string {
   return lockPath === WORKSPACE_LOCK_FILE ? "" : dirname(lockPath);
 }
 
-/** Every `skillset.lock` git tracks, including ones deleted from the worktree. */
-async function trackedLockPaths(rootPath: string): Promise<readonly string[]> {
+/**
+ * Every `skillset.lock` git tracks, including ones deleted from the worktree.
+ * @internal Exported for path-shape regression coverage.
+ */
+export async function trackedLockPaths(rootPath: string): Promise<readonly string[]> {
   const listed = await git(rootPath, [
     "ls-files",
+    "-z",
     WORKSPACE_LOCK_FILE,
     `*/${WORKSPACE_LOCK_FILE}`,
   ]);
-  return splitLines(requireGit(listed, "read tracked generated locks"))
+  return splitNul(requireGit(listed, "read tracked generated locks"))
     .filter(isLockPath)
     .sort(compareStrings);
 }
