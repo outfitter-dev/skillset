@@ -226,6 +226,17 @@ const profiles = [
   }),
 ] as const satisfies readonly StandardProfile[];
 
+/** The `$id` the pinned Agent Plugins 1.0 plugin manifest schema declares. */
+export const AGENT_PLUGINS_PLUGIN_SCHEMA_ID = pinnedSchemaId(AGENT_PLUGINS_PLUGIN_SCHEMA);
+
+function pinnedSchemaId(body: string): string {
+  const parsed: unknown = JSON.parse(body);
+  if (typeof parsed !== "object" || parsed === null || !("$id" in parsed) || typeof parsed.$id !== "string") {
+    throw new Error("skillset: pinned Agent Plugins plugin schema has no $id");
+  }
+  return parsed.$id;
+}
+
 export const standardProfiles = defineStandardProfiles(profiles);
 export function listStandardProfiles(): readonly StandardProfile[] {
   return standardProfiles;

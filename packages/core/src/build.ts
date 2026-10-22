@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, sep } from "node:path";
+import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
 
 import { compareStrings } from "./path";
 import { mapPlannedOutputPaths, stalePlannedOutputPaths } from "./output-plan";
@@ -202,16 +203,15 @@ const LOCK_ITEM_KEYS = new Set([
 ]);
 
 /**
- * Codex truncates AGENTS.md content beyond `project_doc_max_bytes` (32 KiB by
- * default) silently. Warn before a generated AGENTS.md crosses that line.
- * Verified against developers.openai.com/codex/guides/agents-md (2026-06-03).
+ * Codex silently truncates AGENTS.md content beyond `project_doc_max_bytes`.
+ * Warn before a generated AGENTS.md crosses the registry-pinned default.
  */
-const CODEX_AGENTS_MAX_BYTES = 32 * 1024;
+const CODEX_AGENTS_MAX_BYTES = codexAgentsMdFormat().projectDocMaxBytes;
 
 function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): readonly SkillsetDiagnostic[] {
   const diagnostics: SkillsetDiagnostic[] = [];
   for (const file of rendered) {
-    if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
+    if (!isCodexAgentsMdPath(file.path)) continue;
     if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
     diagnostics.push(skillsetDiagnostic({
       code: "codex-agents-size",

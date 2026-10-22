@@ -537,6 +537,33 @@ export function getProviderDestinationFormatSnapshot(
   return providerDestinationFormatSnapshots.find((snapshot) => snapshot.id === id);
 }
 
+/**
+ * The Codex project-instruction file name and default byte budget, read from
+ * the pinned `codex-agents-md` format. Core reads only the primary name; the
+ * snapshot's `discoveryOrder` (`AGENTS.override.md`, fallbacks) is Codex
+ * runtime behavior Skillset never writes.
+ */
+export function codexAgentsMdFormat(): {
+  readonly fileName: string;
+  readonly projectDocMaxBytes: number;
+} {
+  const format = getProviderDestinationFormatSnapshot("codex-agents-md")?.format;
+  if (
+    !isFormatRecord(format) ||
+    typeof format.filePattern !== "string" ||
+    typeof format.projectDocMaxBytesDefault !== "number"
+  ) {
+    throw new Error("skillset: pinned codex-agents-md format is missing its file name or byte budget");
+  }
+  return { fileName: format.filePattern, projectDocMaxBytes: format.projectDocMaxBytesDefault };
+}
+
+/** Whether a repo-relative path is a Codex project-instruction file at any depth. */
+export function isCodexAgentsMdPath(path: string): boolean {
+  const { fileName } = codexAgentsMdFormat();
+  return path === fileName || path.endsWith(`/${fileName}`);
+}
+
 /** Manifest paths the compiler derives from a provider plugin's component layout. */
 export function listProviderPluginComponentManifestFields(
   target: ProviderDestinationFormatTarget

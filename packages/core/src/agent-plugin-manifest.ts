@@ -1,3 +1,4 @@
+import { AGENT_PLUGINS_PLUGIN_SCHEMA_ID } from "@skillset/registry";
 import { readString, readStringArray } from "./config";
 import type { ResolvedLicense } from "./licenses";
 import { renderCodexAuthor } from "./source-author";
@@ -5,8 +6,8 @@ import { readSourceListing } from "./source-listing";
 import type { BuildGraph, JsonRecord, SourcePlugin } from "./types";
 import { pluginVersion } from "./versioning";
 
-export const AGENT_PLUGIN_MANIFEST_SCHEMA =
-  "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
+/** The pinned Agent Plugins 1.0 plugin schema's own `$id`, never a re-typed URL. */
+export const AGENT_PLUGIN_MANIFEST_SCHEMA = AGENT_PLUGINS_PLUGIN_SCHEMA_ID;
 
 /** Render the closed portable Agent Plugins root shared by standard and ChatGPT bundles. */
 export function renderAgentPluginManifest(
