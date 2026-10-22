@@ -24,6 +24,7 @@ import {
   skillsetSchemaContracts,
   sourceMetadataContract,
   validateAgentFrontmatter,
+  TARGET_NAMES,
   validateAdaptiveHookUnitSource,
   validateChangeEntryFrontmatter,
   validateHookDefinitionSource,
@@ -42,6 +43,24 @@ import {
 } from "../index";
 
 describe("@skillset/schema contracts", () => {
+  it("SET-540: accepts an adaptive hook override for every canonical target", () => {
+    const unit = {
+      events: ["PreToolUse"],
+      providers: [...TARGET_NAMES],
+      run: { command: "node ./check.js" },
+      ...Object.fromEntries(
+        TARGET_NAMES.map((target) => [target, { match: "Bash" }])
+      ),
+    };
+    expect(validateAdaptiveHookUnitSource(unit).diagnostics).toEqual([]);
+    for (const target of TARGET_NAMES) {
+      const unscoped = { ...unit, providers: TARGET_NAMES.filter((name) => name !== target) };
+      expect(validateAdaptiveHookUnitSource(unscoped).diagnostics.map((item) => item.code)).toEqual([
+        "schema/adaptive-hook/provider-override-provider",
+      ]);
+    }
+  });
+
   it("rejects every standards-selection config surface", () => {
     expect(
       validateWorkspaceConfig({ compile: { targets: [] } }).diagnostics

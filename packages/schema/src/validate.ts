@@ -72,9 +72,7 @@ const sourceLicenseValues = new Set<string>([
   SOURCE_LICENSE_NONE,
 ]);
 const toolsPolicyKeys = new Set<string>([
-  "claude",
-  "codex",
-  "cursor",
+  ...TARGET_NAMES,
   "mcp",
   "read",
   "search",
@@ -1944,10 +1942,8 @@ export function validateAdaptiveHookUnitSource(
   checkAllowedKeys(
     value,
     new Set([
-      "claude",
-      "codex",
+      ...TARGET_NAMES,
       "context",
-      "cursor",
       "description",
       "events",
       "match",
@@ -1981,24 +1977,14 @@ export function validateAdaptiveHookUnitSource(
   checkAdaptiveHookEvents(value.events, `${path}.events`, diagnostics);
   checkAdaptiveHookProviders(value.providers, `${path}.providers`, diagnostics);
   checkAdaptiveHookMatch(value.match, `${path}.match`, diagnostics);
-  checkAdaptiveHookProviderOverride(
-    value,
-    "claude",
-    `${path}.claude`,
-    diagnostics
-  );
-  checkAdaptiveHookProviderOverride(
-    value,
-    "codex",
-    `${path}.codex`,
-    diagnostics
-  );
-  checkAdaptiveHookProviderOverride(
-    value,
-    "cursor",
-    `${path}.cursor`,
-    diagnostics
-  );
+  for (const provider of TARGET_NAMES) {
+    checkAdaptiveHookProviderOverride(
+      value,
+      provider,
+      `${path}.${provider}`,
+      diagnostics
+    );
+  }
   checkAdaptiveHookContext(value.context, `${path}.context`, diagnostics);
   checkAdaptiveHookRun(value.run, `${path}.run`, diagnostics);
   return result(diagnostics);
@@ -2006,7 +1992,7 @@ export function validateAdaptiveHookUnitSource(
 
 function checkAdaptiveHookProviderOverride(
   source: SchemaJsonRecord,
-  provider: "claude" | "codex" | "cursor",
+  provider: (typeof TARGET_NAMES)[number],
   path: string,
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
