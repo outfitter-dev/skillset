@@ -44,7 +44,7 @@ Claude and Cursor [destinations](../../glossary.md#destination) follow the enabl
 
 Codex destinations follow the static base of `paths`. A pattern such as `docs/**/*.md` contributes to `docs/AGENTS.md`. When a pattern has no static base, Skillset inspects matching repository files and uses their lowest common directory. Unscoped rules contribute to the root `AGENTS.md`.
 
-When multiple rules reach one Codex destination, Skillset concatenates them in source-path order. Each section begins with a deterministic source-boundary comment so provenance remains visible without leaking source frontmatter into the generated `AGENTS.md` body. Skillset does not use `.codex/AGENTS.md` as a default Codex destination.
+When multiple rules reach one Codex destination, Skillset concatenates them in source-path order, after the `RULES.md` front page in the root `AGENTS.md`. Each rule section begins with a deterministic source-boundary comment so provenance remains visible without leaking source frontmatter into the generated `AGENTS.md` body. Skillset does not use `.codex/AGENTS.md` as a default Codex destination.
 
 Codex may silently truncate an `AGENTS.md` beyond its configured project-document byte limit. Build and output checks warn when generated guidance exceeds the default 32 KiB limit. Prefer narrower path-scoped rules that land in nested directories, or deliberately adjust the provider's own configuration.
 
