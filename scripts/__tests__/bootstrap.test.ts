@@ -11,7 +11,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
   isBunVersionAllowed,
@@ -215,6 +215,23 @@ describe("bootstrap dispatcher", () => {
     expect(proc.exitCode).toBe(0);
     expect(proc.stdout.toString()).toContain(
       "repo|agent|codex|claude|cursor|doctor|teardown"
+    );
+  });
+
+  test("doctor reports a missing git instead of crashing", () => {
+    // PATH holds only the running Bun, as on a Windows runner whose Git
+    // layout drops git from the trimmed CI PATH.
+    const proc = Bun.spawnSync({
+      cmd: [process.execPath, "./scripts/bootstrap/main.ts", "doctor"],
+      cwd: repoRoot,
+      env: { HOME: process.env.HOME ?? "", PATH: dirname(process.execPath) },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    expect(proc.exitCode).toBe(0);
+    expect(proc.stderr.toString()).toContain(
+      "git: missing (repo health checks skipped)"
     );
   });
 
