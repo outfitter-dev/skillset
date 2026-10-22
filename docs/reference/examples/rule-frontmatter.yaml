@@ -1,11 +1,10 @@
-claude:
-  path: .claude/rules/source.md
-codex:
-  path: .codex/rules/source.rules
+cursor: false
 dialect: claude
 metadata:
   owner: source-platform
 name: source-rules
+paths:
+  - packages/source/**
 skillset:
   origin:
     path: .skillset/rules/source.md

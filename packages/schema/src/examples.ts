@@ -104,25 +104,45 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       changes: {
         minimumRefLength: 6,
       },
-      claude: true,
+      claude: {
+        skills: {
+          enabled: true,
+          include: ["use-skillset"],
+        },
+      },
       codex: {
         plugins: true,
+        skills: ["use-skillset"],
       },
       compile: {
         build: "updated",
         features: {
           promptArguments: true,
         },
+        instruction_front_page: "claude-dir",
+        session_start_hook: "auto",
         skillset: {
           metadata: true,
         },
         targets: ["claude", "codex", "cursor"],
         unsupportedDestination: "error",
       },
+      cursor: true,
       defaults: {
+        claude: {
+          skills: {
+            model: "sonnet",
+          },
+        },
         codex: {
           agents: {
             model: "gpt-5.1-codex",
+          },
+          plugins: {
+            enabled: true,
+          },
+          rules: {
+            enabled: true,
           },
         },
       },
@@ -140,8 +160,16 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       drafts: ["plugin.skillset.skill:experimental"],
       distributions: {
-        plugins: {
-          path: "dist/plugins",
+        "codex-marketplace": {
+          from: {
+            runtime: "codex-cli",
+            selector: "plugin:outfitter-core",
+            target: "codex",
+          },
+          to: {
+            kind: "local",
+            path: "../openai-codex-plugins/outfitter-core",
+          },
         },
       },
       internal_marker: true,
@@ -217,10 +245,19 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       plugins: {
         internal_use: {
+          drafts: {
+            skillset: ["experimental"],
+          },
           plugins: ["skillset"],
           skills: {
-            skillset: ["use-skillset", "!experimental"],
+            skillset: ["!legacy-review"],
           },
+        },
+        output: {
+          codex: {
+            path: "plugins/[name]",
+          },
+          path: "plugins/[name]",
         },
       },
       skillset: {
@@ -254,6 +291,9 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
             source: "repo:package.json",
           },
         ],
+      },
+      workspace: {
+        cacheKey: "example-team",
       },
     },
   },
@@ -462,17 +502,13 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
     id: "rule-frontmatter",
     path: "rule-frontmatter.yaml",
     value: {
-      claude: {
-        path: ".claude/rules/source.md",
-      },
-      codex: {
-        path: ".codex/rules/source.rules",
-      },
+      cursor: false,
       dialect: "claude",
       metadata: {
         owner: "source-platform",
       },
       name: "source-rules",
+      paths: ["packages/source/**"],
       skillset: {
         origin: {
           path: ".skillset/rules/source.md",

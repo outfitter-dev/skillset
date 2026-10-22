@@ -1,13 +1,21 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json
 changes:
   minimumRefLength: 6
-claude: true
+claude:
+  skills:
+    enabled: true
+    include:
+      - use-skillset
 codex:
   plugins: true
+  skills:
+    - use-skillset
 compile:
   build: updated
   features:
     promptArguments: true
+  instruction_front_page: claude-dir
+  session_start_hook: auto
   skillset:
     metadata: true
   targets:
@@ -15,10 +23,18 @@ compile:
     - codex
     - cursor
   unsupportedDestination: error
+cursor: true
 defaults:
+  claude:
+    skills:
+      model: sonnet
   codex:
     agents:
       model: gpt-5.1-codex
+    plugins:
+      enabled: true
+    rules:
+      enabled: true
 dependencies:
   plugins:
     - acme-tools
@@ -28,8 +44,14 @@ dependencies:
       range: ^2.4.0
       unversioned: false
 distributions:
-  plugins:
-    path: dist/plugins
+  codex-marketplace:
+    from:
+      runtime: codex-cli
+      selector: plugin:outfitter-core
+      target: codex
+    to:
+      kind: local
+      path: ../openai-codex-plugins/outfitter-core
 drafts:
   - plugin.skillset.skill:experimental
 internal_marker: true
@@ -91,12 +113,18 @@ marketplaces:
     title: Outfitter
 plugins:
   internal_use:
+    drafts:
+      skillset:
+        - experimental
     plugins:
       - skillset
     skills:
       skillset:
-        - use-skillset
-        - "!experimental"
+        - "!legacy-review"
+  output:
+    codex:
+      path: plugins/[name]
+    path: plugins/[name]
 skillset:
   author:
     email: team@example.com
@@ -126,3 +154,5 @@ supports:
       onMismatch: warn
       range: ^1.0.0
       source: repo:package.json
+workspace:
+  cacheKey: example-team
