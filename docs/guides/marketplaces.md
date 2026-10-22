@@ -124,7 +124,7 @@ skillset marketplace update outfitter --yes
 
 The confirmed update writes the [provider-native](../glossary.md#provider-native) Claude marketplace index and marketplace provenance in the existing `skillset.lock`. It refuses unresolved source, stale or missing plugin bundles, unsupported targets, and pinned revision mismatches. If an input changes after preview, the transaction is refused instead of applying a stale plan.
 
-Review and commit the index and lock changes. `marketplace update` does not mutate an external plugin repository, publish the marketplace repository, install or trust a plugin, prove [activation](../glossary.md#activation), or write user-level provider configuration.
+The update renders through the ordinary build, so it writes the same catalog and lock a following `skillset build --yes` would, and `skillset check --only outputs` passes right after it. Review and commit the index and lock changes. `marketplace update` does not mutate an external plugin repository, publish the marketplace repository, install or trust a plugin, prove [activation](../glossary.md#activation), or write user-level provider configuration.
 
 ## Know the Provider Outcomes
 

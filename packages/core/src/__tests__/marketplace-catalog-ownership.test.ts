@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { explainPath } from "../authoring";
-import { buildSkillsetResult } from "../build";
+import { buildSkillsetResult, verifySkillsetResult } from "../build";
+import { updateMarketplaces } from "../marketplace-update";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const ROOT_CONFIG = `
 skillset:
@@ -66,8 +71,42 @@ marketplaces:
   });
 });
 
-async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await createTestFixtureRoot("skillset-catalog-ownership-");
+describe("SET-694: marketplace update and build agree on the lock", () => {
+  test("a confirmed update leaves outputs current and records the build's local provenance", async () => {
+    const parent = await createTestGitFixtureRoot("skillset-catalog-update-");
+    const root = await fixture({
+      "skillset.yaml": `${ROOT_CONFIG.trim()}
+marketplaces:
+  team:
+    targets: [claude]
+    plugins:
+      - plugin: tools
+`,
+    }, parent);
+    // On a branch, update's own resolution sees a ref; the lock must not keep it.
+    await initializeTestGitRepository(root, { disposableRoot: parent });
+    await buildSkillsetResult(root);
+    const built = await readFile(join(root, "skillset.lock"), "utf8");
+
+    const updated = await updateMarketplaces(root, { write: true });
+
+    expect(updated.ok).toBe(true);
+    expect(updated.writtenPaths).toEqual([".claude-plugin/marketplace.json", "skillset.lock"]);
+    expect(await readFile(join(root, "skillset.lock"), "utf8")).toBe(built);
+    expect((await verifySkillsetResult(root)).ok).toBe(true);
+    const lock = JSON.parse(built) as {
+      readonly marketplaces: { readonly entries: readonly { readonly resolved: Record<string, unknown> }[] };
+    };
+    expect(lock.marketplaces.entries).toEqual([
+      expect.objectContaining({ resolved: expect.not.objectContaining({ ref: expect.anything() }) }),
+    ]);
+  });
+});
+
+async function fixture(files: Record<string, string>, parent?: string): Promise<string> {
+  const root = parent === undefined
+    ? await createTestFixtureRoot("skillset-catalog-ownership-")
+    : await mkdtemp(join(parent, "skillset-catalog-ownership-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles({
     ...files,
     ".skillset/plugins/tools/skillset.yaml": `
