@@ -18,20 +18,24 @@ describe("plugin companions", () => {
     }
   });
 
-  it("does not copy companions whose cursor registry support is still planned", async () => {
+  it("keeps cursor README, scripts, and src companions when the Agent Plugins baseline is unsupported [SET-699]", async () => {
     const root = await fixture("cursor", LONG_PLUGIN_ID);
 
     const result = await buildSkillsetResult(root);
     expect(result.ok).toBe(true);
-    for (const path of ["README.md", "assets/icon.svg", "scripts/setup.sh", "src/index.js"]) {
-      expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, path)).exists()).toBe(false);
+    for (const path of ["README.md", "scripts/setup.sh", "src/index.js"]) {
+      expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, path)).exists()).toBe(true);
     }
+    expect(await Bun.file(join(root, "plugins", LONG_PLUGIN_ID, "assets/icon.svg")).exists()).toBe(false);
     const { renderResults } = await diffSkillsetResult(root);
     expect(
-      renderResults.filter((outcome) =>
-        ["plugin-assets", "plugin-readme", "plugin-scripts", "plugin-src"].includes(outcome.featureId)
-      )
-    ).toEqual([]);
+      renderResults
+        .filter((outcome) =>
+          ["plugin-assets", "plugin-readme", "plugin-scripts", "plugin-src"].includes(outcome.featureId)
+        )
+        .map((outcome) => outcome.featureId)
+        .sort()
+    ).toEqual(["plugin-readme", "plugin-scripts", "plugin-src"]);
   });
 
   it("changes the fallback plugin source hash when a copied README changes", async () => {

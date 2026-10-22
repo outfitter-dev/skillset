@@ -46,11 +46,11 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 | Plugin MCP Servers | `implemented` | `native` | — | [1](../features/feature-source-pointers.md), [2](../features/mcp-servers.md) |
 | Plugin Monitors | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/monitors.md), [2](../features/plugins.md) |
 | Plugin Output Styles | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/output-styles.md), [2](../features/plugins.md) |
-| Plugin README | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
+| Plugin README | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Rules | `implemented` | `pass_through` | — | [1](../features/rules.md), [2](../features/plugins.md) |
-| Plugin Scripts | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
+| Plugin Scripts | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Skills | `implemented` | `native` | — | [1](../features/plugins.md), [2](../features/skills.md) |
-| Plugin Source | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/plugins.md) |
+| Plugin Source | `implemented` | `pass_through` | — | [1](../features/plugins.md) |
 | Plugin Themes | `implemented` | `planned` | cursor provider support is not registered for this feature yet. | [1](../features/themes.md), [2](../features/plugins.md) |
 | Project Agents | `implemented` | `native` | — | [1](../features/agents.md) |
 | Project Instructions | `implemented` | `transformed` | — | [1](../features/rules.md) |
