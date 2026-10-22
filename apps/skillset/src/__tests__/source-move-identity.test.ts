@@ -280,6 +280,17 @@ describe("source move identity epochs", () => {
       }
     });
 
+    test("covers a removal moved onto a selector vacated by an earlier move", () => {
+      const events = [move("skill:a", "plugin.tools.skill:a"), move("skill:c", "skill:a")];
+      const changes = [
+        { id: "plugin.tools.skill:a", status: "added" },
+        { id: "skill:a", status: "changed" },
+        { id: "skill:c", status: "removed" },
+      ];
+      expect(movedAwaySourceChanges(changes, ["skill:a"], events)).toEqual([{ id: "skill:c", status: "removed" }]);
+      expect(uncoveredSourceChanges(changes, ["plugin.tools.skill:a", "skill:a"], events)).toEqual([]);
+    });
+
     test("follows a chain of moves inside the window", () => {
       const events = [move("skill:demo", "plugin.a.skill:demo"), move("plugin.a.skill:demo", "plugin.b.skill:demo")];
       const changes = [

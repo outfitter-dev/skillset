@@ -211,7 +211,8 @@ export function uncoveredSourceChanges<Change extends { readonly id: string; rea
  * Only moves after the last applied release count; that release already
  * retired the selectors of earlier moves. The chain starts at the latest move
  * of the removed selector, so a reused name follows its own move, and must end
- * at a newly added unit, the other half of the same move.
+ * at a newly added unit, the other half of the same move, or at a selector an
+ * earlier move in the window vacated.
  */
 export function movedAwaySourceChanges<Change extends { readonly id: string; readonly status: string }>(
   changes: readonly Change[],
@@ -239,7 +240,10 @@ export function movedAwaySourceMoves<Change extends { readonly id: string; reado
     const latest = moves.findLast((mapping) => mapping.from === change.id);
     if (latest === undefined) return [];
     const current = currentSourceIdentity(latest.to, sourceMappingsAfterEvent(moves, latest.eventIndex));
-    return added.has(current) && targets.has(current) ? [{ change, to: current }] : [];
+    // The destination is new, or reuses a selector a move in this window
+    // vacated, which then reports as changed rather than added.
+    const arrived = added.has(current) || moves.some((mapping) => mapping.from === current);
+    return arrived && targets.has(current) ? [{ change, to: current }] : [];
   });
 }
 
