@@ -12,7 +12,7 @@ Validate source, generated outputs, and CI readiness.
 ## Usage
 
 ```text
-skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]
+skillset check [--write|--only outputs [--isolated]|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]
 ```
 
 ## Options
@@ -21,6 +21,7 @@ skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <p
 | --- | --- |
 | `--ci` | Run check with strict non-interactive CI policy and reporting. |
 | `--fix` | With check --ci, repair the ordinary drift allowed by local check --write. |
+| `--isolated` | Use the isolated generated-output mirror instead of live output roots. |
 | `--json` | Emit exactly one versioned finite JSON result document. |
 | `--only <value>` | Restrict check to one named readiness component. |
 | `--report <value>` | Write an additional command-owned report artifact without changing source truth. |
@@ -32,5 +33,6 @@ skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <p
 
 ```text
 skillset check
+skillset check --only outputs --isolated
 skillset check --ci
 ```

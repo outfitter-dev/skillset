@@ -27,9 +27,18 @@ skillset new [plugin|skill|agent|rule|hook] [name] [--id <id>] [--name <name>] [
 | `--in <value>` | Select the containing plugin for a new source unit. |
 | `--json` | Emit exactly one versioned finite JSON result document. |
 | `--name <value>` | Set a route-specific human or stable name where the route permits it. |
-| `--preset <value>...` | Apply a named new-source preset. |
+| `--preset <value>...` | Apply a named skill preset: assets, evals, examples-file, minimal, reference-file, references, scripts, or support. |
 | `--provider <value>...` | Constrain a new adaptive hook to a compatible provider. |
 | `--root <value>` | Select the repository root; defaults to cwd or Git root according to the route. |
-| `--scope <value>...` | Select a route-owned source unit or generated destination scope; never changes workspace roots. |
+| `--scope <value>...` | Select the source scope; only `repo` is accepted. |
 | `--script <value>` | Set the script action for a new adaptive hook. |
 | `--yes` | Confirm a fully specified plan-first mutation without prompting. |
+
+## Examples
+
+```text
+skillset new skill release-notes
+skillset new skill release-notes --preset support --yes
+skillset new rule testing --yes
+skillset new hook session-banner --event SessionStart --command "echo ready" --attach plugin:tools
+```

@@ -28,7 +28,7 @@ These pages are generated from the same typed presentation and flag contracts us
 
 ## Inspect
 
-- [`skillset eval`](./eval.md) — List portable skill eval cases and their resolved target matrix.
+- [`skillset eval`](./eval.md) — List, run, and inspect portable skill evals.
 - [`skillset explain`](./explain.md) — Explain ownership and provenance for a path.
 - [`skillset list`](./list.md) — List authored units and their generated outputs.
 - [`skillset lookup`](./lookup.md) — Look up schema, compatibility, and provider facts.

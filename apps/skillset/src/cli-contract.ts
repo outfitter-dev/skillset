@@ -183,7 +183,7 @@ export const CLI_FLAGS = {
   },
   "--include": {
     family: "selection",
-    meaning: "Include an optional init scaffold component.",
+    meaning: "Include an optional setup scaffold component; `ci` is the only component.",
     value: "repeatable-value",
   },
   "--discard-edits": {
@@ -215,7 +215,7 @@ export const CLI_FLAGS = {
   },
   "--lines": {
     family: "selection",
-    meaning: "Limit retained test output lines.",
+    meaning: "Limit retained run output lines.",
     value: "value",
   },
   "--list": {
@@ -251,7 +251,8 @@ export const CLI_FLAGS = {
   },
   "--preset": {
     family: "input",
-    meaning: "Apply a named new-source preset.",
+    meaning:
+      "Apply a named skill preset: assets, evals, examples-file, minimal, reference-file, references, scripts, or support.",
     value: "repeatable-value",
   },
   "--prompt": {
@@ -334,12 +335,12 @@ export const CLI_FLAGS = {
   },
   "--targets": {
     family: "selection",
-    meaning: "Select the initial provider set written by init.",
+    meaning: "Select the initial provider set for the new workspace.",
     value: "value",
   },
   "--timeout-ms": {
     family: "mode",
-    meaning: "Set the explicit ad hoc provider test timeout in milliseconds.",
+    meaning: "Set the run timeout in milliseconds.",
     value: "value",
   },
   "--updated": {
@@ -425,6 +426,7 @@ export const CLI_ROUTE_FLAGS = {
   check: [
     "--ci",
     "--fix",
+    "--isolated",
     "--json",
     "--only",
     "--report",

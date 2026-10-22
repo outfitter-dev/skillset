@@ -67,7 +67,7 @@ describe("SET-305 CLI contract parity", () => {
     const usageWithoutBuildYes = USAGE.replace(
       "skillset build [--yes] ",
       "skillset build "
-    );
+    ).replace("[--discard-edits] [--yes]", "[--discard-edits]");
     expect(
       validateCliContractParity({ usage: usageWithoutBuildYes })
     ).toContainEqual(expect.objectContaining({ surface: "help" }));

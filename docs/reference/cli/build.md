@@ -13,7 +13,7 @@ Preview or write generated provider outputs.
 
 ```text
 skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]
-skillset build --repair [path...] [--discard-edits]
+skillset build --repair [path...] [--discard-edits] [--yes]
 ```
 
 ## Options

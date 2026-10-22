@@ -33,7 +33,7 @@ skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <pat
 | `--prompt-file <value>` | Provide a source-local ad hoc test prompt file. |
 | `--root <value>` | Select the repository root; defaults to cwd or Git root according to the route. |
 | `--target <value>` | Select one provider target for a route. |
-| `--timeout-ms <value>` | Set the explicit ad hoc provider test timeout in milliseconds. |
+| `--timeout-ms <value>` | Set the run timeout in milliseconds. |
 
 ## `skillset test list`
 
@@ -84,5 +84,5 @@ skillset test tail [run-id] [--lines <count>] [--json] [--root <path>]
 | Option | Meaning |
 | --- | --- |
 | `--json` | Emit exactly one versioned finite JSON result document. |
-| `--lines <value>` | Limit retained test output lines. |
+| `--lines <value>` | Limit retained run output lines. |
 | `--root <value>` | Select the repository root; defaults to cwd or Git root according to the route. |
