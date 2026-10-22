@@ -625,14 +625,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-readme",
     sourceShape: "plugin README.md",
     summary: "Copies plugin README companions into generated provider plugin outputs.",
-    targetSupport: bothTargetsWithTargetEvidence("pass_through", [docs("docs/reference/features/plugins.md")], {}),
+    targetSupport: allTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin README",
   }),
   pluginCompanionFeature({
     id: "plugin-scripts",
     sourceShape: "plugin scripts/",
     summary: "Copies plugin script companions into generated provider plugin outputs.",
-    targetSupport: bothTargetsWithTargetEvidence("pass_through", [docs("docs/reference/features/plugins.md")], {}),
+    targetSupport: allTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin Scripts",
   }),
   feature({
@@ -672,7 +672,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-src",
     sourceShape: "plugin src/",
     summary: "Copies plugin source companions into generated provider plugin outputs.",
-    targetSupport: bothTargetsWithTargetEvidence("pass_through", [docs("docs/reference/features/plugins.md")], {}),
+    targetSupport: allTargets("pass_through", [docs("docs/reference/features/plugins.md")]),
     title: "Plugin Source",
   }),
   pluginCompanionFeature({

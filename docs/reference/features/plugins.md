@@ -13,11 +13,11 @@ description: Plugins define source containers, manifest authority, component own
 | `plugin-manifests` | `implemented` | `native` | `native` | `native` |
 | `plugin-monitors` | `implemented` | `pass_through` | `not_applicable` | `planned` |
 | `plugin-output-styles` | `implemented` | `pass_through` | `not_applicable` | `planned` |
-| `plugin-readme` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-readme` | `implemented` | `pass_through` | `pass_through` | `pass_through` |
 | `plugin-rules` | `implemented` | `not_applicable` | `not_applicable` | `pass_through` |
-| `plugin-scripts` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-scripts` | `implemented` | `pass_through` | `pass_through` | `pass_through` |
 | `plugin-skills` | `implemented` | `native` | `native` | `native` |
-| `plugin-src` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-src` | `implemented` | `pass_through` | `pass_through` | `pass_through` |
 | `plugin-themes` | `implemented` | `pass_through` | `not_applicable` | `planned` |
 <!-- skillset:generated:end feature-support -->
 
