@@ -1,4 +1,8 @@
+import { codexAgentsMdFormat } from "@skillset/registry";
+
 import type { TransformEntry } from "../types";
+
+const CODEX_INSTRUCTIONS_FILE = codexAgentsMdFormat().fileName;
 
 /**
  * Project instructions document name: `CLAUDE.md` <-> `AGENTS.md`.
@@ -20,8 +24,8 @@ export const projectInstructionsEntry: TransformEntry = {
       render: () => "CLAUDE.md",
     },
     codex: {
-      pattern: /\bAGENTS\.md\b/gu,
-      render: () => "AGENTS.md",
+      pattern: new RegExp(`\\b${CODEX_INSTRUCTIONS_FILE.replaceAll(".", "\\.")}\\b`, "gu"),
+      render: () => CODEX_INSTRUCTIONS_FILE,
     },
   },
   intent: "doc.project-instructions",

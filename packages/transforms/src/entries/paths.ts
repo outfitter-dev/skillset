@@ -1,4 +1,22 @@
+import { providerProjectConfigDirectory, providerSkillsDirectory } from "@skillset/registry";
+
 import type { TransformEntry } from "../types";
+
+/** Provider directory facts, read from the registry pins rather than re-typed here. */
+const CLAUDE_CONFIG_DIR = requiredConfigDirectory("claude");
+const CODEX_CONFIG_DIR = requiredConfigDirectory("codex");
+const CLAUDE_SKILLS_DIR = providerSkillsDirectory("claude");
+const CODEX_SKILLS_DIR = providerSkillsDirectory("codex");
+
+function requiredConfigDirectory(target: "claude" | "codex"): string {
+  const directory = providerProjectConfigDirectory(target);
+  if (directory === undefined) throw new Error(`skillset: registry pins no ${target} project config directory`);
+  return directory;
+}
+
+function escapePattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\/]/gu, "\\$&");
+}
 
 const CONFIG_DIR_EVIDENCE = [
   {
@@ -34,12 +52,12 @@ export const projectConfigDirEntry: TransformEntry = {
   evidence: CONFIG_DIR_EVIDENCE,
   forms: {
     claude: {
-      pattern: /\.claude\//gu,
-      render: () => ".claude/",
+      pattern: new RegExp(`${escapePattern(CLAUDE_CONFIG_DIR)}/`, "gu"),
+      render: () => `${CLAUDE_CONFIG_DIR}/`,
     },
     codex: {
-      pattern: /\.codex\//gu,
-      render: () => ".codex/",
+      pattern: new RegExp(`${escapePattern(CODEX_CONFIG_DIR)}/`, "gu"),
+      render: () => `${CODEX_CONFIG_DIR}/`,
     },
   },
   intent: "path.project-config-dir",
@@ -57,12 +75,12 @@ export const userConfigDirEntry: TransformEntry = {
   evidence: CONFIG_DIR_EVIDENCE,
   forms: {
     claude: {
-      pattern: /~\/\.claude\//gu,
-      render: () => "~/.claude/",
+      pattern: new RegExp(`~/${escapePattern(CLAUDE_CONFIG_DIR)}/`, "gu"),
+      render: () => `~/${CLAUDE_CONFIG_DIR}/`,
     },
     codex: {
-      pattern: /~\/\.codex\//gu,
-      render: () => "~/.codex/",
+      pattern: new RegExp(`~/${escapePattern(CODEX_CONFIG_DIR)}/`, "gu"),
+      render: () => `~/${CODEX_CONFIG_DIR}/`,
     },
   },
   intent: "path.user-config-dir",
@@ -81,12 +99,12 @@ export const skillsDirEntry: TransformEntry = {
   evidence: SKILLS_DIR_EVIDENCE,
   forms: {
     claude: {
-      pattern: /(~\/)?\.claude\/skills\b/gu,
-      render: (match) => `${match[1] ?? ""}.claude/skills`,
+      pattern: new RegExp(`(~/)?${escapePattern(CLAUDE_SKILLS_DIR)}\\b`, "gu"),
+      render: (match) => `${match[1] ?? ""}${CLAUDE_SKILLS_DIR}`,
     },
     codex: {
-      pattern: /(~\/)?\.agents\/skills\b/gu,
-      render: (match) => `${match[1] ?? ""}.agents/skills`,
+      pattern: new RegExp(`(~/)?${escapePattern(CODEX_SKILLS_DIR)}\\b`, "gu"),
+      render: (match) => `${match[1] ?? ""}${CODEX_SKILLS_DIR}`,
     },
   },
   intent: "path.skills-dir",

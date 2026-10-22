@@ -4,6 +4,9 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "dependencies": {
+    "@skillset/registry": "workspace:*"
+  },
   "exports": {
     ".": "./src/index.ts"
   }

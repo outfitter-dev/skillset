@@ -1,11 +1,31 @@
 import { expect, test } from "bun:test";
 
 import {
+  codexAgentsMdFormat,
+  providerProjectConfigDirectory,
+  providerSkillsDirectory,
+} from "@skillset/registry";
+
+import {
   builtinTransformEntries,
   listTransformEntries,
   recognizeTransforms,
   registerTransformEntry,
+  lowerTransform,
 } from "../index";
+
+test("SET-547: path and instruction entries render the registry's pinned locations", () => {
+  const lowered = (body: string, from: "claude" | "codex", to: "claude" | "codex") =>
+    recognizeTransforms(body, from).map((match) => lowerTransform(match, to));
+  expect(lowered(`see ${providerSkillsDirectory("claude")}/demo`, "claude", "codex")).toContain(
+    providerSkillsDirectory("codex")
+  );
+  expect(lowered(`edit ${providerProjectConfigDirectory("claude")}/settings.json`, "claude", "codex")).toContain(
+    `${providerProjectConfigDirectory("codex")}/`
+  );
+  expect(lowered(`read ${codexAgentsMdFormat().fileName}`, "codex", "claude")).toContain("CLAUDE.md");
+  expect(lowered("read CLAUDE.md", "claude", "codex")).toContain(codexAgentsMdFormat().fileName);
+});
 
 test("every built-in entry is registered, evidence-backed, and flagged correctly", () => {
   expect(listTransformEntries()).toEqual(builtinTransformEntries);

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 import { gitSafeEnv } from "./git-env";
+import { codexAgentsMdFormat } from "@skillset/registry";
 
 export type ChangedFile = {
   path: string;
@@ -192,7 +193,7 @@ function isRuntimeSourcePath(path: string, root: string) {
   if (!relative) return false;
   if (relative.startsWith("__tests__/")) return false;
   if (relative.endsWith(".test.ts")) return false;
-  if (relative === "AGENTS.md") return false;
+  if (relative === codexAgentsMdFormat().fileName) return false;
   return true;
 }
 

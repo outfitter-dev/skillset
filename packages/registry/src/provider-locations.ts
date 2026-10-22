@@ -351,6 +351,29 @@ export function defineProviderLocationEvidence(
   );
 }
 
+/**
+ * Legacy Codex skill directory: the skill loader still reads `.codex/skills`
+ * but prefers `.agents/skills` (openai/codex codex-rs/core-skills/src/loader.rs,
+ * verified 2026-06-11). Adoption imports from it; builds never write it.
+ */
+export const LEGACY_CODEX_SKILLS_DIRECTORY = ".codex/skills";
+
+/**
+ * The project-level config directory a target's CLI reads (`.claude`, `.codex`),
+ * from its verified project config location, or undefined when none is pinned.
+ */
+export function providerProjectConfigDirectory(target: ProviderLocationTarget): string | undefined {
+  for (const entry of providerLocationEvidence) {
+    if (entry.target !== target) continue;
+    for (const fact of entry.facts) {
+      if (fact.kind !== "config" || fact.status !== "verified") continue;
+      const match = /^<project(?:-or-ancestor)?>\/([^/]+)\//u.exec(fact.path);
+      if (match?.[1] !== undefined) return match[1];
+    }
+  }
+  return undefined;
+}
+
 export function listProviderLocationEvidence(): readonly ProviderLocationEvidence[] {
   return providerLocationEvidence;
 }
