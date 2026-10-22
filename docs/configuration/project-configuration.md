@@ -20,7 +20,7 @@ The [workspace-config schema and maximal example](../reference/schemas/README.md
 
 ## Select Providers
 
-`compile.targets` establishes the root provider plan; each selected provider becomes a [target](../glossary.md#target). It accepts `claude`, `codex`, and `cursor`. When it is omitted, Skillset uses the default provider plan and builds every supported provider rendering for portable source.
+`compile.targets` establishes the root provider plan; each selected provider becomes a [target](../glossary.md#target). It accepts `claude`, `codex`, and `cursor`. When it is omitted, Skillset uses the default provider plan and builds every supported provider rendering for portable source. An explicit empty list, `compile.targets: []`, requests no provider output and builds only the applicable Agent standards projections; see [build scopes](../reference/features/build-scopes.md).
 
 Root provider blocks such as `claude`, `codex`, and `cursor` configure output details and inherit that plan unless explicitly enabled or disabled. Lower-level plugin and [source-unit](../glossary.md#source-unit) provider toggles can opt a provider back in where the source contract supports it. A bare top-level `targets` key is invalid. See [target overrides](target-overrides.md) for the full [cascade](../glossary.md#cascade).
 
@@ -86,7 +86,7 @@ workspace selection.
 The root `drafts` list can mark standalone skills with `skill:<id>` and plugin
 skills with `plugin.<plugin-id>.skill:<id>`. A plugin-local `drafts` list can
 mark that plugin's skills with `skill:<id>`. Other source-unit selector forms
-are rejected because draft status currently belongs only to skills. The
+are rejected because draft status currently belongs only to skills.
 `skillset explain` reports `config` as the origin. Selected live plugin skills
 are copied into every enabled fixed provider skill root. Workspace skills keep
 their leaf name; colliding plugin copies use `<plugin-id>-<leaf>`, and the
@@ -116,8 +116,10 @@ Project-use lock entries record the canonical source unit, effective name,
 selection rule, and target owner; project drafts additionally record draft
 origin, applied draft policy, and the same-container shipped sibling when one
 exists. Drafts never enter plugin packages or marketplace output.
-`internal_marker` defaults to `true` for live project-use copies; set it to
-`false` to omit their marker.
+`internal_marker` is a top-level key, not part of `plugins.internal_use`; a
+nested `plugins.internal_use.internal_marker` fails as an unsupported key. It
+defaults to `true` for live project-use copies; set it to `false` to omit their
+marker.
 Referenced skill resources travel with copies. Other plugin-level hooks,
 unrelated shared trees, MCP servers, and executables are not hydrated:
 selecting the whole plugin or a skill with its own hook attachment reports the
@@ -146,6 +148,14 @@ Paths are workspace-relative, use forward slashes, and may contain at most one
 invalid. A target block such as `plugins.output.codex` may override `path` and
 may parse the future `name` and `combine` keys; those keys remain unsupported
 until their owning package-placement features land.
+
+## Set Root Metadata, Defaults, and the Cache Key
+
+The root `skillset` block carries workspace source metadata such as `name`, `version`, `license`, `author`, and `repository`, the same block that [frontmatter](frontmatter.md) uses for source units. Plugin `skillset.yaml` files use the same block for their own metadata.
+
+Root `defaults` supplies per-provider defaults for one feature surface at a time: `defaults.<target>.<surface>`, where the surface is `agents`, `plugins`, `rules`, or `skills`. For example, `defaults.codex.agents.model` sets the Codex model for project agents that do not name one. Plugin configuration can declare its own `defaults`. Fields in a source unit's own provider block override these defaults; a shared top-level field such as `model` does not, so the provider default still applies for that target. See [target overrides](target-overrides.md) for the cascade.
+
+`workspace.cacheKey` names this repository's machine-local cache bucket. Most repositories should omit it and keep the automatically derived key; see [workspace layout](../reference/source/workspace-layout.md) for the cache paths.
 
 ## Configure Other Workspace Features
 

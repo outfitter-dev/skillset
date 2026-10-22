@@ -10,7 +10,7 @@ Markdown [source units](../glossary.md#source-unit) use YAML frontmatter for met
 | --- | --- | --- | --- |
 | Skill | `.skillset/skills/<skill>/SKILL.md` | [Schema and example](../reference/schemas/README.md) | [Skills](../reference/features/skills.md) |
 | Project agent | `.skillset/subagents/<agent>.md` | [Schema and example](../reference/schemas/README.md) | [Agents](../reference/features/agents.md) |
-| Rule | `.skillset/rules/**/*.md` | [Schema and example](../reference/schemas/README.md) | [Rules](../reference/source/rules.md) |
+| Rule | `.skillset/rules/**/*.md` | [Schema and example](../reference/schemas/README.md) | [Rules](../reference/features/rules.md) |
 
 ## Start with Shared Metadata
 
@@ -24,7 +24,7 @@ tools: readonly
 ---
 ```
 
-Use top-level fields for the source type's portable meaning. The nested `skillset` block carries Skillset source metadata such as schema, preprocessing, origin, version baselines, and licensing. Compatibility requirements belong under `supports`.
+Use top-level fields for the source type's portable meaning. The nested `skillset` block carries Skillset source metadata such as schema, preprocessing, origin, version baselines, and licensing. Declare machine-checked package, tool, or version requirements under [`supports`](../reference/features/supports.md). That is separate from the Agent Skills `compatibility` field, a short free-text note about the environment a skill needs.
 
 The field sets differ by source type. For example, skills can declare resources and tool intent, agents can declare skills and an initial prompt, and rules can declare path scoping and a dialect. Use the generated [frontmatter schemas and examples](../reference/schemas/README.md) rather than copying a field list from prose.
 
@@ -38,7 +38,7 @@ Skills use the standard top-level `name` and `version` fields when those values 
 
 Shared metadata participates in the configuration [cascade](../glossary.md#cascade). [Workspace](../glossary.md#workspace) defaults fill omitted values, plugin defaults refine their descendants, file fields refine the source unit, and provider fields take precedence for their [target](../glossary.md#target). See [target overrides](target-overrides.md) before adding a provider block.
 
-Licensing follows the same local-first model. A scope can declare `skillset.license`, inherit its parent license, or use `license: none` to opt out. A same-scope `LICENSE.txt` is also source, but it cannot conflict with an explicit opt-out.
+Licensing follows the same local-first model. A scope can declare `skillset.license`, inherit its parent license, or set `skillset.license: none` to opt out. A top-level `license: none` is not the opt-out; Skillset reads licensing only from the `skillset` block. A same-scope `LICENSE.txt` is also source, but it cannot conflict with an explicit opt-out.
 
 ## Keep Specialized Syntax with Its Owner
 
