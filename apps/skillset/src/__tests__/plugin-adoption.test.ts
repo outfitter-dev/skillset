@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { chmod, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { parse as parseYaml } from "yaml";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import {
@@ -806,16 +807,6 @@ for (const blocker of [
     },
     name: "a malformed provider manifest",
   },
-  {
-    code: "unreadable-plugin-author",
-    files: {
-      "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
-        author: {},
-      }),
-      "plugins/demo/skills/helper/SKILL.md": skill("shared"),
-    },
-    name: "a native author that cannot become canonical source",
-  },
 ] as const) {
   test(`SET-225: adopt blocks ${blocker.name} before mutating the repo`, async () => {
     const root = await pluginFixture(blocker.files);
@@ -1130,37 +1121,17 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
   ]);
   return { exitCode, stderr, stdout };
 }
-test("SET-450: an unreadable native author blocks import instead of being dropped", async () => {
-  const root = await pluginFixture({
-    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
-    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-      author: 42,
-    }),
-    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
-      author: { name: "Codex Team" },
-    }),
-    "native/skills/helper/SKILL.md": skill("shared"),
-  });
-
-  await expect(
-    importSource({
-      kind: "plugin",
-      rootPath: root,
-      sourcePath: join(root, "native"),
-    })
-  ).rejects.toThrow(
-    "native plugin manifests declare an unreadable author: claude"
-  );
-  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
-});
+const UNREADABLE_AUTHOR_WARNING =
+  "import-unreadable-plugin-author: native plugin manifests declare an unreadable author: claude; author must be a non-empty string or an object with a non-empty name. Skillset preserved each raw value under <provider>.manifest.author instead of choosing a canonical author.";
 
 for (const [label, author] of [
+  ["a scalar", 42],
   ["an empty object", {}],
   ["an email-only object", { email: "team@example.com" }],
   ["a non-string name", { name: 42 }],
   ["an empty name", { name: "   " }],
 ] as const) {
-  test(`SET-450: a native author object with ${label} blocks import instead of being dropped`, async () => {
+  test(`SET-507: a native author with ${label} imports with a warning and stays on the provider override`, async () => {
     const root = await pluginFixture({
       "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
       "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
@@ -1172,25 +1143,53 @@ for (const [label, author] of [
       "native/skills/helper/SKILL.md": skill("shared"),
     });
 
-    await expect(
-      importSource({
-        kind: "plugin",
-        rootPath: root,
-        sourcePath: join(root, "native"),
-      })
-    ).rejects.toThrow(
-      "native plugin manifests declare an unreadable author: claude; author must be a non-empty string or an object with a non-empty name"
+    const report = await importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    });
+
+    expect(report.warnings).toContain(UNREADABLE_AUTHOR_WARNING);
+    const imported = parseYaml(
+      await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")
     );
-    expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+    // Canonical author comes only from the readable sibling; the unreadable
+    // value is parked on its own provider instead of vanishing (SET-450).
+    expect(imported.skillset.author).toEqual({ name: "Codex Team" });
+    expect(imported.claude.manifest.author).toEqual(author);
+    expect(imported.codex?.manifest?.author).toBeUndefined();
   });
 }
+
+test("SET-507: an unreadable author with no readable sibling leaves canonical author unset", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\n",
+    "native/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: {},
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.warnings).toContain(UNREADABLE_AUTHOR_WARNING);
+  const imported = parseYaml(
+    await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")
+  );
+  expect(imported.skillset.author).toBeUndefined();
+  expect(imported.claude.manifest.author).toEqual({});
+});
 
 for (const [label, author] of [
   ["a scalar", 42],
   ["an empty object", {}],
   ["an email-only object", { email: "team@example.com" }],
 ] as const) {
-  test(`SET-450: adoption reports ${label} native author as a blocking diagnostic`, async () => {
+  test(`SET-507: adoption reports ${label} native author as a warning`, async () => {
     const root = await pluginFixture({
       "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
         author,
@@ -1210,8 +1209,28 @@ for (const [label, author] of [
         identity: "demo",
         paths: ["plugins/demo"],
         providers: ["claude"],
-        severity: "error",
+        severity: "warning",
       }),
     ]);
   });
 }
+
+test("SET-507: adopt writes through an unreadable native author with a warning", async () => {
+  const root = await pluginFixture({
+    "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
+      author: {},
+    }),
+    "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.surveyDiagnostics).toEqual([
+    expect.objectContaining({ code: "unreadable-plugin-author", severity: "warning" }),
+  ]);
+  expect(report.imports).not.toEqual([]);
+  const imported = parseYaml(
+    await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")
+  );
+  expect(imported.claude.manifest.author).toEqual({});
+});

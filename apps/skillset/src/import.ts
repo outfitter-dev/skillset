@@ -1617,15 +1617,11 @@ async function writeImportedPluginConfig(
 }> {
   const nativeManifests = await readNativePluginManifests(targetPath);
   // `author` is source-owned, so it is stripped from provider overrides. A
-  // value Skillset cannot read has no canonical form to lift and no override to
-  // fall back to, and another provider's readable author would quietly stand in
-  // for it. Migration surfaces the ambiguity here instead of dropping it.
+  // value Skillset cannot read has no canonical form to lift, and another
+  // provider's readable author would quietly stand in for it. Those providers
+  // keep their raw native author on their own manifest override instead, and
+  // migration warns rather than dropping it.
   const unreadableAuthors = unreadableNativeAuthorProviders(nativeManifests);
-  if (unreadableAuthors.length > 0) {
-    throw new Error(
-      `skillset: native plugin manifests declare an unreadable author: ${unreadableAuthors.join(", ")}; author must be a non-empty string or an object with a non-empty name`
-    );
-  }
   const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);
   if (metadataConflicts.length > 0) {
     throw new Error(
@@ -1703,7 +1699,8 @@ async function writeImportedPluginConfig(
         provider,
         manifest,
         listingConflicts,
-        canonicalManifestDescription
+        canonicalManifestDescription,
+        unreadableAuthors.includes(provider)
       );
       const providerConfig: Record<string, JsonValue> = {};
       if (Object.keys(override).length > 0) providerConfig.manifest = override;
@@ -1737,6 +1734,11 @@ async function writeImportedPluginConfig(
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
     warnings: [
+      ...(unreadableAuthors.length === 0
+        ? []
+        : [
+            `import-unreadable-plugin-author: native plugin manifests declare an unreadable author: ${unreadableAuthors.join(", ")}; author must be a non-empty string or an object with a non-empty name. Skillset preserved each raw value under <provider>.manifest.author instead of choosing a canonical author.`,
+          ]),
       ...(cursorNativeDiscoveryFields.length === 0
         ? []
         : [
@@ -1787,13 +1789,19 @@ function importedManifestOverride(
   provider: TargetName,
   manifest: JsonRecord,
   listingConflicts: readonly NativeListingMetadataConflict[],
-  canonicalManifestDescription: string
+  canonicalManifestDescription: string,
+  keepUnreadableAuthor: boolean
 ): JsonRecord {
   const override: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(manifest)) {
     if (!SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS.has(key) && value !== undefined) {
       override[key] = value;
     }
+  }
+  // An author with no canonical form stays provider-specific so it does not
+  // vanish; `skillset.author` comes only from readable authors.
+  if (keepUnreadableAuthor && manifest.author !== undefined) {
+    override.author = manifest.author;
   }
   for (const field of listProviderPluginComponentManifestFields(provider)) {
     removeManifestField(override, field.split("."));
