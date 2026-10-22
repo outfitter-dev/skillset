@@ -55,7 +55,7 @@ test.skipIf(!existsSync(EXPECT))(
     ]);
     expect(confirmed.exitCode).toBe(0);
     expect(confirmed.stdout).toContain(
-      "skillset: create 19 to create, 0 already present (written)"
+      "skillset: create 17 to create, 0 already present (written)"
     );
     await expect(
       Bun.file(path.join(parent, "confirmed/skillset.yaml")).exists()
