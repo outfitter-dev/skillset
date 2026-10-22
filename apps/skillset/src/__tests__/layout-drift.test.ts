@@ -21,7 +21,7 @@ const SKILL = [
   "",
 ].join("\n");
 
-test("treats JSON with equal parsed values as layout-only", () => {
+test("treats JSON whose tokens match apart from whitespace as layout-only", () => {
   const expected = '{"type":"object","required":["a","b"]}\n';
   const actual = '{\n  "type": "object",\n  "required": [\n    "a",\n    "b"\n  ]\n}\n';
   expect(isLayoutOnlyDifference("assets/schema.json", expected, actual)).toBe(true);
@@ -32,6 +32,12 @@ test("treats JSON with equal parsed values as layout-only", () => {
     '{"id":9007199254740992}',
     '{ "id": 9007199254740993 }'
   )).toBe(false);
+  expect(isLayoutOnlyDifference(
+    "assets/schema.json",
+    '{"required":["a"]}',
+    '{"required":["b"],"required":["a"]}'
+  )).toBe(false);
+  expect(isLayoutOnlyDifference("assets/schema.json", '{"a":"x y"}', '{"a":"x  y"}')).toBe(false);
 });
 
 test("treats rewrapped Markdown prose and trailing spaces as layout-only", () => {

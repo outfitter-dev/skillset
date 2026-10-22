@@ -3,8 +3,8 @@
  * signature of a repository formatter run over generated files (SET-618).
  *
  * The comparison is deliberately conservative. JSON counts as layout-only
- * when both sides parse to equal values and no number is too long to survive
- * parsing exactly. Markdown counts when frontmatter, fenced code, and every
+ * when both sides are valid and their tokens match once whitespace outside
+ * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
  * quotes, tables, HTML, indented code, hard breaks) are identical, and each
  * remaining prose block has the same words, the same first-line indentation,
@@ -59,16 +59,23 @@ function isLayoutComparablePath(path: string): boolean {
   return (path.endsWith(".json") || path.endsWith(".md")) && !path.endsWith("skillset.lock");
 }
 
-/** Longer digit runs can round when parsed, hiding a real value change. */
-const UNSAFE_JSON_NUMBER = /\d{16,}/;
-
+/**
+ * Compare JSON token by token with insignificant whitespace removed. This is
+ * stricter than comparing parsed values: rounding of long numbers, duplicate
+ * keys, and key reordering all stay visible as real changes.
+ */
 function jsonValuesEqual(expected: string, actual: string): boolean {
-  if (UNSAFE_JSON_NUMBER.test(expected) || UNSAFE_JSON_NUMBER.test(actual)) return false;
   try {
-    return isDeepStrictEqual(JSON.parse(expected), JSON.parse(actual));
+    JSON.parse(expected);
+    JSON.parse(actual);
   } catch {
     return false;
   }
+  return stripJsonWhitespace(expected) === stripJsonWhitespace(actual);
+}
+
+function stripJsonWhitespace(text: string): string {
+  return text.replaceAll(/"(?:[^"\\]|\\.)*"|\s+/g, (token) => (token.startsWith('"') ? token : ""));
 }
 
 interface MarkdownSegment {
