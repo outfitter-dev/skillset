@@ -74,13 +74,13 @@
       ],
       "kind": "rule",
       "name": "RULES",
-      "outputHash": "sha256:21705101beaf53e33d45330cd985bd4f2ddb5e495fed102847b49e6dcf9abab1",
+      "outputHash": "sha256:8b759fc4d9f695fb0b84f39784bb6907f79ef05da1175e98f0e059f03857b663",
       "outputPath": ".claude/CLAUDE.md",
       "owner": {
         "target": "claude"
       },
       "role": "bundle",
-      "sourceHash": "sha256:dfb55ea9186286684113f10180f14d0166f1bad4e31106b9b8e7cfd28f8f6b48",
+      "sourceHash": "sha256:b7acc6477dff55f4ccca873d1089d54457497b8b7e419ae7d680f8110e0e261b",
       "sourcePath": ".skillset/RULES.md",
       "version": "0.1.1"
     },
@@ -200,13 +200,13 @@
       ],
       "kind": "rule",
       "name": "AGENTS.md",
-      "outputHash": "sha256:eaa34a653818e4c0e13837c6eb251822b9e47a3acd15157342609d6aa1dd0605",
+      "outputHash": "sha256:e7296767d0fda61d6f4b802682a6e03d8d104126869a6423b6899f16d72b501e",
       "outputPath": "AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
       },
       "role": "standard",
-      "sourceHash": "sha256:dfb55ea9186286684113f10180f14d0166f1bad4e31106b9b8e7cfd28f8f6b48",
+      "sourceHash": "sha256:b7acc6477dff55f4ccca873d1089d54457497b8b7e419ae7d680f8110e0e261b",
       "sourcePath": ".skillset/RULES.md",
       "version": "0.1.1"
     },
@@ -270,7 +270,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:4f635c49a50e5fbbf718cffe46f4444d7ff65e2598871b9297f445031ffa0cef",
+  "provenanceHash": "sha256:713a1f44d51257ed0c8072b9d061a3aede304a322b54780559556ba3d5c59a89",
   "renderResults": [
     {
       "destination": "changelog",
