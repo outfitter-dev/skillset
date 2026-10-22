@@ -16,6 +16,7 @@
  *   bun scripts/adr.ts create --title "My Decision" --slug my-decision
  *   bun scripts/adr.ts promote 20260401-my-decision
  *   bun scripts/adr.ts demote 0014-my-decision
+ *   bun scripts/adr.ts fix --yes
  *   bun scripts/adr.ts check
  *   bun scripts/adr.ts map
  */

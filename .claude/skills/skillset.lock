@@ -40,10 +40,10 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:8cc20e3092bcd52a9281654cb0709be39949f30424a102bd73c0f553d6416e29",
+      "outputHash": "sha256:fdde4042c06e38a09ce0f61dbd2447c8240282e95ea397aea26a0c7b11304e18",
       "outputPath": "skillset-adrs/SKILL.md",
       "role": "bundle",
-      "sourceHash": "sha256:3ef13c4d2acaa0035139e3f84a4f90383188138cb38ab336940b3ae762728336",
+      "sourceHash": "sha256:95730df9286010535e57195dad5a9979395cce1cfa1aa15593a04287504d6b1b",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -58,10 +58,10 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-dev-compiler",
-      "outputHash": "sha256:34dd1cfd0952443ece50a7b4d3a508eb01cc1283ea189f23dc6ad478bb5f1395",
+      "outputHash": "sha256:fb8ad7397deaf78a6f9cd2251105caeb86c9c9a0d38ad41476f569b70f4e68f9",
       "outputPath": "skillset-dev-compiler/SKILL.md",
       "role": "bundle",
-      "sourceHash": "sha256:1621f41f71cd358d095e83424d4a93dad1f6f16784eb5efdf7e73b742bc49a66",
+      "sourceHash": "sha256:d777c2c89c8e3f470a817d4dcfce8efdfbd99dcd990459927a21b052f2d7f27c",
       "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
       "version": "0.1.0"
     },
@@ -94,10 +94,10 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-dev-testing",
-      "outputHash": "sha256:1841c270c928765b1e13d45a3ac3fe642bfca6e866305476337e0925eeb22112",
+      "outputHash": "sha256:4a60a83c9065a24c02f2557cb342427c743d2b10d82eb77550a4e6f44e888a6d",
       "outputPath": "skillset-dev-testing/SKILL.md",
       "role": "bundle",
-      "sourceHash": "sha256:693b68f7d59b37c6d1af29c375bb20b284b47aa61e6815fe23e6641b4193fec6",
+      "sourceHash": "sha256:408a11d38afa9b5d7fec0a09de8941264358143be35eabe036067cf0f303e960",
       "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
       "version": "0.1.0"
     },
@@ -135,7 +135,7 @@
     }
   ],
   "outputRoot": ".claude/skills",
-  "provenanceHash": "sha256:a05e4fa6e10f91f0cdd213138c910bc9c362ff5368051c88d3abc4b0f4f7fd1c",
+  "provenanceHash": "sha256:1aaa3562a55f1c3135f91f9297ab009efa568783ffdd8b076a8998a3f134c97c",
   "renderResults": [
     {
       "destination": "skill",

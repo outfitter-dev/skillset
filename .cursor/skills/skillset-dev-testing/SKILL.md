@@ -24,6 +24,8 @@ Read [references/fixture-strategy.md](references/fixture-strategy.md) before add
 - Preserve `HOME`; rely on repository verification entrypoints to isolate XDG roots and Git configuration.
 - Never initialize, configure, or commit into an arbitrary temp path, linked worktree, shared Git directory, or the Skillset checkout.
 - Never hand-edit generated fixture output to make a test pass.
+- Allocate temp fixtures with `createTestFixtureRoot` and observe cleanup with `tempEntriesLeftBy` (both in `scripts/test-helpers/fixture-root.ts`). Never call the OS `tmpdir()` in a test; `bun run test-fixture-temp:guard` fails it.
+- After killing a process or process group, `await expectProcessGone(pid)` from `scripts/test-helpers/process.ts`. A one-shot `process.kill(pid, 0)` check is flaky on Linux, and `bun run process-gone:guard` rejects it.
 
 ## Verify Narrowly Then Broadly
 

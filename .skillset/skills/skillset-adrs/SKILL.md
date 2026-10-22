@@ -12,15 +12,7 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 
 Read `docs/project/tenets.md` before writing or changing an ADR. Every ADR must be consistent with the tenets, or it must explicitly argue for changing them.
 
-Use these tenets as the review lens:
-
-- **Source-first loadouts.** Authors write portable source once, then Skillset renders it faithfully to target-native provider output.
-- **Source is the product.** Skillset source is the authored truth; generated provider trees are reproducible renderings.
-- **One meaning, one key.** Portable source keys should describe one semantic concept, not duplicate provider vocabulary.
-- **Render intent, not filenames.** Near matches are modeled from the author's intended outcome, then rendered in the target-native way.
-- **Target truth beats fake portability.** Unsupported target behavior must be visible through diagnostics, opt-outs, or explicit target-native escape hatches.
-- **Builds do not imply trust.** Build output may define plugins, hooks, skills, and instructions, but activation is separate.
-- **Drift should become visible early.** Stale output, unsupported destination, malformed locks, and unmanaged destination collisions should surface before runtime surprises, with reversible backups where confirmed builds replace existing files.
+Use the tenets in that file as the review lens. Read them from `docs/project/tenets.md` each time rather than from memory or a copied list; they change as decisions are accepted.
 
 When an ADR proposes something new, test it against these questions. Does it reduce repeated authoring? Does it preserve target-native truth? Does it make unsupported behavior easier to see? Does it keep activation separate from compilation?
 
@@ -49,6 +41,9 @@ bun scripts/adr.ts create --title "Compile Target Selection"
 bun scripts/adr.ts promote compile-target-selection
 bun scripts/adr.ts promote compile-target-selection --yes
 
+# Promote a draft that replaces an earlier ADR as a whole
+bun scripts/adr.ts promote compile-target-selection --supersedes 0013 --yes
+
 # Update title, slug, status, or number
 bun scripts/adr.ts update source-first-loadouts --title "Source-First Loadouts"
 bun scripts/adr.ts update 013 --renumber 0013
@@ -58,7 +53,7 @@ bun scripts/adr.ts update compile-targets --status proposed --yes
 # Demote a numbered ADR back to drafts
 bun scripts/adr.ts demote 0014 --yes
 
-# Auto-fix common issues (number padding, cross-refs)
+# Auto-fix common issues (number padding, cross-refs): preview, then apply
 bun scripts/adr.ts fix
 bun scripts/adr.ts fix --yes
 
