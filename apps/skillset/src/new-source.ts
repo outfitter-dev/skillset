@@ -576,7 +576,7 @@ function planAgent(
   options: NewSourceOptions
 ): readonly NewSourcePlannedFile[] {
   if (options.container !== undefined) {
-    throw new CliUsageError("skillset: new agent does not support --in; project agents live at the repo source root");
+    throw new CliUsageError("skillset: new agent does not support --in; project agents live in .skillset/subagents/");
   }
   if (options.presets !== undefined && options.presets.length > 0) {
     throw new CliUsageError("skillset: new agent does not support --preset");
@@ -677,7 +677,7 @@ function renderAgent(id: string, displayName: string): string {
 }
 
 function renderRule(displayName: string): string {
-  return `# ${displayName}\n\nAdd repository instructions here.\n`;
+  return `---\n# Uncomment paths to scope this rule to matching files.\n# paths:\n#   - "src/**"\n---\n\n# ${displayName}\n\nAdd rules here.\n`;
 }
 
 function renderPluginConfig(id: string, displayName: string): string {
