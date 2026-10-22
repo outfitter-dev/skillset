@@ -22,9 +22,10 @@ Use these pages alongside the authored [provider reference](../providers/README.
 - [Dependencies](dependencies.md): plugin dependency declarations, Claude rendering, Codex fallback notices, and provenance.
 - [Dev Watch](dev-watch.md): default-preview `skillset dev` for first-author source diagnostics, [generated-output](../../glossary.md#generated-output) drift, and explicit write mode.
 - [Distributions](distributions.md): post-build distribution planning, destination reports, and build/distribution/activation boundaries.
-- [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
+- [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex and Cursor unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
 - [Hooks](hooks.md): native aggregate hook emission, adaptive hook units, target validation, and activation boundaries.
+- [Interactive CLI](interactive-cli.md): when prompts appear, how they inherit command safety, and how automation avoids them.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [Marketplaces](marketplaces.md): curated provider catalogs, external plugin references, readiness states, and check/update boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
@@ -37,7 +38,7 @@ Use these pages alongside the authored [provider reference](../providers/README.
 - [Resources](resources.md): shared resource declarations, link rewriting, executable-script linting, and lock hashing.
 - [Rules](rules.md): [source-root](../../glossary.md#source-root) `rules/` rendering to Claude rules, Codex `AGENTS.md`, and Cursor `.mdc` rules, with preprocessing and collision safety.
 - [Runtime Activation Readiness](runtime-activation-readiness.md): registry-backed activation requirements, deterministic summary semantics, and the boundary between rendering, observation, and proof.
-- [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
+- [Settings](settings.md): the one project-local SessionStart entry Skillset composes, and why build never touches user-level provider settings.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
 - [Source Suggestions](source-suggestions.md): implemented local managed-output reconciliation with source-side recovery suggestions, distinct from settings suggestions; CI writeback remains future work.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
