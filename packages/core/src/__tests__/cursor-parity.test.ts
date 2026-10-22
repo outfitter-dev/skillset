@@ -29,7 +29,7 @@ describe("SET-550 Cursor parity evidence baseline", () => {
   it("cursor-rules-frontmatter [SET-557]", async () => {
     const root = await buildFixture();
     const rule = await readFile(
-      path.join(root, ".cursor/rules/frontend/testing.mdc"),
+      path.join(root, ".cursor/rules/src/frontend/testing.mdc"),
       "utf-8"
     );
 
@@ -47,7 +47,7 @@ describe("SET-550 Cursor parity evidence baseline", () => {
     const root = await buildFixture();
 
     expect(
-      await fileExists(path.join(root, ".cursor/rules/frontend/testing.mdc"))
+      await fileExists(path.join(root, ".cursor/rules/src/frontend/testing.mdc"))
     ).toBe(true);
   });
 

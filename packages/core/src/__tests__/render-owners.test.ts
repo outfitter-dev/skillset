@@ -98,7 +98,7 @@ const OWNED_FUNCTIONS = {
     "pluginManifestDisplayName",
     "withOptionalSurfacePaths",
   ],
-  "render-rules": ["renderRules"],
+  "render-rules": ["readRulePaths", "renderRules", "ruleScopeRenderResults"],
   "render-standard-instructions": ["planAgentInstructionProjections"],
   "render-support": [
     "copyFileFromSource",
@@ -146,6 +146,7 @@ describe("render owner boundaries", () => {
       "render-hooks->render-support",
       "render-marketplaces->render-support",
       "render-plugin-manifest->render-hooks",
+      "render-rules->render-result",
       "render-rules->render-standard-instructions",
       "render-rules->render-support",
     ]);
