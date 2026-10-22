@@ -31,8 +31,8 @@ Follow-up issue policy:
 ## Source Control
 
 Branching model:
-Vanilla git is acceptable. Graphite may be present but this repo may have
-untracked local branches.
+Stacked work uses `gh stack` (the `github/gh-stack` extension); vanilla git is
+acceptable for single branches. The repo may have untracked local branches.
 
 Branch/PR conventions:
 - Prefer a non-main branch for implementation.

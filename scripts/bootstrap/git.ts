@@ -40,7 +40,7 @@ export const readWorktreeInfo = (repoRoot: string): WorktreeInfo => {
 
 export const printAgentGitDiagnostics = (
   repoRoot: string,
-  maxGraphiteLines: number
+  maxStackLines: number
 ): void => {
   const info = readWorktreeInfo(repoRoot);
   if (!info.linked) {
@@ -56,26 +56,34 @@ export const printAgentGitDiagnostics = (
     );
   }
   console.error(
-    "  Graphite branches and metadata are shared with the main checkout."
+    "  Branches and gh stack state are shared with the main checkout."
   );
   console.error(
-    "  Lifecycle hooks should avoid mutating Graphite stacks or deleting branches."
+    "  Lifecycle hooks should avoid mutating stacks or deleting branches."
   );
 
-  if (!has("gt")) {
-    console.error("  gt: missing (Graphite stack inspection disabled)");
+  if (!has("gh")) {
+    console.error("  gh: missing (stack inspection disabled)");
     return;
   }
 
-  const log = run(["gt", "log", "--no-interactive"], repoRoot);
-  if (log.exitCode !== 0) {
-    console.error("  gt log unavailable");
+  // `gh` does not include `gh stack`. A missing extension, auth failure, or
+  // disambiguation error must not be reported as an empty stack.
+  const extensions = run(["gh", "extension", "list"], repoRoot);
+  if (!extensionListIncludesGhStack(extensions.stdout)) {
+    console.error("  gh stack: missing (stack inspection disabled)");
+    return;
+  }
+
+  const view = run(["gh", "stack", "view", "--short"], repoRoot);
+  if (view.exitCode !== 0) {
+    console.error(describeGhStackViewFailure(view.exitCode));
     return;
   }
 
   console.error("");
-  console.error(`Graphite stack (first ${String(maxGraphiteLines)} lines)`);
-  for (const line of log.stdout.split("\n").slice(0, maxGraphiteLines)) {
+  console.error(`gh stack (first ${String(maxStackLines)} lines)`);
+  for (const line of view.stdout.split("\n").slice(0, maxStackLines)) {
     if (line.length > 0) {
       console.error(line);
     }
@@ -120,6 +128,39 @@ export const readRepoHealth = (repoRoot: string): RepoHealth => {
   }
 
   return { coreBare, staleWorktrees };
+};
+
+const GH_STACK_EXTENSION_REPO = "github/gh-stack";
+// github/gh-stack: 2 = branch is not in a stack, 4 = auth or API failure,
+// 6 = branch belongs to more than one stack.
+const GH_STACK_EXIT_NOT_IN_STACK = 2;
+const GH_STACK_EXIT_AUTH_OR_API = 4;
+const GH_STACK_EXIT_AMBIGUOUS = 6;
+
+export const extensionListIncludesGhStack = (stdout: string): boolean =>
+  stdout.split("\n").some((line) => {
+    const fields = line.trim().split(/\s+/);
+    return (
+      fields.includes(GH_STACK_EXTENSION_REPO) ||
+      (fields[0] === "gh" && fields[1] === "stack")
+    );
+  });
+
+export const describeGhStackViewFailure = (exitCode: number): string => {
+  switch (exitCode) {
+    case GH_STACK_EXIT_NOT_IN_STACK: {
+      return "  gh stack: no stack for this branch";
+    }
+    case GH_STACK_EXIT_AUTH_OR_API: {
+      return "  gh stack: GitHub auth or API failure (stack inspection disabled)";
+    }
+    case GH_STACK_EXIT_AMBIGUOUS: {
+      return "  gh stack: branch belongs to multiple stacks";
+    }
+    default: {
+      return "  gh stack: unavailable (stack inspection disabled)";
+    }
+  }
 };
 
 const isProcessAlive = (pid: number): boolean => {

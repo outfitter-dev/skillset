@@ -126,16 +126,16 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-fix",
-      "outputHash": "sha256:3a51fe4e176afb419fc88e76c3b07d0c9257a8e4cb6d8c38a77fcfb6ce154329",
+      "outputHash": "sha256:b790d33fa40d8396b1b325f63dc7362c5a86463442aca3cad8b5d807fd13b92d",
       "outputPath": "skillset-fix/SKILL.md",
       "role": "bundle",
-      "sourceHash": "sha256:092a88ad7da6c21a8f931873da7d9e38deeebb8a7352bfbd07d34064f97d63ec",
+      "sourceHash": "sha256:1a8460297d3c8bbb09291f4564fb73e9b90936859043b7919f007e68cf9de2b5",
       "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
       "version": "0.4.0"
     }
   ],
   "outputRoot": ".claude/skills",
-  "provenanceHash": "sha256:580eb23933cd65471629ee75acba2d59e5484bf5c322b685f3860eb91ef385e9",
+  "provenanceHash": "sha256:503eb56931773642cc4908ec28374c01c351e0b36bde0cb4350c7b69a60e9027",
   "renderResults": [
     {
       "destination": "skill",

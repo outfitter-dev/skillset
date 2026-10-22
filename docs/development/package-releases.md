@@ -20,7 +20,7 @@ The unscoped `skillset` package, `@skillset/cli`, and the five initial `@skillse
 
 ## Flow
 
-Feature branches that change package-facing behavior should include a `.changeset/*.md` file on the branch that owns the behavior. In Graphite stacks, keep release intent branch-local: do not hide lower-branch package changes by adding one cleanup Changeset at the stack tip. If the lower branch owns the package-facing code, the lower branch owns the Changeset, and any missing release intent should be fixed on that branch before restacking upward.
+Feature branches that change package-facing behavior should include a `.changeset/*.md` file on the branch that owns the behavior. In stacked PRs (`gh stack`), keep release intent branch-local: do not hide lower-branch package changes by adding one cleanup Changeset at the stack tip. If the lower branch owns the package-facing code, the lower branch owns the Changeset, and any missing release intent should be fixed on that branch before restacking upward.
 
 The aggregate `skillset check --ci` command applies this package guard only when the checked workspace contains `.changeset/config.json`, the explicit marker that Changesets owns npm release intent there. A downstream authoring repository is not opted in merely because it has a root `package.json` or renders a plugin package; without that configuration, Skillset continues to enforce source-unit ledger coverage and generated-output readiness but does not impose this compiler repository's package-path policy.
 
