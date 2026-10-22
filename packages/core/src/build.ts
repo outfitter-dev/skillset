@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, posix, sep } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, posix, relative, sep } from "node:path";
 import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
 
 import { compareStrings } from "./path";
@@ -46,7 +47,7 @@ import {
 import { renderBuildGraph } from "./render";
 import type { RenderDestination } from "./build-destination";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
-import { CLAUDE_PROJECT_INSTRUCTION_PATHS } from "./render-rules";
+import { CLAUDE_PROJECT_INSTRUCTION_PATHS, readRulePaths } from "./render-rules";
 import { loadBuildGraph } from "./resolver";
 import {
   standardProfileStatuses,
@@ -233,6 +234,57 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
   return diagnostics;
 }
 
+/**
+ * Rule-scope warnings: an unmanaged `AGENTS.override.md` that Codex would read
+ * instead of a generated `AGENTS.md` beside it, a scoped rule whose `paths:`
+ * still repeats its scope directory from the old root-relative meaning, and a
+ * scope directory that does not exist yet (often a typo).
+ */
+function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]): readonly SkillsetDiagnostic[] {
+  const diagnostics: SkillsetDiagnostic[] = [];
+  for (const file of rendered) {
+    if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
+    const override = posix.join(posix.dirname(file.path), "AGENTS.override.md");
+    if (!existsSync(join(graph.rootPath, override))) continue;
+    diagnostics.push(skillsetDiagnostic({
+      code: "codex-agents-override-shadow",
+      featureId: "project-instructions",
+      message:
+        `unmanaged ${override} shadows generated ${file.path}; Codex reads only the first instruction file ` +
+        "in a directory, so the generated guidance is ignored. Fold the override into .skillset/rules/ or delete it.",
+      outputPath: file.path,
+      severity: "warning",
+      target: "codex",
+    }));
+  }
+  for (const rule of graph.rules) {
+    if (rule.scopeDir === "") continue;
+    const sourcePath = posix.normalize(relative(graph.rootPath, rule.sourcePath).replaceAll("\\", "/"));
+    for (const path of readRulePaths(rule)) {
+      if (path !== rule.scopeDir && !path.startsWith(`${rule.scopeDir}/`)) continue;
+      diagnostics.push(skillsetDiagnostic({
+        code: "rule-scope-path-double-prefix",
+        message:
+          `${sourcePath} paths: entry ${path} repeats its scope directory ${rule.scopeDir}; paths: is relative to the ` +
+          `rule's directory, so this matches ${rule.scopeDir}/${path}. Drop the ${rule.scopeDir}/ prefix.`,
+        path: sourcePath,
+        severity: "warning",
+      }));
+    }
+    if (rule.segments?.some((segment) => segment.classification !== "literal") === true) continue;
+    if (existsSync(join(graph.rootPath, rule.scopeDir))) continue;
+    diagnostics.push(skillsetDiagnostic({
+      code: "rule-scope-directory-missing",
+      message:
+        `${sourcePath} governs ${rule.scopeDir}/, which does not exist yet; ${rule.scopeDir}/AGENTS.md is still ` +
+        "written. Check the directory name if you did not mean to create it.",
+      path: sourcePath,
+      severity: "warning",
+    }));
+  }
+  return diagnostics;
+}
+
 export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]> & {
   readonly outputState: SkillsetOutputStateEvidence;
   /** Per-path drift verdicts; present only when repair was requested. */
@@ -253,7 +305,7 @@ export async function renderBuildGraphWithOutcomeMetadata(
     renderResults,
     graph.root.compile.unsupportedDestination
   );
-  const instructionDiagnostics = diagnoseLargeInstructionFiles(rendered);
+  const instructionDiagnostics = [...diagnoseLargeInstructionFiles(rendered), ...diagnoseRuleScopes(graph, rendered)];
   return withPersistedRenderResults(
     rendered,
     attachDiagnosticsToRenderResults(
@@ -388,7 +440,10 @@ async function runBuildProjection(
   enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
   diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
-  const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
+  const instructionDiagnostics = [
+    ...diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata),
+    ...diagnoseRuleScopes(graph, renderedWithoutOutcomeMetadata),
+  ];
   diagnostics.push(...instructionDiagnostics);
   const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(policyAdjustedRenderResults, instructionDiagnostics);
   const rendered = withPersistedRenderResults(
@@ -1385,7 +1440,10 @@ export async function diffSkillsetResult(
   }
   diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
-  const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
+  const instructionDiagnostics = [
+    ...diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata),
+    ...diagnoseRuleScopes(graph, renderedWithoutOutcomeMetadata),
+  ];
   diagnostics.push(...instructionDiagnostics);
   const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(policyAdjustedRenderResults, instructionDiagnostics);
   const rendered = withPersistedRenderResults(
@@ -1481,7 +1539,10 @@ export async function verifySkillsetResult(
   enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
   diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
-  const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
+  const instructionDiagnostics = [
+    ...diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata),
+    ...diagnoseRuleScopes(graph, renderedWithoutOutcomeMetadata),
+  ];
   diagnostics.push(...instructionDiagnostics);
   const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(policyAdjustedRenderResults, instructionDiagnostics);
   const rendered = withPersistedRenderResults(

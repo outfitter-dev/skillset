@@ -552,7 +552,7 @@ function workspaceRelativeSourcePath(
     : join(graph.sourceDir, sourcePath);
 }
 
-function readRulePaths(rule: SourceRule): readonly string[] {
+export function readRulePaths(rule: SourceRule): readonly string[] {
   const value = rule.frontmatter.paths;
   if (value === undefined) return [];
   if (typeof value === "string")
