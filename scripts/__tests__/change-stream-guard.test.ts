@@ -51,6 +51,27 @@ describe("change stream guard", () => {
     ]);
   });
 
+  test("accepts repeated amendments of the same record", () => {
+    for (const file of [".skillset/changes/amendments.jsonl", ".skillset/changes/release-amendments.jsonl"]) {
+      const content = stream(
+        JSON.stringify({ amendedAt: "2026-08-01T00:00:00.000Z", id: "change-1", reason: "First." }),
+        JSON.stringify({ amendedAt: "2026-08-02T00:00:00.000Z", id: "change-1", reason: "Second." })
+      );
+
+      expect(scanChangeStreams([{ content, file }])).toEqual([]);
+    }
+  });
+
+  test("compares the trunk prefix line by line under a CRLF checkout", () => {
+    const trunk = stream(event("evt-base-1", "2026-08-01T00:00:00.000Z"));
+    const content = stream(
+      event("evt-base-1", "2026-08-01T00:00:00.000Z"),
+      event("evt-ours-1", "2026-08-02T00:00:00.000Z")
+    ).replaceAll("\n", "\r\n");
+
+    expect(scan(content, trunk)).toEqual([]);
+  });
+
   test("flags malformed JSON and non-object lines", () => {
     const content = stream(event("evt-base-1", "2026-08-01T00:00:00.000Z"), "{not json", "[1, 2]");
 
