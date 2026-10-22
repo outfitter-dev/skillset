@@ -25,9 +25,11 @@ import {
   type LockItem,
   type LockRoot,
 } from "./render-support";
+import { defineRenderResult, type SkillsetRenderResult } from "./render-result";
 import { renderValidatedMarkdown } from "./structured-output";
 import { planAgentInstructionProjections } from "./render-standard-instructions";
-import { targetDescriptor } from "./targets";
+import { selectorForRule } from "./source-unit-selector";
+import { targetDescriptor, targetNames } from "./targets";
 import type {
   AppliedTransform,
   BuildGraph,
@@ -73,7 +75,10 @@ async function renderClaudeRules(
   const rendered: RenderedFile[] = [];
 
   for (const rule of graph.rules.filter(
-    (sourceRule) => sourceRule.targets.claude.enabled && !sourceRule.rootFrontPage
+    (sourceRule) =>
+      sourceRule.targets.claude.enabled &&
+      !sourceRule.rootFrontPage &&
+      !hasWildcardScope(sourceRule)
   )) {
     const targetFile = join(CLAUDE_RULES_OUTPUT_ROOT, rule.relativePath);
     const markdown = await renderClaudeRuleMarkdown(graph, rule, targetFile);
@@ -255,7 +260,10 @@ async function renderCursorRules(
   const outputRoot = join(targetProjectRoot(graph, "cursor"), "rules");
 
   for (const rule of graph.rules.filter(
-    (sourceRule) => sourceRule.targets.cursor.enabled && !sourceRule.rootFrontPage
+    (sourceRule) =>
+      sourceRule.targets.cursor.enabled &&
+      !sourceRule.rootFrontPage &&
+      !hasWildcardScope(sourceRule)
   )) {
     const targetFile = join(
       outputRoot,
@@ -301,7 +309,7 @@ async function renderClaudeRuleMarkdown(
   rule: SourceRule,
   outputPath: string
 ): Promise<RenderedRuleMarkdown> {
-  const paths = readRulePaths(rule);
+  const paths = deriveRuleGlobs(rule, escapeClaudeGlobLiteral);
   const frontmatter: JsonRecord =
     paths.length === 0 ? {} : { paths: [...paths] };
   const preprocessDependencies = new Set<string>();
@@ -325,7 +333,7 @@ async function renderCursorRuleMarkdown(
   rule: SourceRule,
   outputPath: string
 ): Promise<RenderedRuleMarkdown> {
-  const paths = readRulePaths(rule);
+  const paths = deriveRuleGlobs(rule);
   const description =
     readString(rule.frontmatter, "description") ??
     readString(rule.frontmatter, "summary") ??
@@ -426,66 +434,113 @@ async function renderCodexAgentsMarkdown(
   };
 }
 
+// Scope alone decides a rule's AGENTS.md, so no destination depends on which
+// files exist in the working tree. A wildcard scope has no destination until
+// SET-574 expands it against the tree.
 async function codexRuleDestinations(
-  graph: BuildGraph,
+  _graph: BuildGraph,
   rule: SourceRule
 ): Promise<readonly string[]> {
-  const paths = readRulePaths(rule);
-  if (paths.length === 0) return ["AGENTS.md"];
-
-  const destinations = new Set<string>();
-  for (const pattern of paths) {
-    const base = await codexBaseForPattern(graph, pattern);
-    destinations.add(base.length === 0 ? "AGENTS.md" : join(base, "AGENTS.md"));
-  }
-  return [...destinations].sort();
+  if (hasWildcardScope(rule)) return [];
+  return [codexRuleDestination(rule)];
 }
 
-async function codexBaseForPattern(
-  graph: BuildGraph,
-  pattern: string
-): Promise<string> {
-  const normalized = normalizePattern(pattern);
-  if (!hasGlobSyntax(normalized)) return dirnameOrRoot(normalized);
-
-  const staticBase = staticGlobBase(normalized);
-  if (staticBase.length > 0) return staticBase;
-
-  const matches = await matchingRepoFiles(graph, normalized);
-  if (matches.length === 0) return "";
-  return commonDirectory(matches.map((match) => dirnameOrRoot(match)));
+function codexRuleDestination(rule: SourceRule): string {
+  return rule.scopeDir === "" ? "AGENTS.md" : `${rule.scopeDir}/AGENTS.md`;
 }
 
-async function matchingRepoFiles(
-  graph: BuildGraph,
-  pattern: string
-): Promise<readonly string[]> {
-  const matches: string[] = [];
-  const glob = new Bun.Glob(pattern);
-  for await (const match of glob.scan({
-    cwd: graph.rootPath,
-    onlyFiles: true,
-  })) {
-    const normalized = normalizePattern(match);
-    if (isIgnoredRuleMatch(graph, normalized)) continue;
-    matches.push(normalized);
-  }
-  return matches.sort();
-}
-
-function isIgnoredRuleMatch(graph: BuildGraph, path: string): boolean {
-  if (path.startsWith(".git/") || path.startsWith("node_modules/")) return true;
-  if (
-    graph.sourceDir !== "." &&
-    (path === graph.sourceDir || path.startsWith(`${graph.sourceDir}/`))
-  ) {
-    return true;
-  }
-  if (path === graph.sourceRoot || path.startsWith(`${graph.sourceRoot}/`))
-    return true;
-  return graph.outputRoots.some(
-    (outputRoot) => path === outputRoot || path.startsWith(`${outputRoot}/`)
+function hasWildcardScope(rule: SourceRule): boolean {
+  return (rule.segments ?? []).some(
+    (segment) => segment.classification !== "literal"
   );
+}
+
+/**
+ * Globs for providers that enforce rule scope natively. `paths:` is relative
+ * to the rule's scope directory; a scoped rule without `paths:` covers its
+ * whole scope, and an unscoped rule without `paths:` has no globs.
+ * `escapeScope` transforms only the literal scope directory, never an
+ * authored pattern, so bracket expressions in `paths:` keep their meaning.
+ */
+function deriveRuleGlobs(
+  rule: SourceRule,
+  escapeScope: (scope: string) => string = (scope) => scope
+): readonly string[] {
+  const paths = readRulePaths(rule);
+  if (rule.scopeDir === "") return [...paths].sort(compareStrings);
+  const scope = escapeScope(rule.scopeDir);
+  if (paths.length === 0) return [`${scope}/**`];
+  return paths
+    .map((path) => `${scope}/${path.replace(/^\.\//u, "")}`)
+    .sort(compareStrings);
+}
+
+/** Claude documents that an unescaped `[` outside a valid bracket expression matches nothing. */
+function escapeClaudeGlobLiteral(value: string): string {
+  return value.replaceAll(/[[\]]/gu, (character) => `\\${character}`);
+}
+
+/**
+ * Render results for rule scope that the rendered files cannot show: a
+ * wildcard scope that writes nothing, `paths:` narrowing Codex cannot
+ * enforce, and Cursor globs whose literal punctuation has no verified escape.
+ */
+export function ruleScopeRenderResults(
+  graph: BuildGraph
+): readonly SkillsetRenderResult[] {
+  const outcomes: SkillsetRenderResult[] = [];
+  const cursorRoot = join(targetProjectRoot(graph, "cursor"), "rules");
+  for (const rule of graph.rules) {
+    if (rule.rootFrontPage) continue;
+    const sourcePath = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
+    const sourceUnit = selectorForRule(rule.id);
+    if (hasWildcardScope(rule)) {
+      for (const target of targetNames()) {
+        if (!rule.targets[target].enabled) continue;
+        outcomes.push(defineRenderResult({
+          destination: "rule",
+          featureId: "rule-wildcard-scope-pending",
+          policy: "unsupported:error",
+          reason: `wildcard rule scope ${rule.scopeDir} renders nothing until SET-574 expands [.] and [...] against the repository tree`,
+          sourcePath,
+          sourceUnit,
+          status: "unsupported",
+          target,
+        }));
+      }
+      continue;
+    }
+    const paths = readRulePaths(rule);
+    if (paths.length > 0 && rule.targets.codex.enabled) {
+      const destination = codexRuleDestination(rule);
+      outcomes.push(defineRenderResult({
+        destination: "AGENTS.md",
+        featureId: "codex-rule-paths-not-enforceable",
+        outputs: [{ path: destination }],
+        reason: `Codex reads ${destination} for its whole directory, so paths: ${paths.join(", ")} cannot narrow it; the rule applies to all of ${rule.scopeDir === "" ? "the repository" : `${rule.scopeDir}/`}`,
+        sourcePath,
+        sourceUnit,
+        status: "degraded",
+        target: "codex",
+      }));
+    }
+    if (
+      rule.targets.cursor.enabled &&
+      deriveRuleGlobs(rule).some((glob) => /[[\]()]/u.test(glob))
+    ) {
+      outcomes.push(defineRenderResult({
+        destination: "rule",
+        featureId: "cursor-rule-glob-escaping-unverified",
+        outputs: [{ path: join(cursorRoot, cursorRuleRelativePath(rule.relativePath)) }],
+        reason: "Cursor documents no escape for [, ], ( or ) in rule globs, so these globs ship unescaped and may not match the literal directory",
+        sourcePath,
+        sourceUnit,
+        status: "degraded",
+        target: "cursor",
+      }));
+    }
+  }
+  return outcomes;
 }
 
 function workspaceRelativeSourcePath(
@@ -594,54 +649,6 @@ function relativeOutputPath(from: string, to: string): string {
 
 function normalizeWorkspacePath(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\.\//, "");
-}
-
-function normalizePattern(pattern: string): string {
-  return pattern.trim().replaceAll("\\", "/").replace(/^\.\//, "");
-}
-
-function hasGlobSyntax(value: string): boolean {
-  return /[*?[\]{}]/.test(value);
-}
-
-function staticGlobBase(pattern: string): string {
-  const segments = pattern.split("/");
-  const baseSegments: string[] = [];
-  for (const segment of segments) {
-    if (segment.length === 0) continue;
-    if (hasGlobSyntax(segment)) break;
-    baseSegments.push(segment);
-  }
-  return baseSegments.join("/");
-}
-
-function dirnameOrRoot(path: string): string {
-  const normalized = normalizePattern(path);
-  if (normalized.length === 0 || normalized === ".") return "";
-  const slashIndex = normalized.lastIndexOf("/");
-  if (slashIndex === -1) {
-    return normalized.includes(".") ? "" : normalized;
-  }
-  return normalized.slice(0, slashIndex);
-}
-
-function commonDirectory(directories: readonly string[]): string {
-  if (directories.length === 0) return "";
-  const [first = [], ...rest] = directories.map((directory) =>
-    directory.length === 0 ? [] : directory.split("/")
-  );
-  const common = [...first];
-
-  for (const directory of rest) {
-    while (
-      common.length > 0 &&
-      directory.slice(0, common.length).join("/") !== common.join("/")
-    ) {
-      common.pop();
-    }
-  }
-
-  return common.join("/");
 }
 
 function lockItemForRule(args: {
