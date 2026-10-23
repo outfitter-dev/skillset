@@ -100,6 +100,15 @@ describe("rebaseRuleLinks [SET-755]", () => {
     );
   });
 
+  it("rebases destinations with balanced parentheses", () => {
+    expect(
+      rebaseRuleLinks('[guide](docs/(maintenance)/a.md "T") and [b](docs/a(b).md)', {
+        outputDir: ".claude",
+        scopeDir: "",
+      })
+    ).toBe('[guide](../docs/(maintenance)/a.md "T") and [b](../docs/a(b).md)');
+  });
+
   it("rebases a link to the scope directory itself", () => {
     expect(
       rebaseRuleLinks("[here](.)", { outputDir: ".claude", scopeDir: "" })

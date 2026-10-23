@@ -14,7 +14,9 @@ export interface RuleLinkBase {
 
 // `](destination "optional title")`: matching on `](` also reaches the outer
 // target of a link whose text holds an image, as in `[![badge](a.svg)](b.md)`.
-const INLINE_DESTINATION = /\]\(([ \t]*)([^\s()<>]+)((?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*\))/g;
+// Destinations may hold one level of balanced parentheses, as grouping folders
+// like `skills/(maintenance)/` do.
+const INLINE_DESTINATION = /\]\(([ \t]*)((?:[^\s()<>]|\([^\s()<>]*\))+)((?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*\))/g;
 // `[label]: destination` reference definitions; `[^1]:` footnotes are not links.
 const REFERENCE_DEFINITION = /^( {0,3}\[(?!\^)[^\]\n]+\]:[ \t]*)([^\s<>]+)/gm;
 
