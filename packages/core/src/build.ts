@@ -259,7 +259,11 @@ function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]
   }
   for (const file of rendered) {
     if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
-    const sources = reviewRuleSectionSources(new TextDecoder().decode(file.content));
+    const frontPage = file.path === "AGENTS.md" ? graph.rules.find((rule) => rule.rootFrontPage) : undefined;
+    const sources = reviewRuleSectionSources(
+      new TextDecoder().decode(file.content),
+      frontPage === undefined ? undefined : posix.normalize(relative(graph.rootPath, frontPage.sourcePath).replaceAll("\\", "/"))
+    );
     if (sources.length < 2) continue;
     diagnostics.push(skillsetDiagnostic({
       code: "codex-code-review-rules-duplicate",
@@ -305,11 +309,16 @@ const AGENTS_SECTION_PATTERN =
   /^<([a-z_][a-z0-9_]*)\n {2}source="([^"]*)"\n {2}applies_to="[^"]*" >\n\n([\s\S]*?)\n\n<\/\1>$/gmu;
 
 /**
- * Sources of the rendered rule sections in one generated AGENTS.md whose body
- * has a `## Code Review Rules` ATX heading outside fenced code.
+ * Sources of the contributions to one generated AGENTS.md (the bare front page
+ * and each rule section) that have a `## Code Review Rules` ATX heading outside
+ * fenced code.
  */
-function reviewRuleSectionSources(content: string): readonly string[] {
+function reviewRuleSectionSources(content: string, frontPageSource?: string): readonly string[] {
   const sources: string[] = [];
+  // The RULES.md front page renders bare ahead of the sections in root AGENTS.md.
+  const firstSection = content.search(/^<[a-z_][a-z0-9_]*\n {2}source="/mu);
+  const frontPage = firstSection === -1 ? content : content.slice(0, firstSection);
+  if (frontPageSource !== undefined && hasCodeReviewRulesHeading(frontPage)) sources.push(frontPageSource);
   for (const match of content.matchAll(AGENTS_SECTION_PATTERN)) {
     const [, , source = "", body = ""] = match;
     if (hasCodeReviewRulesHeading(body)) sources.push(unescapeXmlAttribute(source));

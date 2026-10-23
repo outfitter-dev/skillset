@@ -231,6 +231,17 @@ describe("rule scope from location [SET-557]", () => {
     expect(warnings[0]?.message).not.toContain("fenced.md");
   });
 
+  test("counts the bare RULES.md front page in the review-heading check [SET-583]", async () => {
+    const root = await authoringModel();
+    await writeFile(join(root, ".skillset/RULES.md"), "# Authoring model\n\n## Code Review Rules\n\nKeep diffs small.\n");
+    await writeFile(join(root, ".skillset/rules/testing.md"), "# Testing\n\n## Code Review Rules\n\nRun focused tests.\n");
+    const result = await buildSkillsetResult(root);
+    const warning = result.diagnostics.find(
+      (diagnostic) => diagnostic.code === "codex-code-review-rules-duplicate" && diagnostic.outputPath === "AGENTS.md"
+    );
+    expect(warning?.message).toContain(".skillset/RULES.md, .skillset/rules/testing.md;");
+  });
+
   test("refuses a rule body that would close its own section [SET-583]", async () => {
     const root = await authoringModel();
     await writeFile(
