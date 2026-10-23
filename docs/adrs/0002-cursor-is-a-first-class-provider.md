@@ -51,6 +51,10 @@ authored intent, plus explicit and testable classification elsewhere. It does
 not mean that Cursor exposes every native capability of Claude or Codex. This
 means:
 
+> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** project agents are now authored under `.skillset/subagents/`; Cursor destination claims stay gated by SET-550 evidence.
+>
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** Cursor's plugin manifest renders at `plugins/<plugin>/.cursor-plugin/plugin.json` inside the shared package, not `plugins/<plugin>/cursor/`.
+
 - Cursor project skills render to `.cursor/skills/<skill>/SKILL.md`, rules to
   `.cursor/rules/**/*.mdc`, agents to `.cursor/agents/*.md`, and plugin bundles
   to `plugins/<plugin>/cursor/` with `.cursor-plugin/plugin.json`.

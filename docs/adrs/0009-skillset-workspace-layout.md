@@ -32,6 +32,8 @@ cache payloads, and migration leftovers.
 
 ## Decision
 
+> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** the canonical tree is ADR-0033's (`RULES.md`, `subagents/`, `shared/partials/`, grouping folders, `_drafts/`).
+
 Skillset uses one workspace layout:
 
 ```text
@@ -59,6 +61,8 @@ distribution metadata, and other workspace-level configuration.
 
 `.skillset/` is the workspace source directory. It owns authored source units
 and source-adjacent state:
+
+> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** `agents/` is now `subagents/**/*.md`, and workspace partials live at `.skillset/shared/partials/`.
 
 | Path | Meaning |
 | --- | --- |
@@ -148,6 +152,8 @@ bundle boundary becomes misleading.
 - Runtime activation, trust, installation, or marketplace publication.
 
 ## Acceptance Evidence (2026-07-20)
+
+> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** the canonical source now uses `RULES.md`, `subagents/`, `shared/partials/`, grouping directories, and `_drafts/`.
 
 A workspace uses root `skillset.yaml` with flat canonical source under
 `.skillset/`, including `plugins/`, `skills/`, `rules/`, `agents/`, `shared/`,
