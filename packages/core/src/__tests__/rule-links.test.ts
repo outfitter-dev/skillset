@@ -90,6 +90,16 @@ describe("rebaseRuleLinks [SET-755]", () => {
     expect(rebaseRuleLinks(doubleTick, base)).toBe(doubleTick.replace("(docs/b.md)", "(../docs/b.md)"));
   });
 
+  it("leaves footnotes and indented code alone but rebases list continuations", () => {
+    const base = { outputDir: ".claude", scopeDir: "" };
+    expect(rebaseRuleLinks("Text.[^1]\n\n[^1]: Some note", base)).toBe("Text.[^1]\n\n[^1]: Some note");
+    const indented = "Example:\n\n    [x](docs/a.md)\n\n\t[t](docs/t.md)\n\n[y](docs/b.md)";
+    expect(rebaseRuleLinks(indented, base)).toBe(indented.replace("(docs/b.md)", "(../docs/b.md)"));
+    expect(rebaseRuleLinks("- Item\n\n    More in [x](docs/a.md).", base)).toBe(
+      "- Item\n\n    More in [x](../docs/a.md)."
+    );
+  });
+
   it("rebases a link to the scope directory itself", () => {
     expect(
       rebaseRuleLinks("[here](.)", { outputDir: ".claude", scopeDir: "" })
