@@ -11,16 +11,18 @@ The repo now self-hosts source in the canonical Skillset workspace layout:
 
 ## Doctrine
 
-Read [docs/project/tenets.md](docs/project/tenets.md) before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
+Paths in this guide are repository-relative and written as code rather than links, because this file renders to more than one directory depth (`AGENTS.md`, `.claude/CLAUDE.md`).
 
-For source/config/frontmatter fields, follow [docs/development/schema-contracts.md](docs/development/schema-contracts.md). Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.
+Read `docs/project/tenets.md` before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
 
-For repository documentation, follow [docs/development/documentation-system.md](docs/development/documentation-system.md). It defines local ownership, generation, validation, migration accounting, and review expectations under the shared documentation doctrine.
+For source/config/frontmatter fields, follow `docs/development/schema-contracts.md`. Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.
+
+For repository documentation, follow `docs/development/documentation-system.md`. It defines local ownership, generation, validation, migration accounting, and review expectations under the shared documentation doctrine.
 
 ## Responsibilities
 
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
-- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` ([ADR-0037](docs/adrs/0037-one-shared-plugin-package-per-plugin.md)).
+- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` (ADR-0037, `docs/adrs/0037-one-shared-plugin-package-per-plugin.md`).
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`, plus `.cursor/skills` for the Cursor target.
 - Emit source rules from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md`, Codex directory-local `AGENTS.md` files, and Cursor `.cursor/rules/*.mdc` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude, Codex, and Cursor outputs.
@@ -110,7 +112,7 @@ Source control: use plain git for a single branch and `gh stack` (the `github/gh
 
 `bun run conformance:fast` reruns the fast deterministic projection and adapter conformance suites without running the whole test corpus. `bun run check` already includes those suites through `bun run test`, and `bun run check:fast` runs them without the rest of the test corpus. `bun run conformance:external` is the opt-in slow lane for pinned external adoption fixtures; it may fetch/reset clones and writes reports under `.skillset/cache/fixtures/`, so keep it out of default gates.
 
-Record every change before pushing. Skillset keeps two independent release records and CI checks both. A **change entry** under `.skillset/changes/` is required when you change a source unit under `.skillset/` (a skill, a plugin, or this `RULES.md`): `bun ./apps/skillset/src/cli.ts check --ci --root .` names each uncovered scope and prints the exact `skillset change add --scope <unit> --bump <bump> --reason "<reason>"` command, or `skillset change refresh @<id> --yes` when a pending entry for that scope already exists but its evidence is stale. A **Changeset** (`.changeset/*.md`) is required when you change published-package behavior or payload; `bun run changeset:check` says whether a branch needs one. A change that touches both needs both; one never stands in for the other. See [docs/reference/features/changes.md](docs/reference/features/changes.md).
+Record every change before pushing. Skillset keeps two independent release records and CI checks both. A **change entry** under `.skillset/changes/` is required when you change a source unit under `.skillset/` (a skill, a plugin, or this `RULES.md`): `bun ./apps/skillset/src/cli.ts check --ci --root .` names each uncovered scope and prints the exact `skillset change add --scope <unit> --bump <bump> --reason "<reason>"` command, or `skillset change refresh @<id> --yes` when a pending entry for that scope already exists but its evidence is stale. A **Changeset** (`.changeset/*.md`) is required when you change published-package behavior or payload; `bun run changeset:check` says whether a branch needs one. A change that touches both needs both; one never stands in for the other. See `docs/reference/features/changes.md`.
 
 Package releases are GitHub Actions-owned. Use Changesets for package-facing changes, and use `bun run publish:check` as a local dry-run preflight. Do not run `bun run publish:packages` locally unless the maintainer explicitly chooses a release recovery path.
 
