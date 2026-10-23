@@ -17,12 +17,12 @@ Portable [adaptive source](../../glossary.md#adaptive-source) rules live at `.sk
 
 ## Source Contract
 
-A rule is Markdown with optional frontmatter and a body:
+A rule is Markdown with optional frontmatter and a body. Its directory under `rules/` is its scope, so this `.skillset/rules/docs/guidance.md` governs `docs/`:
 
 ```markdown
 ---
 paths:
-  - docs/**/*.md
+  - "**/*.md"
 ---
 
 # Documentation guidance
@@ -30,7 +30,7 @@ paths:
 Keep public behavior aligned with its canonical contract.
 ```
 
-The generated [rule-frontmatter schema and example](../schemas/README.md) own the exact fields. `paths` supplies Claude path scoping and helps derive scoped Codex [destinations](../../glossary.md#destination). Shared metadata and provider blocks follow the [frontmatter](../../configuration/frontmatter.md) and [target override](../../configuration/target-overrides.md) contracts.
+The generated [rule-frontmatter schema and example](../schemas/README.md) own the exact fields. `paths` narrows files within the rule's scope, relative to its directory; the directory alone decides the Codex [destination](../../glossary.md#destination). Shared metadata and provider blocks follow the [frontmatter](../../configuration/frontmatter.md) and [target override](../../configuration/target-overrides.md) contracts.
 
 Directory names under `rules/` remain literal source and output path segments, including `[slug]`, `[...slug]`, and `(marketing)`. Only two exact segments are reserved for derived scope: `[.]` means one directory level and `[...]` means any depth. A Unicode ellipsis segment `[…]` is rejected with a rename to `[...]`; classification alone does not rewrite the mirrored Claude or Cursor path.
 

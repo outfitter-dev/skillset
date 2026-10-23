@@ -238,7 +238,7 @@ export function collectRenderResults(
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedCursorRootRulesOutcomes(graph, options.scopes));
   if (options.scopes === undefined || options.scopes.includes("project")) {
-    outcomes.push(...ruleScopeRenderResults(graph));
+    outcomes.push(...ruleScopeRenderResults(graph, mapOutputPath));
   }
   outcomes.push(...unsupportedMcpOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));

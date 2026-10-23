@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, posix, relative, resolve } from "node:path";
 
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
@@ -486,22 +486,43 @@ function escapeClaudeGlobLiteral(value: string): string {
  * enforce, and Cursor globs whose literal punctuation has no verified escape.
  */
 export function ruleScopeRenderResults(
-  graph: BuildGraph
+  graph: BuildGraph,
+  mapOutputPath: (path: string) => string = (path) => path
 ): readonly SkillsetRenderResult[] {
   const outcomes: SkillsetRenderResult[] = [];
-  const cursorRoot = join(targetProjectRoot(graph, "cursor"), "rules");
+  const cursorRoot = posix.join(normalizeWorkspacePath(targetProjectRoot(graph, "cursor")), "rules");
+  // The Agent Instructions baseline renders every applicable rule regardless of
+  // provider toggles, so its losses are recorded against the standard too.
+  const baselineActive = graph.standardProjections.adopted.includes("agent-instructions");
+  const consumers = (rule: SourceRule) => [
+    ...(baselineActive ? [{ standardProfile: "agent-instructions" as const }] : []),
+    ...(rule.targets.codex.enabled ? [{ target: "codex" as const }] : []),
+  ];
   for (const rule of graph.rules) {
     if (rule.rootFrontPage) continue;
     const sourcePath = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
     const sourceUnit = selectorForRule(rule.id);
     if (hasWildcardScope(rule)) {
+      const reason = `wildcard rule scope ${rule.scopeDir} renders nothing until SET-574 expands [.] and [...] against the repository tree`;
+      if (baselineActive) {
+        outcomes.push(defineRenderResult({
+          destination: "AGENTS.md",
+          featureId: "rule-wildcard-scope-pending",
+          policy: "unsupported:error",
+          reason,
+          sourcePath,
+          sourceUnit,
+          standardProfile: "agent-instructions",
+          status: "unsupported",
+        }));
+      }
       for (const target of targetNames()) {
         if (!rule.targets[target].enabled) continue;
         outcomes.push(defineRenderResult({
           destination: "rule",
           featureId: "rule-wildcard-scope-pending",
           policy: "unsupported:error",
-          reason: `wildcard rule scope ${rule.scopeDir} renders nothing until SET-574 expands [.] and [...] against the repository tree`,
+          reason,
           sourcePath,
           sourceUnit,
           status: "unsupported",
@@ -511,18 +532,20 @@ export function ruleScopeRenderResults(
       continue;
     }
     const paths = readRulePaths(rule);
-    if (paths.length > 0 && rule.targets.codex.enabled) {
+    if (paths.length > 0) {
       const destination = codexRuleDestination(rule);
-      outcomes.push(defineRenderResult({
-        destination: "AGENTS.md",
-        featureId: "codex-rule-paths-not-enforceable",
-        outputs: [{ path: destination }],
-        reason: `Codex reads ${destination} for its whole directory, so paths: ${paths.join(", ")} cannot narrow it; the rule applies to all of ${rule.scopeDir === "" ? "the repository" : `${rule.scopeDir}/`}`,
-        sourcePath,
-        sourceUnit,
-        status: "degraded",
-        target: "codex",
-      }));
+      for (const consumer of consumers(rule)) {
+        outcomes.push(defineRenderResult({
+          destination: "AGENTS.md",
+          featureId: "codex-rule-paths-not-enforceable",
+          outputs: [{ path: mapOutputPath(destination) }],
+          reason: `${destination} applies to its whole directory, so paths: ${paths.join(", ")} cannot narrow it; the rule applies to all of ${rule.scopeDir === "" ? "the repository" : `${rule.scopeDir}/`}`,
+          sourcePath,
+          sourceUnit,
+          status: "degraded",
+          ...consumer,
+        }));
+      }
     }
     if (
       rule.targets.cursor.enabled &&
@@ -531,7 +554,7 @@ export function ruleScopeRenderResults(
       outcomes.push(defineRenderResult({
         destination: "rule",
         featureId: "cursor-rule-glob-escaping-unverified",
-        outputs: [{ path: join(cursorRoot, cursorRuleRelativePath(rule.relativePath)) }],
+        outputs: [{ path: mapOutputPath(posix.join(cursorRoot, cursorRuleRelativePath(rule.relativePath))) }],
         reason: "Cursor documents no escape for [, ], ( or ) in rule globs, so these globs ship unescaped and may not match the literal directory",
         sourcePath,
         sourceUnit,
