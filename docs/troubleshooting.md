@@ -59,6 +59,90 @@ skillset build --repair --yes
 
 Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. If both the generated file and its source changed since the last build, repair refuses that path even with `--discard-edits`; settle the source change first, then repair again. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
 
+## A formatter rewrote generated output
+
+Repository formatters such as oxfmt, Prettier, and Biome rewrap Markdown and re-indent JSON. Run over generated output, they make every touched file differ from its [lock](glossary.md#lock), and `skillset check` reports drift. Run over `.skillset/`, they change canonical source, so the next build ships the reformatted bytes as the skill's real content.
+
+Keep formatters off both trees. List the generated roots your workspace actually writes: each `skillset.lock` sits in one, and `git ls-files --cached --others --exclude-standard '*skillset.lock'` lists them, including locks from a build you have not committed yet. The root lock also covers single files such as `AGENTS.md`; `skillset explain <path>` confirms whether one path is managed. A workspace that builds every provider target usually needs at least these patterns; add marketplace catalogs (`.claude-plugin/`, `.cursor-plugin/`, `.agents/plugins/`) if your workspace generates them. Files mirrored from provider source under `.skillset/_claude/`, `.skillset/_codex/`, or `.skillset/_cursor/` land at the same relative path under `.claude/`, `.codex/`, or `.cursor/`; exclude those paths too.
+
+Prettier (`.prettierignore`):
+
+```gitignore
+.skillset/
+**/skillset.lock
+.agents/skills/
+.claude/skills/
+.claude/agents/
+.claude/rules/
+.claude/CLAUDE.md
+CLAUDE.md
+.codex/agents/
+.cursor/skills/
+.cursor/rules/
+.cursor/agents/
+plugins/
+AGENTS.md
+**/AGENTS.md
+```
+
+oxfmt (`.oxfmtrc.json`), with the same list as globs:
+
+```json
+{
+  "ignorePatterns": [
+    ".skillset/**",
+    "**/skillset.lock",
+    ".agents/skills/**",
+    ".claude/skills/**",
+    ".claude/agents/**",
+    ".claude/rules/**",
+    ".claude/CLAUDE.md",
+    "CLAUDE.md",
+    ".codex/agents/**",
+    ".cursor/skills/**",
+    ".cursor/rules/**",
+    ".cursor/agents/**",
+    "plugins/**",
+    "**/AGENTS.md"
+  ]
+}
+```
+
+Biome 2 (`biome.json`), as negated `files.includes` entries:
+
+```json
+{
+  "files": {
+    "includes": [
+      "**",
+      "!.skillset/**",
+      "!**/skillset.lock",
+      "!.agents/skills/**",
+      "!.claude/skills/**",
+      "!.claude/agents/**",
+      "!.claude/rules/**",
+      "!.claude/CLAUDE.md",
+      "!CLAUDE.md",
+      "!.codex/agents/**",
+      "!.cursor/skills/**",
+      "!.cursor/rules/**",
+      "!.cursor/agents/**",
+      "!plugins/**",
+      "!**/AGENTS.md"
+    ]
+  }
+}
+```
+
+If a formatter already ran over generated output, rebuild it from source:
+
+```bash
+skillset build
+skillset build --yes
+```
+
+The confirmed build restores the expected bytes and backs up each formatted copy under `.skillset/snapshots/`, so `skillset restore --list` can still recover one. Then run `skillset check`. If the formatter also touched `.skillset/`, review and revert that source change first, or the rebuild will reproduce it.
+
 ## A rebase or merge conflicts in generated output
 
 Generated-output conflicts carry no information of their own, so the usual answer is to regenerate from the merged source. Resolve authored source conflicts first, then preview and confirm:
