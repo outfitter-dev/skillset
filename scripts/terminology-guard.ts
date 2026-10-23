@@ -14,6 +14,8 @@
  * `instruction:<id>`, `skillset new instruction`, `defaults.instructions`, and
  * friends) while leaving Agent Instructions and provider "instruction" words alone.
  *
+ * It also rejects `update` used to mean upgrading Skillset itself (ADR-0044).
+ *
  * Allowlists are deliberately small and explicit; see ALLOWLIST_PATHS and
  * ALLOWLIST_LINE below and the "Updating the allowlist" note at the bottom.
  */
@@ -80,6 +82,14 @@ export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
   { label: "instructions import kind -> rules", pattern: /\bkind:\s*["']instructions["']|["']instructions:[^"'\s]/ },
   { label: "instructions.md reference page -> rules.md", pattern: /\b(?:features|source)\/instructions\.md\b/ },
   { label: "instructionsDir/loadInstructions -> rulesDir/loadRules", pattern: /\b(?:instructionsDir|loadInstructions)\b/ },
+  // ADR-0044: `upgrade` brings Skillset and its tooling current; `update` is
+  // only for the objects a workspace manages. These catch the self-upgrade
+  // spellings, not `skillset update` itself.
+  {
+    label: "update for self-upgrade -> skillset upgrade (ADR-0044)",
+    pattern:
+      /\bskillset\s+(?:self-update|update\s+(?:--)?self)\b|\b(?:update|updating|updates)\s+(?:the\s+)?skillset\s+(?:itself|cli|binary|executable)\b/i,
+  },
 ];
 
 /**
