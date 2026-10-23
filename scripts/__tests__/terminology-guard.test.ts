@@ -142,6 +142,34 @@ describe("terminology guard", () => {
     ).toEqual([]);
   });
 
+  it("SET-681: drops a codex.defaults nest when the block closes", () => {
+    const closed = ["codex: {", "  defaults: {", "    rules: {}", "  }", "}"].join("\n");
+    expect(scanNestedRetiredDefaults("skillset.yaml", `${closed}\n        instructions: true`)).toEqual([]);
+    expect(
+      scanNestedRetiredDefaults(
+        "skillset.yaml",
+        `${closed}\n    compile:\n      agents:\n        instructions: true`
+      )
+    ).toEqual([]);
+    expect(
+      scanNestedRetiredDefaults(
+        "guide.md",
+        "```yaml\ncodex:\n  defaults:\n    rules: {}\n```\n\n    ```yaml\n      instructions: true\n    ```"
+      )
+    ).toEqual([]);
+    expect(
+      scanNestedRetiredDefaults(
+        "guide.md",
+        "codex:\n  defaults:\n    rules: {}\n\ncompile.agents.instructions stays legal.\n\n    instructions: true"
+      )
+    ).toEqual([]);
+    expect(
+      scanNestedRetiredDefaults("skillset.yaml", "codex:\n  defaults:\n\n    # still nested\n    instructions: false").map(
+        (violation) => violation.line
+      )
+    ).toEqual([5]);
+  });
+
   it("SET-681: anchors new/lookup instruction to Skillset commands", () => {
     expect(scanContent("a.md", "Codex discovers a new instruction file in each directory.")).toEqual([]);
     expect(scanContent("a.md", "Run `bun ./apps/skillset/src/cli.ts new instruction Review`.").map((v) => v.label)).toContain(

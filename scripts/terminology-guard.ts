@@ -410,16 +410,24 @@ export function scanRetiredRuleSyntax(file: string, content: string): readonly T
  * `codex:` > `defaults:` in YAML, including YAML embedded in Markdown fences
  * and template strings. The dotted `defaults.instructions` spelling is caught
  * by FORBIDDEN_TERMS; this catches the block shape that never spells it.
+ * A fence starts a new block, and any other non-blank line closes keys at
+ * that indent or deeper, so a closed container cannot leak into a later key.
  */
 export function scanNestedRetiredDefaults(file: string, content: string): readonly TerminologyViolation[] {
   const violations: TerminologyViolation[] = [];
   const stack: { readonly indent: number; readonly key: string }[] = [];
   for (const [index, line] of content.split(/\r?\n/u).entries()) {
+    // A fence's indent belongs to the host file, so clear even when the marker is deeper than the keys it ends.
+    if (/^\s*(?:`{3,}|~{3,})/u.test(line)) {
+      stack.length = 0;
+      continue;
+    }
+    if (/^\s*$/u.test(line)) continue;
     const match = /^(?<indent>\s*)["']?(?<key>[A-Za-z_][\w-]*)["']?\s*:(?<rest>.*)$/u.exec(line);
-    if (!match?.groups) continue;
-    const indent = match.groups.indent?.length ?? 0;
-    const key = match.groups.key ?? "";
+    const indent = match?.groups?.indent?.length ?? line.match(/^\s*/u)?.[0].length ?? 0;
     while (stack.length > 0 && (stack.at(-1)?.indent ?? 0) >= indent) stack.pop();
+    if (!match?.groups) continue;
+    const key = match.groups.key ?? "";
     if (key === "instructions" && stack.at(-1)?.key === "defaults" && stack.at(-2)?.key === "codex") {
       violations.push({ file, label: RETIRED_RULE_DEFAULTS_LABEL, line: index + 1, text: line.trim() });
     }
