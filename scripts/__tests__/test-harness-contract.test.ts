@@ -18,6 +18,7 @@ test("repo tests use the canonical per-invocation sandbox runner", async () => {
   );
   for (const script of [
     "check",
+    "check:fast",
     "conformance:adapters",
     "conformance:determinism",
     "conformance:external",
@@ -53,11 +54,10 @@ test("hosted CI and source-owned hooks preserve per-invocation sandbox ownership
   expect(workflow).toContain(
     "bun run test:sandbox -- bun ./apps/skillset/src/cli.ts check --ci"
   );
+  // Pre-push runs the fast tier (`bun run check:fast`, which owns its sandbox)
+  // from this script, so the hook must not hand it an inherited one.
   expect(lefthook).toContain(
-    "run: env -u SKILLSET_TEST_SANDBOX bun run check"
-  );
-  expect(lefthook).toContain(
-    "run: env -u SKILLSET_TEST_SANDBOX bun run skillset:check:ci:report"
+    "run: env -u SKILLSET_TEST_SANDBOX bun scripts/pre-push.ts"
   );
   expect(claude).toContain(
     "bun run test:sandbox -- bun ./apps/skillset/src/cli.ts hooks run stop"

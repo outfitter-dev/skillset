@@ -30,10 +30,11 @@ pre-commit:
       glob: ".github/workflows/*.{yml,yaml}"
       run: bun run check:workflows
 
-# Cheap gates run first and fail fast (piped); the two heavy gates are
-# independent, so they run in parallel. `bun run check` is the same aggregate
-# CI runs, and `skillset check --ci` already covers source diagnostics + generated drift,
-# so neither is re-enumerated here.
+# Pre-push no longer runs the full gate. `bun run verify` runs it ahead of time
+# against exact commits and records a receipt per tree; `scripts/pre-push.ts`
+# reads git's pushed-ref lines and, per ref, checks whitespace against trunk and
+# looks for a receipt. A clean checked-out ref without one gets the fast tier
+# (`bun run check:fast`). Hosted CI still runs the full gate before any merge.
 pre-push:
   piped: true
   jobs:
@@ -42,10 +43,6 @@ pre-push:
         GIT_PAGER: cat
       run: |
         test "$(git config --default false core.bare)" = "false" || { echo "core.bare is true — a concurrent tool corrupted .git/config and checkouts will fail; repair with 'git config core.bare false'"; exit 1; }
-    - name: whitespace
-      env:
-        GIT_PAGER: cat
-      run: git diff --check "$(scripts/git-trunk.sh)...HEAD"
     - name: changesets
       env:
         GIT_PAGER: cat
@@ -54,17 +51,8 @@ pre-push:
       env:
         GIT_PAGER: cat
       run: bun run check:workflows
-    - name: gates
-      group:
-        parallel: true
-        jobs:
-          # Each parallel aggregate owns its own XDG sandbox. Reusing the
-          # wrapper's marker would let concurrent checks race on config/cache.
-          - name: check
-            env:
-              GIT_PAGER: cat
-            run: env -u SKILLSET_TEST_SANDBOX bun run check
-          - name: skillset-ci
-            env:
-              GIT_PAGER: cat
-            run: env -u SKILLSET_TEST_SANDBOX bun run skillset:check:ci:report
+    - name: refs
+      env:
+        GIT_PAGER: cat
+      use_stdin: true
+      run: env -u SKILLSET_TEST_SANDBOX bun scripts/pre-push.ts
