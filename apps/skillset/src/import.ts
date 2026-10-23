@@ -1618,9 +1618,11 @@ async function writeImportedPluginConfig(
   const nativeManifests = await readNativePluginManifests(targetPath);
   // `author` is source-owned, so it is stripped from provider overrides. A
   // value Skillset cannot read has no canonical form to lift, and another
-  // provider's readable author would quietly stand in for it. Those providers
-  // keep their raw native author on their own manifest override instead, and
-  // migration warns rather than dropping it.
+  // provider's readable author would quietly stand in for it. Claude and
+  // Cursor keep that raw value on their manifest override. Codex cannot:
+  // ChatGPT rendering rejects `codex.manifest.author` for any value, and a
+  // leftover legacy `.codex-plugin/plugin.json` author conflicts with the
+  // canonical author, so both copies of the raw Codex value are omitted.
   const unreadableAuthors = unreadableNativeAuthorProviders(nativeManifests);
   const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);
   if (metadataConflicts.length > 0) {
@@ -1724,6 +1726,9 @@ async function writeImportedPluginConfig(
   const cursorNativeDiscoveryFields = ["category", "tags"].filter(
     (field) => nativeManifests.get("cursor")?.[field] !== undefined
   );
+  if (unreadableAuthors.includes("codex")) {
+    await omitUnreadableCodexAuthor(targetPath, nativeManifests.get("codex"));
+  }
   await writeFile(
     join(targetPath, "skillset.yaml"),
     stringifyYamlSourceDocument({
@@ -1734,11 +1739,7 @@ async function writeImportedPluginConfig(
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
     warnings: [
-      ...(unreadableAuthors.length === 0
-        ? []
-        : [
-            `import-unreadable-plugin-author: native plugin manifests declare an unreadable author: ${unreadableAuthors.join(", ")}; author must be a non-empty string or an object with a non-empty name. Skillset preserved each raw value under <provider>.manifest.author instead of choosing a canonical author.`,
-          ]),
+      ...unreadableAuthorImportWarnings(unreadableAuthors),
       ...(cursorNativeDiscoveryFields.length === 0
         ? []
         : [
@@ -1785,6 +1786,40 @@ async function writeImportedAgentPluginConfig(
   };
 }
 
+function unreadableAuthorImportWarnings(
+  providers: readonly TargetName[]
+): readonly string[] {
+  const parked = providers.filter((provider) => provider !== "codex");
+  return [
+    ...(parked.length === 0
+      ? []
+      : [
+          `import-unreadable-plugin-author: native plugin manifests declare an unreadable author: ${parked.join(", ")}; author must be a non-empty string or an object with a non-empty name. Skillset preserved each raw value under <provider>.manifest.author instead of choosing a canonical author.`,
+        ]),
+    ...(providers.includes("codex")
+      ? [
+          "import-unreadable-plugin-author: native plugin manifests declare an unreadable author: codex; author must be a non-empty string or an object with a non-empty name. Skillset omitted that raw value from codex.manifest and the copied .codex-plugin/plugin.json because ChatGPT rendering rejects the author key for any value. Canonical author still comes from a readable author or interface.developerName.",
+        ]
+      : []),
+  ];
+}
+
+async function omitUnreadableCodexAuthor(
+  targetPath: string,
+  manifest: JsonRecord | undefined
+): Promise<void> {
+  if (manifest?.author === undefined) return;
+  const rewritten: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(manifest)) {
+    if (key === "author" || value === undefined) continue;
+    rewritten[key] = value;
+  }
+  await writeFile(
+    join(targetPath, ".codex-plugin", "plugin.json"),
+    stringifyJson(rewritten)
+  );
+}
+
 function importedManifestOverride(
   provider: TargetName,
   manifest: JsonRecord,
@@ -1799,14 +1834,18 @@ function importedManifestOverride(
     }
   }
   // An author with no canonical form stays provider-specific so it does not
-  // vanish; `skillset.author` comes only from readable authors.
+  // vanish; `skillset.author` comes only from readable authors. Codex drops
+  // the key below: `codex.manifest` accepts only `extensions` and `interface`.
   if (keepUnreadableAuthor && manifest.author !== undefined) {
     override.author = manifest.author;
   }
   for (const field of listProviderPluginComponentManifestFields(provider)) {
     removeManifestField(override, field.split("."));
   }
-  if (provider === "codex") delete override.interface;
+  if (provider === "codex") {
+    delete override.interface;
+    delete override.author;
+  }
   if (provider === "cursor") {
     if (!hasListingConflict(listingConflicts, "listing.display_name"))
       delete override.displayName;

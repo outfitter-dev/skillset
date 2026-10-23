@@ -394,7 +394,7 @@ function unreadableAuthorDiagnostic(
     paths: [sourcePath],
     providers,
     recommendation:
-      "Import will warn and keep each unreadable native author as that provider's manifest override; canonical author comes only from a readable author. Give each provider manifest a non-empty string author or an object author with a non-empty name to share one canonical author.",
+      "Import warns and keeps an unreadable Claude or Cursor author on that provider's manifest override. Codex cannot carry manifest.author, so an unreadable Codex author is omitted from the override and the copied legacy manifest; canonical author comes from a readable author or interface.developerName. Give each provider manifest a non-empty string author or an object author with a non-empty name to share one canonical author.",
     severity: "warning",
   };
 }

@@ -1215,6 +1215,89 @@ for (const [label, author] of [
   });
 }
 
+const CODEX_UNREADABLE_AUTHOR_WARNING =
+  "import-unreadable-plugin-author: native plugin manifests declare an unreadable author: codex; author must be a non-empty string or an object with a non-empty name. Skillset omitted that raw value from codex.manifest and the copied .codex-plugin/plugin.json because ChatGPT rendering rejects the author key for any value. Canonical author still comes from a readable author or interface.developerName.";
+
+test("SET-507: an unreadable Codex author stays off codex.manifest and the workspace still builds", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml":
+      "skillset:\n  name: import-root\ncompile:\n  targets: [codex]\n",
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { email: "team@example.com" },
+      interface: { developerName: "Ada Lovelace" },
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.warnings).toContain(CODEX_UNREADABLE_AUTHOR_WARNING);
+  const imported = parseYaml(
+    await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")
+  );
+  expect(imported.skillset.author).toBe("Ada Lovelace");
+  expect(imported.codex?.manifest?.author).toBeUndefined();
+  const copiedManifest = JSON.parse(
+    await readFile(join(root, ".skillset/plugins/demo/.codex-plugin/plugin.json"), "utf8")
+  ) as { author?: unknown; interface?: { developerName?: string } };
+  expect(copiedManifest.author).toBeUndefined();
+  expect(copiedManifest.interface?.developerName).toBe("Ada Lovelace");
+
+  await buildSkillset(root, { isolated: true });
+  const generated = JSON.parse(
+    await readFile(
+      join(
+        resolveOperationalPath(createOperationalPathContext(root), ISOLATED_OUT_ROOT),
+        "plugins/demo/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as {
+    extensions?: {
+      "com.openai"?: { interface?: { developerName?: string } };
+    };
+  };
+  expect(generated.extensions?.["com.openai"]?.interface?.developerName).toBe(
+    "Ada Lovelace"
+  );
+});
+
+test("SET-507: adopt writes through an unreadable Codex author without parking it", async () => {
+  const root = await pluginFixture({
+    "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
+      author: { email: "team@example.com" },
+      interface: { developerName: "Ada Lovelace" },
+    }),
+    "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await adoptSkillset(root, { write: true, targets: ["codex"] });
+
+  expect(report.surveyDiagnostics).toEqual([
+    expect.objectContaining({
+      code: "unreadable-plugin-author",
+      providers: ["codex"],
+      severity: "warning",
+    }),
+  ]);
+  expect(report.imports[0]?.warnings).toContain(CODEX_UNREADABLE_AUTHOR_WARNING);
+  const imported = parseYaml(
+    await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")
+  );
+  expect(imported.skillset.author).toBe("Ada Lovelace");
+  expect(imported.codex?.manifest?.author).toBeUndefined();
+  const copiedManifest = JSON.parse(
+    await readFile(join(root, ".skillset/plugins/demo/.codex-plugin/plugin.json"), "utf8")
+  ) as { author?: unknown };
+  expect(copiedManifest.author).toBeUndefined();
+  expect(report.ok).toBe(true);
+  expect(report.buildError).toBeUndefined();
+});
+
 test("SET-507: adopt writes through an unreadable native author with a warning", async () => {
   const root = await pluginFixture({
     "plugins/demo/.claude-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
