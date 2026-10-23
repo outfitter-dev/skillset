@@ -35,6 +35,11 @@
           "context": "- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - establishes Skillset-owned XDG state and the no-activation boundary.",
           "from": "20260710",
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
+        },
+        {
+          "context": "Without a decision, each surface reaches for its own verb. Users already see `update` for provider and compiler format migrations inside a repository. An `update` that also upgraded Skillset would giv",
+          "from": "20261022",
+          "fromPath": "docs/adrs/drafts/20261022-machine-scope-lifecycle-commands.md"
         }
       ],
       "number": null,
@@ -180,6 +185,21 @@
       "superseded_by": null,
       "title": "Catalog-Owned Marketplace Refresh Pull Requests",
       "updated": "2026-07-10"
+    },
+    {
+      "amended_by": [],
+      "amends": ["22", "29"],
+      "created": "2026-10-22",
+      "depends_on": ["0", "22", "27", "29", "declarative-user-scope-config"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20261022-machine-scope-lifecycle-commands.md",
+      "slug": "machine-scope-lifecycle-commands",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Machine-Scope Lifecycle Commands",
+      "updated": "2026-10-22"
     }
   ],
   "version": 1

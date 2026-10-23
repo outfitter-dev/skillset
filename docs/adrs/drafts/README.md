@@ -22,3 +22,8 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
 
 - [Catalog-Owned Marketplace Refresh Pull Requests](20260710-catalog-owned-marketplace-refresh-pull-requests.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Declarative User-Scope Config](20260604-declarative-user-scope-config.md)
+
+## 2026-10
+
+- [Machine-Scope Lifecycle Commands](20261022-machine-scope-lifecycle-commands.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md), [ADR-0027: Runtime Activation Readiness Is Observational](../0027-runtime-activation-readiness-is-observational.md), [ADR-0029: Global CLI and Native Distribution](../0029-global-cli-native-distribution.md), [Declarative User-Scope Config](20260604-declarative-user-scope-config.md)
