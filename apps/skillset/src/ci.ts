@@ -18,7 +18,8 @@ import { isProviderMarketplaceOutputPath } from "@skillset/core/internal/plugin-
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
 import type { WorkspaceTransactionOptions } from "@skillset/core/internal/workspace-transaction";
 import { runProviderFormatUpdates, type ProviderFormatUpdateReport } from "./provider-format-updates";
-import { reconcileManagedPath } from "./reconcile";
+import { layoutOnlyDriftPaths } from "./layout-drift";
+import { ReconcileScopeError, reconcileManagedPath } from "./reconcile";
 import {
   classifyRecoveryGuidance,
   mechanicalFixEligibility,
@@ -134,8 +135,12 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
-  const sourceSuggestions = buildError === undefined && outputState.state === "output-diverged"
-    ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
+  const { reports: sourceSuggestions, scopeBlockers: reconcileScopeBlockers } =
+    buildError === undefined && outputState.state === "output-diverged"
+      ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
+      : { reports: [], scopeBlockers: new Map<string, readonly string[]>() };
+  const layoutOnlyDriftPathList = buildError === undefined && outputState.state === "output-diverged"
+    ? await layoutOnlyDriftPaths(rootPath, drift.changed, buildOptions)
     : [];
   let providerUpdatePaths: readonly string[] = [];
   let providerReport: ProviderFormatUpdateReport | undefined;
@@ -207,6 +212,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ...(changesetError === undefined ? {} : { changesetError }),
     changesetIssues,
     drift,
+    layoutOnlyDriftPaths: layoutOnlyDriftPathList,
     lintIssues,
     mode: ci === true ? "ci" : "local",
     outputDiagnostics,
@@ -218,6 +224,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     providerUpdatePaths: providerUpdatePaths.filter(
       (path) => !repairableManagedLockPaths().includes(path)
     ),
+    reconcileScopeBlockers,
     sourceSuggestions,
     unmanagedOutputCollisions: hasUnmanagedOutputCollisions,
   });
@@ -517,14 +524,22 @@ async function sourceSuggestionsForDrift(
   rootPath: string,
   drift: SkillsetDiff,
   options: SkillsetOptions
-): Promise<readonly SourceSuggestionReport[]> {
+): Promise<{
+  readonly reports: readonly SourceSuggestionReport[];
+  readonly scopeBlockers: ReadonlyMap<string, readonly string[]>;
+}> {
   const paths = [...new Set([...drift.added, ...drift.changed])];
   const reports: SourceSuggestionReport[] = [];
+  const scopeBlockers = new Map<string, readonly string[]>();
   for (const path of paths) {
     try {
       const preview = await reconcileManagedPath(rootPath, path, options);
       reports.push({ ...preview.outputResolution, nextSteps: [] });
+      if (preview.outputScopeBlockers !== undefined) {
+        scopeBlockers.set(preview.generatedPath, preview.outputScopeBlockers);
+      }
     } catch (error) {
+      if (error instanceof ReconcileScopeError) scopeBlockers.set(path, error.unrelatedPaths);
       reports.push({
         entries: [],
         generatedPath: path,
@@ -536,7 +551,7 @@ async function sourceSuggestionsForDrift(
       });
     }
   }
-  return reports;
+  return { reports, scopeBlockers };
 }
 
 function errorMessage(error: unknown): string {

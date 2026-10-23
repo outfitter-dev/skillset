@@ -181,6 +181,95 @@ test("shares generated-only fix eligibility across local and CI commands and sup
   expect(recovery).toContainEqual(expect.objectContaining({ action: "manual-review", blocked: true }));
 });
 
+test("offers a plain rebuild when generated edits only block each other's reconciliation", () => {
+  const skill = ".claude/skills/demo/SKILL.md";
+  const schema = ".claude/skills/demo/assets/schema.json";
+  const recovery = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, changed: [schema, skill] },
+    outputEditedPaths: [skill, schema],
+    providerReport: providerReport({ unplannedDriftPaths: [schema, skill] }),
+    providerUpdatePaths: [schema, skill],
+    reconcileScopeBlockers: new Map([
+      [skill, [schema]],
+      [schema, [skill, ".claude/skills/skillset.lock"]],
+    ]),
+    sourceSuggestions: [
+      { ...sourceSuggestion("refused"), generatedPath: skill },
+      { ...sourceSuggestion("refused"), generatedPath: schema },
+    ],
+  }));
+
+  expect(recovery).toEqual([expect.objectContaining({
+    action: "rebuild-generated-output",
+    commands: ["skillset build", "skillset build --yes"],
+  })]);
+  expect(recovery[0]?.reason).toContain("block only each other's reconciliation");
+  expect(recovery[0]?.blocked).toBeUndefined();
+  expect(JSON.stringify(recovery)).not.toContain("cannot be rebuilt mechanically");
+});
+
+test("keeps manual review when a reconcile blocker lies outside the drifted set", () => {
+  const skill = ".claude/skills/demo/SKILL.md";
+  const recovery = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, changed: [skill] },
+    outputEditedPaths: [skill],
+    reconcileScopeBlockers: new Map([[skill, ["AGENTS.md"]]]),
+    sourceSuggestions: [{ ...sourceSuggestion("refused"), generatedPath: skill }],
+  }));
+
+  expect(recovery).toContainEqual(expect.objectContaining({ action: "manual-review", blocked: true, path: skill }));
+  expect(recovery.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
+});
+
+test("names a formatter and offers a rebuild when every drifted file differs only in layout", () => {
+  const skill = ".claude/skills/demo/SKILL.md";
+  const recovery = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, changed: [skill] },
+    layoutOnlyDriftPaths: [skill],
+    outputEditedPaths: [skill],
+    providerReport: providerReport({ unplannedDriftPaths: [skill] }),
+    providerUpdatePaths: [skill],
+    sourceSuggestions: [sourceSuggestion("suggestible")],
+  }));
+
+  expect(recovery).toEqual([expect.objectContaining({
+    action: "rebuild-generated-output",
+    commands: ["skillset build", "skillset build --yes"],
+  })]);
+  expect(recovery[0]?.reason).toContain("only in whitespace or layout");
+  expect(recovery[0]?.reason).toContain("formatter");
+  expect(recovery.some((item) => item.action === "reconcile" || item.action === "update")).toBe(false);
+});
+
+test("keeps ordinary classification when layout-only drift sits beside a real edit or another blocker", () => {
+  const skill = ".claude/skills/demo/SKILL.md";
+  const other = ".claude/skills/other/SKILL.md";
+  const mixed = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, changed: [skill, other] },
+    layoutOnlyDriftPaths: [skill],
+    outputEditedPaths: [skill, other],
+    sourceSuggestions: [sourceSuggestion("suggestible"), { ...sourceSuggestion("suggestible"), generatedPath: other }],
+  }));
+  expect(mixed.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
+  expect(mixed).toContainEqual(expect.objectContaining({ action: "reconcile", path: other }));
+
+  const withNewOutput = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, added: [".claude/skills/new/SKILL.md"], changed: [skill] },
+    layoutOnlyDriftPaths: [skill],
+    outputEditedPaths: [skill],
+    sourceSuggestions: [sourceSuggestion("suggestible")],
+  }));
+  expect(withNewOutput.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
+
+  const blocked = classifyRecoveryGuidance(input({
+    drift: { ...EMPTY_DRIFT, changed: [skill] },
+    layoutOnlyDriftPaths: [skill],
+    lintIssues: [{ code: "bad", message: "bad", path: ".skillset/skills/demo/SKILL.md", severity: "error" }],
+    outputEditedPaths: [skill],
+  }));
+  expect(blocked.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
+});
+
 test("deduplicates and orders recovery guidance deterministically", () => {
   const report = changeReport({
     issues: [
