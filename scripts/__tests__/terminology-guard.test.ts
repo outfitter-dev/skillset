@@ -1,9 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  RETIRED_RULE_LITERAL_ALLOWLIST,
   isScannablePath,
   scanContent,
   scanInternalAdHocTestTerminology,
+  scanNestedRetiredDefaults,
+  scanRetiredRuleSyntax,
 } from "../terminology-guard";
 
 describe("terminology guard", () => {
@@ -86,6 +89,63 @@ describe("terminology guard", () => {
     );
     expect(labelsFor("a.ts", "graph.instructionsDir")).toContain(
       "instructionsDir/loadInstructions -> rulesDir/loadRules"
+    );
+  });
+
+  it("SET-681: flags the retired rule kind and selectors structurally in TypeScript", () => {
+    const flagged = (text: string) => scanRetiredRuleSyntax("a.ts", text).map((v) => v.label);
+    const kind = 'retired "instruction(s)" kind literal -> "rule(s)"';
+    const selector = "concatenated instruction:<id> selector -> rule:<id>";
+    for (const text of [
+      'if (kind === "instructions") {}',
+      'if ("instruction" !== kind) {}',
+      'type Kind = "skill" | "instructions";',
+      'switch (kind) { case "instructions": break; }',
+      'const entries = [["instructions", true]];',
+      'function k() { return "instruction"; }',
+      'const k = () => "instruction";',
+      'const k = rule ? "instruction" : "rule";',
+    ])
+      expect(flagged(text)).toContain(kind);
+    expect(flagged('const id = "instruction:" + name;')).toContain(selector);
+    expect(flagged('const id = "instructions:".concat(path);')).toContain(selector);
+    expect(flagged("const config = { codex: { defaults: { instructions: { enabled: false } } } };")).toContain(
+      "nested codex.defaults.instructions -> codex.defaults.rules"
+    );
+  });
+
+  it("SET-681: keeps non-retired instruction words and allowlisted owners in TypeScript", () => {
+    for (const text of [
+      'const label = "Agent Instructions";',
+      'const config = { compile: { agents: { instructions: true } } };',
+      'const config = { codex: { defaults: { rules: { enabled: false } } } };',
+      'if (kind === "rule") {}',
+      'const prose = "Codex reads instruction files";',
+    ])
+      expect(scanRetiredRuleSyntax("a.ts", text)).toEqual([]);
+    for (const file of RETIRED_RULE_LITERAL_ALLOWLIST.keys())
+      expect(scanRetiredRuleSyntax(file, 'const moves = [["instructions", "rules"]];')).toEqual([]);
+    expect(scanRetiredRuleSyntax("a.md", 'kind === "instructions"')).toEqual([]);
+  });
+
+  it("SET-681: flags a nested codex.defaults instructions key in YAML", () => {
+    const yaml = "codex:\n  defaults:\n    instructions:\n      enabled: false\n";
+    expect(scanNestedRetiredDefaults("skillset.yaml", yaml).map((v) => v.line)).toEqual([3]);
+    expect(scanNestedRetiredDefaults("skillset.yaml", "codex:\n  defaults:\n    rules:\n      enabled: false\n")).toEqual(
+      []
+    );
+    expect(
+      scanNestedRetiredDefaults("skillset.yaml", "compile:\n  agents:\n    instructions: true\ncodex:\n  defaults: {}\n")
+    ).toEqual([]);
+    expect(
+      scanNestedRetiredDefaults("skillset.yaml", "codex:\n  defaults:\n    rules: {}\n  instructions: x\n")
+    ).toEqual([]);
+  });
+
+  it("SET-681: anchors new/lookup instruction to Skillset commands", () => {
+    expect(scanContent("a.md", "Codex discovers a new instruction file in each directory.")).toEqual([]);
+    expect(scanContent("a.md", "Run `bun ./apps/skillset/src/cli.ts new instruction Review`.").map((v) => v.label)).toContain(
+      "new/lookup instruction -> new/lookup rule"
     );
   });
 
