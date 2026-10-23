@@ -46,8 +46,8 @@ Claude and Cursor [destinations](../../glossary.md#destination) follow the enabl
 
 | Authored source | Destination | Behavior |
 | --- | --- | --- |
-| `.skillset/RULES.md` | `.claude/CLAUDE.md` (default) or root `CLAUDE.md` | Renders the front page in its authored dialect with a generated-by header and source-boundary comment. `compile.instruction_front_page` selects `claude-dir` or `repo-root`. |
-| `.skillset/RULES.md` | root `AGENTS.md` (Agent Instructions baseline) | Becomes the bare first section of the root `AGENTS.md`, without a source-boundary comment, ahead of unscoped rules. |
+| `.skillset/RULES.md` | `.claude/CLAUDE.md` (default) or root `CLAUDE.md` | Renders the front page in its authored dialect under a generated-by header. `compile.instruction_front_page` selects `claude-dir` or `repo-root`. |
+| `.skillset/RULES.md` | root `AGENTS.md` (Agent Instructions baseline) | Becomes the bare first section of the root `AGENTS.md`, with no section tag, ahead of unscoped rules. |
 | `.skillset/RULES.md` | none for Cursor | Unsupported for Cursor (`cursor-agents-md-root`); Cursor receives only `.skillset/rules/**`. |
 | `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | Mirrors the source path. Frontmatter `paths` is the scope joined with each `paths` entry, sorted, or `<dir>/**` for a scoped rule without `paths`. Glob characters in the literal scope directory (`[`, `]`, `*`, `?`, `{`, `}`) are escaped (`app/\[slug\]/**`) so the glob matches only that directory; Claude treats an unescaped `[` as a bracket expression. Unscoped rules without `paths` render without frontmatter. |
 | `.skillset/rules/**/*.md` | `.cursor/rules/**/*.mdc` | Mirrors the source path and writes the same derived globs, unescaped. A glob containing `[`, `]`, `(` or `)` records a `degraded` render result (`cursor-rule-glob-escaping-unverified`) because Cursor documents no escape. |
@@ -57,7 +57,22 @@ A rule's `AGENTS.md` is always its scope directory's, whatever files exist in th
 
 Generated paths mirror the literal source path, so quote them in a shell: brackets and parentheses are glob characters. Use `cat 'app/[slug]/AGENTS.md'`; zsh otherwise answers "no matches found", and PowerShell needs `-LiteralPath`.
 
-When multiple rules reach one Codex destination, Skillset concatenates them in source-path order, after the `RULES.md` front page in the root `AGENTS.md`. Each rule section begins with a deterministic source-boundary comment so provenance remains visible without leaking source frontmatter into the generated `AGENTS.md` body. Skillset does not use `.codex/AGENTS.md` as a default Codex destination.
+When multiple rules reach one Codex destination, Skillset concatenates them in source-path order, after the `RULES.md` front page in the root `AGENTS.md`. Skillset does not use `.codex/AGENTS.md` as a default Codex destination.
+
+A generated `AGENTS.md` wraps each rule in an XML section when it combines more than one contribution, or when its one rule narrows with `paths` that would otherwise be invisible. A lone rule without `paths` and the `RULES.md` front page stay bare. XML survives every provider's processing, while Claude strips HTML comments. The tag is the rule's frontmatter `name` or filename stem, lowercased, with each run of other characters replaced by `_`, a leading `_` before a digit, and `rule` when nothing is left; two sections may share a tag because `source` tells them apart. `source` is the authored path, and `applies_to` is the derived scope: `<dir>/**`, `**` when unscoped, or each `paths` entry joined onto the scope, sorted and comma-separated, with literal brackets unescaped. Both attribute values escape `&`, `<`, `>` and `"` as XML entities:
+
+```markdown
+<coding_guidance
+  source=".skillset/rules/engineering/coding-guidance.md"
+  applies_to="engineering/**/*.ts" >
+
+# Coding guidance
+...
+
+</coding_guidance>
+```
+
+Source-only frontmatter never reaches the section. When two contributions to one `AGENTS.md` both carry a `## Code Review Rules` heading, the build warns with `codex-code-review-rules-duplicate`, naming both sources, and renders both sections unmerged.
 
 Codex may silently truncate an `AGENTS.md` beyond its configured project-document byte limit. Build and output checks warn when generated guidance exceeds the default 32 KiB limit. Move rules into directories under `rules/` so they land in nested `AGENTS.md` files, or deliberately adjust the provider's own configuration.
 

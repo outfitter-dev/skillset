@@ -30,10 +30,10 @@ export interface AgentInstructionsCodexPin {
  * from silently satisfying the probe.
  */
 export const AGENT_INSTRUCTIONS_CODEX_PIN: AgentInstructionsCodexPin = {
-  binaryPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
+  binaryPath: "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
   binarySha256:
-    "ecad78dbf98adb89ec475edac86630406cbe59d9f3070b17d88065f136b94bcb",
-  version: "codex-cli 0.154.0-alpha.6.2",
+    "50ab38ba21d0d9f8346f32f41848382f15b556190f3c7a07e885a4fb73e379c8",
+  version: "codex-cli 0.163.0-alpha.11.2",
 };
 
 export interface AgentInstructionsProbeInput {

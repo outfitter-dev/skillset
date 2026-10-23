@@ -257,6 +257,26 @@ function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]
       target: "codex",
     }));
   }
+  for (const file of rendered) {
+    if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
+    const frontPage = file.path === "AGENTS.md" ? graph.rules.find((rule) => rule.rootFrontPage) : undefined;
+    const sources = reviewRuleSectionSources(
+      new TextDecoder().decode(file.content),
+      frontPage === undefined ? undefined : posix.normalize(relative(graph.rootPath, frontPage.sourcePath).replaceAll("\\", "/"))
+    );
+    if (sources.length < 2) continue;
+    diagnostics.push(skillsetDiagnostic({
+      code: "codex-code-review-rules-duplicate",
+      featureId: "project-instructions",
+      message:
+        `${file.path} gets a ## Code Review Rules section from each of ${sources.join(", ")}; ` +
+        "Codex looks for one such section, and Skillset keeps them separate so each stays traceable to its source. " +
+        "Move the review rules into one of these files.",
+      outputPath: file.path,
+      severity: "warning",
+      target: "codex",
+    }));
+  }
   for (const rule of graph.rules) {
     if (rule.scopeDir === "") continue;
     const sourcePath = posix.normalize(relative(graph.rootPath, rule.sourcePath).replaceAll("\\", "/"));
@@ -283,6 +303,52 @@ function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]
     }));
   }
   return diagnostics;
+}
+
+const AGENTS_SECTION_PATTERN =
+  /^<([a-z_][a-z0-9_]*)\n {2}source="([^"]*)"\n {2}applies_to="[^"]*" >\n\n([\s\S]*?)\n\n<\/\1>$/gmu;
+
+/**
+ * Sources of the contributions to one generated AGENTS.md (the bare front page
+ * and each rule section) that have a `## Code Review Rules` ATX heading outside
+ * fenced code.
+ */
+function reviewRuleSectionSources(content: string, frontPageSource?: string): readonly string[] {
+  const sources: string[] = [];
+  // The RULES.md front page renders bare ahead of the sections in root AGENTS.md.
+  const firstSection = content.search(/^<[a-z_][a-z0-9_]*\n {2}source="/mu);
+  const frontPage = firstSection === -1 ? content : content.slice(0, firstSection);
+  if (frontPageSource !== undefined && hasCodeReviewRulesHeading(frontPage)) sources.push(frontPageSource);
+  for (const match of content.matchAll(AGENTS_SECTION_PATTERN)) {
+    const [, , source = "", body = ""] = match;
+    if (hasCodeReviewRulesHeading(body)) sources.push(unescapeXmlAttribute(source));
+  }
+  return sources;
+}
+
+function hasCodeReviewRulesHeading(markdown: string): boolean {
+  let fence: string | undefined;
+  for (const line of markdown.split("\n")) {
+    const marker = /^ {0,3}(`{3,}|~{3,})/u.exec(line)?.[1];
+    if (fence !== undefined) {
+      if (marker !== undefined && marker[0] === fence[0] && marker.length >= fence.length) fence = undefined;
+      continue;
+    }
+    if (marker !== undefined) {
+      fence = marker;
+      continue;
+    }
+    if (/^ {0,3}##[ \t]+Code Review Rules(?:[ \t]+#+)?[ \t]*$/u.test(line)) return true;
+  }
+  return false;
+}
+
+function unescapeXmlAttribute(value: string): string {
+  return value
+    .replaceAll("&quot;", '"')
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
 }
 
 export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]> & {

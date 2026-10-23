@@ -74,7 +74,7 @@
       ],
       "kind": "rule",
       "name": "RULES",
-      "outputHash": "sha256:6ededd42ffb8607b1c9f73a3886474bf7dfc5f26734eea80e5168593a2c84ce4",
+      "outputHash": "sha256:015f816665c3e2f6bf5e4bc0299f2bc85f2a865bf2baa22e6f6d80e08d5bad81",
       "outputPath": ".claude/CLAUDE.md",
       "owner": {
         "target": "claude"
@@ -245,7 +245,7 @@
       ],
       "kind": "rule",
       "name": "apps/skillset/src/__tests__/AGENTS.md",
-      "outputHash": "sha256:3c29ef61047def03795f2278c49443959fed6b261f71b7d88f6e06269070b0d4",
+      "outputHash": "sha256:e306f3830caa2eacb5744b4a3197af10aa6482c20804d03e1a8a3b225bd4c882",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
@@ -274,7 +274,7 @@
       ],
       "kind": "rule",
       "name": "fixtures/AGENTS.md",
-      "outputHash": "sha256:d22e84bfa657e7338a2574b292b19775d7b0fa6697c9bd9e13bbf0e16c46506a",
+      "outputHash": "sha256:7a74a62b90634a810a6b6ca1527b7de95dfff028e738cc36223c5b525be1f5e9",
       "outputPath": "fixtures/AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
@@ -286,7 +286,7 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:4440b580ee4a3db1a92f82990350ee0cad00a42b922b4255e8b364dc84ea9494",
+  "provenanceHash": "sha256:4c2f175e5ba5182184227ce2e553b04296f4ddff667c374f98b446c936c69258",
   "renderResults": [
     {
       "destination": "changelog",
@@ -782,7 +782,7 @@
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
-    "agent-instructions": "sha256:3a82df34afcd7c9a6859516d1c65b5f9d155b2ac2879c0f8d9b923d1b853981f",
+    "agent-instructions": "sha256:0f5ffa22e849bd64d2552d9a22eb582d1caae59b657b0dcac85853950307fbdb",
     "agent-plugins-1.0": "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
     "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
