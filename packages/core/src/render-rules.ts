@@ -549,7 +549,7 @@ export function ruleScopeRenderResults(
     }
     if (
       rule.targets.cursor.enabled &&
-      deriveRuleGlobs(rule).some((glob) => /[[\]()]/u.test(glob))
+      /[[\]()]/u.test(rule.scopeDir)
     ) {
       outcomes.push(defineRenderResult({
         destination: "rule",
@@ -595,6 +595,16 @@ function readNonEmptyRuleString(value: string, label: string): string {
   if (trimmed.length === 0) {
     throw new Error(
       `skillset: expected ${label} entries to be non-empty strings`
+    );
+  }
+  // paths: only narrows within the rule's scope directory.
+  if (
+    trimmed.startsWith("/") ||
+    /^[A-Za-z]:/u.test(trimmed) ||
+    trimmed.split(/[\\/]/u).includes("..")
+  ) {
+    throw new Error(
+      `skillset: ${label} entry ${trimmed} leaves the rule's scope; paths: is relative to the rule's directory and cannot be absolute or use ..`
     );
   }
   return trimmed;

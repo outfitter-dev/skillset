@@ -103,6 +103,15 @@ describe("rule scope from location [SET-557]", () => {
     expect(after).toEqual(before);
   });
 
+  test("rejects paths: entries that leave the rule's scope", async () => {
+    const root = await authoringModel();
+    await writeFile(
+      join(root, ".skillset/rules/docs/escape.md"),
+      "---\npaths:\n  - ../src/**\n---\n\n# Escape\n"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow("leaves the rule's scope");
+  });
+
   test("warns on a double-prefixed paths: entry and on a missing scope directory", async () => {
     const root = await authoringModel();
     await mkdir(join(root, ".skillset/rules/services/billing"), { recursive: true });
