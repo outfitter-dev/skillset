@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { RELEASE_NPM_VERSION } from "../release-packages";
 
 type Workflow = {
+  concurrency?: string;
   jobs?: Record<string, {
+    environment?: string;
+    if?: string;
     needs?: string | string[];
     permissions?: Record<string, string>;
     uses?: string;
@@ -196,5 +199,63 @@ describe("generated release PR workflow contract", () => {
     expect(joined).toContain(
       "gh release view \"$tag\" --json assets --jq '.assets | length'"
     );
+  });
+
+  test("next prereleases run in their own concurrency group and never reach latest", async () => {
+    const workflow = await readWorkflow("release.yml");
+    const jobs = workflow.jobs ?? {};
+
+    expect(workflow.concurrency).toBe(
+      "${{ github.workflow }}-${{ github.ref }}${{ inputs.channel == 'next' && '-next' || '' }}"
+    );
+    expect(jobs.version?.if).toContain("inputs.channel != 'next'");
+    expect(jobs["next-dispatch"]).toBeUndefined();
+    const dispatcher = await readWorkflow("release-next-dispatch.yml");
+    const dispatch = dispatcher.jobs?.dispatch;
+    expect(dispatcher.concurrency).toBeUndefined();
+    expect(dispatch?.permissions).toEqual({ actions: "write" });
+    expect(dispatch?.steps?.[0]?.run).toBe(
+      "gh workflow run release.yml --ref main -f channel=next"
+    );
+    expect(jobs["next-plan"]?.if).toContain("refs/heads/main");
+    expect(jobs["next-plan"]?.if).toContain("inputs.channel == 'next'");
+    expect(
+      jobs["next-plan"]?.steps?.map((step) => step.run).join("\n")
+    ).toContain("release:signing-check");
+    expect(jobs["next-native"]?.with?.["next-version"]).toBe(
+      "${{ needs.next-plan.outputs.version }}"
+    );
+
+    const publish = jobs["next-publish"];
+    const steps = publish?.steps ?? [];
+    const applyIndex = steps.findIndex(
+      (step) => step.name === "Apply next prerelease version"
+    );
+    const preflightIndex = steps.findIndex(
+      (step) => step.name === "Validate coordinated release before publish"
+    );
+    const tagGuardIndex = steps.findIndex(
+      (step) => step.name === "Refuse anything but the next dist-tag"
+    );
+    const publishIndex = steps.findIndex(
+      (step) => step.name === "Publish package set"
+    );
+    expect(publish?.environment).toBe("npm-next");
+    expect(publish?.needs).toEqual(["next-plan", "next-attest"]);
+    expect(publish?.permissions?.["id-token"]).toBe("write");
+    expect(applyIndex).toBeGreaterThan(-1);
+    expect(preflightIndex).toBeGreaterThan(applyIndex);
+    expect(tagGuardIndex).toBeGreaterThan(preflightIndex);
+    expect(publishIndex).toBeGreaterThan(tagGuardIndex);
+    expect(steps[preflightIndex]?.run).toContain("publish:release-check");
+    expect(steps[tagGuardIndex]?.run).toContain('[ "$tag" != "next" ]');
+
+    for (const [name, job] of Object.entries(jobs)) {
+      if (!name.startsWith("next-")) continue;
+      expect(job.environment ?? "npm-next").toBe("npm-next");
+      expect(name === "next-tag" || job.permissions?.contents !== "write").toBe(true);
+    }
+    expect(jobs.homebrew?.needs).not.toContain("next-publish");
+    expect(jobs["github-release"]?.needs).not.toContain("next-publish");
   });
 });

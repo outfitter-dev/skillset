@@ -51,6 +51,19 @@ describe("SET-419 native workflow contract", () => {
     expect(workflow.on?.workflow_dispatch).toEqual({});
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("artifact-name");
     expect(workflow.on?.workflow_call?.inputs).toHaveProperty("source-sha");
+    expect(workflow.on?.workflow_call?.inputs).toHaveProperty("next-version");
+    for (const job of [build, smoke]) {
+      const steps = job?.steps ?? [];
+      const installIndex = steps.findIndex(
+        (step) => step.run === "bun install --frozen-lockfile"
+      );
+      const apply = steps[installIndex + 1];
+      expect(apply?.name).toBe("Apply next prerelease version");
+      expect(apply?.if).toBe("inputs.next-version");
+      expect(apply?.run).toBe(
+        'bun scripts/next-release.ts apply --version "$NEXT_VERSION"'
+      );
+    }
     expect(build?.["runs-on"]).toBe("macos-15");
     expect(buildStep?.run).toContain("build:native");
     expect(buildStep?.run).toContain("--required --reproducible");
