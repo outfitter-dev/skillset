@@ -231,6 +231,15 @@ describe("rule scope from location [SET-557]", () => {
     expect(warnings[0]?.message).not.toContain("fenced.md");
   });
 
+  test("refuses a rule body that would close its own section [SET-583]", async () => {
+    const root = await authoringModel();
+    await writeFile(
+      join(root, ".skillset/rules/engineering/example.md"),
+      "# Example\n\n```xml\n</example>\n```\n"
+    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow("contains its own closing section tag </example>");
+  });
+
   test("warns on a double-prefixed paths: entry and on a missing scope directory", async () => {
     const root = await authoringModel();
     await mkdir(join(root, ".skillset/rules/services/billing"), { recursive: true });

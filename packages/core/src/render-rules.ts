@@ -457,6 +457,11 @@ function renderRuleSection(graph: BuildGraph, rule: SourceRule, body: string): s
   const tag = ruleSectionTagName(rule);
   const source = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
   const appliesTo = ruleAppliesTo(rule);
+  if (body.split("\n").some((line) => line.trim() === `</${tag}>`)) {
+    throw new Error(
+      `skillset: ${source} contains its own closing section tag </${tag}>, which would end its generated AGENTS.md section early; set a different frontmatter name or change that line`
+    );
+  }
   if (source.includes("`") || appliesTo.includes("`")) {
     throw new Error(`skillset: ${source} cannot carry a backtick into a generated AGENTS.md section attribute; rename the rule or its directory`);
   }
