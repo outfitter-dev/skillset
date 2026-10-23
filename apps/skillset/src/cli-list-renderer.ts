@@ -171,7 +171,7 @@ function unitIdentity(entry: GeneratedEntry): {
   if (entry.sourcePath === ".skillset/rules" || rule !== undefined) {
     const label =
       rule === undefined
-        ? "workspace instructions"
+        ? "workspace rules"
         : rule.replace(/\.(md|mdc)$/u, "");
     return { group: "Rules", key: `rule:${label}`, label };
   }

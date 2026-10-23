@@ -72,7 +72,9 @@ export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
   { label: "selectorForInstruction -> selectorForRule", pattern: /selectorForInstruction/ },
   { label: "instruction:<id> -> rule:<id>", pattern: /\binstruction:(?=[A-Za-z0-9._[(/$-])/ },
   { label: "\"instruction\" kind -> \"rule\"", pattern: /(?:^|[=:|(,[])\s*["']instruction["']/ },
-  { label: "new/lookup instruction -> new/lookup rule", pattern: /\b(?:new|lookup) instruction\b/ },
+  // Anchored to the CLI so provider prose ("Codex discovers a new instruction
+  // file") stays legal.
+  { label: "new/lookup instruction -> new/lookup rule", pattern: /\b(?:skillset|cli\.ts)\s+(?:new|lookup)\s+instruction\b/ },
   { label: "source-instruction -> source-rule", pattern: /\bsource-instruction\b/ },
   { label: "defaults.instructions -> defaults.rules", pattern: /\bdefaults\.instructions\b/ },
   { label: "instructions import kind -> rules", pattern: /\bkind:\s*["']instructions["']|["']instructions:[^"'\s]/ },
@@ -282,6 +284,172 @@ export function scanInternalAdHocTestTerminology(
   return violations;
 }
 
+const RETIRED_RULE_KIND_LITERALS: ReadonlySet<string> = new Set(["instruction", "instructions"]);
+const RETIRED_RULE_SELECTOR_PREFIX = /^instructions?:/u;
+const RETIRED_RULE_KIND_LABEL = 'retired "instruction(s)" kind literal -> "rule(s)"';
+const RETIRED_RULE_SELECTOR_LABEL = "concatenated instruction:<id> selector -> rule:<id>";
+const RETIRED_RULE_DEFAULTS_LABEL = "nested codex.defaults.instructions -> codex.defaults.rules";
+
+/**
+ * Files whose `"instruction(s)"` literals are not the retired rule kind. Each
+ * entry is a whole file because the literal there names a different concept.
+ */
+export const RETIRED_RULE_LITERAL_ALLOWLIST: ReadonlyMap<string, string> = new Map([
+  // Legacy `.skillset/instructions` directory moves, kept so old layouts migrate.
+  ["apps/skillset/src/change-status.ts", "legacy source-layout move table"],
+  ["scripts/migrate-source-layout.ts", "legacy source-layout migration"],
+  // The Agent Instructions standard's projection family, which is not retired.
+  ["packages/core/src/standard-projections.ts", "Agent Instructions projection family"],
+]);
+
+function isRetiredKindLiteral(node: ts.Node | undefined): boolean {
+  return (
+    node !== undefined &&
+    (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+    RETIRED_RULE_KIND_LITERALS.has(node.text)
+  );
+}
+
+function isRetiredSelectorPrefix(node: ts.Node): boolean {
+  return (
+    (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+    RETIRED_RULE_SELECTOR_PREFIX.test(node.text)
+  );
+}
+
+function propertyNameText(name: ts.PropertyName | undefined): string | undefined {
+  if (name === undefined) return undefined;
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
+    return name.text;
+  }
+  return undefined;
+}
+
+/** Property-name chain from the outermost object literal down to `node`. */
+function objectKeyPath(node: ts.PropertyAssignment | ts.ShorthandPropertyAssignment): readonly string[] {
+  const path: string[] = [];
+  let current: ts.Node = node;
+  while (ts.isPropertyAssignment(current) || ts.isShorthandPropertyAssignment(current)) {
+    const name = propertyNameText(current.name);
+    if (name === undefined) break;
+    path.unshift(name);
+    const parent: ts.Node = current.parent;
+    if (!ts.isObjectLiteralExpression(parent)) break;
+    current = parent.parent;
+  }
+  return path;
+}
+
+function endsWithRetiredDefaultsPath(path: readonly string[]): boolean {
+  return path.length >= 3 && path.at(-1) === "instructions" && path.at(-2) === "defaults" && path.at(-3) === "codex";
+}
+
+/**
+ * Syntax-aware check for the retired rule kind and selectors in TypeScript and
+ * JavaScript (SET-681). The line regexes in FORBIDDEN_TERMS miss comparisons,
+ * unions, `case` labels, tuple entries, returned and ternary literals,
+ * concatenated selectors, and nested `codex.defaults.instructions` objects.
+ */
+export function scanRetiredRuleSyntax(file: string, content: string): readonly TerminologyViolation[] {
+  if (!/\.(?:js|ts|tsx)$/u.test(file) || RETIRED_RULE_LITERAL_ALLOWLIST.has(file)) return [];
+  const scriptKind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : file.endsWith(".js") ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, scriptKind);
+  const sourceLines = content.split(/\r?\n/u);
+  const violations: TerminologyViolation[] = [];
+  const report = (node: ts.Node, label: string): void => {
+    const start = source.getLineAndCharacterOfPosition(node.getStart(source));
+    violations.push({ file, label, line: start.line + 1, text: sourceLines[start.line]?.trim() ?? "" });
+  };
+  const equality = new Set([
+    ts.SyntaxKind.EqualsEqualsEqualsToken,
+    ts.SyntaxKind.ExclamationEqualsEqualsToken,
+    ts.SyntaxKind.EqualsEqualsToken,
+    ts.SyntaxKind.ExclamationEqualsToken,
+  ]);
+  const visit = (node: ts.Node): void => {
+    if (ts.isBinaryExpression(node)) {
+      if (equality.has(node.operatorToken.kind) && (isRetiredKindLiteral(node.left) || isRetiredKindLiteral(node.right))) {
+        report(node, RETIRED_RULE_KIND_LABEL);
+      }
+      if (node.operatorToken.kind === ts.SyntaxKind.PlusToken && isRetiredSelectorPrefix(node.left)) {
+        report(node, RETIRED_RULE_SELECTOR_LABEL);
+      }
+    }
+    if (ts.isLiteralTypeNode(node) && isRetiredKindLiteral(node.literal)) report(node, RETIRED_RULE_KIND_LABEL);
+    if (ts.isCaseClause(node) && isRetiredKindLiteral(node.expression)) report(node, RETIRED_RULE_KIND_LABEL);
+    if (ts.isArrayLiteralExpression(node)) {
+      for (const element of node.elements) if (isRetiredKindLiteral(element)) report(element, RETIRED_RULE_KIND_LABEL);
+    }
+    if (ts.isReturnStatement(node) && isRetiredKindLiteral(node.expression)) report(node, RETIRED_RULE_KIND_LABEL);
+    if (ts.isArrowFunction(node) && isRetiredKindLiteral(node.body)) report(node.body, RETIRED_RULE_KIND_LABEL);
+    if (ts.isConditionalExpression(node) && (isRetiredKindLiteral(node.whenTrue) || isRetiredKindLiteral(node.whenFalse))) {
+      report(node, RETIRED_RULE_KIND_LABEL);
+    }
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === "concat" &&
+      isRetiredSelectorPrefix(node.expression.expression)
+    ) {
+      report(node, RETIRED_RULE_SELECTOR_LABEL);
+    }
+    if (
+      (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) &&
+      endsWithRetiredDefaultsPath(objectKeyPath(node))
+    ) {
+      report(node, RETIRED_RULE_DEFAULTS_LABEL);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return violations;
+}
+
+/**
+ * Indentation-aware check for a nested `instructions:` key under
+ * `codex:` > `defaults:` in YAML, including YAML embedded in Markdown fences
+ * and template strings. The dotted `defaults.instructions` spelling is caught
+ * by FORBIDDEN_TERMS; this catches the block shape that never spells it.
+ */
+export function scanNestedRetiredDefaults(file: string, content: string): readonly TerminologyViolation[] {
+  const violations: TerminologyViolation[] = [];
+  const stack: { readonly indent: number; readonly key: string }[] = [];
+  for (const [index, line] of content.split(/\r?\n/u).entries()) {
+    const match = /^(?<indent>\s*)["']?(?<key>[A-Za-z_][\w-]*)["']?\s*:(?<rest>.*)$/u.exec(line);
+    if (!match?.groups) continue;
+    const indent = match.groups.indent?.length ?? 0;
+    const key = match.groups.key ?? "";
+    while (stack.length > 0 && (stack.at(-1)?.indent ?? 0) >= indent) stack.pop();
+    if (key === "instructions" && stack.at(-1)?.key === "defaults" && stack.at(-2)?.key === "codex") {
+      violations.push({ file, label: RETIRED_RULE_DEFAULTS_LABEL, line: index + 1, text: line.trim() });
+    }
+    const rest = (match.groups.rest ?? "").replace(/#.*$/u, "").trim();
+    if (rest === "" || rest === "{") stack.push({ indent, key });
+  }
+  return violations;
+}
+
+function scanJsonRetiredDefaults(file: string, content: string): readonly TerminologyViolation[] {
+  if (!file.endsWith(".json")) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return [];
+  }
+  const found: string[] = [];
+  const visit = (value: unknown, path: readonly string[]): void => {
+    if (typeof value !== "object" || value === null) return;
+    for (const [key, child] of Object.entries(value)) {
+      const next = [...path, key];
+      if (endsWithRetiredDefaultsPath(next)) found.push(next.join("."));
+      visit(child, next);
+    }
+  };
+  visit(parsed, []);
+  return found.map((path) => ({ file, label: RETIRED_RULE_DEFAULTS_LABEL, line: 1, text: path }));
+}
+
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function runText(command: readonly string[]): Promise<string> {
@@ -309,6 +477,9 @@ async function main(): Promise<void> {
     const content = await Bun.file(`${rootDir}/${file}`).text();
     violations.push(...scanContent(file, content));
     violations.push(...scanInternalAdHocTestTerminology(file, content));
+    violations.push(...scanRetiredRuleSyntax(file, content));
+    violations.push(...scanNestedRetiredDefaults(file, content));
+    violations.push(...scanJsonRetiredDefaults(file, content));
   }
 
   if (violations.length === 0) {
