@@ -390,6 +390,7 @@ function clonePreparer(
     const dir = await mkdtemp(
       join(tmpdir(), `skillset-verify-${target.tree.slice(0, 12)}-`)
     );
+    let bun: Awaited<ReturnType<typeof resolvePinnedBun>>;
     try {
       await git(
         [
@@ -429,13 +430,13 @@ function clonePreparer(
       if (context.originUrl) {
         await git(["remote", "set-url", "origin", context.originUrl], dir);
       }
+      // The target's own pin, not the caller's: an older or newer ref may pin
+      // a different Bun.
+      bun = await resolvePinnedBun(dir);
     } catch (error) {
       await rm(dir, { force: true, recursive: true });
       throw error;
     }
-    // The target's own pin, not the caller's: an older or newer ref may pin a
-    // different Bun.
-    const bun = await resolvePinnedBun(dir);
     const code = await spawnLogged(
       [bun.binPath, "install", "--frozen-lockfile"],
       dir,

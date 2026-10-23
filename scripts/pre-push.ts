@@ -91,8 +91,11 @@ async function main(): Promise<number> {
     : resolve(repoRoot, commonRaw);
   const trunk = await resolveTrunk(repoRoot);
 
-  let refs = parsePushedRefs(await readStdin());
+  const input = await readStdin();
+  let refs = parsePushedRefs(input);
   if (refs.length === 0) {
+    // Git sent lines, but every one deletes a remote ref: nothing to check.
+    if (input.trim().length > 0) return 0;
     refs = [
       { commit: await must(["rev-parse", "HEAD"], repoRoot), localRef: "HEAD" },
     ];
