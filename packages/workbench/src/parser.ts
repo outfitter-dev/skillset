@@ -69,7 +69,12 @@ function parseToml(path: string, content: string): WorkbenchParseResult {
   } catch (error) {
     return {
       diagnostics: [
-        syntaxDiagnostic(path, "syntax/toml", errorMessage(error), parserErrorLocation(error, content)),
+        syntaxDiagnostic(
+          path,
+          "syntax/toml",
+          errorMessage(error),
+          parserErrorLocation(error, content, { toml: true })
+        ),
       ],
       kind: "toml",
       path,
@@ -285,9 +290,13 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function parserErrorLocation(error: unknown, content: string): ParserErrorLocation {
+function parserErrorLocation(
+  error: unknown,
+  content: string,
+  options?: { readonly toml?: boolean }
+): ParserErrorLocation {
   const lines = content.replaceAll(/\r\n?/g, "\n").split("\n");
-  const fallback = fallbackSyntaxLocation(lines);
+  const fallback = fallbackSyntaxLocation(lines, options?.toml === true);
   if (typeof error !== "object" || error === null) return fallback;
   const aggregateLocation = aggregateErrorLocation(error, lines);
   if (aggregateLocation !== undefined) return aggregateLocation;
@@ -352,13 +361,14 @@ function documentLocation(
   return column === undefined ? { line } : { column, line };
 }
 
-function fallbackSyntaxLocation(lines: readonly string[]): ParserErrorLocation {
+function fallbackSyntaxLocation(lines: readonly string[], toml = false): ParserErrorLocation {
   // Bun's TOML errors carry no document position, so these heuristics scan
-  // the source. A line that starts inside a `"""` or `'''` string is string
-  // content, never a header or an assignment, so it is never blamed.
-  const insideString = multilineStringContentLines(lines);
+  // the source. A line that starts inside a real TOML multiline string is
+  // string content, never a header or an assignment, so it is never blamed.
+  // JSON and YAML share this fallback and do not use that TOML scan.
+  const insideString = toml ? multilineStringContentLines(lines) : undefined;
   const findLine = (pattern: RegExp) =>
-    lines.findIndex((line, index) => !insideString.has(index) && pattern.test(line));
+    lines.findIndex((line, index) => insideString?.has(index) !== true && pattern.test(line));
 
   const danglingAssignment = findLine(
     /(?:^|\s)(?:"[^"]+"|[A-Za-z0-9_-]+)\s*[:=]\s*$/u
@@ -379,35 +389,91 @@ function fallbackSyntaxLocation(lines: readonly string[]): ParserErrorLocation {
   return { line: 1 };
 }
 
+type TomlMultilineQuote = '"""' | "'''";
+
 /**
- * Indexes of lines that begin inside a TOML multiline string, found by
- * tracking `"""` / `'''` delimiter parity. Escaped quotes in basic strings are
- * not modeled; this only steers a diagnostic location, never parsing.
+ * Indexes of lines that begin inside a TOML multiline string. Comments and
+ * single-line strings are not delimiters, and a backslash in a basic string
+ * consumes the next character. This only steers a diagnostic location.
  */
 function multilineStringContentLines(lines: readonly string[]): ReadonlySet<number> {
   const inside = new Set<number>();
-  let open: '"""' | "'''" | undefined;
-  lines.forEach((line, index) => {
+  let open: TomlMultilineQuote | undefined;
+  for (const [index, line] of lines.entries()) {
     if (open !== undefined) inside.add(index);
-    let offset = 0;
-    while (offset < line.length) {
-      if (open === undefined) {
-        const basic = line.indexOf('"""', offset);
-        const literal = line.indexOf("'''", offset);
-        const next = [basic, literal].filter((position) => position !== -1);
-        if (next.length === 0) break;
-        const start = Math.min(...next);
-        open = start === basic ? '"""' : "'''";
-        offset = start + 3;
-      } else {
-        const end = line.indexOf(open, offset);
-        if (end === -1) break;
-        open = undefined;
-        offset = end + 3;
-      }
-    }
-  });
+    open = scanTomlMultilineDelimiters(line, open);
+  }
   return inside;
+}
+
+function scanTomlMultilineDelimiters(
+  line: string,
+  open: TomlMultilineQuote | undefined
+): TomlMultilineQuote | undefined {
+  let offset = 0;
+  while (offset < line.length) {
+    if (open === '"""') {
+      if (line.startsWith("\\", offset) && offset + 1 < line.length) {
+        offset += 2;
+        continue;
+      }
+      if (line.startsWith('"""', offset)) {
+        open = undefined;
+        offset += 3;
+        continue;
+      }
+      offset += 1;
+      continue;
+    }
+    if (open === "'''") {
+      if (line.startsWith("'''", offset)) {
+        open = undefined;
+        offset += 3;
+        continue;
+      }
+      offset += 1;
+      continue;
+    }
+
+    if (line.startsWith("#", offset)) return open;
+    if (line.startsWith('"""', offset)) {
+      open = '"""';
+      offset += 3;
+      continue;
+    }
+    if (line.startsWith("'''", offset)) {
+      open = "'''";
+      offset += 3;
+      continue;
+    }
+    if (line.startsWith('"', offset)) {
+      offset = skipTomlBasicString(line, offset + 1);
+      continue;
+    }
+    if (line.startsWith("'", offset)) {
+      offset = skipTomlLiteralString(line, offset + 1);
+      continue;
+    }
+    offset += 1;
+  }
+  return open;
+}
+
+function skipTomlBasicString(line: string, offset: number): number {
+  while (offset < line.length) {
+    if (line.startsWith("\\", offset) && offset + 1 < line.length) {
+      offset += 2;
+      continue;
+    }
+    if (line.startsWith('"', offset)) return offset + 1;
+    offset += 1;
+  }
+  return offset;
+}
+
+function skipTomlLiteralString(line: string, offset: number): number {
+  const end = line.indexOf("'", offset);
+  return end === -1 ? line.length : end + 1;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

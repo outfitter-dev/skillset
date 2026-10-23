@@ -86,6 +86,74 @@ describe("workbench parser", () => {
     }
   });
 
+  test("SET-512: comments, single-line strings, and non-TOML text do not hide the real syntax line", () => {
+    for (const quote of ['"""', "'''"]) {
+      const content = `# mention ${quote}\nname = "demo"\nnote = ${quote}\n[not a header, just prose\n${quote}\n\n[tools.example\nkey = 1\n`;
+      expect(checkWorkbenchSyntax({ content, path: "demo.toml" })).toContainEqual(
+        expect.objectContaining({
+          location: expect.objectContaining({ line: 7, path: "demo.toml" }),
+          ruleId: "syntax/toml",
+          severity: "error",
+        })
+      );
+    }
+
+    for (const content of ['# mention """\nsummary =\n', '# mention """\nitems = [\n']) {
+      expect(checkWorkbenchSyntax({ content, path: "demo.toml" })).toContainEqual(
+        expect.objectContaining({
+          location: expect.objectContaining({ line: 2, path: "demo.toml" }),
+          ruleId: "syntax/toml",
+          severity: "error",
+        })
+      );
+    }
+
+    expect(
+      checkWorkbenchSyntax({ content: `note = "use ''' here"\nsummary =\n`, path: "demo.toml" })
+    ).toContainEqual(
+      expect.objectContaining({
+        location: expect.objectContaining({ line: 2, path: "demo.toml" }),
+        ruleId: "syntax/toml",
+        severity: "error",
+      })
+    );
+    expect(
+      checkWorkbenchSyntax({ content: `note = 'use """ here'\nsummary =\n`, path: "demo.toml" })
+    ).toContainEqual(
+      expect.objectContaining({
+        location: expect.objectContaining({ line: 2, path: "demo.toml" }),
+        ruleId: "syntax/toml",
+        severity: "error",
+      })
+    );
+    expect(
+      checkWorkbenchSyntax({ content: `note = "say \\"''' here"\nsummary =\n`, path: "demo.toml" })
+    ).toContainEqual(
+      expect.objectContaining({
+        location: expect.objectContaining({ line: 2, path: "demo.toml" }),
+        ruleId: "syntax/toml",
+        severity: "error",
+      })
+    );
+
+    expect(
+      checkWorkbenchSyntax({ content: `{\n  "note": "see """,\n  "description":\n}`, path: "demo.json" })
+    ).toContainEqual(
+      expect.objectContaining({
+        location: expect.objectContaining({ line: 3, path: "demo.json" }),
+        ruleId: "syntax/json",
+        severity: "error",
+      })
+    );
+    expect(checkWorkbenchSyntax({ content: `note: |\n  say """\nsummary: [\n`, path: "demo.yaml" })).toContainEqual(
+      expect.objectContaining({
+        location: expect.objectContaining({ line: 3, path: "demo.yaml" }),
+        ruleId: "syntax/yaml",
+        severity: "error",
+      })
+    );
+  });
+
   test("parses Markdown frontmatter, body, and headings with source line facts", () => {
     const parsed = parseWorkbenchDocument({
       content: `---\nname: demo\ndescription: Demo skill.\n---\n\n# Title\n\nText.\n\n\`\`\`\n# Ignored\n\`\`\`\n\n## Next\n`,
