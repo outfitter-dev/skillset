@@ -119,6 +119,12 @@ const PUBLIC_CLOSURE_RULE_ORDER: readonly PublicClosureRule[] = [
 const PROTECTED_PATH_ACTIONS =
   "browse|cd|edit|enter|inspect|list|open|read|visit";
 
+// Package-runner detection (this pattern through `npmLifecycleEdges`) is frozen
+// by SET-499: keep it, but don't grow it. It is the only check that sees a
+// script name such as `bun run schema:generate` reaching repository internals
+// through package.json, which the generic operand policy cannot. The generated
+// public corpus has no such text today, and
+// `public-closure-package-runner.test.ts` fails if that changes.
 const PACKAGE_RUNNER_PATTERN =
   /(?<![a-z0-9_-])(?<runner>bun|npm|pnpm|yarn)(?![a-z0-9_-])/giu;
 const PATH_CANDIDATE_PATTERN =
