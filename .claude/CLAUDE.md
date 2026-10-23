@@ -11,8 +11,6 @@ The repo now self-hosts source in the canonical Skillset workspace layout:
 
 ## Doctrine
 
-Paths in this guide are repository-relative and written as code rather than links, because this file renders to more than one directory depth (`AGENTS.md`, `.claude/CLAUDE.md`).
-
 Read `docs/project/tenets.md` before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
 
 For source/config/frontmatter fields, follow `docs/development/schema-contracts.md`. Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.

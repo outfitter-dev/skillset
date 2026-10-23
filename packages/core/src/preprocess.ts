@@ -28,6 +28,12 @@ export interface PreprocessContext {
     reference: ResolvedPreprocessPathReference
   ) => Promise<string> | string;
   readonly variables?: Readonly<Record<string, string>>;
+  /**
+   * Rewrites each partial's raw text before it is expanded and inlined, so a
+   * caller can treat included text exactly like the including body (rule link
+   * rebasing uses this).
+   */
+  readonly transformPartialContent?: (content: string) => string;
 }
 
 export interface ResolvedPreprocessPathReference {
@@ -357,7 +363,8 @@ async function readPartial(
       kind
     );
     assertNoPartialCycle(canonical, specifier, context);
-    const content = normalizeText(await readFile(canonical, "utf8"));
+    const raw = normalizeText(await readFile(canonical, "utf8"));
+    const content = context.transformPartialContent?.(raw) ?? raw;
     return await expandPartials(content, {
       ...context,
       partialBasePath: canonical,
