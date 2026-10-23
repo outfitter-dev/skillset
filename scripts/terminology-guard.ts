@@ -84,11 +84,12 @@ export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
   { label: "instructionsDir/loadInstructions -> rulesDir/loadRules", pattern: /\b(?:instructionsDir|loadInstructions)\b/ },
   // ADR-0044: `upgrade` brings Skillset and its tooling current; `update` is
   // only for the objects a workspace manages. These catch the self-upgrade
-  // spellings, not `skillset update` itself.
+  // spellings, not `skillset update` itself, and not edits to the CLI's
+  // documentation or help ("update the Skillset CLI docs").
   {
     label: "update for self-upgrade -> skillset upgrade (ADR-0044)",
     pattern:
-      /\bskillset\s+(?:self-update|update\s+(?:--)?self)\b|\b(?:update|updating|updates)\s+(?:the\s+)?skillset\s+(?:itself|cli|binary|executable)\b/i,
+      /\bskillset\s+(?:self-update|update\s+(?:--)?self)\b|\b(?:update|updating|updates)\s+(?:the\s+)?skillset\s+(?:itself|cli|binary|executable)\b(?!\s+(?:docs?|documentation|help|reference|flags?|commands?|output|tests?|guide|page|examples?)\b)/i,
   },
 ];
 

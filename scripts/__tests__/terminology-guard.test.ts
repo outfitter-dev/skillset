@@ -67,6 +67,8 @@ describe("terminology guard", () => {
       "`skillset update` previews registered provider format migrations.",
       "skillset upgrade brings Skillset and its tooling current.",
       "Update the skill, then rebuild.",
+      "Update the Skillset CLI documentation when a flag changes.",
+      "Updating the Skillset CLI help text is a docs change.",
     ]) {
       expect(scanContent("a.md", line)).toEqual([]);
     }
