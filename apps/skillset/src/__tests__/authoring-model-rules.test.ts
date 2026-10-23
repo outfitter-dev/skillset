@@ -199,10 +199,36 @@ describe("rule scope from location [SET-557]", () => {
       expect.objectContaining({
         code: "codex-code-review-rules-duplicate",
         message: expect.stringContaining(
-          ".skillset/rules/engineering/coding-guidance.md and .skillset/rules/engineering/typescript.md"
+          ".skillset/rules/engineering/coding-guidance.md, .skillset/rules/engineering/typescript.md"
         ),
       }),
     ]));
+  });
+
+  test("escapes section attributes and reads review headings from rendered output [SET-583]", async () => {
+    const root = await authoringModel();
+    await mkdir(join(root, ".skillset/rules/r&d"), { recursive: true });
+    await mkdir(join(root, ".skillset/shared/partials"), { recursive: true });
+    await mkdir(join(root, "r&d"), { recursive: true });
+    await writeFile(join(root, "r&d/notes.md"), "Notes.\n");
+    await writeFile(join(root, ".skillset/shared/partials/review.md"), "## Code Review Rules\n\nCheck the math.\n");
+    await writeFile(join(root, ".skillset/rules/r&d/checks.md"), "# Checks\n\n{{> review}}\n");
+    await writeFile(
+      join(root, ".skillset/rules/r&d/fenced.md"),
+      "# Fenced\n\n```markdown\n## Code Review Rules\n```\n"
+    );
+    await writeFile(join(root, ".skillset/rules/r&d/review.md"), "# Review\n\n## Code Review Rules ##\n\nKeep units.\n");
+
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    const agents = await readFile(join(root, "r&d/AGENTS.md"), "utf8");
+    expect(agents).toContain('  source=".skillset/rules/r&amp;d/checks.md"\n  applies_to="r&amp;d/**" >');
+    const warnings = result.diagnostics.filter(
+      (diagnostic) => diagnostic.code === "codex-code-review-rules-duplicate" && diagnostic.outputPath === "r&d/AGENTS.md"
+    );
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.message).toContain(".skillset/rules/r&d/checks.md, .skillset/rules/r&d/review.md;");
+    expect(warnings[0]?.message).not.toContain("fenced.md");
   });
 
   test("warns on a double-prefixed paths: entry and on a missing scope directory", async () => {

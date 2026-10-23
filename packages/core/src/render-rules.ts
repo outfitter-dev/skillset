@@ -456,10 +456,14 @@ async function codexRuleDestinations(
 function renderRuleSection(graph: BuildGraph, rule: SourceRule, body: string): string {
   const tag = ruleSectionTagName(rule);
   const source = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
+  const appliesTo = ruleAppliesTo(rule);
+  if (source.includes("`") || appliesTo.includes("`")) {
+    throw new Error(`skillset: ${source} cannot carry a backtick into a generated AGENTS.md section attribute; rename the rule or its directory`);
+  }
   return [
     `<${tag}`,
-    `  source="${source}"`,
-    `  applies_to="${ruleAppliesTo(rule)}" >`,
+    `  source="${escapeXmlAttribute(source)}"`,
+    `  applies_to="${escapeXmlAttribute(appliesTo)}" >`,
     "",
     body,
     "",
@@ -496,16 +500,16 @@ export function ruleAppliesTo(rule: SourceRule): string {
     );
   }
   const globs = deriveRuleGlobs(rule);
-  const value = globs.length === 0 ? "**" : globs.join(", ");
-  if (/[`"]/u.test(value)) {
-    throw new Error(`skillset: ${rule.relativePath} applies_to cannot contain a backtick or quote: ${value}`);
-  }
-  return value;
+  return globs.length === 0 ? "**" : globs.join(", ");
 }
 
-/** The generated `AGENTS.md` a rule contributes to, or `undefined` for a wildcard scope. */
-export function ruleAgentsDestination(rule: SourceRule): string | undefined {
-  return hasWildcardScope(rule) ? undefined : codexRuleDestination(rule);
+/** Keep a path that contains `&`, `<`, `>` or `"` a valid attribute value. */
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function codexRuleDestination(rule: SourceRule): string {

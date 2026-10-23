@@ -101,7 +101,6 @@ const OWNED_FUNCTIONS = {
   "render-rules": [
     "readRulePaths",
     "renderRules",
-    "ruleAgentsDestination",
     "ruleAppliesTo",
     "ruleScopeRenderResults",
     "ruleSectionTagName",
