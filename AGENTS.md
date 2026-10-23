@@ -140,7 +140,7 @@ bun ./apps/skillset/src/cli.ts status --root .
 - Any new commit, rebase, or worktree change invalidates a review result. Reports cite the reviewed SHA, never just the branch.
 - Keep mechanical formatting in its own commits, apart from behavior changes.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md#review-agent-work-against-an-exact-commit) for detail.
+See "Review agent work against an exact commit" in the repository-root `CONTRIBUTING.md` for detail.
 
 ## Constraints
 
