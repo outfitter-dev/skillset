@@ -28,6 +28,7 @@ import {
 import { defineRenderResult, type SkillsetRenderResult } from "./render-result";
 import { renderValidatedMarkdown } from "./structured-output";
 import { planAgentInstructionProjections } from "./render-standard-instructions";
+import { rebaseRuleLinks } from "./rule-links";
 import { selectorForRule } from "./source-unit-selector";
 import { targetDescriptor, targetNames } from "./targets";
 import type {
@@ -705,7 +706,13 @@ async function renderRuleBody(
   outputPath: string,
   preprocessDependencies: Set<string>
 ): Promise<string> {
-  return preprocessText(normalizeRuleBody(rule.body), {
+  // Rebase authored links before preprocessing, so path tokens that the
+  // preprocessor already renders relative to the output are not rebased twice.
+  const body = rebaseRuleLinks(normalizeRuleBody(rule.body), {
+    outputDir: outputDirectory(outputPath),
+    scopeDir: rule.scopeDir,
+  });
+  return preprocessText(body, {
     frontmatter: rule.frontmatter,
     preprocessDependencies,
     rootPath: graph.rootPath,

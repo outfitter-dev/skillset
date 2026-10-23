@@ -208,6 +208,31 @@ describe("SET-580 Claude project instructions", () => {
     );
   });
 
+  it("rebases RULES.md and scoped-rule links for each destination's depth [SET-755]", async () => {
+    const root = await authoringFixture({
+      ".skillset/RULES.md": "# Guide\n\nRead [tenets](docs/tenets.md#why) and [site](https://example.com).\n",
+      ".skillset/rules/services/linking.md": "See [the service readme](README.md).\n",
+    });
+
+    await buildSkillset(root);
+
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain(
+      "[tenets](docs/tenets.md#why) and [site](https://example.com)"
+    );
+    expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain(
+      "[tenets](../docs/tenets.md#why) and [site](https://example.com)"
+    );
+    expect(await readFile(join(root, "services/AGENTS.md"), "utf8")).toContain(
+      "[the service readme](README.md)"
+    );
+    expect(await readFile(join(root, ".claude/rules/services/linking.md"), "utf8")).toContain(
+      "[the service readme](../../../services/README.md)"
+    );
+    expect(await readFile(join(root, ".cursor/rules/services/linking.mdc"), "utf8")).toContain(
+      "[the service readme](../../../services/README.md)"
+    );
+  });
+
   it("never writes CLAUDE.md into a plugin package", async () => {
     const root = await authoringFixture();
 
