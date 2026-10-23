@@ -1,7 +1,8 @@
 ---
+id: 44
 slug: machine-scope-lifecycle-commands
 title: Machine-Scope Lifecycle Commands
-status: draft
+status: accepted
 created: 2026-10-22
 updated: 2026-10-22
 owners: ['[galligan](https://github.com/galligan)']
@@ -9,16 +10,18 @@ depends_on: [0, 22, 27, 29, declarative-user-scope-config]
 amends: [22, 29]
 ---
 
-# ADR: Machine-Scope Lifecycle Commands
+# ADR-0044: Machine-Scope Lifecycle Commands
+
+> Accepted 2026-10-22 as written. Implementation is owned by SET-473 (`install`), SET-479 (`doctor`), and SET-480 (`upgrade`).
 
 ## Context
 
-[ADR-0029](../0029-global-cli-native-distribution.md#global-installation-is-the-front-door) made a global `skillset` the front door, and the [beta release record](../../project/plans/beta-release.md) (Section 04) decided that a Skillset-native command family should own the machine lifecycle around it: placing companion guidance for providers, bringing Skillset and that guidance current together, and inspecting what is installed. Two accepted records stand in the way.
+[ADR-0029](0029-global-cli-native-distribution.md#global-installation-is-the-front-door) made a global `skillset` the front door, and the [beta release record](../project/plans/beta-release.md) (Section 04) decided that a Skillset-native command family should own the machine lifecycle around it: placing companion guidance for providers, bringing Skillset and that guidance current together, and inspecting what is installed. Two accepted records stand in the way.
 
-- [ADR-0022](../0022-workflow-oriented-cli.md#final-command-roster) fixes the public roster at 25 commands. It has no `install` or `upgrade`, and it [removed `doctor`](../0022-workflow-oriented-cli.md#inspection-commands-have-explicit-boundaries) when `status` became the workspace health view.
-- [ADR-0029](../0029-global-cli-native-distribution.md#what-this-does-not-decide) leaves "a future native self-update command" undecided, and its non-goals include "a general self-update system" and "automatic installation, activation, trust, or user-level provider mutation".
+- [ADR-0022](0022-workflow-oriented-cli.md#final-command-roster) fixes the public roster at 25 commands. It has no `install` or `upgrade`, and it [removed `doctor`](0022-workflow-oriented-cli.md#inspection-commands-have-explicit-boundaries) when `status` became the workspace health view.
+- [ADR-0029](0029-global-cli-native-distribution.md#what-this-does-not-decide) leaves "a future native self-update command" undecided, and its non-goals include "a general self-update system" and "automatic installation, activation, trust, or user-level provider mutation".
 
-Without a decision, each surface reaches for its own verb. Users already see `update` for provider and compiler format migrations inside a repository. An `update` that also upgraded Skillset would give one key two meanings, against the [one meaning, one key](../../project/tenets.md) tenet. The user-scope work in the [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) draft also writes into provider user directories, so this decision has to say what the machine family owns there and what it does not.
+Without a decision, each surface reaches for its own verb. Users already see `update` for provider and compiler format migrations inside a repository. An `update` that also upgraded Skillset would give one key two meanings, against the [one meaning, one key](../project/tenets.md) tenet. The user-scope work in the [Declarative User-Scope Config](drafts/20260604-declarative-user-scope-config.md) draft also writes into provider user directories, so this decision has to say what the machine family owns there and what it does not.
 
 ## Decision
 
@@ -59,7 +62,7 @@ Bringing the name back is deliberate, but its meaning changes: the retired `doct
 | --- | --- |
 | Companion guidance placed by plugin or direct copy | `install`, `upgrade` |
 | Skillset's own executable | the installing package channel, invoked by `upgrade` |
-| Declared user-scope source rendered into provider user directories | `sync --user` ([Declarative User-Scope Config](20260604-declarative-user-scope-config.md), SET-560) |
+| Declared user-scope source rendered into provider user directories | `sync --user` ([Declarative User-Scope Config](drafts/20260604-declarative-user-scope-config.md), SET-560) |
 | Unmanaged skills brought under management | `adopt` (SET-563) |
 | Global report bundles, XDG caches, and state | their own commands |
 | Rootless `lookup`, and new workspaces through `create` and `init` | their own commands |
@@ -68,7 +71,7 @@ Each owner writes only the files it records, under its own ownership ledger. Sou
 
 ### Boundaries that do not move
 
-Installing a companion integration does not build a workspace, trust a plugin, activate a runtime, or edit provider settings ([ADR-0027](../0027-runtime-activation-readiness-is-observational.md)). Plugin installation, CLI availability, repository initialization, generated output, and runtime activation stay separate states and are described separately.
+Installing a companion integration does not build a workspace, trust a plugin, activate a runtime, or edit provider settings ([ADR-0027](0027-runtime-activation-readiness-is-observational.md)). Plugin installation, CLI availability, repository initialization, generated output, and runtime activation stay separate states and are described separately.
 
 ### Amendments
 
@@ -103,9 +106,9 @@ Installing a companion integration does not build a workspace, trust a plugin, a
 
 ## References
 
-- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - roster amended to add the Machine area.
-- [ADR-0027: Runtime Activation Readiness Is Observational](../0027-runtime-activation-readiness-is-observational.md) - installation does not imply activation or trust.
-- [ADR-0029: Global CLI and Native Distribution](../0029-global-cli-native-distribution.md) - self-update question settled by channel delegation.
+- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - roster amended to add the Machine area.
+- [ADR-0027: Runtime Activation Readiness Is Observational](0027-runtime-activation-readiness-is-observational.md) - installation does not imply activation or trust.
+- [ADR-0029: Global CLI and Native Distribution](0029-global-cli-native-distribution.md) - self-update question settled by channel delegation.
 - ADR: Declarative User-Scope Config (draft) - owns `sync --user` writes into provider user directories.
-- [Beta release decision record](../../project/plans/beta-release.md) - Section 04 machine-lifecycle decision.
-- [Tenets](../../project/tenets.md) - one meaning, one key; builds do not imply trust.
+- [Beta release decision record](../project/plans/beta-release.md) - Section 04 machine-lifecycle decision.
+- [Tenets](../project/tenets.md) - one meaning, one key; builds do not imply trust.

@@ -1122,7 +1122,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": ["41", "42", "43"],
+      "amended_by": ["41", "42", "43", "44"],
       "amends": [],
       "created": "2026-07-12",
       "depends_on": ["0", "5", "12", "19"],
@@ -1158,9 +1158,9 @@
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
         {
-          "context": "- [ADR-0022](../0022-workflow-oriented-cli.md#final-command-roster) fixes the public roster at 25 commands. It has no `install` or `upgrade`, and it [removed `doctor`](../0022-workflow-oriented-cli.md",
-          "from": "20261022",
-          "fromPath": "docs/adrs/drafts/20261022-machine-scope-lifecycle-commands.md"
+          "context": "- [ADR-0022](0022-workflow-oriented-cli.md#final-command-roster) fixes the public roster at 25 commands. It has no `install` or `upgrade`, and it [removed `doctor`](0022-workflow-oriented-cli.md#inspe",
+          "from": "0044",
+          "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
         }
       ],
       "number": "0022",
@@ -1318,9 +1318,9 @@
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
         {
-          "context": "Installing a companion integration does not build a workspace, trust a plugin, activate a runtime, or edit provider settings ([ADR-0027](../0027-runtime-activation-readiness-is-observational.md)). Plu",
-          "from": "20261022",
-          "fromPath": "docs/adrs/drafts/20261022-machine-scope-lifecycle-commands.md"
+          "context": "Installing a companion integration does not build a workspace, trust a plugin, activate a runtime, or edit provider settings ([ADR-0027](0027-runtime-activation-readiness-is-observational.md)). Plugin",
+          "from": "0044",
+          "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
         },
         {
           "context": "See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
@@ -1389,15 +1389,15 @@
       "updated": "2026-08-15"
     },
     {
-      "amended_by": [],
+      "amended_by": ["44"],
       "amends": ["4"],
       "created": "2026-08-11",
       "depends_on": ["0", "4", "14", "22", "23", "26", "27"],
       "inbound": [
         {
-          "context": "[ADR-0029](../0029-global-cli-native-distribution.md#global-installation-is-the-front-door) made a global `skillset` the front door, and the [beta release record](../../project/plans/beta-release.md) ",
-          "from": "20261022",
-          "fromPath": "docs/adrs/drafts/20261022-machine-scope-lifecycle-commands.md"
+          "context": "[ADR-0029](0029-global-cli-native-distribution.md#global-installation-is-the-front-door) made a global `skillset` the front door, and the [beta release record](../project/plans/beta-release.md) (Secti",
+          "from": "0044",
+          "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
         },
         {
           "context": "The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages are public distribution packages. `@skillset/cli` ships the bundled JS CLI; the unscoped `skills",
@@ -1854,6 +1854,32 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Global Immutable Operational Reports",
+      "updated": "2026-10-22"
+    },
+    {
+      "amended_by": [],
+      "amends": ["22", "29"],
+      "created": "2026-10-22",
+      "depends_on": ["0", "22", "27", "29", "declarative-user-scope-config"],
+      "inbound": [
+        {
+          "context": "> **Amended by [ADR-0044](0044-machine-scope-lifecycle-commands.md#amendments):** a Machine area adds `install`, `upgrade`, and `doctor`, for 28 public commands.",
+          "from": "0022",
+          "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0044](0044-machine-scope-lifecycle-commands.md#amendments):** the native self-update question is settled by `upgrade` delegating to the installing package channel; the non-goal of ",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        }
+      ],
+      "number": "0044",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0044-machine-scope-lifecycle-commands.md",
+      "slug": "machine-scope-lifecycle-commands",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Machine-Scope Lifecycle Commands",
       "updated": "2026-10-22"
     }
   ],

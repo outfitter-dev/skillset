@@ -58,3 +58,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0041](0041-portable-skill-eval-source-contract.md) | Portable Skill Eval Source Contract | Accepted |
 | [0042](0042-ungraded-cross-provider-eval-runs.md) | Ungraded Cross-Provider Eval Runs | Accepted |
 | [0043](0043-global-immutable-operational-reports.md) | Global Immutable Operational Reports | Accepted |
+| [0044](0044-machine-scope-lifecycle-commands.md) | Machine-Scope Lifecycle Commands | Accepted |
