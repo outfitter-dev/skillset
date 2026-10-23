@@ -42,9 +42,11 @@ The test: if the command changes which Skillset version or companion integration
 
 `skillset upgrade` does three things, in order:
 
-1. Detect the channel that installed Skillset (npm global, Homebrew, or a Bun global install) and run that channel's own upgrade command after preview and confirmation.
+1. Detect the channel that installed Skillset (npm global, Homebrew, or a Bun global install) and run that channel's own upgrade command after preview and confirmation. A direct-archive install gets advisory output instead, described below.
 2. Bring each companion integration recorded by `install` to the version that matches the new Skillset.
 3. Verify by reporting the resulting `skillset --version` and the same facts `doctor` reports.
+
+A direct-archive install from GitHub release assets has no package channel to delegate to. For that install, `upgrade` reports the installed and latest versions, the archive and checksum to fetch, and the manual replacement steps, and writes nothing to Skillset's own executable. It still upgrades recorded companion integrations.
 
 Skillset never downloads or replaces its own executable. This settles ADR-0029's open self-update question without adding the general self-update system ADR-0029 rules out: the package channel stays the only thing that writes Skillset's binary.
 
