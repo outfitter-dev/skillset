@@ -42,6 +42,8 @@ Skillset ships a 25-command workflow-oriented CLI. Frequent authoring and compil
 
 ### Final command roster
 
+> **Amended by [ADR-0044](0044-machine-scope-lifecycle-commands.md#amendments):** a Machine area adds `install`, `upgrade`, and `doctor`, for 28 public commands.
+
 | Area | Commands |
 | --- | --- |
 | Onboard | `create` · `init` · `import` |
@@ -129,6 +131,8 @@ All runs share one retained model and index under the logical `.skillset/cache/t
 Top-level `try`, `.skillset/cache/runtime-tests/`, and every `SKILLSET_TRY_*` variable are removed. Runtime overrides use `SKILLSET_TEST_*` names only.
 
 ### Inspection commands have explicit boundaries
+
+> **Amended by [ADR-0044](0044-machine-scope-lifecycle-commands.md#amendments):** `status` stays the workspace health view; `doctor` returns as a read-only, machine-scope-only command.
 
 - `status` replaces `doctor` as the read-only human workspace health and advisory view. It may summarize check and change facts but does not replace their exit contracts.
 - `list` inventories resolved source/output relationships without repurposing the existing source-root flag as a boolean selector.

@@ -17,6 +17,11 @@
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
+          "context": "Without a decision, each surface reaches for its own verb. Users already see `update` for provider and compiler format migrations inside a repository. An `update` that also upgraded Skillset would giv",
+          "from": "0044",
+          "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
+        },
+        {
           "context": "- [Declarative User-Scope Config](20260604-declarative-user-scope-config.md) - separates build from install, sync, trust, and user-level mutation.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"

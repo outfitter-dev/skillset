@@ -253,6 +253,8 @@ itself release credentials or publication authority.
 
 ### What This Does NOT Decide
 
+> **Amended by [ADR-0044](0044-machine-scope-lifecycle-commands.md#amendments):** the native self-update question is settled by `upgrade` delegating to the installing package channel; the non-goal of a general self-update system stands.
+
 - When either reserved Linux musl target graduates after the initial native
   release; target-host conformance evidence decides that promotion.
 - Windows arm64 support or modern-only x64 performance variants.
