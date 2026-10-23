@@ -77,6 +77,8 @@ floor.**
 Skillset treats standards as a first-class compile dimension, distinct from
 providers, runtimes, and distribution destinations.
 
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
+
 | Concept | Responsibility |
 | --- | --- |
 | Adaptive source | Captures author intent once in the Skillset source graph. |
@@ -111,6 +113,8 @@ features.
 
 The initial standards are:
 
+> **Amended by [ADR-0035](0035-rule-scope-and-provenanced-instruction-sections.md#superseded-statements):** generated instructions now follow ADR-0035's source-position and narrowing contract with source-attributed XML sections.
+
 - **Agent Instructions:** Skillset's name for the adopted instruction floor
   defined by the open AGENTS.md format. Its standard profile covers plain
   Markdown, repository and nested placement, and increasingly local scope.
@@ -125,6 +129,8 @@ The initial standards are:
   standard to a provider format.
 
 ### Agent Standards and Project Agents Use Qualified Names
+
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
 
 `compile.agents` is the user-facing namespace for the capital-A Agent
 standards family. Its children name the adopted artifact kinds rather than
@@ -161,6 +167,8 @@ Internal code keeps the same distinction: standard-profile types use an
 type that erases which concept a value represents.
 
 ### The Standards Floor Is Default, Not Mandatory
+
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
 
 When an adopted standard profile is selected, applicable adaptive source must
 satisfy that standard's semantics before Skillset materializes the standards
@@ -201,6 +209,8 @@ This is a floor, not a lowest-common-denominator ceiling. Providers can expose
 more capability, but the extra capability stays named and testable as a delta.
 
 ### Agent Standards Outputs Default On
+
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
 
 `compile.agents` uses the standard Skillset boolean-or-object shape. Omitting it
 or setting it to `true` enables every adopted Agent standards projection
@@ -287,6 +297,8 @@ not gain an independent standard claim from matching a standard-shaped file.
 
 ### Logical Projections Coalesce Into One Physical Artifact
 
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
+
 Standards and providers are logical projections, not competing file writers.
 When an Agent standard and a provider target resolve to the same destination,
 the build graph creates one physical destination plan with ordered provenance:
@@ -317,11 +329,19 @@ contains standard-shaped skills or plugin material.
 The initial standards destinations are fixed conventions, not configurable
 path guesses.
 
+> **Amended by [ADR-0035](0035-rule-scope-and-provenanced-instruction-sections.md#superseded-statements):** the Agent Instructions row now follows ADR-0035's source-position and narrowing contract.
+>
+> **Amended by [ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#superseded-statements):** the Agent Skills row holds for standalone skills only; plugin-owned skills are canonical only in their Agent Plugins package.
+>
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the Agent Plugins package is the root of `plugins/<plugin>/`, not `plugins/<plugin>/agents/`.
+
 | Standards projection | Applicable source | Default output |
 | --- | --- | --- |
 | Agent Instructions | `.skillset/rules/**/*.md` | root and nested `AGENTS.md` files using the existing directory-scoped instruction mapping |
 | Agent Skills | standalone `.skillset/skills/<skill>/` | `.agents/skills/<skill>/` |
 | Agent Plugins | each `.skillset/plugins/<plugin>/` | `plugins/<plugin>/agents/` |
+
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** there is one shared package per plugin; `agents` is not a sibling bundle.
 
 `agents` in `plugins/<plugin>/agents/` names the standards-family bundle. It
 is a sibling of the existing `claude`, `codex`, and `cursor` provider bundles,
@@ -353,11 +373,15 @@ rendered.
 
 ### Standards Selection Is Independent of Source Target Toggles
 
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
+
 The standards plan is resolved independently from provider target settings.
 
 Provider blocks on a skill, rule, or plugin continue to select and configure
 provider renderings. They do not opt portable source out of an enabled
 standards projection. In particular:
+
+> **Amended by [ADR-0039](0039-rules-name-authored-guidance-source.md#superseded-statements):** the Agent Instructions projection applies to every applicable rule.
 
 - `compile.agents.skills` applies to every standalone adaptive skill;
 - `compile.agents.plugins` applies to every adaptive plugin and governs the
@@ -414,6 +438,8 @@ they become `unsupported` results for the affected standards projection, not
 build-wide failures. Existing declared resources and files under the skill
 directory continue to render inside the skill root, with real-path containment
 and output-collision checks.
+
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** plugin skills render at `plugins/<plugin>/skills/<skill>/`.
 
 Plugin-bound skills are rendered through the same baseline renderer under
 `plugins/<plugin>/agents/skills/<skill>/`. Agent Plugins discovers only
@@ -613,6 +639,10 @@ change preserves behavior. This ADR does not retire or alias a provider target.
 
 ### The Implementation Surface Is Fully Enumerated
 
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
+>
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the expected independent `plugins/<plugin>/agents` package is now the shared `plugins/<plugin>/` package.
+
 The work may land incrementally, but each row below is required before Agent
 Plugins moves to `adopted` and joins the omitted-config default.
 
@@ -642,6 +672,8 @@ there is no interval where an unproven candidate silently defaults on, for
 any profile.
 
 ### Acceptance Matrix
+
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
 
 The adoption change is complete only when the following behavior is covered:
 

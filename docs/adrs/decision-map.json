@@ -112,7 +112,7 @@
           "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.",
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and generated-output authority remain unchanged.",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
@@ -356,7 +356,7 @@
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
         {
-          "context": "- [ADR-0004: Core Library and CLI Boundary](../0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.",
+          "context": "- [ADR-0004: Core Library and CLI Boundary](0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         }
@@ -483,7 +483,7 @@
           "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
-          "context": "- [ADR-0006: Agent / Subagent Source Model](../0006-agent-source-model.md) - establishes the project agent",
+          "context": "- [ADR-0006: Agent / Subagent Source Model](0006-agent-source-model.md) - establishes the project agent",
           "from": "0040",
           "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
         },
@@ -576,7 +576,7 @@
           "fromPath": "docs/adrs/0034-exact-shared-references.md"
         },
         {
-          "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md) - defines the `.skillset/`",
+          "context": "- [ADR-0009: Skillset Workspace Layout](0009-skillset-workspace-layout.md) - defines the `.skillset/`",
           "from": "0040",
           "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
         },
@@ -668,17 +668,17 @@
           "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
         },
         {
-          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.",
+          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - amended to define the portable declaration boundary while retaining its execution separation.",
           "from": "0041",
           "fromPath": "docs/adrs/0041-portable-skill-eval-source-contract.md"
         },
         {
-          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.",
+          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - amended only for the explicit ungraded execution boundary.",
           "from": "0042",
           "fromPath": "docs/adrs/0042-ungraded-cross-provider-eval-runs.md"
         },
         {
-          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](../0012-fixtures-tests-dogfooding-and-evals.md) - current retained test/eval evidence boundaries remain producer-owned until explicit migration.",
+          "context": "- [ADR-0012: Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - current retained test/eval evidence boundaries remain producer-owned until explicit migration.",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
@@ -1040,7 +1040,7 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "- [ADR-0019](../0019-deterministic-projection-and-adapter-conformance.md#projection-comparison)",
+          "context": "- [ADR-0019](0019-deterministic-projection-and-adapter-conformance.md#projection-comparison)",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
@@ -1143,17 +1143,17 @@
           "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
         },
         {
-          "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outsi",
+          "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - amended for the narrow read-only declaration-inspection exception; execution remains outside ",
           "from": "0041",
           "fromPath": "docs/adrs/0041-portable-skill-eval-source-contract.md"
         },
         {
-          "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](../0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.",
+          "context": "- [ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - amended for the narrow eval runtime family, without making evals deterministic tests.",
           "from": "0042",
           "fromPath": "docs/adrs/0042-ungraded-cross-provider-eval-runs.md"
         },
         {
-          "context": "- [ADR-0022](../0022-workflow-oriented-cli.md#final-command-roster)",
+          "context": "- [ADR-0022](0022-workflow-oriented-cli.md#final-command-roster)",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         }
@@ -1189,7 +1189,7 @@
           "fromPath": "docs/adrs/0037-one-shared-plugin-package-per-plugin.md"
         },
         {
-          "context": "- [ADR-0023](../0023-versioned-structured-output-for-cli-automation.md#json-is-one-finite-result-envelope)",
+          "context": "- [ADR-0023](0023-versioned-structured-output-for-cli-automation.md#json-is-one-finite-result-envelope)",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
@@ -1206,7 +1206,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Versioned Structured Output For CLI Automation",
-      "updated": "2026-07-20"
+      "updated": "2026-10-22"
     },
     {
       "amended_by": [],
@@ -1385,7 +1385,7 @@
       "depends_on": ["0", "4", "14", "22", "23", "26", "27"],
       "inbound": [
         {
-          "context": "The unscoped `skillset` app and scoped `@skillset/cli` app are public distribution packages. They project the same CLI implementation while the unscoped package transitions to the native launcher. Oth",
+          "context": "The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages are public distribution packages. `@skillset/cli` ships the bundled JS CLI; the unscoped `skills",
           "from": "package-ownership",
           "fromPath": "docs/development/package-ownership.md"
         }
@@ -1463,6 +1463,21 @@
       "depends_on": ["28", "30"],
       "inbound": [
         {
+          "context": "> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards ",
+          "from": "0028",
+          "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards ",
+          "from": "0030",
+          "fromPath": "docs/adrs/0030-chatgpt-product-bundles-and-standards-only-builds.md"
+        },
+        {
+          "context": "> **Superseded by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed, so this opt-out no longer ",
+          "from": "0031",
+          "fromPath": "docs/adrs/0031-agent-instructions-opt-out-owns-shared-agents-md.md"
+        },
+        {
           "context": "- [ADR-0032: Standards Compilation Is Inherent](0032-standards-compilation-is-inherent.md) - applicable instructions render without a standards selector.",
           "from": "0035",
           "fromPath": "docs/adrs/0035-rule-scope-and-provenanced-instruction-sections.md"
@@ -1503,6 +1518,21 @@
       "created": "2026-09-16",
       "depends_on": ["0", "2", "6", "9"],
       "inbound": [
+        {
+          "context": "> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** project agents are now authored under `.skillset/subagents/`; Cursor destination claims stay gated by SET-550 evid",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** the project-agent source path is now `.skillset/subagents/`.",
+          "from": "0006",
+          "fromPath": "docs/adrs/0006-agent-source-model.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** the canonical tree is ADR-0033's (`RULES.md`, `subagents/`, `shared/partials/`, grouping folders, `_drafts/`).",
+          "from": "0009",
+          "fromPath": "docs/adrs/0009-skillset-workspace-layout.md"
+        },
         {
           "context": "- [ADR-0033: Workspace Authoring Model](0033-workspace-authoring-model.md) - canonical `shared/partials/` roots.",
           "from": "0034",
@@ -1550,7 +1580,7 @@
       "depends_on": ["9", "33"],
       "inbound": [
         {
-          "context": "- [ADR-0034: Exact Shared References](../0034-exact-shared-references.md) -",
+          "context": "- [ADR-0034: Exact Shared References](0034-exact-shared-references.md) -",
           "from": "0040",
           "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
         }
@@ -1570,6 +1600,11 @@
       "created": "2026-09-16",
       "depends_on": ["18", "28", "32", "33"],
       "inbound": [
+        {
+          "context": "> **Amended by [ADR-0035](0035-rule-scope-and-provenanced-instruction-sections.md#superseded-statements):** generated instructions now follow ADR-0035's source-position and narrowing contract with sou",
+          "from": "0028",
+          "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
         {
           "context": "[ADR-0033](0033-workspace-authoring-model.md#decision) and [ADR-0035](0035-rule-scope-and-provenanced-instruction-sections.md#decision) moved authored source back to `.skillset/RULES.md` and `.skillse",
           "from": "0039",
@@ -1591,6 +1626,21 @@
       "created": "2026-09-16",
       "depends_on": ["28", "30", "32", "33"],
       "inbound": [
+        {
+          "context": "> **Amended by [ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#superseded-statements):** the Agent Skills row holds for standalone skills only; plugin-owned skills are canonical only i",
+          "from": "0028",
+          "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#superseded-statements):** only standalone skills render at `.agents/skills/` intrinsically; plugin-owned copies require `",
+          "from": "0030",
+          "fromPath": "docs/adrs/0030-chatgpt-product-bundles-and-standards-only-builds.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#superseded-statements):** plugin-owned skills use the package's immediate-child `skills/` placement; standalone skills ke",
+          "from": "0032",
+          "fromPath": "docs/adrs/0032-standards-compilation-is-inherent.md"
+        },
         {
           "context": "[ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#consequences)",
           "from": "0037",
@@ -1616,6 +1666,36 @@
           "context": "- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` ([ADR-0037](doc",
           "from": "AGENTS",
           "fromPath": "AGENTS.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** Cursor's plugin manifest renders at `plugins/<plugin>/.cursor-plugin/plugin.json` inside the shared pac",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** generated plugin provenance now lives in the shared `plugins/skillset.lock`; the envelope contract this",
+          "from": "0023",
+          "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the Agent Plugins package is the root of `plugins/<plugin>/`, not `plugins/<plugin>/agents/`.",
+          "from": "0028",
+          "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the ChatGPT extension is a member of the single `plugins/<plugin>/plugin.json` package, not a separate ",
+          "from": "0030",
+          "fromPath": "docs/adrs/0030-chatgpt-product-bundles-and-standards-only-builds.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the Agent Plugins standard package is `plugins/<plugin>/`.",
+          "from": "0032",
+          "fromPath": "docs/adrs/0032-standards-compilation-is-inherent.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the retained ADR-0002 Cursor bundle path is now `plugins/<plugin>/.cursor-plugin/plugin.json` inside th",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
         },
         {
           "context": "[ADR-0037](0037-one-shared-plugin-package-per-plugin.md) records one shared",
@@ -1651,7 +1731,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Change Ledger Append Order Is Authoritative",
-      "updated": "2026-09-25"
+      "updated": "2026-10-22"
     },
     {
       "amended_by": [],
@@ -1659,6 +1739,16 @@
       "created": "2026-09-24",
       "depends_on": ["15", "18", "28", "33", "35"],
       "inbound": [
+        {
+          "context": "> **Amended by [ADR-0039](0039-rules-name-authored-guidance-source.md#superseded-statements):** the Agent Instructions projection applies to every applicable rule.",
+          "from": "0028",
+          "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "> **Amended by [ADR-0039](0039-rules-name-authored-guidance-source.md#superseded-statements):** `RULES.md` is now named the unscoped rule source.",
+          "from": "0033",
+          "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
+        },
         {
           "context": "[ADR-0039](../../adrs/0039-rules-name-authored-guidance-source.md) may also",
           "from": "operational-reports",

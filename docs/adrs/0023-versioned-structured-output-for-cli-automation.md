@@ -38,6 +38,8 @@ The flags are mutually exclusive. A route that supports neither rejects them thr
 
 Every successful or controlled failed `--json` invocation emits exactly one JSON object followed by one newline:
 
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** generated plugin provenance now lives in the shared `plugins/skillset.lock`; the envelope contract this example shows is unchanged.
+
 ```json
 {
   "schemaVersion": "skillset.cli.result@1",

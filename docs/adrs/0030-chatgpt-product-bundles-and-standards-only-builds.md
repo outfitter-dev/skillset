@@ -68,6 +68,8 @@ existing Codex semantic adapter.
 
 ChatGPT is product terminology only for these generated surfaces:
 
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the ChatGPT extension is a member of the single `plugins/<plugin>/plugin.json` package, not a separate bundle.
+
 - the modern plugin bundle at `plugins/<plugin>/chatgpt/`; and
 - the marketplace catalog at `.agents/plugins/marketplace.json`.
 
@@ -94,6 +96,8 @@ compile:
   targets: []
 ```
 
+> **Amended by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed; applicable adopted standards render inherently.
+
 only when resolution selects at least one eligible adopted standard projection.
 For this rule, eligible means that the projection is applicable to resolved
 source, selected by the effective `compile.agents` configuration, and backed
@@ -112,6 +116,8 @@ This is the complete amendment to ADR-0001. Provider selection remains under
 overrides, and opt-outs; non-empty lists retain their existing meaning.
 
 ### Modern bundles have one portable core and one native extension
+
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the Agent Plugins and ChatGPT outputs render as the single `plugins/<plugin>/` package.
 
 The pure Agent Plugins projection remains
 `plugins/<plugin>/agents/`. The ChatGPT product bundle renders at
@@ -231,6 +237,8 @@ island must never silently disappear, and replacement must not silently lose
 metadata.
 
 ### Repository-wide and package-contained skills have distinct ownership
+
+> **Amended by [ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#superseded-statements):** only standalone skills render at `.agents/skills/` intrinsically; plugin-owned copies require `plugins.internal_use` selection.
 
 As amended by ADR-0032, the adopted Agent Skills profile intrinsically renders
 applicable standalone and plugin-owned adaptive skills at

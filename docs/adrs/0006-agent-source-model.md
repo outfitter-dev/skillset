@@ -51,6 +51,8 @@ Intent (1) is the implemented project-agent scope. Intent (2) has no faithful Co
 
 ## What normalizes safely vs stays target-native
 
+> **Amended by [ADR-0033](0033-workspace-authoring-model.md#superseded-statements):** the project-agent source path is now `.skillset/subagents/`.
+
 - **Portable and implemented:** project-scoped specialized roles authored as `.skillset/agents/*.md` and rendered to Claude, Codex, and Cursor project-agent destinations with target-specific validation.
 - **Separate and implemented:** per-skill invocation and tools policy through their owned portable keys and provider evidence.
 - **Must stay provider-native:** plugin-scoped subagent roles. Claude and Cursor plugin agents remain pass-through components; Codex plugin-agent requests fail loudly.

@@ -13,6 +13,8 @@ superseded_by: ['32']
 
 # ADR-0031: Agent Instructions Opt-Out Owns Shared AGENTS.md
 
+> **Superseded by [ADR-0032](0032-standards-compilation-is-inherent.md#standards-switches-are-removed-instead-of-relocated):** `compile.agents` and its children are removed, so this opt-out no longer exists.
+
 ## Context
 
 [ADR-0028](0028-open-standards-are-the-portability-floor.md#agent-standards-outputs-default-on) made Agent Instructions an independent standard projection while preserving Codex's native `AGENTS.md` rendering during the candidate period. It also said that disabling `compile.agents` or `compile.agents.instructions` would remove only the standard claim and leave Codex free to recreate the same physical file.

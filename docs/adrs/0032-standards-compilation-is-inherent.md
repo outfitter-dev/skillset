@@ -44,6 +44,10 @@ The compiler derives standard projections from the adopted profile registry and
 the resolved adaptive source inventory. It renders an adopted profile only for
 the source kinds that profile actually covers:
 
+> **Amended by [ADR-0036](0036-plugin-skills-belong-to-the-standard-package.md#superseded-statements):** plugin-owned skills use the package's immediate-child `skills/` placement; standalone skills keep `.agents/skills/<identity>/`.
+>
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the Agent Plugins standard package is `plugins/<plugin>/`.
+
 | Adopted profile | Applicable source | Standard output |
 | --- | --- | --- |
 | Agent Instructions | adaptive instruction rules | root and scoped `AGENTS.md` |

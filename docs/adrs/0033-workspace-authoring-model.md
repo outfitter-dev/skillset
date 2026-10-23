@@ -71,6 +71,8 @@ skillset.yaml
 skillset.lock
 ```
 
+> **Amended by [ADR-0039](0039-rules-name-authored-guidance-source.md#superseded-statements):** `RULES.md` is now named the unscoped rule source.
+
 Plugins exist only below `.skillset/plugins/<name>/`. The root
 `.skillset/skills/` directory is the workspace's own standalone inventory;
 directory membership curates that inventory without making it a plugin.
@@ -100,6 +102,8 @@ new Cursor destination claim; the SET-550 evidence gate above still applies.
 
 The following historical statements remain in their original ADRs as evidence,
 but this ADR replaces them as current instruction:
+
+> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** the retained ADR-0002 Cursor bundle path is now `plugins/<plugin>/.cursor-plugin/plugin.json` inside the shared package.
 
 - `docs/adrs/0002-cursor-is-a-first-class-provider.md`: “Cursor project skills
   render to `.cursor/skills/<skill>/SKILL.md`, rules to
