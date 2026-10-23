@@ -475,9 +475,13 @@ function deriveRuleGlobs(
     .sort(compareStrings);
 }
 
-/** Claude documents that an unescaped `[` outside a valid bracket expression matches nothing. */
+/**
+ * Escape glob metacharacters in a literal scope directory so the derived Claude
+ * glob matches only that directory. Claude documents that an unescaped `[`
+ * outside a valid bracket expression matches nothing.
+ */
 function escapeClaudeGlobLiteral(value: string): string {
-  return value.replaceAll(/[[\]]/gu, (character) => `\\${character}`);
+  return value.replaceAll(/[[\]*?{}]/gu, (character) => `\\${character}`);
 }
 
 /**
@@ -549,13 +553,13 @@ export function ruleScopeRenderResults(
     }
     if (
       rule.targets.cursor.enabled &&
-      /[[\]()]/u.test(rule.scopeDir)
+      /[[\]()*?{}]/u.test(rule.scopeDir)
     ) {
       outcomes.push(defineRenderResult({
         destination: "rule",
         featureId: "cursor-rule-glob-escaping-unverified",
         outputs: [{ path: mapOutputPath(posix.join(cursorRoot, cursorRuleRelativePath(rule.relativePath))) }],
-        reason: "Cursor documents no escape for [, ], ( or ) in rule globs, so these globs ship unescaped and may not match the literal directory",
+        reason: "Cursor documents no escape for glob characters in rule globs, so a scope directory containing [, ], (, ), *, ?, { or } ships unescaped and may not match only that directory",
         sourcePath,
         sourceUnit,
         status: "degraded",

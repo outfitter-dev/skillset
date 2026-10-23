@@ -112,6 +112,21 @@ describe("rule scope from location [SET-557]", () => {
     await expect(buildSkillsetResult(root)).rejects.toThrow("leaves the rule's scope");
   });
 
+  test("escapes glob characters in a literal scope and refuses scopes inside the source root", async () => {
+    const root = await authoringModel();
+    await mkdir(join(root, ".skillset/rules/team*"), { recursive: true });
+    await writeFile(join(root, ".skillset/rules/team*/notes.md"), "# Team notes\n");
+    await buildSkillsetResult(root);
+    expect(await readFile(join(root, ".claude/rules/team*/notes.md"), "utf8")).toStartWith(
+      "---\npaths:\n  - team\\*/**\n---\n"
+    );
+
+    const nested = await authoringModel();
+    await mkdir(join(nested, ".skillset/rules/.skillset/rules"), { recursive: true });
+    await writeFile(join(nested, ".skillset/rules/.skillset/rules/guidance.md"), "# Guidance\n");
+    await expect(buildSkillsetResult(nested)).rejects.toThrow("rules cannot scope to Skillset source");
+  });
+
   test("warns on a double-prefixed paths: entry and on a missing scope directory", async () => {
     const root = await authoringModel();
     await mkdir(join(root, ".skillset/rules/services/billing"), { recursive: true });

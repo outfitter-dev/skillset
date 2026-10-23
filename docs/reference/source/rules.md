@@ -32,7 +32,7 @@ Where a rule sits under `.skillset/rules/` is its scope. `rules/<topic>.md` is u
 
 Directory names are literal except for two reserved segments: `[.]` matches one level and `[...]` matches any depth. `app/[slug]/` and `app/(marketing)/` are ordinary directories. A rule under a wildcard scope such as `rules/apps/[.]/src/` renders nothing yet and records an `unsupported` render result (`rule-wildcard-scope-pending`) until wildcard expansion lands; it never falls back to the root `AGENTS.md`.
 
-A scope directory that does not exist yet still gets its `AGENTS.md`, with a `rule-scope-directory-missing` warning in case the name is a typo.
+A scope directory that does not exist yet still gets its `AGENTS.md`, with a `rule-scope-directory-missing` warning in case the name is a typo. A rule cannot scope to a directory inside the `.skillset/` source root, because its generated `AGENTS.md` would be read back as rule source.
 
 Rule frontmatter can also carry shared metadata, explicit provider blocks, and provider toggles. For example, set `codex: false` when a rule is intentionally unavailable to Codex. [Target](../../glossary.md#target)-specific fields override shared intent only for that target; they do not create a second portable meaning.
 
@@ -49,7 +49,7 @@ Claude and Cursor [destinations](../../glossary.md#destination) follow the enabl
 | `.skillset/RULES.md` | `.claude/CLAUDE.md` (default) or root `CLAUDE.md` | Renders the front page in its authored dialect with a generated-by header and source-boundary comment. `compile.instruction_front_page` selects `claude-dir` or `repo-root`. |
 | `.skillset/RULES.md` | root `AGENTS.md` (Agent Instructions baseline) | Becomes the bare first section of the root `AGENTS.md`, without a source-boundary comment, ahead of unscoped rules. |
 | `.skillset/RULES.md` | none for Cursor | Unsupported for Cursor (`cursor-agents-md-root`); Cursor receives only `.skillset/rules/**`. |
-| `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | Mirrors the source path. Frontmatter `paths` is the scope joined with each `paths` entry, sorted, or `<dir>/**` for a scoped rule without `paths`. The literal scope directory is escaped (`app/\[slug\]/**`) because Claude treats an unescaped `[` as a bracket expression. Unscoped rules without `paths` render without frontmatter. |
+| `.skillset/rules/**/*.md` | `.claude/rules/**/*.md` | Mirrors the source path. Frontmatter `paths` is the scope joined with each `paths` entry, sorted, or `<dir>/**` for a scoped rule without `paths`. Glob characters in the literal scope directory (`[`, `]`, `*`, `?`, `{`, `}`) are escaped (`app/\[slug\]/**`) so the glob matches only that directory; Claude treats an unescaped `[` as a bracket expression. Unscoped rules without `paths` render without frontmatter. |
 | `.skillset/rules/**/*.md` | `.cursor/rules/**/*.mdc` | Mirrors the source path and writes the same derived globs, unescaped. A glob containing `[`, `]`, `(` or `)` records a `degraded` render result (`cursor-rule-glob-escaping-unverified`) because Cursor documents no escape. |
 | `.skillset/rules/**/*.md` | `<dir>/AGENTS.md` for a rule under `rules/<dir>/`, root `AGENTS.md` when unscoped (Agent Instructions baseline) | Strips source-only frontmatter and combines contributing rules deterministically. |
 
