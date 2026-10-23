@@ -64,4 +64,12 @@ Use a Conventional Commit-style title. Explain the context, what changed, how yo
 
 Use plain git for a single branch. For stacked work, use [`gh stack`](https://github.com/github/gh-stack) (`gh extension install github/gh-stack`). Update a branch by restacking it onto trunk: `git rebase` for a single branch, or `gh stack rebase` for a stack. `gh stack rebase` rewrites every branch in the stack and `gh stack sync` also force-pushes them all and updates their PRs, so run either only on a stack you own entirely, and `sync` only when you mean to push. Do not merge trunk into a branch: `bun run change-stream:guard` rejects the result.
 
+### Review agent work against an exact commit
+
+When several agents work in parallel, keep one writer per worktree. A reviewing agent edits nothing. It reads the exact commit under review (`git show <sha>`, `git diff <base-sha>..<sha>`, or a detached checkout of `<sha>` in its own worktree) and reports findings against that SHA. If the reviewer should fix something, hand the finding back to the worktree's owner, or give the reviewer its own worktree on a separate branch.
+
+A review describes one commit. Any new commit, rebase, or force-push changes the SHA and invalidates the result, so re-review the new head before relying on it. Write review reports and PR comments with the full or short SHA they reviewed (for example, "reviewed at `1a2b3c4`"), not only the branch name, which moves.
+
+Keep mechanical formatting (Oxfmt, regenerated output, renames) in its own commits so a reviewer can tell behavior changes apart from churn.
+
 By contributing, you agree that your contribution is licensed under the repository's [MIT License](LICENSE).

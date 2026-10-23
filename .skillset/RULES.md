@@ -137,6 +137,15 @@ bun ./apps/skillset/src/cli.ts status --root .
 
 `bun run check` includes self-hosted source checks and generated-output verification. If `skillset:check:outputs` reports stale or hand-edited output, run `bun ./apps/skillset/src/cli.ts build --repair --root .` first (it previews; add `--yes` to write): it classifies each managed path against the lock and a fresh render, restores missing or stale output, and refuses to overwrite hand edits unless you pass `--discard-edits`. Then run `bun run skillset:build`, inspect the generated diff, and rerun `bun run check`.
 
+## Agent work
+
+- One writer per worktree: the agent that owns a worktree is the only one that edits it.
+- Reviewers are read-only and review an exact commit SHA. A fix goes in a separate worktree or through an explicit handoff to the owner.
+- Any new commit, rebase, or worktree change invalidates a review result. Reports cite the reviewed SHA, never just the branch.
+- Keep mechanical formatting in its own commits, apart from behavior changes.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md#review-agent-work-against-an-exact-commit) for detail.
+
 ## Constraints
 
 - Do not publish this package or add a remote unless the maintainer explicitly asks.
