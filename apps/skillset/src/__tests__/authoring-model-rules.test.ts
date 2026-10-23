@@ -54,6 +54,13 @@ describe("rule scope from location [SET-557]", () => {
         reason: expect.stringContaining("SET-574"),
         status: "unsupported",
       }),
+      // The Agent Instructions baseline renders rules regardless of provider
+      // toggles, so it records the gap too.
+      expect.objectContaining({
+        featureId: "rule-wildcard-scope-pending",
+        standardProfile: "agent-instructions",
+        status: "unsupported",
+      }),
     ]));
 
     expect(paths).not.toContain("services/payments/AGENTS.override.md");
