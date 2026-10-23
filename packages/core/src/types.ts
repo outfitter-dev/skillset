@@ -387,6 +387,14 @@ export interface SourceRule {
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
+  /**
+   * Directory the rule governs, from its position under `rules/`: `""` for a
+   * top-level (unscoped) rule, otherwise the rule's directory with forward
+   * slashes. `paths:` narrows files within this scope.
+   */
+  readonly scopeDir: string;
+  /** `scopeDir` split into its literal directory names; empty when unscoped. */
+  readonly scopeSegments: readonly string[];
   readonly segments?: readonly SourceRuleSegment[];
   readonly rootFrontPage?: boolean;
   readonly sourceOrigin?: SourceOrigin;

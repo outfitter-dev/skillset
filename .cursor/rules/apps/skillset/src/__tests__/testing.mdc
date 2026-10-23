@@ -1,6 +1,7 @@
 ---
-paths:
-  - fixtures/**
+alwaysApply: false
+description: apps/skillset/src/__tests__/testing
+globs:
   - apps/skillset/src/__tests__/**
 ---
 

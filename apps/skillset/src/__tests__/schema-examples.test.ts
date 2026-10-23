@@ -30,7 +30,9 @@ test("maximal workspace and rule frontmatter examples build and check cleanly", 
   await expect(verifySkillset(root)).resolves.toBeDefined();
 
   expect(await Bun.file(join(root, ".claude/rules/source.md")).exists()).toBe(true);
-  expect(await Bun.file(join(root, "packages/source/AGENTS.md")).exists()).toBe(true);
+  // The example rule is unscoped (rules/source.md), so its paths: narrow Claude
+  // and Cursor while Codex reads it from the root AGENTS.md [SET-557].
+  expect(await Bun.file(join(root, "AGENTS.md")).text()).toContain("# Source rules");
   expect(await Bun.file(join(root, ".cursor/rules/source.mdc")).exists()).toBe(false);
 });
 

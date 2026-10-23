@@ -1,6 +1,7 @@
 ---
 paths:
-  - "docs/**"
+  - "*.md"
+  - "guides/**/*.md"
 ---
 
 # Writing

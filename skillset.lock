@@ -149,18 +149,34 @@
     },
     {
       "fileModes": {
-        ".cursor/rules/fixtures.mdc": "0644"
+        ".cursor/rules/apps/skillset/src/__tests__/testing.mdc": "0644"
       },
       "files": [
-        ".cursor/rules/fixtures.mdc"
+        ".cursor/rules/apps/skillset/src/__tests__/testing.mdc"
       ],
       "kind": "rule",
-      "name": "fixtures",
-      "outputHash": "sha256:96097dc24d136d495c3fe42f163f5e3f674cb115d4bc86692b784c64e1e611bc",
-      "outputPath": ".cursor/rules/fixtures.mdc",
+      "name": "apps/skillset/src/__tests__/testing",
+      "outputHash": "sha256:a1dc86addba79bf4b52deb160cc6446d625de4533baa6ca2b3ae4911f2ae816b",
+      "outputPath": ".cursor/rules/apps/skillset/src/__tests__/testing.mdc",
       "role": "bundle",
-      "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
-      "sourcePath": ".skillset/rules/fixtures.md",
+      "sourceHash": "sha256:c0b9eaac26da405d4879a4195816c83d144aaf73ce416eb50ddacb2f4da052c7",
+      "sourcePath": ".skillset/rules/apps/skillset/src/__tests__/testing.md",
+      "version": "0.1.1"
+    },
+    {
+      "fileModes": {
+        ".cursor/rules/fixtures/testing.mdc": "0644"
+      },
+      "files": [
+        ".cursor/rules/fixtures/testing.mdc"
+      ],
+      "kind": "rule",
+      "name": "fixtures/testing",
+      "outputHash": "sha256:001e63e756a52c36bca41ad984202e657b7e781d9c366c0190b5a67bf91d44df",
+      "outputPath": ".cursor/rules/fixtures/testing.mdc",
+      "role": "bundle",
+      "sourceHash": "sha256:76d220ba69189e484c7f8ecc36c69f253e41728533fc0fa341d1380177ecccf0",
+      "sourcePath": ".skillset/rules/fixtures/testing.md",
       "version": "0.1.1"
     },
     {
@@ -229,13 +245,13 @@
       ],
       "kind": "rule",
       "name": "apps/skillset/src/__tests__/AGENTS.md",
-      "outputHash": "sha256:9e5f8d617e9bc6ac46f943dc3295140cf598bf2bff053620d4e5a707b2c199d6",
+      "outputHash": "sha256:3c29ef61047def03795f2278c49443959fed6b261f71b7d88f6e06269070b0d4",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
       },
       "role": "standard",
-      "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
+      "sourceHash": "sha256:c0b9eaac26da405d4879a4195816c83d144aaf73ce416eb50ddacb2f4da052c7",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     },
@@ -258,19 +274,19 @@
       ],
       "kind": "rule",
       "name": "fixtures/AGENTS.md",
-      "outputHash": "sha256:3bc1e0423b64f558fa90e3b9d73eb3f12f74dc3579bb1a51b21b85f377ffa8df",
+      "outputHash": "sha256:d22e84bfa657e7338a2574b292b19775d7b0fa6697c9bd9e13bbf0e16c46506a",
       "outputPath": "fixtures/AGENTS.md",
       "owner": {
         "standardProfile": "agent-instructions"
       },
       "role": "standard",
-      "sourceHash": "sha256:1043977d0388d8a6732af71ad48dbdc966012ed28b6da39189ec0ebcdfaa6ed6",
+      "sourceHash": "sha256:76d220ba69189e484c7f8ecc36c69f253e41728533fc0fa341d1380177ecccf0",
       "sourcePath": ".skillset/rules",
       "version": "0.1.1"
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:9e6701895838e14ca2131e9ea72d955b4c79282f18d939c62eedd1e931466e9d",
+  "provenanceHash": "sha256:4440b580ee4a3db1a92f82990350ee0cad00a42b922b4255e8b364dc84ea9494",
   "renderResults": [
     {
       "destination": "changelog",
@@ -567,12 +583,12 @@
       "outputs": [
         {
           "kind": "rule",
-          "path": ".cursor/rules/fixtures.mdc"
+          "path": ".cursor/rules/apps/skillset/src/__tests__/testing.mdc"
         }
       ],
       "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/rules/fixtures.md",
-      "sourceUnit": "rule:fixtures",
+      "sourcePath": ".skillset/rules/apps/skillset/src/__tests__/testing.md",
+      "sourceUnit": "rule:apps/skillset/src/__tests__/testing",
       "status": "transformed",
       "target": "cursor"
     },
@@ -630,6 +646,33 @@
       "sourceUnit": "rule:fixtures/AGENTS.md",
       "status": "transformed",
       "target": "codex"
+    },
+    {
+      "destination": "rule",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/rules.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:4dafac23fa5461b8ce0a39dd8b69d0003628774a43e004c881a4e41a98588518",
+          "ref": "cursor-rules",
+          "verifiedAt": "2026-09-16"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": ".cursor/rules/fixtures/testing.mdc"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/rules/fixtures/testing.md",
+      "sourceUnit": "rule:fixtures/testing",
+      "status": "transformed",
+      "target": "cursor"
     },
     {
       "destination": "marketplaces",

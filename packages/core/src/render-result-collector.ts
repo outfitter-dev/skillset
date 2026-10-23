@@ -34,6 +34,7 @@ import {
   type SkillsetRenderResultPolicy,
 } from "./render-result";
 import { scopeForPath } from "./output-scope";
+import { ruleScopeRenderResults } from "./render-rules";
 import { compareStrings } from "./path";
 import { pluginPackageComponentFile } from "./plugin-component-paths";
 import {
@@ -236,6 +237,9 @@ export function collectRenderResults(
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedCursorRootRulesOutcomes(graph, options.scopes));
+  if (options.scopes === undefined || options.scopes.includes("project")) {
+    outcomes.push(...ruleScopeRenderResults(graph, mapOutputPath));
+  }
   outcomes.push(...unsupportedMcpOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));

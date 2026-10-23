@@ -1272,18 +1272,18 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/rules/docs.md": `
+      ".skillset/rules/docs/docs.md": `
 ---
 paths:
-  - docs/**/*.md
+  - "**/*.md"
 ---
 
 # Docs instructions
 `,
-      ".skillset/rules/typescript.md": `
+      ".skillset/rules/src/typescript.md": `
 ---
 paths:
-  - src/**/*.ts
+  - "**/*.ts"
 ---
 
 # TypeScript instructions
@@ -1302,8 +1302,8 @@ paths:
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
     await writeFile(join(root, "docs/AGENTS.md"), "# Edited docs output\n", "utf8");
     await writeFile(
-      join(root, ".skillset/rules/typescript.md"),
-      `${await readFile(join(root, ".skillset/rules/typescript.md"), "utf8")}\nUpdated source.\n`,
+      join(root, ".skillset/rules/src/typescript.md"),
+      `${await readFile(join(root, ".skillset/rules/src/typescript.md"), "utf8")}\nUpdated source.\n`,
       "utf8"
     );
 

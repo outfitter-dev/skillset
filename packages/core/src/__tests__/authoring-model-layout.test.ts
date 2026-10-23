@@ -640,6 +640,9 @@ Second.
       "skillset.yaml": `
 skillset:
   name: rule-segments
+compile:
+  # Wildcard scopes stay unsupported until SET-574.
+  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: true
@@ -672,6 +675,11 @@ cursor: true
       classification: "literal",
       value: "(marketing)",
     });
+    const scopes = new Map(
+      graph.rules.map((rule) => [rule.id, [rule.scopeDir, rule.scopeSegments]])
+    );
+    expect(scopes.get("app/[slug]/routing")).toEqual(["app/[slug]", ["app", "[slug]"]]);
+    expect(scopes.get("apps/[.]/one")).toEqual(["apps/[.]", ["apps", "[.]"]]);
 
     await buildSkillset(root);
     expect(
@@ -682,7 +690,7 @@ cursor: true
     ).toBe(true);
     expect(
       await exists(join(root, ".claude/rules/apps/[...]/any.md"))
-    ).toBe(true);
+    ).toBe(false);
     expect(
       await exists(join(root, ".cursor/rules/app/[...slug]/catchall.mdc"))
     ).toBe(true);
@@ -704,6 +712,20 @@ cursor: false
     );
     await expect(loadBuildGraph(root)).rejects.toThrow("rename it to [...]");
   });
+
+  it("rejects brackets in a rule filename because the filename is the topic [SET-557]", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: bracket-rule-filename
+`,
+      ".skillset/rules/app/[slug].md": "Bad topic.\n",
+    });
+    await expect(loadBuildGraph(root)).rejects.toThrow(
+      ".skillset/rules/app/[slug].md has [ or ] in its filename"
+    );
+  });
+
   it("builds RULES.md, workspace subagents, plugin subagents, and relocated partials", async () => {
     const root = await authoringFixture();
     const result = await buildSkillsetResult(root);

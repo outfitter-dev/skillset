@@ -1,6 +1,6 @@
 ---
 paths:
-  - docs/**/*.md
+  - "**/*.md"
 ---
 
 # Docs Writing Rule

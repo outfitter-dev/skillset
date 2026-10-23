@@ -1,0 +1,5 @@
+# Skillset Fixture Work
+
+When changing Skillset test fixtures, fixture documentation, or fixture-backed tests, use the `skillset-dev-testing` skill first.
+
+Fixtures are internal compiler test material, not product source-root `tests.yaml` declarations. Keep fixture changes aligned with the current source contract and run the repo checks before handoff.

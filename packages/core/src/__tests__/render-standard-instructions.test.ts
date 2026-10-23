@@ -257,10 +257,10 @@ skillset:
 ${compile}
 `,
     ".skillset/rules/root.md": "# Root instructions\n",
-    ".skillset/rules/docs.md": `
+    ".skillset/rules/docs/docs.md": `
 ---
 paths:
-  - docs/**/*.md
+  - "**/*.md"
 ---
 
 # Documentation instructions

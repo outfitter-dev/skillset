@@ -758,6 +758,23 @@ async function loadRules(
           rootPath,
           sourcePath
         );
+    // The filename is the rule's topic; brackets belong only to directory
+    // segments, where they are literal names or reserved scopes.
+    if (/[[\]]/u.test(basename(sourcePath))) {
+      throw new Error(
+        `skillset: ${sourceLabel} has [ or ] in its filename; brackets are only valid in rule directory names`
+      );
+    }
+    const scopeSegments = segments.map((segment) => segment.value);
+    // A scope inside the source root would write an AGENTS.md that the next
+    // build reads back as authored rule source.
+    const sourceRootRelative = relative(rootPath, sourceRootPath).replaceAll("\\", "/");
+    const scopeDirectory = scopeSegments.join("/");
+    if (scopeDirectory === sourceRootRelative || scopeDirectory.startsWith(`${sourceRootRelative}/`)) {
+      throw new Error(
+        `skillset: ${sourceLabel} governs ${scopeDirectory}/, inside the ${sourceRootRelative}/ source root; rules cannot scope to Skillset source`
+      );
+    }
     const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
       validateRuleFrontmatter(frontmatter, sourceLabel).diagnostics,
@@ -776,6 +793,8 @@ async function loadRules(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      scopeDir: scopeSegments.join("/"),
+      scopeSegments,
       segments,
       ...(rootFrontPage ? { rootFrontPage: true } : {}),
       ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
