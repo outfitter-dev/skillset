@@ -53,6 +53,27 @@ describe("terminology guard", () => {
     expect(scanContent("a.md", "compile.unsupportedDestination defaults to error")).toEqual([]);
   });
 
+  it("ADR-0044: flags update used for self-upgrade, not workspace update", () => {
+    const label = "update for self-upgrade -> skillset upgrade (ADR-0044)";
+    for (const line of [
+      "Run `skillset update --self` to get the newest release.",
+      "skillset self-update fetches the latest binary",
+      "Updating the Skillset CLI is one command.",
+      "update skillset itself before building",
+    ]) {
+      expect(scanContent("a.md", line).map((v) => v.label)).toContain(label);
+    }
+    for (const line of [
+      "`skillset update` previews registered provider format migrations.",
+      "skillset upgrade brings Skillset and its tooling current.",
+      "Update the skill, then rebuild.",
+      "Update the Skillset CLI documentation when a flag changes.",
+      "Updating the Skillset CLI help text is a docs change.",
+    ]) {
+      expect(scanContent("a.md", line)).toEqual([]);
+    }
+  });
+
   it("flags retired rule spellings (ADR-0039)", () => {
     const labelsFor = (file: string, text: string) => scanContent(file, text).map((v) => v.label);
     expect(labelsFor("a.ts", 'const id = "instruction-frontmatter";')).toContain(
