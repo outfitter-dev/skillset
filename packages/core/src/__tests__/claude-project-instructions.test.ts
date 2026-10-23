@@ -211,7 +211,8 @@ describe("SET-580 Claude project instructions", () => {
   it("rebases RULES.md and scoped-rule links for each destination's depth [SET-755]", async () => {
     const root = await authoringFixture({
       ".skillset/RULES.md": "# Guide\n\nRead [tenets](docs/tenets.md#why) and [site](https://example.com).\n",
-      ".skillset/rules/services/linking.md": "See [the service readme](README.md).\n",
+      ".skillset/rules/services/linking.md": "See [the service readme](README.md).\n\n{{> service-links}}\n",
+      ".skillset/shared/partials/service-links.md": "Also read [the runbook](RUNBOOK.md).\n",
     });
 
     await buildSkillset(root);
@@ -230,6 +231,12 @@ describe("SET-580 Claude project instructions", () => {
     );
     expect(await readFile(join(root, ".cursor/rules/services/linking.mdc"), "utf8")).toContain(
       "[the service readme](../../../services/README.md)"
+    );
+    expect(await readFile(join(root, "services/AGENTS.md"), "utf8")).toContain(
+      "[the runbook](RUNBOOK.md)"
+    );
+    expect(await readFile(join(root, ".claude/rules/services/linking.md"), "utf8")).toContain(
+      "[the runbook](../../../services/RUNBOOK.md)"
     );
   });
 

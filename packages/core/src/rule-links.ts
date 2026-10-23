@@ -1,5 +1,7 @@
 import { posix } from "node:path";
 
+import { markdownCodeRanges } from "./preprocess";
+
 /**
  * Where an authored rule's relative links are anchored, and where one
  * rendering of it lands. Both are workspace-relative POSIX directories; `""`
@@ -10,9 +12,11 @@ export interface RuleLinkBase {
   readonly outputDir: string;
 }
 
-const INLINE_LINK = /(!?\[[^\]\n]*\]\()([^)\s]+)(\))/g;
-const FENCE = /^\s*(```|~~~)/;
-const INLINE_CODE = /(`+)[^`]*?\1/g;
+// `](destination "optional title")`: matching on `](` also reaches the outer
+// target of a link whose text holds an image, as in `[![badge](a.svg)](b.md)`.
+const INLINE_DESTINATION = /\]\(([ \t]*)([^\s()<>]+)((?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*\))/g;
+// `[label]: destination` reference definitions.
+const REFERENCE_DEFINITION = /^( {0,3}\[[^\]\n]+\]:[ \t]*)([^\s<>]+)/gm;
 
 /**
  * Rebase relative Markdown link targets in a rule body for one destination.
@@ -22,52 +26,55 @@ const INLINE_CODE = /(`+)[^`]*?\1/g;
  * `rules/apps/*.md`. That is where its `AGENTS.md` lands, so that projection is
  * unchanged. Every other destination (`.claude/CLAUDE.md`, `.claude/rules/`,
  * `.cursor/rules/`) sits at a different depth and gets the same targets
- * re-expressed relative to itself. URLs, anchors, absolute paths, template
- * references, angle-bracket targets, and anything inside code are left alone.
+ * re-expressed relative to itself. Inline links (with or without a title) and
+ * reference definitions are rebased; URLs, anchors, absolute paths,
+ * angle-bracket targets, template references, and anything inside code are
+ * left alone.
  */
 export function rebaseRuleLinks(body: string, base: RuleLinkBase): string {
   const scopeDir = normalizeDir(base.scopeDir);
   const outputDir = normalizeDir(base.outputDir);
   if (scopeDir === outputDir) return body;
 
-  let inFence = false;
-  return body
-    .split("\n")
-    .map((line) => {
-      if (FENCE.test(line)) {
-        inFence = !inFence;
-        return line;
-      }
-      if (inFence) return line;
-      return rebaseLine(line, scopeDir, outputDir);
-    })
-    .join("\n");
-}
+  const codeRanges = markdownCodeRanges(body);
+  const inCode = (index: number): boolean =>
+    codeRanges.some(([start, end]) => index >= start && index < end);
+  const rebase = (target: string): string | undefined =>
+    rebaseTarget(target, scopeDir, outputDir);
 
-function rebaseLine(line: string, scopeDir: string, outputDir: string): string {
-  const codeSpans = [...line.matchAll(INLINE_CODE)].map((match) => {
-    const start = match.index;
-    return { end: start + match[0].length, start };
-  });
-  return line.replaceAll(INLINE_LINK, (match, open: string, target: string, close: string, offset: number) => {
-    if (codeSpans.some((span) => offset >= span.start && offset < span.end)) return match;
-    const rebased = rebaseTarget(target, scopeDir, outputDir);
-    return rebased === undefined ? match : `${open}${rebased}${close}`;
-  });
+  const inlineRebased = body.replaceAll(
+    INLINE_DESTINATION,
+    (match, space: string, target: string, rest: string, offset: number) => {
+      if (inCode(offset)) return match;
+      const rebased = rebase(target);
+      return rebased === undefined ? match : `](${space}${rebased}${rest}`;
+    }
+  );
+  // Inline rebasing shifts offsets, so code ranges are recomputed for the
+  // reference-definition pass.
+  const definitionRanges = markdownCodeRanges(inlineRebased);
+  return inlineRebased.replaceAll(
+    REFERENCE_DEFINITION,
+    (match, prefix: string, target: string, offset: number) => {
+      if (definitionRanges.some(([start, end]) => offset >= start && offset < end)) return match;
+      const rebased = rebase(target);
+      return rebased === undefined ? match : `${prefix}${rebased}`;
+    }
+  );
 }
 
 function rebaseTarget(target: string, scopeDir: string, outputDir: string): string | undefined {
   if (!isRelativeTarget(target)) return undefined;
-  const hashIndex = target.indexOf("#");
-  const path = hashIndex === -1 ? target : target.slice(0, hashIndex);
-  const fragment = hashIndex === -1 ? "" : target.slice(hashIndex);
-  const resolved = posix.join(scopeDir, path);
-  const rebased = posix.relative(outputDir, resolved);
-  return `${rebased.length === 0 ? "." : rebased}${fragment}`;
+  const suffixIndex = target.search(/[?#]/u);
+  const path = suffixIndex === -1 ? target : target.slice(0, suffixIndex);
+  const suffix = suffixIndex === -1 ? "" : target.slice(suffixIndex);
+  if (path.length === 0) return undefined;
+  const rebased = posix.relative(outputDir, posix.join(scopeDir, path));
+  return `${rebased.length === 0 ? "." : rebased}${suffix}`;
 }
 
 function isRelativeTarget(target: string): boolean {
-  if (target.startsWith("#") || target.startsWith("/") || target.startsWith("<")) return false;
+  if (target.startsWith("#") || target.startsWith("/") || target.startsWith("?")) return false;
   if (target.includes("{{")) return false;
   return !/^[a-z][a-z0-9+.-]*:/i.test(target);
 }

@@ -40,7 +40,7 @@ Use `skillset new rule <name>` to preview a normalized source file under `.skill
 
 Rule bodies support [preprocessing](preprocessing.md). Set `skillset.preprocess: false` when recognized Skillset expressions must remain literal.
 
-Write a rule's relative Markdown links as seen from the directory the rule applies to: the repository root for `RULES.md`, and `apps/` for `rules/apps/*.md`. That is where the rule's `AGENTS.md` lands, so that file keeps the links unchanged. Every other destination, such as `.claude/CLAUDE.md`, `.claude/rules/`, and `.cursor/rules/`, gets each link rebased to its own depth. URLs, `#` anchors, absolute paths, `<...>` targets, preprocessing expressions, and links inside code are left as written.
+Write a rule's relative Markdown links as seen from the directory the rule applies to: the repository root for `RULES.md`, and `apps/` for `rules/apps/*.md`. That is where the rule's `AGENTS.md` lands, so that file keeps the links unchanged. Every other destination, such as `.claude/CLAUDE.md`, `.claude/rules/`, and `.cursor/rules/`, gets each link rebased to its own depth. This covers inline links (with or without a title), reference definitions, and links inside included partials. URLs, `#` anchors, absolute paths, `<...>` targets, preprocessing expressions, and links inside code are left as written.
 
 ## Destination behavior
 
