@@ -11,5 +11,4 @@ RUN mkdir -p /opt/skillset-bun/bin \
     && rm -f /usr/bin/bun /usr/bin/bunx /bin/bun /bin/bunx /usr/local/bin/bun /usr/local/bin/bunx \
     && ln -sf bun /opt/skillset-bun/bin/bunx
 ENV PATH="/opt/skillset-bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ENV BUN_INSTALL_BIN="/opt/skillset-bun/bin"
 RUN test "$(bun --version)" = "1.4.0"
