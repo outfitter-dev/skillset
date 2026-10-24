@@ -14,6 +14,7 @@ const ENGINE = {
   x64: "registry.dagger.io/engine@sha256:26d90bdc6f04bb00494ab7af3696436112aa939702775af77428e6a6ee922461",
 };
 const VERSION = "v1.0.0-beta.21";
+const CHILD_MARKER = "SKILLSET_DAGGER_SPIKE_CHILD";
 type Mode = "serial" | "sharded" | "focused";
 interface Options {
   bundle: string;
@@ -147,6 +148,45 @@ bun -e 'import {loadShardContract} from "./scripts/test-shard-contract"; await l
 }
 
 const q = JSON.stringify;
+
+/** Bind Docker's config-addressed image to the image imported by Dagger. */
+export function verifyRuntimeArchive(
+  archive: string,
+  image: string,
+  platform: string
+): void {
+  const entry = (name: string): Buffer => {
+    const result = Bun.spawnSync(["tar", "-xOf", archive, "--", name], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (result.exitCode !== 0)
+      throw new Error(`cannot read runtime archive metadata: ${name}`);
+    return result.stdout;
+  };
+  const manifest = JSON.parse(entry("manifest.json").toString()) as {
+    Config?: unknown;
+  }[];
+  if (!Array.isArray(manifest) || manifest.length !== 1)
+    throw new Error("runtime archive must contain exactly one Docker image");
+  const configPath = manifest[0]?.Config;
+  if (
+    typeof configPath !== "string" ||
+    !/^(?:blobs\/sha256\/[0-9a-f]{64}|[0-9a-f]{64}\.json)$/.test(configPath)
+  )
+    throw new Error("invalid runtime archive config path");
+  const bytes = entry(configPath);
+  const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  if (digest !== image)
+    throw new Error("runtime archive config digest differs from --image");
+  const config = JSON.parse(bytes.toString()) as {
+    os?: unknown;
+    architecture?: unknown;
+  };
+  if (`${config.os}/${config.architecture}` !== platform)
+    throw new Error("runtime archive platform differs from --platform");
+}
+
 async function query<T>(document: string): Promise<T> {
   const port = process.env.DAGGER_SESSION_PORT;
   const token = process.env.DAGGER_SESSION_TOKEN;
@@ -274,10 +314,18 @@ async function dockerRun(options: Options): Promise<void> {
 
 async function main(): Promise<number> {
   const options = spikeOptions(process.argv.slice(2));
-  if (process.env.DAGGER_SESSION_PORT) {
+  if (process.env[CHILD_MARKER] !== undefined) {
+    if (
+      process.env[CHILD_MARKER] !== "1" ||
+      !process.env.DAGGER_SESSION_PORT ||
+      options.backend !== "dagger"
+    )
+      throw new Error("invalid internal Dagger session state");
     await daggerRun(options);
     return 0; // Outer process verifies evidence after the CLI session/export ends.
   }
+  if (process.env.DAGGER_SESSION_PORT || process.env.DAGGER_SESSION_TOKEN)
+    throw new Error("run the spike outside an existing Dagger API session");
   if (await lstat(options.out).catch(() => null))
     throw new Error("output already exists");
   await realpath(dirname(options.out));
@@ -303,6 +351,28 @@ async function main(): Promise<number> {
         .update(await readFile(options.runtimeTar))
         .digest("hex")
     : null;
+  if (options.runtimeTar)
+    verifyRuntimeArchive(options.runtimeTar, options.image, options.platform);
+  if (options.runtimeTar && options.backend === "docker") {
+    const inspected = Bun.spawnSync(
+      ["docker", "image", "inspect", options.image, "--format", "{{json .}}"],
+      { stdout: "pipe", stderr: "pipe" }
+    );
+    if (inspected.exitCode !== 0)
+      throw new Error("saved runtime image must already be loaded in Docker");
+    const image = JSON.parse(inspected.stdout.toString()) as {
+      Id?: unknown;
+      Os?: unknown;
+      Architecture?: unknown;
+    };
+    if (
+      image.Id !== options.image ||
+      `${image.Os}/${image.Architecture}` !== options.platform
+    )
+      throw new Error(
+        "Docker image identity/platform differs from runtime archive"
+      );
+  }
   const started = performance.now();
   const startedAt = new Date().toISOString();
   let error: string | null = null;
@@ -327,6 +397,10 @@ async function main(): Promise<number> {
         DAGGER_NO_NAG: "1",
         DAGGER_NO_UPDATE_CHECK: "1",
       };
+      delete env.DAGGER_SESSION_PORT;
+      delete env.DAGGER_SESSION_TOKEN;
+      delete env[CHILD_MARKER];
+      env[CHILD_MARKER] = "1";
       delete env.DAGGER_CLOUD_TOKEN;
       delete env.DAGGER_CLOUD_ENGINE;
       const log = openSync(`${options.out}.engine.log`, "wx");
