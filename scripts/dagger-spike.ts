@@ -103,6 +103,8 @@ export function spikeOptions(argv: readonly string[]): Options {
 }
 
 const PREPARE = `set -euo pipefail
+# The official base image's global override defeats isolated BUN_INSTALL fixtures.
+unset BUN_INSTALL_BIN
 test "$(bun --version)" = 1.4.0
 mkdir -p /out /inputs /work
 git clone --quiet --no-hardlinks --no-tags /inputs/repo.bundle /work/repo
@@ -182,6 +184,7 @@ async function daggerRun(options: Options): Promise<void> {
     options.runtimeTar
       ? `import(source:${q(await file(options.runtimeTar))})`
       : `from(address:${q(options.image)})`,
+    `withoutEnvVariable(name:"BUN_INSTALL_BIN")`,
     `withFile(path:"/inputs/repo.bundle",source:${q(await file(options.bundle))})`,
   ];
   for (const [name, value] of Object.entries(environment(options)))
