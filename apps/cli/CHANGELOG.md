@@ -1,5 +1,35 @@
 # @skillset/cli
 
+## 0.30.0
+
+### Minor Changes
+
+- 28dc751: `skillset import` and `skillset adopt` now warn instead of failing when a provider's native plugin `author` cannot become canonical source (a scalar like `42`, `{}`, an email-only object, or an empty or non-string `name`). The raw value is kept on that provider's `<provider>.manifest.author` override so it doesn't disappear, and `skillset.author` still comes only from a readable author. The `unreadable-plugin-author` adopt diagnostic is now a warning, so adoption plans and writes go through. A later build can still fail the provider's manifest conformance if the kept value is invalid there.
+
+### Patch Changes
+
+- 2bcac1a: Change-ledger and release fixes:
+
+  - `draft`, `promote`, and `move --yes` now mint a fresh ledger event id per run, so two branches running the same command from the same trunk ledger no longer produce a duplicate id that breaks every ledger read after a merge.
+  - `bun run change-stream:guard` accept a second amendment of the same change or release, and compare trunk's prefix correctly in CRLF checkouts.
+  - A failed `release apply` restores pending change files with their original permissions, and rolling back ledger appends keeps unrelated blank lines.
+  - Release baseline seeding (`skillset setup`, `skillset import`) writes `state.json` under the change-ledger lock.
+  - Note for `--json` consumers: since the lifecycle ledger moved to an owned append, the ledger entry in `draft`, `promote`, and `move` JSON plans reports `plan.operations[].kind: "append"` where it previously reported `"update"`.
+
+- f28936c: `skillset list` now labels the bare `.skillset/rules` source as "workspace rules" instead of the retired "workspace instructions".
+- 9509bf3: Package placement errors no longer cite internal tracker IDs; they say the requested `plugins.output` placement is not yet supported.
+- c9a1fd9: `skillset resolve` now finds a tracked `skillset.lock` whose path contains a newline; it reads tracked locks NUL-delimited instead of line by line.
+- d578b91: Rebased rule links now percent-encode spaces, `#`, `?`, `%`, and unbalanced parentheses in rule folder names, so a rule under a folder like `my app/` links correctly from `.claude/rules/` and `.cursor/rules/`.
+- 3525b36: Relative Markdown links in rule bodies now work in every destination. Skillset reads a rule's links as relative to the directory the rule applies to (the repository root for `RULES.md`), keeps them unchanged in that directory's `AGENTS.md`, and rebases them for `.claude/CLAUDE.md`, `.claude/rules/`, and `.cursor/rules/`.
+- 72b2ad6: The SessionStart stale-output hint now tells agents to preview with `npx skillset build`, write with `npx skillset build --yes`, and read the `use-skillset` skill, instead of naming a `skillset-help` skill that does not exist.
+- 5969c05: Source move and pending-change fixes:
+
+  - Releasing a reason after `skillset move` retires the old selector from the moved skill's own version instead of the workspace version, so a skill released at 1.2.3 no longer records its retirement as `0.1.0 -> 0.1.1`.
+  - Moving a skill out of a plugin no longer leaves the source plugin (`plugin:<name>`) uncovered in `change check` and `change refresh`.
+  - Moving a skill onto a selector that an earlier move in the same release window vacated now associates the removal with the pending reason instead of blocking check, refresh, and release.
+  - Recovery guidance offers `skillset change migrate` when a legacy entry's only error is stale evidence, since migration succeeds in that case.
+  - Rewriting authored YAML on move or rename keeps flow lists such as `scopes: [x]` and their comments instead of turning them into block lists.
+
 ## 0.29.0
 
 ## 0.28.0
