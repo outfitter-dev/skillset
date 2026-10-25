@@ -1,5 +1,49 @@
 # skillset
 
+## 0.30.0
+
+### Minor Changes
+
+- 8b4fd6f: Generated `AGENTS.md` files now wrap each rule in an XML section with `source` and `applies_to` attributes when the file combines rules or one rule narrows with `paths:`, replacing the `<!-- source: … -->` boundary comments, which Claude strips. A lone rule without `paths:` and the `RULES.md` front page stay bare, and `CLAUDE.md` no longer carries a source comment. Builds warn when two rules reaching one `AGENTS.md` both carry a `## Code Review Rules` section.
+- 28dc751: `skillset import` and `skillset adopt` now warn instead of failing when a provider's native plugin `author` cannot become canonical source (a scalar like `42`, `{}`, an email-only object, or an empty or non-string `name`). The raw value is kept on that provider's `<provider>.manifest.author` override so it doesn't disappear, and `skillset.author` still comes only from a readable author. The `unreadable-plugin-author` adopt diagnostic is now a warning, so adoption plans and writes go through. A later build can still fail the provider's manifest conformance if the kept value is invalid there.
+- e02c52a: `skillset new hook` without `--attach` now writes a shared hook definition to `.skillset/hooks/` instead of failing. It prints how to attach the hook with `hooks.auto` in a plugin, skill, or project agent, since shared hooks render only where attached.
+- f71bf5c: A rule's directory under `.skillset/rules/` is now its scope: `rules/<dir>/<topic>.md` renders `<dir>/AGENTS.md`, `rules/<topic>.md` is unscoped, and `paths:` narrows files within the scope relative to it. Claude and Cursor globs are derived from the scope, with the literal scope escaped for Claude. Destinations no longer depend on which files exist in the working tree.
+
+  Wildcard scopes (`[.]`, `[...]`) render nothing and record an `unsupported` result until wildcard expansion lands. Codex `paths:` narrowing and unescaped Cursor punctuation are reported as `degraded` render results. Builds warn on an unmanaged `AGENTS.override.md` beside a generated `AGENTS.md`, on a `paths:` entry that repeats its scope directory, and on a scope directory that does not exist yet. Rule filenames may no longer contain `[` or `]`.
+
+  Migration: a top-level rule that relied on `paths:` to reach a nested `AGENTS.md` now lands in the root `AGENTS.md`; move it under `rules/<dir>/` and make its `paths:` relative to that directory.
+
+### Patch Changes
+
+- 411d5c6: Correct CLI help: `check` lists `--isolated`, `create --root` describes the parent directory, `--include`, `--preset`, `--targets`, `--timeout-ms`, and `--lines` describe what they accept, `build --repair` shows `--yes`, `eval` has a command summary, `resolve` sits beside `reconcile`, `new` has examples, and the CI workflow header names both `create` and `init`.
+- aa4fbe3: `skillset explain` no longer reports never-written outputs as `target state: sync`: it marks them `planned (not written)`, lists the render results blocking the build, prefers the writer of the exact path asked about (naming bundle files and their source), and limits feature support rows to targets enabled in `compile.targets`.
+- e1abe4b: Recognize generated-output drift that `skillset build --yes` can repair on its own. When every drifted generated file differs from its source render only in whitespace or layout (equal parsed JSON, or Markdown with the same words, structure, frontmatter, and code), `skillset check` names a formatter as the likely cause and offers `skillset build` and `skillset build --yes` instead of reconcile or provider-format migration. Generated edits whose reconciliation is blocked only by each other are now one rebuildable set rather than a "cannot be rebuilt mechanically" manual-review deadlock.
+- d32f038: `skillset init` now points at `skillset init --adopt all --yes` when it finds existing guidance to import, instead of suggesting a build that would collide with it.
+- 05865de: `skillset init --include ci` now adds the CI workflow to an existing workspace instead of refusing because `.skillset/RULES.md` or another scaffold file was edited or came from `skillset create`.
+- 2bcac1a: Change-ledger and release fixes:
+
+  - `draft`, `promote`, and `move --yes` now mint a fresh ledger event id per run, so two branches running the same command from the same trunk ledger no longer produce a duplicate id that breaks every ledger read after a merge.
+  - `bun run change-stream:guard` accept a second amendment of the same change or release, and compare trunk's prefix correctly in CRLF checkouts.
+  - A failed `release apply` restores pending change files with their original permissions, and rolling back ledger appends keeps unrelated blank lines.
+  - Release baseline seeding (`skillset setup`, `skillset import`) writes `state.json` under the change-ledger lock.
+  - Note for `--json` consumers: since the lifecycle ledger moved to an owned append, the ledger entry in `draft`, `promote`, and `move` JSON plans reports `plan.operations[].kind: "append"` where it previously reported `"update"`.
+
+- f28936c: `skillset list` now labels the bare `.skillset/rules` source as "workspace rules" instead of the retired "workspace instructions".
+- 9509bf3: Package placement errors no longer cite internal tracker IDs; they say the requested `plugins.output` placement is not yet supported.
+- c9a1fd9: `skillset resolve` now finds a tracked `skillset.lock` whose path contains a newline; it reads tracked locks NUL-delimited instead of line by line.
+- d578b91: Rebased rule links now percent-encode spaces, `#`, `?`, `%`, and unbalanced parentheses in rule folder names, so a rule under a folder like `my app/` links correctly from `.claude/rules/` and `.cursor/rules/`.
+- 3525b36: Relative Markdown links in rule bodies now work in every destination. Skillset reads a rule's links as relative to the directory the rule applies to (the repository root for `RULES.md`), keeps them unchanged in that directory's `AGENTS.md`, and rebases them for `.claude/CLAUDE.md`, `.claude/rules/`, and `.cursor/rules/`.
+- 061c0ef: `skillset init` and `skillset create` no longer scaffold empty `_claude/` and `_codex/` provider folders, and builds ignore `.gitkeep` placeholders in provider folders, so a fresh workspace no longer emits `.claude/.gitkeep` or `.codex/.gitkeep`.
+- 21b36ba: Scaffolded `RULES.md` and `skillset new rule` placeholders now say "rules" instead of "repository instructions", `new rule` adds a commented `paths:` hint, and the `new agent --in` error points at `.skillset/subagents/`.
+- 72b2ad6: The SessionStart stale-output hint now tells agents to preview with `npx skillset build`, write with `npx skillset build --yes`, and read the `use-skillset` skill, instead of naming a `skillset-help` skill that does not exist.
+- 5969c05: Source move and pending-change fixes:
+
+  - Releasing a reason after `skillset move` retires the old selector from the moved skill's own version instead of the workspace version, so a skill released at 1.2.3 no longer records its retirement as `0.1.0 -> 0.1.1`.
+  - Moving a skill out of a plugin no longer leaves the source plugin (`plugin:<name>`) uncovered in `change check` and `change refresh`.
+  - Moving a skill onto a selector that an earlier move in the same release window vacated now associates the removal with the pending reason instead of blocking check, refresh, and release.
+  - Recovery guidance offers `skillset change migrate` when a legacy entry's only error is stale evidence, since migration succeeds in that case.
+  - Rewriting authored YAML on move or rename keeps flow lists such as `scopes: [x]` and their comments instead of turning them into block lists.
+
 ## 0.29.0
 
 ### Minor Changes
