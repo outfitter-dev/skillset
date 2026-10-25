@@ -13,6 +13,9 @@
 # - The comment step prefers gh >= 2.68 (--create-if-none) and falls back to a new comment.
 # - merge_group runs the required checks on the merge queue's candidate commit,
 #   read-only like push: no --fix, no mechanical-fix push, no PR comment.
+# - A queued generated release PR (changeset-release/main) runs the release
+#   package check on its candidate commit, as it does on its PR head; the
+#   source Changeset gate would reject its version bumps.
 # - Draft pull requests run the fast tier (`bun run check:fast`) instead of the
 #   full `bun run check`; the full gate runs once a pull request is ready for
 #   review and again on the merge queue's candidate commit, which is what gates
@@ -127,13 +130,42 @@ jobs:
           else
             echo "read_only=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Detect generated release head
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GIT_REF: ${{ github.ref }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          QUEUE_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          is_release=false
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              [ "$GIT_REF" = "refs/heads/changeset-release/main" ] && is_release=true
+              ;;
+            pull_request)
+              [ "$PR_HEAD_REF" = "changeset-release/main" ] && [ "$PR_HEAD_REPO" = "$GH_REPO" ] && is_release=true
+              ;;
+            merge_group)
+              # Queue refs look like refs/heads/gh-readonly-queue/<base>/pr-<number>-<sha>.
+              pr_number="$(printf '%s' "$QUEUE_HEAD_REF" | sed -nE 's#^refs/heads/gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]+$#\1#p')"
+              if [ -n "$pr_number" ]; then
+                pr_head="$(gh pr view "$pr_number" --repo "$GH_REPO" --json headRefName,headRepository,headRepositoryOwner --jq '"\(.headRepositoryOwner.login)/\(.headRepository.name) \(.headRefName)"')"
+                [ "$pr_head" = "$GH_REPO changeset-release/main" ] && is_release=true
+              fi
+              ;;
+          esac
+          echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
       - name: Check generated release package
         id: release_package
-        if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/changeset-release/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'changeset-release/main')
+        if: steps.release.outputs.is_release == 'true'
         run: bun scripts/publish.ts check
       - name: Run skillset check --ci
         id: skillset
-        if: (github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/changeset-release/main') && (github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'changeset-release/main')
+        if: steps.release.outputs.is_release != 'true'
         run: >-
           bun run test:sandbox -- bun ./apps/skillset/src/cli.ts check --ci
           ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.stack.outputs.read_only != 'true' && '--fix' || '' }}
