@@ -109,6 +109,21 @@ describe("rebaseRuleLinks [SET-755]", () => {
     ).toBe('[guide](../docs/(maintenance)/a.md "T") and [b](../docs/a(b).md)');
   });
 
+  it("percent-encodes scope-directory characters that break a bare destination [SET-756]", () => {
+    expect(
+      rebaseRuleLinks("[readme](README.md#setup)", { outputDir: ".claude/rules/my app", scopeDir: "my app" })
+    ).toBe("[readme](../../../my%20app/README.md#setup)");
+    expect(
+      rebaseRuleLinks("[readme](README.md)", { outputDir: ".claude/rules/my#app?", scopeDir: "my#app?" })
+    ).toBe("[readme](../../../my%23app%3F/README.md)");
+    expect(
+      rebaseRuleLinks("[a](README.md) [b](x.md)", { outputDir: ".cursor/rules/50%", scopeDir: "50%" })
+    ).toBe("[a](../../../50%25/README.md) [b](../../../50%25/x.md)");
+    expect(
+      rebaseRuleLinks("[a](README.md)", { outputDir: ".claude/rules/(group)/odd)", scopeDir: "(group)/odd)" })
+    ).toBe("[a](../../../../(group)/odd%29/README.md)");
+  });
+
   it("rebases a link to the scope directory itself", () => {
     expect(
       rebaseRuleLinks("[here](.)", { outputDir: ".claude", scopeDir: "" })

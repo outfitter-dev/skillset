@@ -103,8 +103,37 @@ function rebaseTarget(target: string, scopeDir: string, outputDir: string): stri
   const path = suffixIndex === -1 ? target : target.slice(0, suffixIndex);
   const suffix = suffixIndex === -1 ? "" : target.slice(suffixIndex);
   if (path.length === 0) return undefined;
-  const rebased = posix.relative(outputDir, posix.join(scopeDir, path));
+  // The author's path is already a valid destination; only the directory
+  // names Skillset adds need encoding.
+  const rebased = posix.relative(encodeDir(outputDir), posix.join(encodeDir(scopeDir), path));
   return `${rebased.length === 0 ? "." : rebased}${suffix}`;
+}
+
+/**
+ * Percent-encode the characters a literal scope or output directory name can
+ * hold that would break a bare Markdown destination: `%`, whitespace, `#`,
+ * `?`, and parentheses that are not balanced within their segment.
+ */
+function encodeDir(directory: string): string {
+  return directory
+    .split("/")
+    .map((segment) => {
+      const encoded = segment.replaceAll(/[%\s#?]/gu, (char) => encodeURIComponent(char));
+      return hasBalancedParentheses(encoded)
+        ? encoded
+        : encoded.replaceAll("(", "%28").replaceAll(")", "%29");
+    })
+    .join("/");
+}
+
+function hasBalancedParentheses(segment: string): boolean {
+  let depth = 0;
+  for (const char of segment) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (depth < 0) return false;
+  }
+  return depth === 0;
 }
 
 function isRelativeTarget(target: string): boolean {
