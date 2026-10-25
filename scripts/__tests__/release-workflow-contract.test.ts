@@ -60,25 +60,44 @@ describe("generated release PR workflow contract", () => {
   test("CI validates generated release heads without source Changeset checks", async () => {
     const workflow = await readWorkflow("ci.yml");
     const steps = workflow.jobs?.["skillset-ci"]?.steps ?? [];
+    const detect = steps.find((step) => step.name === "Detect generated release head");
     const releaseCheck = steps.find(
       (step) => step.name === "Check generated release package"
     );
     const sourceCheck = steps.find((step) => step.name === "Run skillset check --ci");
 
     expect(workflow.on?.workflow_dispatch).toEqual({});
+    expect(workflow.on).toHaveProperty("merge_group");
+    expect(detect?.env?.PR_HEAD_REF).toBe("${{ github.event.pull_request.head.ref }}");
+    expect(detect?.env?.QUEUE_HEAD_REF).toBe("${{ github.event.merge_group.head_ref }}");
+    expect(detect?.run).toContain('[ "$GIT_REF" = "refs/heads/changeset-release/main" ]');
+    expect(detect?.run).toContain('[ "$PR_HEAD_REF" = "changeset-release/main" ]');
+    expect(detect?.run).toContain("merge_group)");
+    expect(detect?.run).toContain('[ "$pr_head" = "$GH_REPO changeset-release/main" ]');
+    expect(steps.indexOf(detect!)).toBeLessThan(steps.indexOf(releaseCheck!));
     expect(releaseCheck?.run).toBe("bun scripts/publish.ts check");
-    expect(releaseCheck?.if).toContain("github.event_name == 'workflow_dispatch'");
-    expect(releaseCheck?.if).toContain("refs/heads/changeset-release/main");
-    expect(releaseCheck?.if).toContain("github.event_name == 'pull_request'");
-    expect(releaseCheck?.if).toContain(
-      "github.event.pull_request.head.ref == 'changeset-release/main'"
+    expect(releaseCheck?.if).toBe("steps.release.outputs.is_release == 'true'");
+    expect(sourceCheck?.if).toBe("steps.release.outputs.is_release != 'true'");
+  });
+
+  test("merge queue refs resolve to their pull request number", async () => {
+    const workflow = await readWorkflow("ci.yml");
+    const detect = workflow.jobs?.["skillset-ci"]?.steps?.find(
+      (step) => step.name === "Detect generated release head"
     );
-    expect(sourceCheck?.if).toContain("github.event_name != 'workflow_dispatch'");
-    expect(sourceCheck?.if).toContain("refs/heads/changeset-release/main");
-    expect(sourceCheck?.if).toContain("github.event_name != 'pull_request'");
-    expect(sourceCheck?.if).toContain(
-      "github.event.pull_request.head.ref != 'changeset-release/main'"
-    );
+    const sedLine = detect?.run
+      ?.split("\n")
+      .find((line) => line.includes("sed -nE"));
+    const pattern = sedLine?.match(/'s#(.+)#\\1#p'/)?.[1];
+
+    expect(pattern).toBeDefined();
+    const queueRef = new RegExp(pattern ?? "$^");
+    expect(
+      "refs/heads/gh-readonly-queue/main/pr-680-3525b361552c6c8250654ab9b5f59597b4193555".match(
+        queueRef
+      )?.[1]
+    ).toBe("680");
+    expect("refs/heads/changeset-release/main".match(queueRef)).toBeNull();
   });
 
   test("release automation leaves generated PR CI behind GitHub's approval gate", async () => {
