@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:9fc13eb6ed771a999d91d604e650cc6fe754c8b72645a1625e5126be0db960e4",
   "items": [
     {
       "consumers": [
@@ -26,6 +27,7 @@
       "owner": {
         "target": "codex"
       },
+      "provenanceHash": "sha256:1e3ad5eed5e3238adad3f644b2ae93ffc9150da7ae225b18240d5395976d5bf9",
       "role": "bundle",
       "sourceHash": "sha256:c1cd8f6f9a31f5213dbf62ec3cdbadb52b81c449fd0ca9b57b6c6eb6929ee672",
       "sourcePath": "skillset.yaml",
@@ -53,6 +55,7 @@
       "owner": {
         "target": "claude"
       },
+      "provenanceHash": "sha256:f968e6e575ba885cfcc25c7a99c4ec1c9761b4732544c1eba707afc503262b17",
       "role": "bundle",
       "sourceHash": "sha256:a4586ac6504ed511640de31cb2d69e6892b964eab1f5b89ca2abc88ef01b481c",
       "sourcePath": "skillset.yaml",
@@ -79,6 +82,7 @@
       "owner": {
         "target": "claude"
       },
+      "provenanceHash": "sha256:0e1901b5dbe63170d5201de7646794e0ac0c4335462b35f00a67ee47899f370d",
       "role": "bundle",
       "sourceHash": "sha256:089f9acec1da166305d76670f65277dc6fc1d9711590f9798535a63fd830c7c2",
       "sourcePath": ".skillset/RULES.md",
@@ -96,6 +100,7 @@
       "outputHash": "sha256:72ff7c747fd2e1408fabd8035669d4584756c05ed129abf564d29037f1deef2f",
       "outputPath": ".claude/settings.json",
       "preprocessDependencies": [],
+      "provenanceHash": "sha256:50ea36cb177f0e70d89ecc6468e79bc1b314a2a2945f45f75cf2675f41ab52de",
       "role": "bundle",
       "sourceHash": "sha256:713324eeb285f7b5c087321cbdb94f4798d7b79bfd877c9787e9b4320abe90fe",
       "sourcePath": ".skillset/_claude/settings.json",
@@ -114,6 +119,7 @@
       "outputHash": "sha256:fdcde720382edcb35f12b8ac6732c4a28bca7c1167941d46f2ee683b1c4382a4",
       "outputPath": ".codex/hooks/hooks.json",
       "preprocessDependencies": [],
+      "provenanceHash": "sha256:000e1b9ff8a36fbf482156ccda8eb4dd45b2411623a940880f863b025785ba6a",
       "role": "bundle",
       "sourceHash": "sha256:83bd50d9972ac7db83484849f0d78fc30b131f7d80aed1190ede15c3175cee06",
       "sourcePath": ".skillset/_codex/hooks/hooks.json",
@@ -141,6 +147,7 @@
       "owner": {
         "target": "cursor"
       },
+      "provenanceHash": "sha256:80ba708aef4e18b63ca82b368fbdb65f38dfc0488e47ebe1f8394965c1a9116e",
       "role": "bundle",
       "sourceHash": "sha256:e8ab0e8a20551d714f4c80eb30f6a060af237ad8777fd53a2bd54a8669a8d98d",
       "sourcePath": "skillset.yaml",
@@ -158,6 +165,7 @@
       "name": "apps/skillset/src/__tests__/testing",
       "outputHash": "sha256:a1dc86addba79bf4b52deb160cc6446d625de4533baa6ca2b3ae4911f2ae816b",
       "outputPath": ".cursor/rules/apps/skillset/src/__tests__/testing.mdc",
+      "provenanceHash": "sha256:7fd18cd326273fe42753ef5f22e7cc020cbe3c8ba3846718b0b0c166ecbbb9df",
       "role": "bundle",
       "sourceHash": "sha256:c0b9eaac26da405d4879a4195816c83d144aaf73ce416eb50ddacb2f4da052c7",
       "sourcePath": ".skillset/rules/apps/skillset/src/__tests__/testing.md",
@@ -174,6 +182,7 @@
       "name": "fixtures/testing",
       "outputHash": "sha256:001e63e756a52c36bca41ad984202e657b7e781d9c366c0190b5a67bf91d44df",
       "outputPath": ".cursor/rules/fixtures/testing.mdc",
+      "provenanceHash": "sha256:bdb607d4047871322fce209967b9f9d79df4989e3f795f1fe98722b834fd4499",
       "role": "bundle",
       "sourceHash": "sha256:76d220ba69189e484c7f8ecc36c69f253e41728533fc0fa341d1380177ecccf0",
       "sourcePath": ".skillset/rules/fixtures/testing.md",
@@ -191,6 +200,7 @@
       "name": "skillset",
       "outputHash": "sha256:ce69ba3b8858cc2b15a523f258fe9f96c14ee692fc2d06f4e70665f8b78b94c9",
       "outputPath": ".skillset/plugins/skillset/CHANGELOG.md",
+      "provenanceHash": "sha256:09beeaa232baea655f2bbc7d03a1e971f895bef206b80f7dac572675b7c85b4c",
       "role": "bundle",
       "sourceHash": "sha256:f50c452c78adcfdaeeac449f639270b6a295e1b3a585317ed86e151061c63294",
       "sourcePath": ".skillset/plugins/skillset/skillset.yaml",
@@ -221,6 +231,7 @@
       "owner": {
         "standardProfile": "agent-instructions"
       },
+      "provenanceHash": "sha256:f4b866e018d46ff75d4d832751c08ee2d0c0776d2b66d15a9777dcc27d3488f9",
       "role": "standard",
       "sourceHash": "sha256:089f9acec1da166305d76670f65277dc6fc1d9711590f9798535a63fd830c7c2",
       "sourcePath": ".skillset/RULES.md",
@@ -250,6 +261,7 @@
       "owner": {
         "standardProfile": "agent-instructions"
       },
+      "provenanceHash": "sha256:d167287835bd774619e45f981717a79b0c15d5244abe6415a83b1f4a7afad880",
       "role": "standard",
       "sourceHash": "sha256:c0b9eaac26da405d4879a4195816c83d144aaf73ce416eb50ddacb2f4da052c7",
       "sourcePath": ".skillset/rules",
@@ -279,6 +291,7 @@
       "owner": {
         "standardProfile": "agent-instructions"
       },
+      "provenanceHash": "sha256:7730eb339cf37c142b32992011d988683eaefbc57754b10b47939a7b577954f7",
       "role": "standard",
       "sourceHash": "sha256:76d220ba69189e484c7f8ecc36c69f253e41728533fc0fa341d1380177ecccf0",
       "sourcePath": ".skillset/rules",
@@ -286,7 +299,6 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:9b21b474d7b268bf14a6283a7298feffec2590a6200fe4ee176ce0e0b3b1d332",
   "renderResults": [
     {
       "destination": "changelog",
@@ -768,7 +780,7 @@
       "target": "cursor"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-plugins-1.0",

@@ -2410,7 +2410,7 @@ async function renderLockFiles(
       selectedStandards: [...graph.standardProjections.adopted],
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
-      schemaVersion: 4,
+      schemaVersion: 5,
       sourceRoot: graph.sourceRoot,
       target: lock.target,
     };

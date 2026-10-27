@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:a156c21895dd04d4904d66a8c3fb1599318ccfcfa7be300f36dcfec126d8044f",
   "items": [
     {
       "consumers": [
@@ -29,6 +30,7 @@
       "owner": {
         "standardProfile": "agent-skills"
       },
+      "provenanceHash": "sha256:580b7e557b59fc9346ff290a34dd9f217dd811009ca48dfc0f82daf6b1177810",
       "role": "standard",
       "sourceHash": "sha256:9b21f33653bd6e43148fb5f7eb1f59d9d0812b18d4dfaf88ab0757d2a45c35cf",
       "sourcePath": ".skillset/skills/review-notes/SKILL.md",
@@ -36,7 +38,6 @@
     }
   ],
   "outputRoot": ".agents/skills",
-  "provenanceHash": "sha256:c3d894f9bf36795f04974e0f94d5851fd5e9a20e213cbbfea0ad519fbd16997b",
   "renderResults": [
     {
       "destination": "skill",
@@ -95,7 +96,7 @@
       "target": "codex"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-skills"

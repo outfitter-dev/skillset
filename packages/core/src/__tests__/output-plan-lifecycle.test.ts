@@ -154,12 +154,12 @@ describe("coalesced output lifecycle", () => {
     ]);
     const lockPath = join(root, ".agents/skills/skillset.lock");
     const lock = JSON.parse(await readFile(lockPath, "utf-8"));
-    lock.schemaVersion = 5;
+    lock.schemaVersion = 6;
     await Bun.write(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
     await expect(
       buildSkillsetResult(root, { scopes: ["repo"] })
-    ).rejects.toThrow("unsupported schemaVersion 5");
+    ).rejects.toThrow("unsupported schemaVersion 6");
     expect(
       await readFile(join(root, ".agents/skills/review/SKILL.md"), "utf-8")
     ).toBe("previous standard output\n");

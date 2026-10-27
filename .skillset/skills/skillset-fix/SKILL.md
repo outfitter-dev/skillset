@@ -141,7 +141,8 @@ the edit is confirmed unwanted. It cannot override a `diverged` verdict.
 
 ## Rebuild an untrusted lock
 
-A `lock-untrusted` verdict means the lock's own integrity check failed, so the
+A `lock-untrusted` verdict means the lock's own integrity check failed (its
+header hash or an entry's hash no longer verifies), so the
 repair cannot tell a stale output from a hand-edited one. The generated file is
 not necessarily wrong, and there is probably no misdirected edit to recover.
 

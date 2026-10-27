@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:e9f88dfaeff3cabb0ab9b04beb27bc5bc20adbc993a9b3421f6176836af7fdd6",
   "items": [
     {
       "fileModes": {
@@ -16,6 +17,7 @@
       "name": "team-guidance",
       "outputHash": "sha256:4da54604a6fcfa28044619261ecc87aa11251def772e62060495b6ac13c565dc",
       "outputPath": "team-guidance.md",
+      "provenanceHash": "sha256:997c54dd3a5dc0a12681dd19c4baa9485f8365610fd98daaa88cb002146bd68c",
       "role": "bundle",
       "sourceHash": "sha256:799395d3e21c9c0360d17cb9b0d5432a7d11e0d3164f9648e8c03b146ad51df0",
       "sourcePath": ".skillset/rules/team-guidance.md",
@@ -23,7 +25,6 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:fdc132eeb9a0b93fb5c7c35a0b7f3d437e4e10a7ee12320d2a3e47e2fda10774",
   "renderResults": [
     {
       "destination": "rule",
@@ -47,7 +48,7 @@
       "target": "claude"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-skills"

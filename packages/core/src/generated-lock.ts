@@ -5,7 +5,7 @@ import {
   type StandardProfileId,
 } from "@skillset/registry";
 
-import { hasValidLockProvenance } from "./lock-provenance";
+import { hasValidLockProvenance, usesPerEntryProvenance } from "./lock-provenance";
 import { parseRenderResult, type SkillsetRenderResult } from "./render-result";
 import { isTargetName } from "./targets";
 import type {
@@ -21,7 +21,7 @@ import type {
 } from "./types";
 import { isJsonRecord } from "./yaml";
 
-export type GeneratedLockSchemaVersion = 1 | 2 | 3 | 4;
+export type GeneratedLockSchemaVersion = 1 | 2 | 3 | 4 | 5;
 export type GeneratedLockHashSchema =
   | "skillset-output-v1"
   | "skillset-output-v2";
@@ -104,7 +104,7 @@ export type ParsedCurrentGeneratedLock = Omit<
   ParsedGeneratedLock,
   "schemaVersion"
 > & {
-  readonly schemaVersion: 4;
+  readonly schemaVersion: 4 | 5;
 };
 
 export interface ParseGeneratedLockOptions {
@@ -335,7 +335,7 @@ function parseGeneratedLockItem(
   if (schemaVersion < 4 && value.role !== undefined) {
     throw invalidLock(label, "pre-v4 items cannot declare role");
   }
-  const role = schemaVersion === 4 ? parseRole(value.role, label) : undefined;
+  const role = schemaVersion >= 4 ? parseRole(value.role, label) : undefined;
   validateOwnerConsumerRelationship(consumers, owner, label);
   if (role !== undefined) validateRoleOwnership(role, owner, label);
   if (kind === "settings-entry" && (ownedEntries === undefined || ownedEntries.length === 0)) {
@@ -609,7 +609,9 @@ function parseSchemaVersion(
   value: unknown,
   label: string
 ): GeneratedLockSchemaVersion {
-  if (value === 1 || value === 2 || value === 3 || value === 4) return value;
+  if (value === 1 || value === 2 || value === 3 || value === 4 || value === 5) {
+    return value;
+  }
   throw invalidLock(label, `unsupported schemaVersion ${String(value)}`);
 }
 
@@ -729,6 +731,18 @@ function validateProvenance(
   schemaVersion: GeneratedLockSchemaVersion,
   label: string
 ): void {
+  if (usesPerEntryProvenance(value)) {
+    if (value.headerHash === undefined) {
+      throw invalidLock(label, `schema v${schemaVersion} requires headerHash`);
+    }
+    if (!hasValidLockProvenance(value)) {
+      throw invalidLock(
+        label,
+        "has invalid provenanceHash: the headerHash and every item provenanceHash must verify"
+      );
+    }
+    return;
+  }
   if (value.provenanceHash === undefined) {
     if (schemaVersion >= 3) {
       throw invalidLock(label, `schema v${schemaVersion} requires provenanceHash`);

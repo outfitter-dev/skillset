@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:f4b5d0e221f02b96d6b1d1cf3fa82a78f0e9fd821c3041b950df1779064a80bb",
   "items": [
     {
       "consumers": [
@@ -29,6 +30,7 @@
       "owner": {
         "standardProfile": "agent-instructions"
       },
+      "provenanceHash": "sha256:b42521b37894a1b3b6235561de5a3272a0e88fd0683bbb4976507352cb376221",
       "role": "standard",
       "sourceHash": "sha256:799395d3e21c9c0360d17cb9b0d5432a7d11e0d3164f9648e8c03b146ad51df0",
       "sourcePath": ".skillset/rules",
@@ -36,7 +38,6 @@
     }
   ],
   "outputRoot": ".",
-  "provenanceHash": "sha256:c863b48b4272fc2fe031d3e856af3ef5f14b9194aa92ab45810f8c00c2ef9d1b",
   "renderResults": [
     {
       "destination": "rule",
@@ -94,7 +95,7 @@
       "target": "codex"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-skills"

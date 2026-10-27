@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:c15f356684b5480e8b09a2e63c9bc9f09763fec03c36e7a40c03c474768c745b",
   "items": [
     {
       "fileModes": {
@@ -16,6 +17,7 @@
       "name": "review-notes",
       "outputHash": "sha256:e39a241c9b7f5da52ae39e16971d054ea167bbf05860513aca7c8a0ff4a14d12",
       "outputPath": "review-notes/SKILL.md",
+      "provenanceHash": "sha256:037475a07dd0e2acd503defb779d15213564dfa26ff8fbd76ed345208b742aee",
       "role": "bundle",
       "sourceHash": "sha256:9b21f33653bd6e43148fb5f7eb1f59d9d0812b18d4dfaf88ab0757d2a45c35cf",
       "sourcePath": ".skillset/skills/review-notes/SKILL.md",
@@ -23,7 +25,6 @@
     }
   ],
   "outputRoot": ".claude/skills",
-  "provenanceHash": "sha256:a2891d4fe4b9ff00abfe23adefa9d8c415688fc67166deedd6700af65f9a0509",
   "renderResults": [
     {
       "destination": "skill",
@@ -58,7 +59,7 @@
       "target": "claude"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-skills"

@@ -4,7 +4,7 @@ description: Rebuilds pre-v4 generated state for current projection roles withou
 
 # Rebuild Generated State for Inherent Standards
 
-Skillset 0.27.0 made every adopted, applicable Agent standard an inherent projection. Skillset 0.28.0 added explicit `standard`/`project-use`/`bundle` projection roles, placed plugin-owned skills only inside their Agent Plugins package, and moved generated locks to schema v4. Rebuild with 0.28.0 or later; use the current release. Pick one exact released version, such as `0.29.0`, and use it for every command below in place of `<version>`, so the preview, the confirmed build, and the receipt all come from the same compiler. Existing provider targets remain provider choices, but valid rule, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/` package output without a standards selector.
+Skillset 0.27.0 made every adopted, applicable Agent standard an inherent projection. Skillset 0.28.0 added explicit `standard`/`project-use`/`bundle` projection roles, placed plugin-owned skills only inside their Agent Plugins package, and moved generated locks to schema v4. A later release moved them to schema v5 with per-entry provenance ([ADR-0045](../adrs/0045-generated-state-merges-as-plain-text.md)); a v4 lock needs no rebuild, because the next `skillset build --yes` rewrites it. Rebuild with 0.28.0 or later; use the current release. Pick one exact released version, such as `0.29.0`, and use it for every command below in place of `<version>`, so the preview, the confirmed build, and the receipt all come from the same compiler. Existing provider targets remain provider choices, but valid rule, skill, and plugin source may add `AGENTS.md`, `.agents/skills/`, or `plugins/<plugin>/` package output without a standards selector.
 
 This is a one-time generated-state rebuild, not a source migration. Preserve `skillset.yaml`, `.skillset/`, provider-native source, user edits, and unmanaged neighbors. Do not add `compile.agents` or another opt-out. Plugin-owned skills now have one standard placement inside their Agent Plugins package; `.agents/skills/` contains standalone standard skills unless a separately owned project-use projection is present. Pre-v4 locks can explain why a rebuild is required, but they cannot prove ownership or authorize deletion.
 
@@ -45,7 +45,7 @@ bunx @skillset/cli@<version> diff --root /absolute/path/to/repository
 git -C /absolute/path/to/repository status --short
 ```
 
-Save and inspect the unconfirmed build plan before running the `--yes` command. The receipt must identify the repository and source commit, Skillset version, pre-rebuild diagnostic, backup, preview, generated diff, v4 locks, physical owners and `standard`/`project-use`/`bundle` roles, relevant disposable consumer proof, owner acceptance, date, and limitations. Retain the backup until the owner accepts the rebuilt result.
+Save and inspect the unconfirmed build plan before running the `--yes` command. The receipt must identify the repository and source commit, Skillset version, pre-rebuild diagnostic, backup, preview, generated diff, current (v5) locks, physical owners and `standard`/`project-use`/`bundle` roles, relevant disposable consumer proof, owner acceptance, date, and limitations. Retain the backup until the owner accepts the rebuilt result.
 
 Package publication and active CLI upgrades are separate release operations. Record the version that `--version` reports; it must be the one exact release you chose, 0.28.0 or later. Do not treat a source checkout or development binary as proof of released-version migration.
 
@@ -68,7 +68,7 @@ For each owner-approved generated path:
 
 After every approved path is recoverably backed up, run the released-version
 preview and inspect it before confirming the build. Verify the rebuilt provider
-trees, inherent standards trees, and v4 lock ownership and roles against both the
+trees, inherent standards trees, and current lock ownership and roles against both the
 preview and the backup. Run any pinned consumer proof required by the
 repository, then retain the backup until the owner accepts the result.
 

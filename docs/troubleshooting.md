@@ -158,7 +158,7 @@ If either side of a conflicted generated file no longer matches its own lock, so
 
 ## A lock is reported as rebuild-only
 
-Locks older than schema v4 cannot prove ownership or authorize cleanup, so Skillset stops instead of rewriting them. Preserve canonical source and user edits, back up only owner-reviewed generated paths, and rebuild with the current release. Follow [Rebuild Generated State](guides/generated-state-rebuild.md) step by step.
+Locks older than schema v4 cannot prove ownership or authorize cleanup, so Skillset stops instead of rewriting them. Preserve canonical source and user edits, back up only owner-reviewed generated paths, and rebuild with the current release. Follow [Rebuild Generated State](guides/generated-state-rebuild.md) step by step. Schema v4 locks are different: their provenance still verifies, so `skillset check` reports them as generated-output drift and the next `skillset build --yes` rewrites them to schema v5.
 
 ## Build shows output I did not expect
 

@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:e4078828ca3801faaf0c5b59f9b4384dd5af2e3d58d954a790c732ac5238c5f1",
   "items": [
     {
       "consumers": [
@@ -28,6 +29,7 @@
       "owner": {
         "target": "claude"
       },
+      "provenanceHash": "sha256:103362b62cd75b90307e67651e8ccda86ae9dadfabd004f4ad5cdfb50d711d05",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
@@ -59,6 +61,7 @@
       "owner": {
         "target": "cursor"
       },
+      "provenanceHash": "sha256:fd8caf367fdee3b86c6e2e3b814823685a159eb94069ec7377d74c79b35c7763",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
@@ -100,6 +103,7 @@
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
+      "provenanceHash": "sha256:89e0618b3a7461acae22f59b539612aba6e07b04bfa325690de8895ec8ccb97d",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "standard",
       "skippedSkills": [],
@@ -143,6 +147,7 @@
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
+      "provenanceHash": "sha256:89e50c1379c3b85840ab4d128fb0c7fe6b290dc8402e66a1a11bae4c7eea5ba0",
       "role": "standard",
       "sourceHash": "sha256:f864eb69c773cf7a30cfe8c25afe55ba082c4e87ce96d7dfe50d20e435c6a01d",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
@@ -150,7 +155,6 @@
     }
   ],
   "outputRoot": "plugins",
-  "provenanceHash": "sha256:13d808b38ea9d242d754e71a8636568f862326e5415e14803e3a345e6c728f9a",
   "renderResults": [
     {
       "destination": "plugin-manifest",
@@ -499,7 +503,7 @@
       "target": "cursor"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-plugins-1.0",
