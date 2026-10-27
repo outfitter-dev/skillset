@@ -780,6 +780,11 @@
           "fromPath": "docs/adrs/0038-change-ledger-append-order.md"
         },
         {
+          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](../0014-source-change-release-provenance.md) - locks record output hashes. This ADR changes how those records are hashed, not what they ",
+          "from": "0045",
+          "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
+        },
+        {
           "context": "- [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) defines the provenance guardrail.",
           "from": "hook-guardrails",
           "fromPath": "docs/development/features/hook-guardrails.md"
@@ -815,7 +820,7 @@
       "updated": "2026-07-21"
     },
     {
-      "amended_by": ["25", "38"],
+      "amended_by": ["25", "38", "45"],
       "amends": ["14"],
       "created": "2026-06-30",
       "depends_on": ["0", "14"],
@@ -834,6 +839,11 @@
           "context": "Stored change history is not rewritten. The change ledger, applied history, release records, and derived state are append-only evidence ([ADR-0015](0015-reason-only-change-ledger-derived-state.md)).",
           "from": "0039",
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
+        },
+        {
+          "context": "This amends [ADR-0038](../0038-change-ledger-append-order.md). File order stays authoritative for the trunk streams, and pending events get a merge-independent order of their own. It also amends [ADR-",
+          "from": "0045",
+          "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) and [Reason-Only Change Ledger and Derived State](../../adrs/0015-reason-only-change-ledger",
@@ -972,6 +982,11 @@
           "context": "- [ADR-0018: Render Results](0018-render-results.md) - render-result `destination` vocabulary renamed here.",
           "from": "0039",
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
+        },
+        {
+          "context": "- `renderResults` keep the [ADR-0018](../0018-render-results.md) record shape and stay unhashed. They are informational in the lock: every consumer reads render results from a fresh render, and `check",
+          "from": "0045",
+          "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
         {
           "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
@@ -1678,7 +1693,7 @@
       "depends_on": ["2", "23", "28", "30", "32", "33", "36"],
       "inbound": [
         {
-          "context": "- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` ([ADR-0037](doc",
+          "context": "- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` (ADR-0037, `doc",
           "from": "AGENTS",
           "fromPath": "AGENTS.md"
         },
@@ -1728,11 +1743,16 @@
       "updated": "2026-09-25"
     },
     {
-      "amended_by": [],
+      "amended_by": ["45"],
       "amends": ["15"],
       "created": "2026-09-22",
       "depends_on": ["0", "14", "15"],
       "inbound": [
+        {
+          "context": "The current mitigation does not reach the place the conflicts are seen. `.gitattributes` marks generated output `-merge` and the change streams `merge=union` (SET-601, [ADR-0038](../0038-change-ledger",
+          "from": "0045",
+          "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
+        },
         {
           "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order: d",
           "from": "changes",
@@ -1881,6 +1901,21 @@
       "superseded_by": null,
       "title": "Machine-Scope Lifecycle Commands",
       "updated": "2026-10-22"
+    },
+    {
+      "amended_by": [],
+      "amends": ["15", "38"],
+      "created": "2026-10-27",
+      "depends_on": ["14", "15", "18", "38"],
+      "inbound": [],
+      "number": "0045",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0045-generated-state-merges-as-plain-text.md",
+      "slug": "generated-state-merges-as-plain-text",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Generated State Merges as Plain Text",
+      "updated": "2026-10-27"
     }
   ],
   "version": 1

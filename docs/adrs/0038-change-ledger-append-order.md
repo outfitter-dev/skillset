@@ -4,13 +4,15 @@ slug: change-ledger-append-order
 title: Change Ledger Append Order Is Authoritative
 status: accepted
 created: 2026-09-22
-updated: 2026-10-22
+updated: 2026-10-27
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 14, 15]
 amends: [15]
 ---
 
 # ADR-0038: Change Ledger Append Order Is Authoritative
+
+> Amended by [ADR-0045](0045-generated-state-merges-as-plain-text.md#pending-ledger-events-live-in-their-own-files): ordinary change commands write pending events to their own files, which fold after the trunk streams in file-name order. File order stays authoritative for the trunk streams this record governs.
 
 ## Context
 
@@ -128,6 +130,9 @@ is a separate atomic-write decision. Shared directory-lock machinery across
 remote cache and the known-Skillsets index is a separate ownership decision.
 
 ## References
+
+- [ADR-0045: Generated State Merges as Plain Text](0045-generated-state-merges-as-plain-text.md) -
+  amends this decision with pending event files.
 
 - [ADR-0015: Reason-Only Change Ledger and Derived State](0015-reason-only-change-ledger-derived-state.md) -
   append-only event vocabulary and derived-state boundary this decision
