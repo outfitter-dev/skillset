@@ -103,7 +103,7 @@ See [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-c
 
 ## Merging Change Streams
 
-Ordinary change commands never append to a tracked stream. `change add`, `reason`, `refresh`, `ignore`, `migrate`, and the applying `draft`, `promote`, `move`, and `new` writes each create one new pending event file under `.skillset/changes/events/`. The name starts with the mutation's UTC stamp and ends with its first event id, so two branches add two different files and git merges them without a conflict, in either direction. Pending files are write-once: never edit, rename, or delete one by hand. `skillset release apply` is the only writer that removes them, when it folds them into `ledger.jsonl`.
+Ordinary change commands never append to a tracked stream. `change add`, `reason`, `refresh`, `ignore`, `migrate`, and the applying `draft`, `promote`, `move`, and `new` writes each create one new pending event file under `.skillset/changes/events/`. The name starts with the mutation's UTC stamp and ends with its first event id, so two branches add two different files and git merges them without a conflict, in either direction. Pending files are write-once: never edit, rename, or delete one by hand. `skillset release apply` is the only writer that removes them, when it folds them into `ledger.jsonl`; a release with no entry to apply leaves them pending.
 
 The trunk streams (`ledger.jsonl`, `history.jsonl`, `releases.jsonl`, and amendment files) only gain records at the end, and only a release appends to them. Declare the built-in `union` merge strategy for them in `.gitattributes` so two release branches still merge:
 

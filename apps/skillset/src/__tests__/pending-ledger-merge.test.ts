@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
-import { buildSkillset } from "@skillset/core";
+import { buildSkillset, draftSource, planSourceDraft } from "@skillset/core";
 import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 
 import { addChangeEntry } from "../change-workflow";
@@ -55,6 +55,25 @@ test("ADR-0045 change entries from two branches merge as plain text and fold on 
   expect(ledger.slice(0, folded.length).map((event) => event.id)).toEqual(folded.map((event) => event.id));
   expect(ledger.slice(folded.length).map((event) => event.type)).toContain("release.applied");
   expect(await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8")).toEndWith("\n");
+});
+
+test("ADR-0045 an empty release leaves lifecycle-only pending events for the next release", async () => {
+  const root = await fixture();
+  await buildSkillset(root);
+  const shippedPath = ".skillset/skills/alpha";
+  const plan = await planSourceDraft({ rootPath: root, shippedPath });
+  await draftSource({ expectedPlanHash: plan.planHash, rootPath: root, shippedPath });
+  const pending = await pendingLedgerEventFiles(root);
+  expect(pending).toHaveLength(1);
+
+  // A draft records no change entry, so there is nothing to release and apply
+  // writes nothing. The event stays pending, and readers still fold it.
+  const report = await applyRelease(root);
+  expect(report.plan.entries).toEqual([]);
+  expect(report.files).toEqual([]);
+  expect(await pendingLedgerEventFiles(root)).toEqual(pending);
+  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect((await readChangeLedger(root)).map((event) => event.type)).toContain("source.drafted");
 });
 
 async function fixture(): Promise<string> {

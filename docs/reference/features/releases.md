@@ -28,7 +28,7 @@ The [publishing guide](../../guides/publishing.md) owns the end-to-end workflow.
 
 ## What Apply Writes
 
-A confirmed release:
+A confirmed release with at least one entry to apply:
 
 - folds pending event files from `.skillset/changes/events/` into `.skillset/changes/ledger.jsonl` and removes them;
 - appends `release.applied` evidence to `.skillset/changes/ledger.jsonl`;
@@ -36,6 +36,8 @@ A confirmed release:
 - advances source-unit version authority and records deletion tombstones;
 - regenerates entity-local `CHANGELOG.md` [projections](../../glossary.md#projection);
 - refreshes generated provider versions, output, and locks.
+
+With no entry to apply, `release apply` writes nothing. Events that lifecycle commands such as `draft` record without a change entry stay in their pending files, where readers still fold them, until the next release that has an entry folds them in.
 
 Release state wins over inline source versions when a release scope exists. Otherwise inline metadata remains the import/read fallback. Pending reasons never appear as a pending section in committed changelogs. Cached `.skillset/changes/state.json` is published atomically so readers observe a complete previous document or a complete replacement.
 
