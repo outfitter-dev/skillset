@@ -48,7 +48,22 @@ test("ADR-0045 change entries from two branches merge as plain text and fold on 
     "Change beta on its own branch, recorded in its own pending file.",
   ]);
 
-  const report = await applyRelease(root);
+  // Readers take no lock. Reads that overlap the fold must neither throw nor
+  // lose a pending record while it moves into ledger.jsonl.
+  let applying = true;
+  const release = applyRelease(root).finally(() => {
+    applying = false;
+  });
+  const overlapping: Promise<readonly string[]>[] = [];
+  while (applying) {
+    overlapping.push(readChangeLedger(root).then((events) => events.map((event) => event.id)));
+    await Bun.sleep(0);
+  }
+  const report = await release;
+  expect(overlapping.length).toBeGreaterThan(0);
+  for (const ids of await Promise.all(overlapping)) {
+    expect(ids.slice(0, folded.length)).toEqual(folded.map((event) => event.id));
+  }
   expect(report.plan.entries).toHaveLength(2);
   expect(await pendingLedgerEventFiles(root)).toEqual([]);
   const ledger = await readFoldedLedgerRecords(root);

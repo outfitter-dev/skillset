@@ -86,4 +86,24 @@ describe("ADR-0045 pending ledger event files", () => {
     });
     await expect(readChangeLedger(root)).rejects.toThrow("duplicate change ledger event id evt-a");
   });
+  test("reads a record once while a release fold has copied it but not yet removed its file", async () => {
+    const folded = record("evt-a", "2026-10-27T00:00:00.001Z");
+    const root = await workspace({
+      ".skillset/changes/ledger.jsonl": `${record("evt-0", "2026-10-27T00:00:00.000Z")}\n${folded}\n`,
+      ".skillset/changes/events/20261027T000000001Z-evt-a.jsonl": `${folded}\n`,
+      ".skillset/changes/events/20261027T000000002Z-evt-b.jsonl": `${record("evt-b", "2026-10-27T00:00:00.002Z")}\n`,
+    });
+    const events = await readChangeLedger(root);
+    expect(events.map((event) => event.id)).toEqual(["evt-0", "evt-a", "evt-b"]);
+    expect(events[1]?.path).toBe(".skillset/changes/ledger.jsonl");
+  });
+
+  test("still rejects an id repeated between two pending files", async () => {
+    const same = record("evt-a", "2026-10-27T00:00:00.001Z");
+    const root = await workspace({
+      ".skillset/changes/events/20261027T000000001Z-evt-a.jsonl": `${same}\n`,
+      ".skillset/changes/events/20261027T000000002Z-evt-a.jsonl": `${same}\n`,
+    });
+    await expect(readChangeLedger(root)).rejects.toThrow("duplicate change ledger event id evt-a");
+  });
 });

@@ -1,8 +1,9 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
-import { changeLedgerStreamPaths } from "./pending-ledger-events";
+import { listPendingLedgerEventFiles } from "./pending-ledger-events";
+import { workspaceChangeFile } from "./workspace-state";
 import {
   historicalRuleSelector,
   selectorForPluginCompanion,
@@ -198,29 +199,73 @@ const EVENT_TYPES = new Set<ChangeLedgerEventType>([
 /**
  * Read the change ledger in fold order: `ledger.jsonl` in file order, then
  * pending event files by name, each in line order (ADR-0038, ADR-0045).
+ *
+ * Readers take no lock, so a read can overlap `release apply`, which appends
+ * the pending records to `ledger.jsonl` and then removes their files. Pending
+ * files are read before `ledger.jsonl`, so a record a fold moved in between
+ * is still found in the ledger. A pending record that repeats a ledger record
+ * exactly is that fold's copy and is read once. The pending listing is taken
+ * again after the read, and the read is retried when it changed, so a fold
+ * or a rollback that removed or restored files mid-read is never half-seen.
  */
 export async function readChangeLedger(
   rootPath: string,
   options: ChangeLedgerReadOptions = {}
 ): Promise<readonly ChangeLedgerEvent[]> {
+  const ledgerPath = workspaceChangeFile(options.sourceDir, "ledger.jsonl");
+  for (let attempt = 1; ; attempt += 1) {
+    const pendingPaths = await listPendingLedgerEventFiles(rootPath, options.sourceDir);
+    const pending = await Promise.all(
+      pendingPaths.map(async (path) => ({ content: await readStream(rootPath, path), path }))
+    );
+    const ledger = await readStream(rootPath, ledgerPath);
+    const relisted = await listPendingLedgerEventFiles(rootPath, options.sourceDir);
+    const stable = relisted.length === pendingPaths.length
+      && relisted.every((path, index) => path === pendingPaths[index])
+      && pending.every((stream) => stream.content !== undefined);
+    if (stable) return foldLedgerStreams([{ content: ledger, path: ledgerPath }, ...pending]);
+    if (attempt === LEDGER_READ_ATTEMPTS) {
+      throw new Error("skillset: the change ledger kept changing while it was read; retry the command");
+    }
+  }
+}
+
+const LEDGER_READ_ATTEMPTS = 5;
+
+function foldLedgerStreams(
+  streams: readonly { readonly content: string | undefined; readonly path: string }[]
+): readonly ChangeLedgerEvent[] {
   const events: ChangeLedgerEvent[] = [];
   const ids = new Set<string>();
-  for (const path of await changeLedgerStreamPaths(rootPath, options.sourceDir)) {
-    const absolutePath = resolveInside(rootPath, path);
-    if (!(await exists(absolutePath))) continue;
-    const lines = (await readFile(absolutePath, "utf8")).split("\n");
-    for (const [index, line] of lines.entries()) {
+  // Records of the ledger itself (stream 0), the only stream that can hold a
+  // fold's copy of a pending record.
+  const ledgerRecords = new Map<string, string>();
+  for (const [streamIndex, stream] of streams.entries()) {
+    if (stream.content === undefined) continue;
+    for (const [index, line] of stream.content.split("\n").entries()) {
       const lineNumber = index + 1;
       if (line.trim().length === 0) continue;
-      const event = parseLedgerLine(line, path, lineNumber);
+      const event = parseLedgerLine(line, stream.path, lineNumber);
+      const record = JSON.stringify(JSON.parse(line) as unknown);
       if (ids.has(event.id)) {
-        throw new Error(`skillset: duplicate change ledger event id ${event.id} in ${path}:${lineNumber}`);
+        if (streamIndex > 0 && ledgerRecords.get(event.id) === record) continue;
+        throw new Error(`skillset: duplicate change ledger event id ${event.id} in ${stream.path}:${lineNumber}`);
       }
       ids.add(event.id);
+      if (streamIndex === 0) ledgerRecords.set(event.id, record);
       events.push(event);
     }
   }
   return events;
+}
+
+async function readStream(rootPath: string, path: string): Promise<string | undefined> {
+  try {
+    return await readFile(resolveInside(rootPath, path), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
 }
 
 function parseLedgerLine(line: string, path: string, lineNumber: number): ChangeLedgerEvent {
@@ -553,16 +598,4 @@ function normalizeLedgerSourceUnitSelector(raw: string): string {
     }
   }
   return sourceUnitSelector(raw);
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
 }
