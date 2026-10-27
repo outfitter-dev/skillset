@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-
 import { readString } from "./config";
+import { MISSING_PATH_ENOENT, readOptionalText } from "./fs-existence";
 import { compareStrings, resolveInside } from "./path";
 import { listPendingLedgerEventFiles } from "./pending-ledger-events";
 import { workspaceChangeFile } from "./workspace-state";
@@ -260,12 +259,7 @@ function foldLedgerStreams(
 }
 
 async function readStream(rootPath: string, path: string): Promise<string | undefined> {
-  try {
-    return await readFile(resolveInside(rootPath, path), "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
+  return readOptionalText(resolveInside(rootPath, path), { missing: MISSING_PATH_ENOENT });
 }
 
 function parseLedgerLine(line: string, path: string, lineNumber: number): ChangeLedgerEvent {
