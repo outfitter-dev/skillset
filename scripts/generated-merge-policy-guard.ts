@@ -1,11 +1,12 @@
 /**
- * Merge policy guard (SET-601).
+ * Merge policy guard (SET-601, SET-769).
  *
  * `.gitattributes` can only express globs, but which files are generated is
- * decided by the committed `skillset.lock` files. This guard closes that gap in
- * both directions: every tracked file is sorted into exactly one merge-policy
- * category, and its resolved git `merge` attribute must be the one that
- * category requires.
+ * decided by the committed `skillset.lock` files. This guard closes that gap:
+ * every tracked file is sorted into exactly one merge-policy category, and its
+ * resolved git `merge` attribute must be the one that category requires.
+ * Since ADR-0045 generated output merges as ordinary text, so the guard keeps
+ * a `-merge` or `union` pattern from claiming it, or an authored file, again.
  *
  * Nothing here enumerates paths. The generated set comes from the locks, the
  * ledger set from the pathspec the change-stream guard already declares, and
@@ -29,18 +30,20 @@ const LOCK_FILE = "skillset.lock";
  * The three kinds of file this repository commits, and the one git `merge`
  * value each requires.
  *
- * - `generated-snapshot` is full-state and derived. It cannot be merged at all,
- *   only regenerated, so `-merge` (unset) makes git conflict it whole and
- *   `skillset resolve` rebuilds it.
+ * - `generated-snapshot` is derived, and each lock line belongs to one unit
+ *   (ADR-0045), so git's ordinary three-way merge (`unspecified`) of branches
+ *   that changed different units is the merged render. A true conflict still
+ *   conflicts, and `skillset resolve` regenerates it. GitHub's server-side
+ *   merge ignores merge attributes anyway, so `-merge` would only make local
+ *   merges and restacks disagree with it.
  * - `append-only-ledger` only ever grows, so both sides are always valid and
  *   `union` concatenates them; `change-stream:guard` checks what union cannot.
- * - `authored` is the only content where a conflict carries information, so it
- *   keeps git's ordinary three-way merge (`unspecified`).
+ * - `authored` keeps git's ordinary three-way merge (`unspecified`).
  */
 export const MERGE_POLICY_BY_CATEGORY = {
   "append-only-ledger": "union",
   authored: "unspecified",
-  "generated-snapshot": "unset",
+  "generated-snapshot": "unspecified",
 } as const;
 
 export type MergePolicyCategory = keyof typeof MERGE_POLICY_BY_CATEGORY;
@@ -261,9 +264,9 @@ export const checkMergePolicy = async (
       violations.push({
         category,
         detail:
-          category === "authored"
-            ? `authored file resolves merge=${actual} with ${mode}; narrow the generated .gitattributes patterns`
-            : `${category} resolves merge=${actual}, expected ${expected} with ${mode}; fix its .gitattributes pattern`,
+          category === "append-only-ledger"
+            ? `${category} resolves merge=${actual}, expected ${expected} with ${mode}; fix its .gitattributes pattern`
+            : `${category} file resolves merge=${actual} with ${mode}; remove the .gitattributes pattern that claims it`,
         path: trackedPath,
       });
     }

@@ -1,67 +1,20 @@
-# Append-only change streams (ADR-0014, ADR-0015, ADR-0038). Records are only
-# ever added at the end, so restacking a branch onto trunk should keep both
-# sides' records instead of conflicting: union replays the branch's appended
-# block after trunk's. `union` is a built-in git strategy: unlike a custom merge
-# driver it needs no per-clone `git config` registration, so it also applies in
-# CI, fresh clones, and worktrees. `bun run change-stream:guard` checks what
-# union cannot — valid JSONL, unique ids, and that trunk's stream is an in-order
-# prefix of the working copy. Restack to update a branch; merging trunk into a
-# branch puts trunk's records after the branch's and fails the guard.
+# Append-only change trunk streams (ADR-0014, ADR-0015, ADR-0038, ADR-0045).
+# Only `skillset release apply` appends to them; change commands write
+# write-once pending files under .skillset/changes/events/ instead, which the
+# pattern below does not match and which merge as ordinary added files.
+# Records are only ever added at the end, so restacking a release branch onto
+# trunk should keep both sides' records instead of conflicting: union replays
+# the branch's appended block after trunk's. `union` is a built-in git strategy:
+# unlike a custom merge driver it needs no per-clone `git config` registration,
+# so it also applies in CI, fresh clones, and worktrees, though GitHub's
+# server-side merge does not honor it. `bun run change-stream:guard` checks what
+# union cannot — valid JSONL, unique ids, write-once pending files, and that
+# trunk's stream is an in-order prefix of the working copy.
 .skillset/changes/*.jsonl merge=union
 
-# Generated output must never line-merge (ADR-0014 reasoning, SET-601).
-#
-# A half-merged generated file is the dangerous artifact in this system: it
-# looks valid, it stages like a valid file, and it corresponds to no source.
-# Only a regeneration should ever produce one. `-merge` makes git take the
-# current branch's version whole and still declare the path conflicted, so the
-# conflict survives as a signal while the markers never appear. Verified
-# against git 2.55.0. It leaves `diff` untouched, unlike `binary`.
-#
-# Like `merge=union` above, `-merge` is built in: unlike a custom merge driver
-# it needs no per-clone `git config` registration, so it also applies in CI,
-# fresh clones, and worktrees. `skillset resolve` then repairs the conflicted
-# paths by regenerating them, which is the only thing that can produce a valid
-# generated file.
-#
-# `bun run generated-merge-policy:guard` checks what these globs cannot. It
-# sorts every tracked file into one of three categories — generated snapshot,
-# append-only ledger, authored — and requires each to resolve the one merge
-# policy its category allows. It enumerates nothing: the generated set comes
-# from the committed locks, the ledger set from the change-stream guard's own
-# pathspec, and authored is the remainder. So these patterns only have to keep
-# up with the locks, and an over-broad one is caught by the authored side.
-#
-# `**/` prefixes cover nested workspaces such as examples/first-author/. The
-# generated plugin bundle root is anchored with a leading slash instead, because
-# an unanchored `plugins/` also matches the authored `.skillset/plugins/` source
-# tree — the guard below caught exactly that. It is `/plugins/*/**` rather than
-# `/plugins/**` so it covers each generated bundle without claiming the authored
-# `plugins/README.md` beside them; the guard caught that one too.
-**/.agents/plugins/** -merge
-**/.agents/skills/** -merge
-**/.claude/CLAUDE.md -merge
-**/.claude/rules/** -merge
-**/.claude/settings.json -merge
-**/.claude/skills/** -merge
-**/.claude-plugin/marketplace.json -merge
-**/.codex/hooks/** -merge
-**/.cursor/rules/** -merge
-**/.cursor/skills/** -merge
-**/.cursor-plugin/marketplace.json -merge
-/plugins/*/** -merge
-**/skillset.lock -merge
-.skillset/plugins/*/CHANGELOG.md -merge
-
-# AGENTS.md files are generated: the root one from <source-root>/RULES.md and
-# directory-local ones from <source-root>/rules/**.
-#
-# `core.ignorecase` is true on a case-insensitive filesystem such as APFS, and
-# git matches attributes case-insensitively when it is. So `**/AGENTS.md` also
-# matches an authored `agents.md`, and does so on macOS but not on Linux CI. The
-# docs tree is excluded below for that reason; it is owned by scripts/docs.ts
-# and checked by `bun run docs:check`, so Skillset's merge policy does not apply
-# there. Excluding it is safe because the guard checks the other direction too:
-# a lock-claimed file under docs/ would fail as a generated path that merges.
-**/AGENTS.md -merge
-/docs/** !merge
+# Generated output and skillset.lock files carry no merge attribute (ADR-0045).
+# Each lock line belongs to one unit, so a text merge of branches that changed
+# different units is the merged render; where both branches changed the same
+# unit, git conflicts and `skillset resolve` regenerates. `bun run
+# generated-merge-policy:guard` checks that no generated path is marked
+# `-merge` or `union`.

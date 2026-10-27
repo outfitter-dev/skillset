@@ -1,29 +1,27 @@
 ---
-description: Generated output merge safety records why generated files never line-merge, how per-entry lock provenance lets locks merge as text, and the invariants behind build repair and resolve.
+description: Generated output merge safety records why generated files merge as ordinary text, how per-entry lock provenance keeps that merge equal to a fresh render, and the invariants behind build repair and resolve.
 ---
 
 # Generated Output Merge Safety
 
-A half-merged generated file is the dangerous artifact: it looks valid, stages like a valid file, and corresponds to no source. Only a regeneration may produce a generated file. This page records the reasoning behind the merge policy, the lock format, `skillset build --repair`, and `skillset resolve`, so changes to any of them start from the trade-offs already settled (SET-598 to SET-601).
+A half-merged generated file is the dangerous artifact: it looks valid, stages like a valid file, and corresponds to no source. Git may text-merge generated output only because a clean merge of branches that changed different units equals the merged render, and a same-unit collision leaves conflict markers that lock readers reject; a conflicted generated file is only ever fixed by regenerating it. This page records the reasoning behind the merge policy, the lock format, `skillset build --repair`, and `skillset resolve`, so changes to any of them start from the trade-offs already settled (SET-598 to SET-601).
 
 ## Four categories, one policy each
 
 | Category | Examples | Git `merge` attribute |
 | --- | --- | --- |
-| Generated snapshot | Provider trees, `plugins/*/**`, every `skillset.lock` | `-merge` (unset) |
+| Generated snapshot | Provider trees, `plugins/*/**`, every `skillset.lock` | unspecified |
 | Append-only ledger | `.skillset/changes/*.jsonl` | `union` |
 | Pending ledger events | `.skillset/changes/events/*.jsonl`, one write-once file per mutation | unspecified |
 | Authored | Everything else tracked | unspecified |
 
 Pending event files are only ever added, and each name carries a timestamp and an event id, so branches never touch the same file and the default text merge suffices. Only `skillset release apply` appends to the union streams, when it folds pending files into `ledger.jsonl`. Both strategies are built into git. A custom merge driver needs per-clone `git config`, so it would not apply in CI, fresh clones, or worktrees.
 
-`-merge` makes git report the path as unmerged and leave the "ours" side on disk whole, with no conflict markers. The conflict survives as a signal and `skillset resolve` clears it by regeneration. Do not use `binary` instead: it also sets `-diff`, and generated files must still review as readable diffs.
+Generated output carries no merge attribute ([ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md)). Until SET-769 it was marked `-merge`, which made git conflict every generated path whole on every local merge. GitHub's server-side merge and merge queue ignore merge attributes, so the attribute never helped there, and it made local merges disagree with GitHub. With per-entry lock provenance, each lock line belongs to one unit, so a text merge of branches that changed different units is the merged render; the plain-merge conformance test (`apps/skillset/src/__tests__/plain-merge-conformance.test.ts`) checks both merge directions and a restack under this repository's own `.gitattributes`. When both branches changed the same unit, git writes ordinary conflict markers, lock readers fail closed on them, and `skillset resolve` regenerates from the index stages.
 
-`.gitattributes` can only express globs, so `bun run generated-merge-policy:guard` (`scripts/generated-merge-policy-guard.ts`) derives both sides. Every path a committed `skillset.lock` claims must resolve to `merge: unset`. Every other tracked path must not, except the ledger set, which reuses the change-stream guard's pathspec. Checking the authored direction is what caught `/plugins/**` claiming the authored `plugins/README.md`. It also caught `**/AGENTS.md` matching `docs/reference/features/agents.md` on case-insensitive macOS but not on Linux CI.
+`.gitattributes` can only express globs, so `bun run generated-merge-policy:guard` (`scripts/generated-merge-policy-guard.ts`) derives both sides. Every path a committed `skillset.lock` claims must resolve to `merge: unspecified`, so no `-merge` or `union` pattern creeps back over generated output. The ledger set, which reuses the change-stream guard's pathspec, must resolve to `union`, and every other tracked path to `unspecified`. Checking the authored direction is what caught `/plugins/**` claiming the authored `plugins/README.md`. It also caught `**/AGENTS.md` matching `docs/reference/features/agents.md` on case-insensitive macOS but not on Linux CI.
 
 ## Locks carry per-entry provenance
-
-> [ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md) also retires `-merge` for generated output. The generated snapshot row changes when that lands.
 
 Locks stay one sorted JSON document per output root. Schema v5 (`packages/core/src/lock-provenance.ts`) splits provenance so that two branches changing different units change different lines:
 
