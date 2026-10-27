@@ -809,13 +809,17 @@ test("SET-398: check reports a coherent v2 lock as rebuild-only", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    headerHash?: string;
+    readonly items: Array<{ provenanceHash?: string }>;
     provenanceHash?: string;
     readonly renderResults?: Array<{ schema?: string }>;
     schemaVersion: number;
     selectedStandards?: unknown;
   };
   lock.schemaVersion = 2;
+  delete lock.headerHash;
   delete lock.provenanceHash;
+  for (const item of lock.items) delete item.provenanceHash;
   delete lock.selectedStandards;
   for (const renderResult of lock.renderResults ?? []) {
     renderResult.schema = "skillset-render-result@1";

@@ -4,6 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
+  "headerHash": "sha256:0f72778eb3de662fd8733065e44f0e92d7ffa7346771de2058665111e965fc41",
   "items": [
     {
       "fileModes": {
@@ -16,6 +17,7 @@
       "name": "apps/skillset/src/__tests__/testing",
       "outputHash": "sha256:c3e68e7c07437cc3e467a1380ee0873025778bfcaa4b95933e6231fee5339fc8",
       "outputPath": "apps/skillset/src/__tests__/testing.md",
+      "provenanceHash": "sha256:dd15f7c9ee30f8fa8083f9b3ff2cb7b2d54f50217e09ac4dd1cf863d9446e4ec",
       "role": "bundle",
       "sourceHash": "sha256:c0b9eaac26da405d4879a4195816c83d144aaf73ce416eb50ddacb2f4da052c7",
       "sourcePath": ".skillset/rules/apps/skillset/src/__tests__/testing.md",
@@ -32,6 +34,7 @@
       "name": "fixtures/testing",
       "outputHash": "sha256:b97294a1e3c1f35c025046dd6bc8173b8c81abfe6ff7c12b5d21d787d8f7dd93",
       "outputPath": "fixtures/testing.md",
+      "provenanceHash": "sha256:2ea56bd659e189915bce24a34b959551d18ce7eabbb3ea53a28e257aed66bf88",
       "role": "bundle",
       "sourceHash": "sha256:76d220ba69189e484c7f8ecc36c69f253e41728533fc0fa341d1380177ecccf0",
       "sourcePath": ".skillset/rules/fixtures/testing.md",
@@ -39,7 +42,6 @@
     }
   ],
   "outputRoot": ".claude/rules",
-  "provenanceHash": "sha256:705bd60c00d99f58e2722a06f27e651c591582f3a95c84c774a2f1d03ab04ebb",
   "renderResults": [
     {
       "destination": "rule",
@@ -84,7 +86,7 @@
       "target": "claude"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "selectedStandards": [
     "agent-instructions",
     "agent-plugins-1.0",

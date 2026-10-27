@@ -1,5 +1,5 @@
 ---
-description: Generated output merge safety records why generated files never line-merge, why locks stay JSON snapshots, and the invariants behind build repair and resolve.
+description: Generated output merge safety records why generated files never line-merge, how per-entry lock provenance lets locks merge as text, and the invariants behind build repair and resolve.
 ---
 
 # Generated Output Merge Safety
@@ -20,16 +20,20 @@ Both strategies are built into git. A custom merge driver needs per-clone `git c
 
 `.gitattributes` can only express globs, so `bun run generated-merge-policy:guard` (`scripts/generated-merge-policy-guard.ts`) derives both sides. Every path a committed `skillset.lock` claims must resolve to `merge: unset`. Every other tracked path must not, except the ledger set, which reuses the change-stream guard's pathspec. Checking the authored direction is what caught `/plugins/**` claiming the authored `plugins/README.md`. It also caught `**/AGENTS.md` matching `docs/reference/features/agents.md` on case-insensitive macOS but not on Linux CI.
 
-## Locks stay JSON snapshots
+## Locks carry per-entry provenance
 
-> [ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md) resolves the deferred question below: lock schema v5 replaces the whole-document `provenanceHash` with a header hash and per-entry hashes, pending ledger events move to their own files, and generated output stops using `-merge`. This page is rewritten as those changes land.
+> [ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md) also moves pending ledger events to their own files and retires `-merge` for generated output. The table above changes when those land.
 
-A JSONL lock with `merge=union` was investigated and rejected (SET-598). Two problems are fatal:
+Locks stay one sorted JSON document per output root. Schema v5 (`packages/core/src/lock-provenance.ts`) splits provenance so that two branches changing different units change different lines:
 
-- `provenanceHash` (`packages/core/src/lock-provenance.ts`) is one SHA-256 over the whole document, so it differs on every pair of branches. A union merge always produces two header records.
-- `union` is line-based. Two branches that change adjacent item lines, such as alphabetically neighbouring skills, merge "cleanly" into duplicated records. That is a silent corruption which rebase hooks never see, which is worse than a whole-file conflict that halts the rebase where `resolve` can fix it.
+- `headerHash` covers the top-level fields except `items` and `renderResults`. Those fields come from configuration and target topology, so it moves only when `skillset.yaml` or the selected targets change.
+- Each `items[]` entry carries its own `provenanceHash` over the rest of that entry.
+- `renderResults` are diagnostics, not authority, and stay unhashed.
+- A lock is trusted exactly when the header hash and every item hash verify. A hand edit to an entry, or a leftover v4 `provenanceHash`, fails verification.
 
-Making locks union-safe would need per-record provenance. That means a new lock schema with migration, a redesigned provenance and repair path, Workbench parser changes, and weaker tamper detection. `skillset.lock` is a public artifact, so that change needs its own ADR. Until then, locks have no `union` exception in the guard.
+A v4 lock whose single document hash verifies is trusted for the move to v5, and the next `skillset build --yes` rewrites it.
+
+Why not a JSONL lock with `merge=union` (SET-598): `union` is line-based. Two branches that change adjacent item lines, such as alphabetically neighbouring skills, merge "cleanly" into duplicated records, which is silent corruption. The v5 lock relies on the ordinary three-way text merge instead. Neighbouring entries still conflict when both sides change the lines next to each other, which halts the merge where `skillset resolve` can fix it.
 
 ## Build repair invariants
 

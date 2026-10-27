@@ -736,9 +736,14 @@ test("check presents unhashed v2 locks as an explicit integrity migration", asyn
   const relativeLockPath = ".claude/skills/skillset.lock";
   const lockPath = join(root, relativeLockPath);
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
-    provenanceHash?: string;
+    headerHash?: string;
+    items: { provenanceHash?: string }[];
+    schemaVersion: number;
   };
-  delete lock.provenanceHash;
+  // An unhashed lock from before per-entry provenance.
+  lock.schemaVersion = 4;
+  delete lock.headerHash;
+  for (const item of lock.items) delete item.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
   const report = await ciSkillset(root);

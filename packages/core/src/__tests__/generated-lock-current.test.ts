@@ -188,8 +188,8 @@ test.each([1, 2, 3] as const)(
 );
 
 test("rejects future schemas and paths outside a current lock root", () => {
-  expect(() => parseCurrentGeneratedLock({ schemaVersion: 5 })).toThrow(
-    "unsupported schemaVersion 5"
+  expect(() => parseCurrentGeneratedLock({ schemaVersion: 6 })).toThrow(
+    "unsupported schemaVersion 6"
   );
 
   const escapingRoot = withLockProvenance({

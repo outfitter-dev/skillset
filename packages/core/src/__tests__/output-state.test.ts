@@ -762,10 +762,34 @@ codex: true
     expect(await Bun.file(lockPath).text()).toContain('"generatedBy": "skillset@0.1.0"');
   });
 
+  it("regenerates edited render results as stale lock evidence", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: edited-render-results-root
+claude: false
+codex: true
+cursor: false
+`,
+      ".skillset/rules/root.md": "# Project instructions\n",
+    });
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const built = await readFile(lockPath, "utf8");
+    const lock = JSON.parse(built) as Record<string, unknown>;
+    expect(lock.renderResults).not.toEqual([]);
+    // Render results are diagnostics outside the lock's provenance (ADR-0045).
+    lock.renderResults = [];
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.outputState).toMatchObject({ state: "source-ahead" });
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    expect(await readFile(lockPath, "utf8")).toBe(built);
+  });
+
   it.each([
-    ["render results", (lock: Record<string, unknown>) => {
-      lock.renderResults = [];
-    }],
     ["target", (lock: Record<string, unknown>) => {
       lock.target = "claude";
     }],
@@ -773,8 +797,12 @@ codex: true
       const features = lock.features as Record<string, unknown>;
       features.promptArguments = !features.promptArguments;
     }],
-    ["provenance hash", (lock: Record<string, unknown>) => {
-      lock.provenanceHash = "sha256:invalid";
+    ["header hash", (lock: Record<string, unknown>) => {
+      lock.headerHash = "sha256:invalid";
+    }],
+    ["item provenance hash", (lock: Record<string, unknown>) => {
+      const items = lock.items as Array<Record<string, unknown>>;
+      items[0]!.provenanceHash = `sha256:${"0".repeat(64)}`;
     }],
   ] as const)("classifies edited %s as output divergence and backs it up", async (_label, editLock) => {
     const root = await fixture({
@@ -793,7 +821,7 @@ cursor: false
       string,
       unknown
     >;
-    expect(lock.provenanceHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(lock.headerHash).toMatch(/^sha256:[a-f0-9]{64}$/);
     editLock(lock);
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
@@ -945,7 +973,12 @@ cursor: false
       string,
       unknown
     >;
-    delete lock.provenanceHash;
+    // An unhashed lock from before per-entry provenance (schema v4 or older).
+    lock.schemaVersion = 4;
+    delete lock.headerHash;
+    for (const item of lock.items as Array<Record<string, unknown>>) {
+      delete item.provenanceHash;
+    }
     editLock(lock);
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
@@ -965,7 +998,7 @@ cursor: false
       reason: "managed-target-edit",
       targetPath: "skillset.lock",
     }));
-    expect(JSON.parse(await readFile(lockPath, "utf8")).provenanceHash).toMatch(
+    expect(JSON.parse(await readFile(lockPath, "utf8")).headerHash).toMatch(
       /^sha256:[a-f0-9]{64}$/
     );
   });
@@ -1585,8 +1618,10 @@ async function downgradeLockToV1(
   const outputRoot = lock.outputRoot as string;
   const items = lock.items as Array<Record<string, unknown>>;
   lock.schemaVersion = 1;
+  delete lock.headerHash;
   delete lock.provenanceHash;
   for (const item of items) {
+    delete item.provenanceHash;
     const hash = createHash("sha256");
     hash.update("skillset-output-v1\0");
     for (const file of item.files as string[]) {

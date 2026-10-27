@@ -685,6 +685,15 @@ function skill(body: string): string {
   return `---\nname: alpha\ndescription: Alpha skill.\n---\n\n${body}\n`;
 }
 
+async function addSkill(root: string, name: string): Promise<void> {
+  await mkdir(join(root, `.skillset/skills/${name}`), { recursive: true });
+  await writeFile(
+    join(root, `.skillset/skills/${name}/SKILL.md`),
+    `---\nname: ${name}\ndescription: ${name} skill.\n---\n\nUse ${name}.\n`,
+    "utf8"
+  );
+}
+
 function otherSkill(body: string): string {
   return `---\nname: beta\ndescription: Beta skill.\n---\n\n${body}\n`;
 }
@@ -767,6 +776,9 @@ async function conflictFixture(options: {
 
   await runTestGit(root, "checkout", "--quiet", "-b", "feat-a");
   await writeFile(join(root, AUTHORED_ALPHA), skill("Body from A."), "utf8");
+  // Per-entry lock provenance (ADR-0045) lets edits to different skills merge
+  // as text, so each side also adds a skill that sorts into the same lock slot.
+  if (!options.sameSkill) await addSkill(root, "gamma-a");
   await build(root);
   if (options.handEditOn === "feat-a") await handEdit(root);
   await commitAll(root, "A");
@@ -781,6 +793,7 @@ async function conflictFixture(options: {
       otherSkill("Body from B."),
       "utf8"
     );
+    await addSkill(root, "gamma-b");
   }
   await build(root);
   if (options.handEditOn === "feat-b") await handEdit(root);

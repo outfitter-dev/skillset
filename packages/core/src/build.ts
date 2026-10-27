@@ -7,7 +7,12 @@ import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
 import { compareStrings } from "./path";
 import { targetNames } from "./targets";
 import { mapPlannedOutputPaths, stalePlannedOutputPaths } from "./output-plan";
-import { hasValidLockProvenance, withLockProvenance } from "./lock-provenance";
+import {
+  hasLockProvenanceFields,
+  hasValidLockProvenance,
+  usesPerEntryProvenance,
+  withLockProvenance,
+} from "./lock-provenance";
 import {
   applyGeneratedFileMode,
   formatGeneratedFileMode,
@@ -165,6 +170,7 @@ const LOCK_TOP_LEVEL_KEYS = new Set([
   "buildMode",
   "features",
   "generatedBy",
+  "headerHash",
   "items",
   "marketplaces",
   "outputRoot",
@@ -194,6 +200,7 @@ const LOCK_ITEM_KEYS = new Set([
   "owner",
   "plugin",
   "preprocessDependencies",
+  "provenanceHash",
   "renderInputsHash",
   "role",
   "skillReferences",
@@ -1154,13 +1161,23 @@ function classifyLockProvenance(
     (currentLock.schemaVersion === 1 || currentLock.schemaVersion === 2) &&
     expectedLock.schemaVersion === 3 &&
     hasCoherentLegacyIntegrity(path, currentLock, editedOutputPaths);
+  // A v4 lock whose document hash verifies is as trustworthy as the v5 lock
+  // that replaces it (ADR-0045), so the next build rewrites it in place.
+  const perEntryProvenanceMigration =
+    currentLock.schemaVersion === 4 && expectedLock.schemaVersion === 5;
   if (
     !legacySchemaMigration &&
+    !perEntryProvenanceMigration &&
     currentLock.schemaVersion !== expectedLock.schemaVersion
   ) {
     return "unsafe";
   }
-  if (currentLock.provenanceHash !== undefined) {
+  // A v5 lock always carries per-entry provenance; one stripped of it is
+  // damaged, never an unhashed legacy lock awaiting migration.
+  if (usesPerEntryProvenance(currentLock) && !hasLockProvenanceFields(currentLock)) {
+    return "repairable";
+  }
+  if (hasLockProvenanceFields(currentLock)) {
     if (!hasValidLockProvenance(currentLock)) return "repairable";
     return bytesEqual(
       current,

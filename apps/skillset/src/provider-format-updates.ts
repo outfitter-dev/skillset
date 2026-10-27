@@ -13,6 +13,7 @@ import {
 } from "@skillset/core";
 import { listGeneratedEntries } from "@skillset/core/internal/authoring";
 import { supportsGeneratedFileModes } from "@skillset/core/internal/generated-file-mode";
+import type { GeneratedLockSchemaVersion } from "@skillset/core/internal/generated-lock";
 import { resolveInside } from "@skillset/core/internal/path";
 import {
   getProviderDestinationFormatSnapshot,
@@ -73,7 +74,7 @@ export async function runProviderFormatUpdates(
   const sourceDriftPaths = new Set(managedState.sourceDriftPaths);
   const hasLegacyLockMigration =
     preview.outputState.state === "source-ahead" &&
-    (await hasLegacyV2LockDrift(rootPath, driftPaths));
+    (await hasLockSchemaMigrationDrift(rootPath, driftPaths));
   if (sourceDriftPaths.size > 0 || hasLegacyLockMigration) {
     for (const path of driftPaths) {
       if (path === "skillset.lock" || path.endsWith("/skillset.lock")) sourceDriftPaths.add(path);
@@ -292,13 +293,16 @@ function actionForEntry(
   };
 }
 
-async function hasLegacyV2LockDrift(
+// v2 locks and v4 locks (whole-document provenance, ADR-0045) are rewritten by
+// the next build; their drift is a schema move, not a provider-format change.
+async function hasLockSchemaMigrationDrift(
   rootPath: string,
   driftPaths: readonly string[]
 ): Promise<boolean> {
   for (const path of driftPaths) {
     if (path !== "skillset.lock" && !path.endsWith("/skillset.lock")) continue;
-    if ((await readLock(rootPath, path))?.schemaVersion === 2) return true;
+    const schemaVersion = (await readLock(rootPath, path))?.schemaVersion;
+    if (schemaVersion === 2 || schemaVersion === 4) return true;
   }
   return false;
 }
@@ -549,7 +553,7 @@ function compareStrings(left: string, right: string): number {
 interface ParsedLock {
   readonly items: readonly ParsedLockItem[];
   readonly outputRoot: string;
-  readonly schemaVersion: 1 | 2 | 3 | 4;
+  readonly schemaVersion: GeneratedLockSchemaVersion;
 }
 
 interface ParsedLockItem {
@@ -565,7 +569,7 @@ interface LockItemState {
   readonly fileModes?: Readonly<Record<string, string>>;
   readonly files: readonly LockFileEntry[];
   readonly lockPath: string;
-  readonly schemaVersion: 1 | 2 | 3 | 4;
+  readonly schemaVersion: GeneratedLockSchemaVersion;
   readonly outputHash?: string;
   readonly renderInputsHash?: string;
   readonly sourceHash?: string;

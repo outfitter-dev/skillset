@@ -1887,9 +1887,14 @@ cursor: false
   await buildSkillset(root);
   const lockPath = join(root, "skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
-    provenanceHash?: string;
+    headerHash?: string;
+    items: { provenanceHash?: string }[];
+    schemaVersion: number;
   };
-  delete lock.provenanceHash;
+  // An unhashed lock from before per-entry provenance.
+  lock.schemaVersion = 4;
+  delete lock.headerHash;
+  for (const item of lock.items) delete item.provenanceHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 
   const diff = await runSkillsetCli("diff", "--root", root);
@@ -1916,7 +1921,7 @@ cursor: false
   const applied = await runSkillsetCli("build", "--root", root, "--yes");
   expect(applied.exitCode).toBe(0);
   expect(applied.stdout).toContain("backed up 1 overwritten output file");
-  expect(JSON.parse(await readFile(lockPath, "utf8")).provenanceHash).toMatch(
+  expect(JSON.parse(await readFile(lockPath, "utf8")).headerHash).toMatch(
     /^sha256:[a-f0-9]{64}$/
   );
 });
@@ -7581,9 +7586,9 @@ test("SET-312: create makes a named child under an explicit parent", async () =>
   expect(JSON.parse(lock)).toEqual({
     generatedBy: "skillset@0.1.0",
     items: [],
+    headerHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
     outputRoot: ".",
-    provenanceHash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
-    schemaVersion: 4,
+    schemaVersion: 5,
     standardProfileEvidence: {},
     selectedStandards: [],
     selectedTargets: [],
