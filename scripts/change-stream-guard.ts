@@ -376,7 +376,7 @@ export async function collectChangeStreamViolations(options: {
       .filter((file) => PENDING_EVENT_FILE.test(file))
   );
   const pendingFiles: ChangeStreamInput[] = [];
-  for (const file of nonEmptyLines(await runText(rootPath, ["git", "ls-files", "--", PENDING_EVENT_PATHSPEC])).sort()) {
+  for (const file of nonEmptyLines(await runText(rootPath, ["git", "ls-files", "--", PENDING_EVENT_PATHSPEC])).toSorted()) {
     const path = join(rootPath, file);
     if (!existsSync(path)) continue;
     pendingFiles.push({
