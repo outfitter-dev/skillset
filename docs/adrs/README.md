@@ -59,3 +59,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0042](0042-ungraded-cross-provider-eval-runs.md) | Ungraded Cross-Provider Eval Runs | Accepted |
 | [0043](0043-global-immutable-operational-reports.md) | Global Immutable Operational Reports | Accepted |
 | [0044](0044-machine-scope-lifecycle-commands.md) | Machine-Scope Lifecycle Commands | Accepted |
+| [0045](0045-generated-state-merges-as-plain-text.md) | Generated State Merges as Plain Text | Accepted |

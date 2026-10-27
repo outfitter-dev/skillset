@@ -22,6 +22,8 @@ Both strategies are built into git. A custom merge driver needs per-clone `git c
 
 ## Locks stay JSON snapshots
 
+> [ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md) resolves the deferred question below: lock schema v5 replaces the whole-document `provenanceHash` with a header hash and per-entry hashes, pending ledger events move to their own files, and generated output stops using `-merge`. This page is rewritten as those changes land.
+
 A JSONL lock with `merge=union` was investigated and rejected (SET-598). Two problems are fatal:
 
 - `provenanceHash` (`packages/core/src/lock-provenance.ts`) is one SHA-256 over the whole document, so it differs on every pair of branches. A union merge always produces two header records.
