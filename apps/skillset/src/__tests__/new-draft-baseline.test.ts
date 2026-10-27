@@ -8,7 +8,7 @@ import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 import { draftSource, planSourceDraft, planSourcePromotion } from "@skillset/core/internal/source-draft";
 import { moveSource, planSourceMove } from "@skillset/core/internal/source-move";
 import { sourceLifecycleLedgerRecord } from "@skillset/core/internal/source-lifecycle-ledger";
-import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
+import { PENDING_LEDGER_EVENT_FILE, readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { scaffoldSourceUnit } from "../new-source";
 
@@ -28,7 +28,8 @@ for (const plugin of [undefined, "tools"]) {
     expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
     expect(await readFoldedLedger(root)).toBe(before);
 
-    await scaffoldSourceUnit(root, { ...options, write: true });
+    const applied = await scaffoldSourceUnit(root, { ...options, write: true });
+    expect(applied.files).toContainEqual({ operation: "create", path: expect.stringMatching(PENDING_LEDGER_EVENT_FILE) });
     const events = await readChangeLedger(root);
     expect(events.at(-1)).toMatchObject({
       type: "source.draft-discarded",

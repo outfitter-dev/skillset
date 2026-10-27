@@ -203,10 +203,12 @@ async function scaffoldSourceUnitUnlocked(
   if (draftRoot !== undefined) {
     await assertFreshDraftContents(rootPath, draftRoot, []);
   }
+  // A preview names the pending-event directory; an apply names the file.
+  let appendedPaths: readonly string[] = discardEvent === undefined ? [] : [pendingLedgerEventsDir(sourceDir)];
   if (options.write === true && options.draft === true && options.kind === "skill") {
     const event = discardEvent;
     const hooks = options.transactionOptions?.testHooks;
-    await applyWorkspaceTransaction(rootPath, {
+    const report = await applyWorkspaceTransaction(rootPath, {
       writes: plans.map((plan) => ({ content: plan.content, expectedAbsent: true, path: plan.path })),
       ...(event === undefined ? {} : { appends: [
         sourceLifecyclePendingAppend(rootPath, pendingLedgerEventsDir(sourceDir), event),
@@ -223,6 +225,7 @@ async function scaffoldSourceUnitUnlocked(
         },
       },
     });
+    appendedPaths = report.appendedPaths;
   } else if (options.write === true) {
     for (const plan of plans) {
       const absolutePath = resolveInside(rootPath, plan.path);
@@ -238,10 +241,10 @@ async function scaffoldSourceUnitUnlocked(
         operation: plan.operation ?? ("create" as const),
         path: plan.path,
       })),
-      ...(discardEvent === undefined ? [] : [{
+      ...appendedPaths.map((path) => ({
         operation: "create" as const,
-        path: pendingLedgerEventsDir(sourceDir),
-      }]),
+        path,
+      })),
     ],
     id,
     kind: options.kind,

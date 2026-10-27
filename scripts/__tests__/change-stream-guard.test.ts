@@ -335,7 +335,7 @@ describe("ADR-0045 pending event files", () => {
     ]);
   });
 
-  test("allows a release to delete a trunk pending file but flags an edit", async () => {
+  test("flags an edit or an unfolded deletion of a trunk pending file, and allows a release fold", async () => {
     const disposableRoot = await createTestGitFixtureRoot("skillset-change-stream-guard-pending-");
     const root = join(disposableRoot, "repo");
     const pending = join(root, PENDING);
@@ -354,8 +354,16 @@ describe("ADR-0045 pending event files", () => {
       rule: "pending-event-edited",
     }]);
 
-    await writeFile(join(root, FILE), original, "utf8");
     await rm(pending);
+    await runTestGit(root, "add", "--all");
+    expect((await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).violations).toEqual([{
+      file: PENDING,
+      line: 0,
+      message: `pending event file was deleted but 1 of its record(s) are not in ${FILE}; restore it, or let \`skillset release apply\` fold it`,
+      rule: "pending-event-dropped",
+    }]);
+
+    await writeFile(join(root, FILE), original, "utf8");
     await runTestGit(root, "add", "--all");
     expect((await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).violations).toEqual([]);
   });

@@ -110,6 +110,12 @@ export type WorkspaceTransactionOperation =
 
 /** The completed plan, normalized and ordered independently of input order. */
 export interface WorkspaceTransactionReport {
+  /**
+   * Workspace-relative files the appends wrote, sorted. A new-file append
+   * plans its directory and names the file only at apply time, so this is the
+   * one place its path is reported.
+   */
+  readonly appendedPaths: readonly string[];
   readonly operations: readonly WorkspaceTransactionOperation[];
   /**
    * Planned delete paths that still had an entry on disk at commit time. The
@@ -393,6 +399,7 @@ export async function applyWorkspaceTransaction(
     }
     await cleanupCommittedTransaction(state);
     return {
+      appendedPaths: [...new Set(state.appliedAppends.map((append) => append.path.relative))].toSorted(compareStrings),
       operations: prepared.operations,
       supersededDeletePaths,
       workspaceRoot: resolvedWorkspaceRoot,

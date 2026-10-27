@@ -14,7 +14,7 @@ import {
 import { sourceLifecycleLedgerRecord, type SourceLifecycleLedgerEvent } from "../source-lifecycle-ledger";
 import { moveSource, planSourceMove } from "../source-move";
 import { applyWorkspaceTransaction } from "../workspace-transaction";
-import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
+import { PENDING_LEDGER_EVENT_FILE, readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const LEDGER = ".skillset/changes/ledger.jsonl";
@@ -163,7 +163,8 @@ describe("SET-660 lifecycle write reports", () => {
 
     expect(report.writtenPaths).not.toContain(".skillset/skills/demo");
     expect(report.writtenPaths).toContain(".skillset/skills/_drafts/demo");
-    expect(report.writtenPaths).toContain(PENDING_EVENTS);
+    expect(report.writtenPaths).toContainEqual(expect.stringMatching(PENDING_LEDGER_EVENT_FILE));
+    expect(report.writtenPaths).not.toContain(PENDING_EVENTS);
   });
 });
 

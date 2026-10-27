@@ -20,9 +20,9 @@
  *
  * Pending change-ledger event files under `.skillset/changes/events/`
  * (ADR-0045) are write-once instead: each must be a valid stream with a
- * conforming name, a trunk file may be deleted (folded by `release apply`) but
- * never edited, and ids stay unique across `ledger.jsonl` and every pending
- * file. They fold after `ledger.jsonl`, by file name.
+ * conforming name, a trunk file may be deleted only once `release apply` has
+ * folded every one of its records into `ledger.jsonl`, it is never edited, and
+ * ids stay unique across `ledger.jsonl` and every pending file. They fold after `ledger.jsonl`, by file name.
  *
  * File order is the only fold order (ADR-0038): `readLedgerReleaseState` and the
  * pending-fact reader in `change-entries.ts` fold events top to bottom and let
@@ -49,6 +49,7 @@ export type ChangeStreamRule =
   | "invalid-pending-event-name"
   | "missing-union-merge-attribute"
   | "not-an-object"
+  | "pending-event-dropped"
   | "pending-event-edited"
   | "trunk-prefix-divergence";
 
@@ -300,6 +301,32 @@ export function scanPendingEventFiles(
   return violations;
 }
 
+/**
+ * A pending event file that exists at the merge-base and is gone from the
+ * working copy is legitimate only when `release apply` folded it: every one of
+ * its records must now be a line of `ledger.jsonl`. Otherwise its events would
+ * silently drop out of the folded ledger.
+ */
+export function scanDroppedPendingEventFile(
+  file: string,
+  trunkContent: string,
+  ledgerContent: string
+): readonly ChangeStreamViolation[] {
+  const ledgerLines = new Set(ledgerContent.replaceAll("\r\n", "\n").split("\n"));
+  const missing = trunkContent
+    .replaceAll("\r\n", "\n")
+    .split("\n")
+    .filter((line) => line.trim().length > 0 && !ledgerLines.has(line));
+  return missing.length === 0
+    ? []
+    : [{
+        file,
+        line: 0,
+        message: `pending event file was deleted but ${missing.length} of its record(s) are not in ${LEDGER_STREAM}; restore it, or let \`skillset release apply\` fold it`,
+        rule: "pending-event-dropped",
+      }];
+}
+
 async function runText(cwd: string, command: readonly string[]): Promise<string> {
   const subprocess = Bun.spawn([...command], {
     cwd,
@@ -388,10 +415,16 @@ export async function collectChangeStreamViolations(options: {
     });
   }
   const ledgerPath = join(rootPath, LEDGER_STREAM);
-  violations.push(...scanPendingEventFiles(
-    pendingFiles,
-    existsSync(ledgerPath) ? await Bun.file(ledgerPath).text() : ""
-  ));
+  const ledgerContent = existsSync(ledgerPath) ? await Bun.file(ledgerPath).text() : "";
+  violations.push(...scanPendingEventFiles(pendingFiles, ledgerContent));
+  for (const file of [...trunkPending].toSorted()) {
+    if (existsSync(join(rootPath, file))) continue;
+    violations.push(...scanDroppedPendingEventFile(
+      file,
+      await runText(rootPath, ["git", "show", `${mergeBase}:${file}`]),
+      ledgerContent
+    ));
+  }
   if (present.length > 0) {
     const attributes = parseMergeAttributes(
       await runText(rootPath, ["git", "check-attr", "merge", "--", ...present])

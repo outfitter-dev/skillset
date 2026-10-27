@@ -81,7 +81,7 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
       ...(generatedTransaction.writes ?? []),
     ],
   };
-  await applyWorkspaceTransaction(
+  const report = await applyWorkspaceTransaction(
     rootPath,
     fullPlan,
     request.transactionOptions
@@ -90,7 +90,7 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
   return {
     ...plan,
     applied: true,
-    writtenPaths: transactionPaths(fullPlan),
+    writtenPaths: transactionPaths(fullPlan, report.appendedPaths),
   };
 }
 
@@ -447,10 +447,14 @@ async function assertNoUnmanagedOutputCollisions(
   }
 }
 
-function transactionPaths(plan: WorkspaceTransactionPlan): readonly string[] {
+function transactionPaths(
+  plan: WorkspaceTransactionPlan,
+  appendedPaths: readonly string[]
+): readonly string[] {
   return [
     ...new Set([
-      ...(plan.appends ?? []).map((append) => append.path),
+      // A pending-event append names its file only at apply time.
+      ...appendedPaths,
       // A copy only reads its source; the report names written paths.
       ...(plan.copies ?? []).map((copy) => copy.to),
       ...(plan.deletes ?? []),
