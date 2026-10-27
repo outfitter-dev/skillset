@@ -218,7 +218,7 @@ Generated files are derived from source. Never hand-edit or hand-merge them; fix
 3. `output-edited` means someone edited the generated file and not its source. Capture the edit with `git diff -- <path>`, apply it to the source `explain` names, then rebuild. Use `--discard-edits` only once the edit is in source or confirmed unwanted.
 4. `lock-untrusted` means `skillset.lock` failed its integrity check, not that the output is wrong. Rebuild with `skillset build --yes`, then repeat the repair preview.
 5. `diverged` means both the generated file and its source changed. Stop and report the paths; do not pick a side.
-6. During a rebase or merge, run `skillset resolve` to see which conflicts are generated, authored, or hand-edited. Resolve authored files yourself, then run `skillset resolve --yes` to repair and stage only the generated paths, and continue the rebase or merge.
+6. Branches that change different source units merge without conflicts: each `skillset.lock` line belongs to one unit, and change commands record ledger events in new write-once files under `.skillset/changes/events/` (never edit or delete those by hand; `skillset release apply` folds them). When a rebase or merge does conflict in generated output, run `skillset resolve` to see which conflicts are generated, authored, or hand-edited. Resolve authored files yourself, then run `skillset resolve --yes` to repair and stage only the generated paths, and continue the rebase or merge.
 7. Confirmed builds back up files they replace. `skillset restore --list` shows those backups and `skillset restore <backup-id> --yes` restores one.
 8. Finish with `skillset check --only outputs`; it must pass.
 
