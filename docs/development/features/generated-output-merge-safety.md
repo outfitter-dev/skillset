@@ -1,10 +1,10 @@
 ---
-description: Generated output merge safety records why generated files never line-merge, how per-entry lock provenance lets locks merge as text, and the invariants behind build repair and resolve.
+description: Generated output merge safety records why generated files merge as ordinary text, how per-entry lock provenance keeps that merge equal to a fresh render, and the invariants behind build repair and resolve.
 ---
 
 # Generated Output Merge Safety
 
-A half-merged generated file is the dangerous artifact: it looks valid, stages like a valid file, and corresponds to no source. Only a regeneration may produce a generated file. This page records the reasoning behind the merge policy, the lock format, `skillset build --repair`, and `skillset resolve`, so changes to any of them start from the trade-offs already settled (SET-598 to SET-601).
+A half-merged generated file is the dangerous artifact: it looks valid, stages like a valid file, and corresponds to no source. Git may text-merge generated output only because a clean merge of branches that changed different units equals the merged render, and a same-unit collision leaves conflict markers that lock readers reject; a conflicted generated file is only ever fixed by regenerating it. This page records the reasoning behind the merge policy, the lock format, `skillset build --repair`, and `skillset resolve`, so changes to any of them start from the trade-offs already settled (SET-598 to SET-601).
 
 ## Four categories, one policy each
 
