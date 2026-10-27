@@ -6,7 +6,9 @@ import {
   CHANGE_STREAM_PATHSPEC,
   collectChangeStreamViolations,
   parseMergeAttributes,
+  PENDING_EVENT_PATHSPEC,
   scanChangeStreams,
+  scanPendingEventFiles,
 } from "../change-stream-guard";
 import {
   createTestGitFixtureRoot,
@@ -271,7 +273,7 @@ describe("change stream guard", () => {
   });
 
   test("names the pathspec that mirrors .gitattributes", () => {
-    expect(CHANGE_STREAM_PATHSPEC).toBe(".skillset/changes/*.jsonl");
+    expect(CHANGE_STREAM_PATHSPEC).toBe(":(glob).skillset/changes/*.jsonl");
   });
 
   test("parses git check-attr merge output", () => {
@@ -294,3 +296,67 @@ async function gitStreamFixture(trunk: string): Promise<{ readonly ledger: strin
   await initializeTestGitRepository(root, { disposableRoot });
   return { ledger, root };
 }
+
+describe("ADR-0045 pending event files", () => {
+  const PENDING = ".skillset/changes/events/20260801T000000000Z-evt-ours-1.jsonl";
+
+  test("names the pending pathspec, which the union pathspec does not match", () => {
+    expect(PENDING_EVENT_PATHSPEC).toBe(":(glob).skillset/changes/events/*.jsonl");
+  });
+
+  test("accepts well-named files with unique ids", () => {
+    expect(scanPendingEventFiles(
+      [{ content: stream(event("evt-ours-1", "2026-08-01T00:00:00.000Z")), file: PENDING }],
+      stream(event("evt-base-1", "2026-07-01T00:00:00.000Z"))
+    )).toEqual([]);
+  });
+
+  test("flags a misnamed file", () => {
+    const file = ".skillset/changes/events/ours.jsonl";
+    expect(scanPendingEventFiles([{ content: stream(event("evt-ours-1", "2026-08-01T00:00:00.000Z")), file }])).toEqual([{
+      file,
+      line: 0,
+      message: "pending event file must be named <YYYYMMDDTHHMMSSmmmZ>-<event-id>.jsonl",
+      rule: "invalid-pending-event-name",
+    }]);
+  });
+
+  test("flags an id already used in ledger.jsonl or another pending file", () => {
+    const other = ".skillset/changes/events/20260802T000000000Z-evt-theirs-1.jsonl";
+    expect(scanPendingEventFiles(
+      [
+        { content: stream(event("evt-ours-1", "2026-08-01T00:00:00.000Z")), file: PENDING },
+        { content: stream(event("evt-base-1", "2026-08-02T00:00:00.000Z"), event("evt-ours-1", "2026-08-02T00:00:00.000Z")), file: other },
+      ],
+      stream(event("evt-base-1", "2026-07-01T00:00:00.000Z"))
+    )).toEqual([
+      { file: other, line: 1, message: `record id evt-base-1 is already used in ${FILE}`, rule: "duplicate-id" },
+      { file: other, line: 2, message: `record id evt-ours-1 is already used in ${PENDING}`, rule: "duplicate-id" },
+    ]);
+  });
+
+  test("allows a release to delete a trunk pending file but flags an edit", async () => {
+    const disposableRoot = await createTestGitFixtureRoot("skillset-change-stream-guard-pending-");
+    const root = join(disposableRoot, "repo");
+    const pending = join(root, PENDING);
+    const original = stream(event("evt-ours-1", "2026-08-01T00:00:00.000Z"));
+    await mkdir(join(root, ".skillset/changes/events"), { recursive: true });
+    await writeFile(join(root, ".gitattributes"), ".skillset/changes/*.jsonl merge=union\n", "utf8");
+    await writeFile(pending, original, "utf8");
+    await initializeTestGitRepository(root, { disposableRoot });
+    await runTestGit(root, "switch", "--quiet", "-c", "feature");
+
+    await appendFile(pending, stream(event("evt-ours-2", "2026-08-02T00:00:00.000Z")), "utf8");
+    expect((await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).violations).toEqual([{
+      file: PENDING,
+      line: 0,
+      message: "a pending event file on trunk is write-once; restore it exactly, or let `skillset release apply` fold it",
+      rule: "pending-event-edited",
+    }]);
+
+    await writeFile(join(root, FILE), original, "utf8");
+    await rm(pending);
+    await runTestGit(root, "add", "--all");
+    expect((await collectChangeStreamViolations({ rootPath: root, trunkRef: "main" })).violations).toEqual([]);
+  });
+});

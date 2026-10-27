@@ -49,7 +49,7 @@ import type {
 } from "./source-rename-types";
 import { SourceRenamePlanError } from "./source-rename-types";
 import { sourceUnitSelector } from "./source-unit-selector";
-import { workspaceChangeFile } from "./workspace-state";
+import { pendingLedgerEventsDir } from "./pending-ledger-events";
 
 export { SourceMovePlanError } from "./source-move-types";
 export type {
@@ -234,10 +234,7 @@ async function planAuthoredSourceMove(
           type: "source.moved",
         },
         kind: "append",
-        path: display(
-          rootPath,
-          join(rootPath, workspaceChangeFile(graph.sourceDir, "ledger.jsonl"))
-        ),
+        path: display(rootPath, join(rootPath, pendingLedgerEventsDir(graph.sourceDir))),
       },
       ...[...updates.entries()]
         .toSorted(([left], [right]) => compareStrings(left, right))

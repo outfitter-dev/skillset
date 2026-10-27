@@ -14,9 +14,11 @@ import {
 import { sourceLifecycleLedgerRecord, type SourceLifecycleLedgerEvent } from "../source-lifecycle-ledger";
 import { moveSource, planSourceMove } from "../source-move";
 import { applyWorkspaceTransaction } from "../workspace-transaction";
+import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 const LEDGER = ".skillset/changes/ledger.jsonl";
+const PENDING_EVENTS = ".skillset/changes/events";
 
 describe("sourceLifecycleLedgerRecord", () => {
   const drafted: SourceLifecycleLedgerEvent = {
@@ -142,7 +144,8 @@ describe("SET-660 lifecycle ledger appends", () => {
       })
     ).rejects.toThrow("injected promotion failure after the ledger append");
 
-    expect(await ledgerLines(root)).toEqual([...before, foreign]);
+    // The foreign line went to ledger.jsonl, which folds before pending files.
+    expect(await ledgerLines(root)).toEqual([foreign, ...before]);
   });
 });
 
@@ -160,7 +163,7 @@ describe("SET-660 lifecycle write reports", () => {
 
     expect(report.writtenPaths).not.toContain(".skillset/skills/demo");
     expect(report.writtenPaths).toContain(".skillset/skills/_drafts/demo");
-    expect(report.writtenPaths).toContain(LEDGER);
+    expect(report.writtenPaths).toContain(PENDING_EVENTS);
   });
 });
 
@@ -226,8 +229,9 @@ async function appendForeign(root: string, line: string): Promise<void> {
   await appendFile(join(root, LEDGER), `${line}\n`, "utf8");
 }
 
+/** The folded ledger: `ledger.jsonl`, then pending event files (ADR-0045). */
 async function ledgerLines(root: string): Promise<readonly string[]> {
-  return (await readFile(join(root, LEDGER), "utf8"))
+  return (await readFoldedLedger(root))
     .split("\n")
     .filter((line) => line.length > 0);
 }

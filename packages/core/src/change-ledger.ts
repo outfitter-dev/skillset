@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { changeLedgerStreamPaths } from "./pending-ledger-events";
 import {
   historicalRuleSelector,
   selectorForPluginCompanion,
@@ -15,7 +16,6 @@ import {
   sourceUnitSelector,
 } from "./source-unit-selector";
 import type { JsonRecord, JsonValue } from "./types";
-import { workspaceChangeFile } from "./workspace-state";
 import { isJsonRecord } from "./yaml";
 
 export type ChangeLedgerEventType =
@@ -179,7 +179,6 @@ export interface ChangeLedgerReadOptions {
   readonly sourceDir?: string;
 }
 
-const LEDGER_FILE = "ledger.jsonl";
 const SCHEMA_VERSION = 1;
 const EVENT_TYPES = new Set<ChangeLedgerEventType>([
   "baseline.recorded",
@@ -196,26 +195,30 @@ const EVENT_TYPES = new Set<ChangeLedgerEventType>([
   "source.promoted",
 ]);
 
+/**
+ * Read the change ledger in fold order: `ledger.jsonl` in file order, then
+ * pending event files by name, each in line order (ADR-0038, ADR-0045).
+ */
 export async function readChangeLedger(
   rootPath: string,
   options: ChangeLedgerReadOptions = {}
 ): Promise<readonly ChangeLedgerEvent[]> {
-  const path = workspaceChangeFile(options.sourceDir, LEDGER_FILE);
-  const absolutePath = resolveInside(rootPath, path);
-  if (!(await exists(absolutePath))) return [];
-
   const events: ChangeLedgerEvent[] = [];
   const ids = new Set<string>();
-  const lines = (await readFile(absolutePath, "utf8")).split("\n");
-  for (const [index, line] of lines.entries()) {
-    const lineNumber = index + 1;
-    if (line.trim().length === 0) continue;
-    const event = parseLedgerLine(line, path, lineNumber);
-    if (ids.has(event.id)) {
-      throw new Error(`skillset: duplicate change ledger event id ${event.id} in ${path}:${lineNumber}`);
+  for (const path of await changeLedgerStreamPaths(rootPath, options.sourceDir)) {
+    const absolutePath = resolveInside(rootPath, path);
+    if (!(await exists(absolutePath))) continue;
+    const lines = (await readFile(absolutePath, "utf8")).split("\n");
+    for (const [index, line] of lines.entries()) {
+      const lineNumber = index + 1;
+      if (line.trim().length === 0) continue;
+      const event = parseLedgerLine(line, path, lineNumber);
+      if (ids.has(event.id)) {
+        throw new Error(`skillset: duplicate change ledger event id ${event.id} in ${path}:${lineNumber}`);
+      }
+      ids.add(event.id);
+      events.push(event);
     }
-    ids.add(event.id);
-    events.push(event);
   }
   return events;
 }

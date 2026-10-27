@@ -12,7 +12,7 @@ import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import { pathExists, toPosix, workspaceRoot } from "./source-rename-paths";
 import { SourceRenamePlanError } from "./source-rename-types";
-import { sourceLifecycleLedgerRecord } from "./source-lifecycle-ledger";
+import { sourceLifecyclePendingAppend } from "./source-lifecycle-ledger";
 import type {
   SourceLedgerAppendOperation,
   SourceMutationCopyOperation,
@@ -58,7 +58,7 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
     );
   }
 
-  const sourceTransaction = sourceTransactionPlan(plan);
+  const sourceTransaction = sourceTransactionPlan(rootPath, plan);
   const generatedTransaction = generatedTransactionPlan(plan);
   const fullPlan: WorkspaceTransactionPlan = {
     ...(sourceTransaction.appends === undefined ? {} : { appends: sourceTransaction.appends }),
@@ -118,7 +118,7 @@ export async function planSourceMutationGeneratedEffects(
     await copyExistingRenderedOutputs(rootPath, shadowRoot, currentRendered);
     await applyWorkspaceTransaction(
       shadowRoot,
-      sourceTransactionPlan(sourcePlan)
+      sourceTransactionPlan(shadowRoot, sourcePlan)
     );
     const shadowBuild = await buildSkillsetResult(shadowRoot);
     if (!shadowBuild.ok) {
@@ -176,15 +176,13 @@ function describeBlockers(
 }
 
 function sourceTransactionPlan(
+  rootPath: string,
   plan: SourceMutationPlan
 ): WorkspaceTransactionPlan {
   return {
     appends: plan.operations
       .filter((operation): operation is SourceLedgerAppendOperation => operation.kind === "append")
-      .map((operation) => ({
-        path: operation.path,
-        records: (current: string) => [sourceLifecycleLedgerRecord(current, operation.event)],
-      })),
+      .map((operation) => sourceLifecyclePendingAppend(rootPath, operation.path, operation.event)),
     copies: plan.operations
       .filter((operation): operation is SourceMutationCopyOperation => operation.kind === "copy")
       .map((operation) => ({ from: operation.from, to: operation.to })),

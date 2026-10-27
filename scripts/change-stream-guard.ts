@@ -18,6 +18,12 @@
  *   the merge-base with the remote trunk (`scripts/git-trunk.sh`) is still
  *   present, byte for byte, at the same line, and new records only follow it.
  *
+ * Pending change-ledger event files under `.skillset/changes/events/`
+ * (ADR-0045) are write-once instead: each must be a valid stream with a
+ * conforming name, a trunk file may be deleted (folded by `release apply`) but
+ * never edited, and ids stay unique across `ledger.jsonl` and every pending
+ * file. They fold after `ledger.jsonl`, by file name.
+ *
  * File order is the only fold order (ADR-0038): `readLedgerReleaseState` and the
  * pending-fact reader in `change-entries.ts` fold events top to bottom and let
  * later records win, so reordering or removing a trunk record silently changes
@@ -40,8 +46,10 @@ export type ChangeStreamRule =
   | "missing-id"
   | "missing-timestamp"
   | "missing-trailing-newline"
+  | "invalid-pending-event-name"
   | "missing-union-merge-attribute"
   | "not-an-object"
+  | "pending-event-edited"
   | "trunk-prefix-divergence";
 
 export type ChangeStreamViolation = {
@@ -52,8 +60,20 @@ export type ChangeStreamViolation = {
   readonly rule: ChangeStreamRule;
 };
 
-/** Pathspec for the append-only streams; mirrors the `.gitattributes` pattern. */
-export const CHANGE_STREAM_PATHSPEC = ".skillset/changes/*.jsonl";
+/**
+ * Pathspec for the append-only streams; mirrors the `.gitattributes` pattern.
+ * `:(glob)` keeps `*` inside one path segment, as in `.gitattributes`, so the
+ * pending event files under `changes/events/` are not append-only streams.
+ */
+export const CHANGE_STREAM_PATHSPEC = ":(glob).skillset/changes/*.jsonl";
+
+/**
+ * Pending change-ledger event files (ADR-0045): one new file per mutation,
+ * folded into `ledger.jsonl` and deleted by `skillset release apply`. They are
+ * write-once, so they need no merge attribute; a trunk file may be deleted but
+ * never edited.
+ */
+export const PENDING_EVENT_PATHSPEC = ":(glob).skillset/changes/events/*.jsonl";
 
 /**
  * Timestamp fields, in precedence order. `ledger.jsonl` records `createdAt`;
@@ -218,6 +238,67 @@ export function parseMergeAttributes(output: string): ReadonlyMap<string, string
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const CHANGE_STREAM_FILE = /^\.skillset\/changes\/[^/]+\.jsonl$/u;
+const PENDING_EVENT_FILE = /^\.skillset\/changes\/events\/[^/]+\.jsonl$/u;
+const PENDING_EVENT_NAME = /^\d{8}T\d{9}Z-[A-Za-z0-9][A-Za-z0-9-]*\.jsonl$/u;
+const LEDGER_STREAM = ".skillset/changes/ledger.jsonl";
+
+/**
+ * Check pending event files: each is a valid stream with a conforming name, a
+ * file already on trunk is unchanged (only `release apply` removes one), and
+ * record ids are unique across `ledger.jsonl` and every pending file, which is
+ * what `readChangeLedger` requires of the folded ledger.
+ */
+export function scanPendingEventFiles(
+  files: readonly ChangeStreamInput[],
+  ledgerContent = ""
+): readonly ChangeStreamViolation[] {
+  const violations: ChangeStreamViolation[] = [];
+  const seen = new Map<string, string>();
+  const noteIds = (file: string, content: string): void => {
+    for (const [index, text] of content.split("\n").entries()) {
+      let id: unknown;
+      try {
+        id = (JSON.parse(text) as Record<string, unknown> | null)?.id;
+      } catch {
+        continue;
+      }
+      if (typeof id !== "string" || id.length === 0) continue;
+      const first = seen.get(id);
+      if (first !== undefined && first !== file) {
+        violations.push({
+          file,
+          line: index + 1,
+          message: `record id ${id} is already used in ${first}`,
+          rule: "duplicate-id",
+        });
+      }
+      seen.set(id, first ?? file);
+    }
+  };
+  noteIds(LEDGER_STREAM, ledgerContent);
+  for (const entry of files) {
+    const name = entry.file.slice(entry.file.lastIndexOf("/") + 1);
+    if (!PENDING_EVENT_NAME.test(name)) {
+      violations.push({
+        file: entry.file,
+        line: 0,
+        message: "pending event file must be named <YYYYMMDDTHHMMSSmmmZ>-<event-id>.jsonl",
+        rule: "invalid-pending-event-name",
+      });
+    }
+    violations.push(...scanFile(entry.file, entry.content));
+    if (entry.trunkContent !== undefined && entry.trunkContent !== entry.content) {
+      violations.push({
+        file: entry.file,
+        line: 0,
+        message: "a pending event file on trunk is write-once; restore it exactly, or let `skillset release apply` fold it",
+        rule: "pending-event-edited",
+      });
+    }
+    noteIds(entry.file, entry.content);
+  }
+  return violations;
+}
 
 async function runText(cwd: string, command: readonly string[]): Promise<string> {
   const subprocess = Bun.spawn([...command], {
@@ -289,6 +370,28 @@ export async function collectChangeStreamViolations(options: {
   }
 
   const violations = [...scanChangeStreams(files)];
+
+  const trunkPending = new Set(
+    nonEmptyLines(await runText(rootPath, ["git", "ls-tree", "-r", "--name-only", mergeBase, "--", ".skillset/changes/events"]))
+      .filter((file) => PENDING_EVENT_FILE.test(file))
+  );
+  const pendingFiles: ChangeStreamInput[] = [];
+  for (const file of nonEmptyLines(await runText(rootPath, ["git", "ls-files", "--", PENDING_EVENT_PATHSPEC])).sort()) {
+    const path = join(rootPath, file);
+    if (!existsSync(path)) continue;
+    pendingFiles.push({
+      content: await Bun.file(path).text(),
+      file,
+      ...(trunkPending.has(file)
+        ? { trunkContent: await runText(rootPath, ["git", "show", `${mergeBase}:${file}`]) }
+        : {}),
+    });
+  }
+  const ledgerPath = join(rootPath, LEDGER_STREAM);
+  violations.push(...scanPendingEventFiles(
+    pendingFiles,
+    existsSync(ledgerPath) ? await Bun.file(ledgerPath).text() : ""
+  ));
   if (present.length > 0) {
     const attributes = parseMergeAttributes(
       await runText(rootPath, ["git", "check-attr", "merge", "--", ...present])
@@ -304,7 +407,7 @@ export async function collectChangeStreamViolations(options: {
     }
   }
 
-  return { scanned: files.length, violations };
+  return { scanned: files.length + pendingFiles.length, violations };
 }
 
 async function main(): Promise<void> {

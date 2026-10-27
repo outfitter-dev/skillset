@@ -6,15 +6,16 @@ description: Generated output merge safety records why generated files never lin
 
 A half-merged generated file is the dangerous artifact: it looks valid, stages like a valid file, and corresponds to no source. Only a regeneration may produce a generated file. This page records the reasoning behind the merge policy, the lock format, `skillset build --repair`, and `skillset resolve`, so changes to any of them start from the trade-offs already settled (SET-598 to SET-601).
 
-## Three categories, one policy each
+## Four categories, one policy each
 
 | Category | Examples | Git `merge` attribute |
 | --- | --- | --- |
 | Generated snapshot | Provider trees, `plugins/*/**`, every `skillset.lock` | `-merge` (unset) |
 | Append-only ledger | `.skillset/changes/*.jsonl` | `union` |
+| Pending ledger events | `.skillset/changes/events/*.jsonl`, one write-once file per mutation | unspecified |
 | Authored | Everything else tracked | unspecified |
 
-Both strategies are built into git. A custom merge driver needs per-clone `git config`, so it would not apply in CI, fresh clones, or worktrees.
+Pending event files are only ever added, and each name carries a timestamp and an event id, so branches never touch the same file and the default text merge suffices. Only `skillset release apply` appends to the union streams, when it folds pending files into `ledger.jsonl`. Both strategies are built into git. A custom merge driver needs per-clone `git config`, so it would not apply in CI, fresh clones, or worktrees.
 
 `-merge` makes git report the path as unmerged and leave the "ours" side on disk whole, with no conflict markers. The conflict survives as a signal and `skillset resolve` clears it by regeneration. Do not use `binary` instead: it also sets `-diff`, and generated files must still review as readable diffs.
 
@@ -22,7 +23,7 @@ Both strategies are built into git. A custom merge driver needs per-clone `git c
 
 ## Locks carry per-entry provenance
 
-> [ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md) also moves pending ledger events to their own files and retires `-merge` for generated output. The table above changes when those land.
+> [ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md) also retires `-merge` for generated output. The generated snapshot row changes when that lands.
 
 Locks stay one sorted JSON document per output root. Schema v5 (`packages/core/src/lock-provenance.ts`) splits provenance so that two branches changing different units change different lines:
 

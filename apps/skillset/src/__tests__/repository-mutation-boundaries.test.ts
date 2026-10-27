@@ -201,17 +201,16 @@ describe("SET-637 repository mutation boundaries", () => {
     });
   });
 
-  test("change add refuses a symlinked ledger leaf before appending outside", async () => {
+  test("change add refuses a symlinked pending events directory before writing outside", async () => {
     await withBoundary(async (root, outside) => {
       await initWorkspace(root);
       await scaffoldSourceUnit(root, { kind: "skill", name: "demo", write: true });
       await commitWorkspace(root);
-      const ledger = join(root, ".skillset/changes/ledger.jsonl");
-      const redirected = join(outside, "ledger.jsonl");
-      await writeFile(redirected, await readFile(ledger).catch(() => ""));
-      const before = await readFile(redirected, "utf8");
-      await rm(ledger, { force: true });
-      await symlink(redirected, ledger);
+      const events = join(root, ".skillset/changes/events");
+      const redirected = join(outside, "events");
+      await mkdir(redirected, { recursive: true });
+      await rm(events, { force: true, recursive: true });
+      await symlink(redirected, events);
       await expect(
         addChangeEntry(root, {
           bump: "patch",
@@ -221,10 +220,8 @@ describe("SET-637 repository mutation boundaries", () => {
           },
           scopes: ["skill:demo"],
         })
-      ).rejects.toThrow(
-        "refusing to write through symbolic link: .skillset/changes/ledger.jsonl"
-      );
-      expect(await readFile(redirected, "utf8")).toBe(before);
+      ).rejects.toThrow("symbolic link");
+      expect(await readdir(redirected)).toEqual([]);
       expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside\n");
     });
   });

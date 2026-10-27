@@ -272,7 +272,7 @@ function classifyChangeRecovery(
         action: "change-refresh",
         commands: [command, `${command} --yes`],
         path: entry.path,
-        reason: "pending change evidence is stale or missing; refresh previews the exact ledger evidence before append",
+        reason: "pending change evidence is stale or missing; refresh previews the exact ledger evidence before recording it",
         ref,
       });
     }

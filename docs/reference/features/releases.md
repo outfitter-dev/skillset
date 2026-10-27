@@ -30,6 +30,7 @@ The [publishing guide](../../guides/publishing.md) owns the end-to-end workflow.
 
 A confirmed release:
 
+- folds pending event files from `.skillset/changes/events/` into `.skillset/changes/ledger.jsonl` and removes them;
 - appends `release.applied` evidence to `.skillset/changes/ledger.jsonl`;
 - moves applied reasons into append-only history and appends release records;
 - advances source-unit version authority and records deletion tombstones;

@@ -53,6 +53,19 @@ export interface WorkspaceTransactionWrite {
 export interface WorkspaceTransactionAppend {
   readonly path: string;
   readonly records: (current: string) => readonly object[];
+  /**
+   * Write the records to one new file inside the directory `path` instead of
+   * appending to `path` (pending ledger event files, ADR-0045). `current`
+   * supplies what `records` reads in place of the target's bytes, and
+   * `fileName` names the new file from the records it will hold.
+   */
+  readonly newFile?: WorkspaceTransactionNewFileAppend;
+}
+
+/** How a new-file append reads its context and names its file. */
+export interface WorkspaceTransactionNewFileAppend {
+  readonly current: () => Promise<string>;
+  readonly fileName: (records: readonly object[]) => string;
 }
 
 /** A filesystem entry moved as part of a bounded workspace transaction. */
@@ -226,6 +239,7 @@ interface NormalizedAppend {
     WorkspaceTransactionOperation,
     { readonly kind: "append" }
   >;
+  readonly newFile?: WorkspaceTransactionNewFileAppend;
   readonly path: NormalizedPath;
   readonly records: WorkspaceTransactionAppend["records"];
 }
@@ -479,6 +493,7 @@ function preparePlan(
   const appends = (plan.appends ?? []).map((append) => {
     const path = normalizePath(workspaceRoot, append.path);
     return {
+      ...(append.newFile === undefined ? {} : { newFile: append.newFile }),
       operation: { kind: "append" as const, path: path.relative },
       path,
       records: append.records,
@@ -1085,6 +1100,24 @@ async function applyAppends(
           `expected-absent write changed after installation: ${write.write.path.relative}`
         );
       }
+    }
+    if (append.newFile !== undefined) {
+      const records = append.records(await append.newFile.current());
+      const name = append.newFile.fileName(records);
+      if (name.length === 0 || name.includes("/") || name.includes("\\") || name.startsWith(".")) {
+        throw transactionError(`new-file append name is not a plain file name: ${JSON.stringify(name)}`);
+      }
+      const target = normalizePath(
+        state.workspaceRoot,
+        nodePath.join(append.path.relative, name)
+      );
+      await ensureSafeParent(state, target, hooks, "written-through");
+      if ((await inspectPath(state.workspaceRoot, target)) !== undefined) {
+        throw transactionError(`new-file append target already exists: ${target.relative}`);
+      }
+      const lines = await appendOwnedJsonlRecords(target.absolute, records);
+      state.appliedAppends.push({ lines, path: target });
+      continue;
     }
     await ensureSafeParent(state, append.path, hooks, "written-through");
     const entry = await inspectPath(state.workspaceRoot, append.path);

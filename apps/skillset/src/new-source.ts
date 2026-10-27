@@ -1,7 +1,6 @@
 import { lstat, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { workspaceChangeFile } from "@skillset/core";
 import {
   detectWorkspaceSourceDir,
   loadBuildGraph,
@@ -13,7 +12,8 @@ import {
 } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { freshDraftDiscardEvent } from "@skillset/core/internal/source-draft";
-import { sourceLifecycleLedgerRecord } from "@skillset/core/internal/source-lifecycle-ledger";
+import { pendingLedgerEventsDir } from "@skillset/core/internal/pending-ledger-events";
+import { sourceLifecyclePendingAppend } from "@skillset/core/internal/source-lifecycle-ledger";
 import { applyWorkspaceTransaction } from "@skillset/core/internal/workspace-transaction";
 import type { WorkspaceTransactionOptions } from "@skillset/core/internal/workspace-transaction";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
@@ -208,10 +208,9 @@ async function scaffoldSourceUnitUnlocked(
     const hooks = options.transactionOptions?.testHooks;
     await applyWorkspaceTransaction(rootPath, {
       writes: plans.map((plan) => ({ content: plan.content, expectedAbsent: true, path: plan.path })),
-      ...(event === undefined ? {} : { appends: [{
-        path: workspaceChangeFile(sourceDir, "ledger.jsonl"),
-        records: (current: string) => [sourceLifecycleLedgerRecord(current, event)],
-      }] }),
+      ...(event === undefined ? {} : { appends: [
+        sourceLifecyclePendingAppend(rootPath, pendingLedgerEventsDir(sourceDir), event),
+      ] }),
     }, {
       testHooks: {
         ...hooks,
@@ -240,8 +239,8 @@ async function scaffoldSourceUnitUnlocked(
         path: plan.path,
       })),
       ...(discardEvent === undefined ? [] : [{
-        operation: "update" as const,
-        path: workspaceChangeFile(sourceDir, "ledger.jsonl"),
+        operation: "create" as const,
+        path: pendingLedgerEventsDir(sourceDir),
       }]),
     ],
     id,

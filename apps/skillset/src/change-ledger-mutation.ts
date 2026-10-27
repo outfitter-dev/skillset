@@ -3,14 +3,17 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   appendOwnedJsonlRecords,
   nextJsonlTimestamp,
-  readJsonlTailTimestamp,
   rollbackOwnedJsonlRecords,
 } from "@skillset/core/internal/change-ledger-write";
 import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
+import { MISSING_PATH_ENOENT, pathExists } from "@skillset/core/internal/fs-existence";
 import { resolveInside } from "@skillset/core/internal/path";
+import {
+  pendingLedgerEventFile,
+  readChangeLedgerTailTimestamp,
+} from "@skillset/core/internal/pending-ledger-events";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import type { JsonRecord } from "@skillset/core/internal/types";
-import { workspaceChangeFile } from "@skillset/core";
 
 import {
   withChangeLedgerLock,
@@ -29,9 +32,14 @@ export interface ChangeLedgerMutation {
     relativePath: string,
     records: readonly object[]
   ) => Promise<readonly string[]>;
+  /**
+   * Record ledger events in this mutation's own pending event file (ADR-0045).
+   * The first call names the file; later calls in the same mutation append to
+   * it. Returns that file and the lines written by this call.
+   */
   readonly appendLedger: (
     events: readonly ChangeLedgerEventInput[]
-  ) => Promise<readonly string[]>;
+  ) => Promise<{ readonly lines: readonly string[]; readonly path: string }>;
   readonly assertOwned: () => Promise<void>;
 }
 
@@ -48,6 +56,7 @@ export async function withChangeLedgerMutation<T>(
 ): Promise<T> {
   return withChangeLedgerLock(rootPath, sourceDir, input, async (lock) => {
     const owned = new Map<string, string[]>();
+    let pendingPath: string | undefined;
     const mutation: ChangeLedgerMutation = {
       assertOwned: lock.assertOwned,
       appendJsonl: async (relativePath, records) => {
@@ -61,19 +70,31 @@ export async function withChangeLedgerMutation<T>(
         return lines;
       },
       appendLedger: async (events) => {
-        const relativePath = workspaceChangeFile(sourceDir, "ledger.jsonl");
-        const absolutePath = resolveInside(rootPath, relativePath);
-        const createdAt = nextJsonlTimestamp(await readJsonlTailTimestamp(absolutePath));
-        return mutation.appendJsonl(
-          relativePath,
-          events.map((event) => ({
-            createdAt,
-            id: ledgerEventId(event.type),
-            payload: event.payload,
-            schemaVersion: 1,
-            type: event.type,
-          }))
+        const createdAt = nextJsonlTimestamp(
+          await readChangeLedgerTailTimestamp(rootPath, sourceDir)
         );
+        const records = events.map((event) => ({
+          createdAt,
+          id: ledgerEventId(event.type),
+          payload: event.payload,
+          schemaVersion: 1,
+          type: event.type,
+        }));
+        const first = records[0];
+        if (first === undefined) {
+          return { lines: [], path: pendingPath ?? "" };
+        }
+        if (pendingPath === undefined) {
+          const candidate = pendingLedgerEventFile(sourceDir, createdAt, first.id);
+          if (await pathExists(resolveInside(rootPath, candidate), {
+            missing: MISSING_PATH_ENOENT,
+            probe: "lstat",
+          })) {
+            throw new Error(`skillset: pending change ledger event file ${candidate} already exists`);
+          }
+          pendingPath = candidate;
+        }
+        return { lines: await mutation.appendJsonl(pendingPath, records), path: pendingPath };
       },
     };
 

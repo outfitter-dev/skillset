@@ -277,7 +277,7 @@ describe("source move foundations", () => {
       expect.objectContaining({
         event: expect.objectContaining({ type: "source.moved" }),
         kind: "append",
-        path: ".skillset/changes/ledger.jsonl",
+        path: ".skillset/changes/events",
       })
     );
     expect(

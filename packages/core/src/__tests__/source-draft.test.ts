@@ -24,6 +24,7 @@ import {
   SourcePromotionPlanError,
 } from "../source-draft";
 import { moveSource, planSourceMove } from "../source-move";
+import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("SET-587 source draft lifecycle", () => {
@@ -58,7 +59,7 @@ describe("SET-587 source draft lifecycle", () => {
       expect.objectContaining({
         event: expect.objectContaining({ type: "source.drafted" }),
         kind: "append",
-        path: ".skillset/changes/ledger.jsonl",
+        path: ".skillset/changes/events",
       })
     );
     expect(plan.generatedOperations).toContainEqual(
@@ -669,7 +670,7 @@ describe("SET-587 source draft lifecycle", () => {
             beforeApply: (operation) => {
               if (
                 operation.kind === "append" &&
-                operation.path === ".skillset/changes/ledger.jsonl"
+                operation.path === ".skillset/changes/events"
               ) {
                 throw new Error("injected promotion ledger failure");
               }
@@ -704,7 +705,7 @@ describe("SET-587 source draft lifecycle", () => {
             beforeApply: (operation) => {
               if (
                 operation.kind === "append" &&
-                operation.path === ".skillset/changes/ledger.jsonl"
+                operation.path === ".skillset/changes/events"
               ) {
                 throw new Error("injected draft ledger failure");
               }
@@ -800,7 +801,7 @@ describe("SET-587 source draft lifecycle", () => {
       rootPath: root,
     };
     const plan = await planSourcePromotion(request);
-    const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"));
+    const ledger = await readFoldedLedger(root);
     const rendered = await readFile(
       join(root, ".agents/skills/draft-demo/SKILL.md")
     );
@@ -832,9 +833,7 @@ describe("SET-587 source draft lifecycle", () => {
     expect(
       await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")
     ).toContain("Shipped demo.");
-    expect(
-      await readFile(join(root, ".skillset/changes/ledger.jsonl"))
-    ).toEqual(ledger);
+    expect(await readFoldedLedger(root)).toEqual(ledger);
     expect(
       await readFile(join(root, ".agents/skills/draft-demo/SKILL.md"))
     ).toEqual(rendered);
@@ -869,7 +868,7 @@ describe("SET-587 source draft lifecycle", () => {
       rootPath: root,
     };
     const plan = await planSourcePromotion(request);
-    const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"));
+    const ledger = await readFoldedLedger(root);
     const renderedDraft = await readFile(
       join(root, ".agents/skills/draft-demo/SKILL.md")
     );
@@ -901,9 +900,7 @@ describe("SET-587 source draft lifecycle", () => {
         "utf8"
       )
     ).toBe(previewedDraft);
-    expect(
-      await readFile(join(root, ".skillset/changes/ledger.jsonl"))
-    ).toEqual(ledger);
+    expect(await readFoldedLedger(root)).toEqual(ledger);
     expect(
       await readFile(join(root, ".agents/skills/draft-demo/SKILL.md"))
     ).toEqual(renderedDraft);

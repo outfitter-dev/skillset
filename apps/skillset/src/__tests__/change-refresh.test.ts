@@ -9,6 +9,7 @@ import {
   initializeTestGitRepository,
   runTestGit,
 } from "../../../../scripts/test-helpers/git-remote";
+import { PENDING_LEDGER_EVENT_FILE, readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 
 const DEAD_OWNER_TOKEN = "d".repeat(32);
 const LIVE_OWNER_TOKEN = "1".repeat(32);
@@ -28,12 +29,11 @@ test("SET-329 refresh previews, replans, and idempotently applies stacked stale 
     expect(added.exitCode).toBe(0);
   }
   await writeFile(skillPath, skill("Second changed body."), "utf8");
-  const ledgerPath = join(root, ".skillset/changes/ledger.jsonl");
-  const ledgerBefore = await readFile(ledgerPath, "utf8");
+  const ledgerBefore = await readFoldedLedger(root);
   const sourceBefore = await readFile(skillPath, "utf8");
 
   await runCli("check", "--ci", "--fix", "--since", "HEAD", "--root", root);
-  expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  expect(await readFoldedLedger(root)).toBe(ledgerBefore);
   expect(await readFile(skillPath, "utf8")).toBe(sourceBefore);
 
   const preview = await runCli("change", "refresh", "--root", root, "--json");
@@ -46,27 +46,27 @@ test("SET-329 refresh previews, replans, and idempotently applies stacked stale 
     previewData.report.entries.map((entry) => entry.path).toSorted()
   );
   expect(previewData.report.entries.every((entry) => entry.scopes[0]?.priorHashes.length === 1)).toBe(true);
-  expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  expect(await readFoldedLedger(root)).toBe(ledgerBefore);
 
   await writeFile(skillPath, skill("Apply-time changed body."), "utf8");
   const applied = await runCli("change", "refresh", "--root", root, "--yes", "--json");
   expect(applied.exitCode).toBe(0);
   const appliedData = jsonRefresh(applied.stdout);
   expect(appliedData.state).toBe("written");
-  expect(appliedData.writes).toEqual([".skillset/changes/ledger.jsonl"]);
+  expect(appliedData.writes).toEqual([expect.stringMatching(PENDING_LEDGER_EVENT_FILE)]);
   expect(appliedData.report.entries).toHaveLength(2);
   expect(appliedData.report.entries[0]?.scopes[0]?.currentHash).not.toBe(
     previewData.report.entries[0]?.scopes[0]?.currentHash
   );
 
-  const ledgerAfter = await readFile(ledgerPath, "utf8");
+  const ledgerAfter = await readFoldedLedger(root);
   expect(nonCoverageLedgerEvents(ledgerAfter)).toEqual(
     nonCoverageLedgerEvents(ledgerBefore)
   );
   const repeated = jsonRefresh((await runCli("change", "refresh", "--root", root, "--yes", "--json")).stdout);
   expect(repeated.report.entries).toEqual([]);
   expect(repeated.writes).toEqual([]);
-  expect(await readFile(ledgerPath, "utf8")).toBe(ledgerAfter);
+  expect(await readFoldedLedger(root)).toBe(ledgerAfter);
   expect((ledgerAfter.match(/"type":"change.covered"/g) ?? []).length).toBe(4);
   const checked = await runCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);
@@ -86,7 +86,7 @@ test("SET-329 refresh handles missing evidence and an optional targeted ref", as
   expect(data.report.entries).toHaveLength(1);
   expect(data.report.entries[0]?.ref).toBe("@111111abcdef");
   expect(data.report.entries[0]?.scopes[0]?.priorHashes).toEqual([]);
-  expect(data.writes).toEqual([".skillset/changes/ledger.jsonl"]);
+  expect(data.writes).toEqual([expect.stringMatching(PENDING_LEDGER_EVENT_FILE)]);
 
   const remaining = await runCli("change", "check", "@222222", "--root", root, "--since", "HEAD");
   expect(remaining.exitCode).toBe(1);
@@ -148,7 +148,7 @@ test("SET-329 refresh refuses invalid or uncovered entries and replans from curr
   const invalid = await runCli("change", "refresh", "--root", root, "--yes");
   expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain("change-reason-placeholder");
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 
   await writeReason(root, "abcdef123456", "This reason is valid and deliberately begins without ledger evidence for the source scope.");
   const preview = await refreshChangeEvidence(root, { since: "HEAD", write: false });
@@ -158,7 +158,7 @@ test("SET-329 refresh refuses invalid or uncovered entries and replans from curr
     write: true,
   });
   expect(applied.entries[0]?.scopes[0]?.currentHash).not.toBe(preview.entries[0]?.scopes[0]?.currentHash);
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).toContain(applied.entries[0]?.scopes[0]?.currentHash ?? "missing-current-hash");
   expect(ledger).not.toContain(preview.entries[0]?.scopes[0]?.currentHash ?? "missing-preview-hash");
 });
@@ -175,7 +175,7 @@ test("SET-329 refresh serializes concurrent public CLI applies without duplicate
   const reports = results.map((result) => jsonRefresh(result.stdout));
   expect(reports.filter((report) => report.writes.length === 1)).toHaveLength(1);
   expect(reports.filter((report) => report.writes.length === 0)).toHaveLength(11);
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect((ledger.match(/"type":"change.covered"/g) ?? [])).toHaveLength(1);
   expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
   expect((await readdir(join(root, ".skillset/changes"))).filter((path) => path.includes("ledger.jsonl.lock"))).toEqual([]);
@@ -194,7 +194,7 @@ test("SET-329 refresh refuses frontmatter compatibility entries without a ledger
   const result = await runCli("change", "refresh", "--root", root, "--yes");
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain("change-frontmatter-compatibility");
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 });
 
 test("SET-329 refresh reclaims a dead stale owner and removes its lock artifacts", async () => {
@@ -305,7 +305,7 @@ test("SET-329 public refresh reclaims missing and malformed aged owners without 
 
     const result = await runCli("change", "refresh", "--root", root, "--yes", "--json");
     expect(result.exitCode).toBe(0);
-    expect(jsonRefresh(result.stdout).writes).toEqual([".skillset/changes/ledger.jsonl"]);
+    expect(jsonRefresh(result.stdout).writes).toEqual([expect.stringMatching(PENDING_LEDGER_EVENT_FILE)]);
     expect(await ledgerLockArtifacts(root)).toEqual([]);
   }
 });
@@ -335,7 +335,7 @@ test("SET-329 public refresh rejects nonfinite and over-skew lock timestamps wit
 
     const result = await runCli("change", "refresh", "--root", root, "--yes", "--json");
     expect(result.exitCode).toBe(0);
-    expect(jsonRefresh(result.stdout).writes).toEqual([".skillset/changes/ledger.jsonl"]);
+    expect(jsonRefresh(result.stdout).writes).toEqual([expect.stringMatching(PENDING_LEDGER_EVENT_FILE)]);
     expect(await ledgerLockArtifacts(root)).toEqual([]);
   }
 });
@@ -370,9 +370,7 @@ test("SET-329 refresh times out without reclaiming a live over-lease owner", asy
       )
     )
   ).toMatchObject({ token: LIVE_OWNER_TOKEN });
-  expect(
-    await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
-  ).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 });
 
 test("SET-329 refresh heartbeats keep a live holder beyond its lease", async () => {
@@ -440,9 +438,7 @@ test("SET-329 a fenced owner cannot append or remove its successor lock", async 
       write: true,
     })
   ).rejects.toThrow("lost ownership of change ledger lock");
-  expect(
-    await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()
-  ).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
   expect(
     JSON.parse(
       await readFile(

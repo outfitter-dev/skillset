@@ -8,6 +8,7 @@ import { readChangeLedger } from "@skillset/core/internal/change-ledger";
 import { draftSource, planSourceDraft, planSourcePromotion } from "@skillset/core/internal/source-draft";
 import { moveSource, planSourceMove } from "@skillset/core/internal/source-move";
 import { sourceLifecycleLedgerRecord } from "@skillset/core/internal/source-lifecycle-ledger";
+import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { scaffoldSourceUnit } from "../new-source";
 
@@ -21,11 +22,11 @@ for (const plugin of [undefined, "tools"]) {
 
     await rm(join(root, draft), { recursive: true });
     const options = { kind: "skill" as const, id: "demo", draft: true, ...(plugin === undefined ? {} : { container: plugin }) };
-    const before = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+    const before = await readFoldedLedger(root);
     const preview = await scaffoldSourceUnit(root, options);
-    expect(preview.files).toContainEqual({ operation: "update", path: ".skillset/changes/ledger.jsonl" });
+    expect(preview.files).toContainEqual({ operation: "create", path: ".skillset/changes/events" });
     expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
-    expect(await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8")).toBe(before);
+    expect(await readFoldedLedger(root)).toBe(before);
 
     await scaffoldSourceUnit(root, { ...options, write: true });
     const events = await readChangeLedger(root);
@@ -45,8 +46,7 @@ for (const plugin of [undefined, "tools"]) {
 test("SET-671: failed fresh draft append rolls back created files and preserves fork records", async () => {
   const { root, draft } = await forkFixture();
   await rm(join(root, draft), { recursive: true });
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const before = await readFile(ledger, "utf8");
+  const before = await readFoldedLedger(root);
   await expect(scaffoldSourceUnit(root, {
     kind: "skill", id: "demo", draft: true, write: true,
     transactionOptions: { testHooks: { beforeApply: (operation) => {
@@ -54,21 +54,20 @@ test("SET-671: failed fresh draft append rolls back created files and preserves 
     } } },
   })).rejects.toThrow("injected append failure");
   expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
-  expect(await readFile(ledger, "utf8")).toBe(before);
+  expect(await readFoldedLedger(root)).toBe(before);
 });
 
 test("SET-671: resource-only fork refuses preview and creation without losing provenance", async () => {
   const { root, draft, fork } = await forkFixture(undefined, true);
   await rm(join(root, draft, "SKILL.md"));
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const before = await readFile(ledger, "utf8");
+  const before = await readFoldedLedger(root);
   for (const write of [false, true]) {
     await expect(scaffoldSourceUnit(root, {
       kind: "skill", id: "demo", draft: true, write,
     })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
     expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
     expect(await readFile(join(root, draft, "references/api.md"), "utf8")).toBe("Authored resource.\n");
-    expect(await readFile(ledger, "utf8")).toBe(before);
+    expect(await readFoldedLedger(root)).toBe(before);
   }
   await writeFile(join(root, draft, "SKILL.md"), skill("Restored fork."));
   await buildSkillset(root);
@@ -79,8 +78,7 @@ test("SET-671: resource inserted before append prevents fork closure and survive
   const { root, draft } = await forkFixture();
   await rm(join(root, draft), { recursive: true });
   await mkdir(join(root, draft));
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const before = await readFile(ledger, "utf8");
+  const before = await readFoldedLedger(root);
   await expect(scaffoldSourceUnit(root, {
     kind: "skill", id: "demo", draft: true, write: true,
     transactionOptions: { testHooks: { beforeApply: async (operation) => {
@@ -89,15 +87,14 @@ test("SET-671: resource inserted before append prevents fork closure and survive
   })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
   expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
   expect(await readFile(join(root, draft, "retained.md"), "utf8")).toBe("Late authored resource.\n");
-  expect(await readFile(ledger, "utf8")).toBe(before);
+  expect(await readFoldedLedger(root)).toBe(before);
 });
 
 test("SET-671: directory inserted at a planned file before install survives refusal", async () => {
   const { root, draft } = await forkFixture();
   await rm(join(root, draft), { recursive: true });
   await mkdir(join(root, draft));
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const before = await readFile(ledger, "utf8");
+  const before = await readFoldedLedger(root);
   await expect(scaffoldSourceUnit(root, {
     kind: "skill", id: "demo", draft: true, write: true,
     transactionOptions: { testHooks: { beforeApply: async (operation) => {
@@ -105,7 +102,7 @@ test("SET-671: directory inserted at a planned file before install survives refu
     } } },
   })).rejects.toThrow();
   expect(await Bun.file(join(root, draft, "SKILL.md")).exists()).toBe(false);
-  expect(await readFile(ledger, "utf8")).toBe(before);
+  expect(await readFoldedLedger(root)).toBe(before);
   // It never became a transaction-owned write, so the foreign directory stays.
   expect((await stat(join(root, draft, "SKILL.md"))).isDirectory()).toBe(true);
 });
@@ -113,8 +110,7 @@ test("SET-671: directory inserted at a planned file before install survives refu
 test("SET-671: foreign directory replacing installed draft survives refused fork closure", async () => {
   const { root, draft } = await forkFixture();
   await rm(join(root, draft), { recursive: true });
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const before = await readFile(ledger, "utf8");
+  const before = await readFoldedLedger(root);
   const replacement = join(root, draft, "SKILL.md");
   await expect(scaffoldSourceUnit(root, {
     kind: "skill", id: "demo", draft: true, write: true,
@@ -127,7 +123,7 @@ test("SET-671: foreign directory replacing installed draft survives refused fork
   })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
   expect((await stat(replacement)).isDirectory()).toBe(true);
   expect(await readFile(join(replacement, "authored.md"), "utf8")).toBe("Concurrent authored content.\n");
-  expect(await readFile(ledger, "utf8")).toBe(before);
+  expect(await readFoldedLedger(root)).toBe(before);
 });
 
 for (const replacementKind of ["restored", "edited", "identical replacement"] as const) {
@@ -136,8 +132,7 @@ for (const replacementKind of ["restored", "edited", "identical replacement"] as
     const entrypoint = join(root, draft, "SKILL.md");
     const forkContent = await readFile(entrypoint, "utf8");
     await rm(join(root, draft), { recursive: true });
-    const ledger = join(root, ".skillset/changes/ledger.jsonl");
-    const before = await readFile(ledger, "utf8");
+    const before = await readFoldedLedger(root);
     let replacement = "";
     await expect(scaffoldSourceUnit(root, {
       kind: "skill", id: "demo", draft: true, write: true,
@@ -158,15 +153,14 @@ for (const replacementKind of ["restored", "edited", "identical replacement"] as
       } } },
     })).rejects.toThrow("expected-absent write changed after installation");
     expect(await readFile(entrypoint, "utf8")).toBe(replacement);
-    expect(await readFile(ledger, "utf8")).toBe(before);
+    expect(await readFoldedLedger(root)).toBe(before);
   });
 }
 
 test.skipIf(process.platform === "win32")("SET-671: foreign symlink survives refused fork closure without a recovery journal", async () => {
   const { root, draft } = await forkFixture();
   await rm(join(root, draft), { recursive: true });
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const before = await readFile(ledger, "utf8");
+  const before = await readFoldedLedger(root);
   const entrypoint = join(root, draft, "SKILL.md");
   const authored = join(root, "authored.md");
   await writeFile(authored, "Concurrent authored content.\n");
@@ -180,7 +174,7 @@ test.skipIf(process.platform === "win32")("SET-671: foreign symlink survives ref
   })).rejects.toThrow("refusing to discard the fork baseline while draft content remains");
   expect(await readlink(entrypoint)).toBe(authored);
   expect(await readFile(authored, "utf8")).toBe("Concurrent authored content.\n");
-  expect(await readFile(ledger, "utf8")).toBe(before);
+  expect(await readFoldedLedger(root)).toBe(before);
   expect((await readdir(root)).filter((name) => name.startsWith(".skillset-workspace-transaction-"))).toEqual([]);
 });
 
@@ -189,8 +183,7 @@ for (const populated of [false, true]) {
     const { root, draft } = await forkFixture();
     const draftPath = join(root, draft);
     await rm(draftPath, { recursive: true });
-    const ledger = join(root, ".skillset/changes/ledger.jsonl");
-    const before = await readFile(ledger, "utf8");
+    const before = await readFoldedLedger(root);
     let replacementIdentity: Stats | undefined;
     await expect(scaffoldSourceUnit(root, {
       kind: "skill", id: "demo", draft: true, write: true,
@@ -211,7 +204,7 @@ for (const populated of [false, true]) {
     expect(retained.mode).toBe(replacementIdentity!.mode);
     if (populated) expect(await readFile(join(draftPath, "authored.md"), "utf8")).toBe("Concurrent authored resource.\n");
     else expect(await readdir(draftPath)).toEqual([]);
-    expect(await readFile(ledger, "utf8")).toBe(before);
+    expect(await readFoldedLedger(root)).toBe(before);
     expect((await readdir(root)).filter((name) => name.startsWith(".skillset-workspace-transaction-"))).toEqual([]);
   });
 }
