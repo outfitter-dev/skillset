@@ -5,6 +5,7 @@ import { expect, test } from "bun:test";
 import { buildSkillset } from "@skillset/core";
 
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 
 test("SET-660 two concurrent drafts of different skills keep both ledger events", async () => {
   const root = await createTestFixtureRoot("skillset-lifecycle-lock-");
@@ -36,7 +37,7 @@ test("SET-660 two concurrent drafts of different skills keep both ledger events"
     expect(exitCode, stderr).toBe(0);
   }
 
-  const drafted = (await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8"))
+  const drafted = (await readFoldedLedger(root))
     .split("\n")
     .filter((line) => line.length > 0)
     .map((line) => JSON.parse(line) as { readonly payload: { readonly shipped?: string }; readonly type: string })

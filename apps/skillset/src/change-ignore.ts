@@ -1,6 +1,6 @@
 import { compareStrings } from "@skillset/core/internal/path";
 import type { JsonRecord } from "@skillset/core/internal/types";
-import { workspaceChangeFile } from "@skillset/core";
+import { pendingLedgerEventsDir } from "@skillset/core/internal/pending-ledger-events";
 
 import { changeCheck, hasRecordedChangeIgnore, resolvePendingChangeRef } from "./change-entries";
 import { withChangeLedgerMutation, type ChangeLedgerLockOptions } from "./change-ledger-mutation";
@@ -57,7 +57,7 @@ export async function ignorePendingChangeWithAppend(
       if (fresh.report.alreadyIgnored) return fresh.report;
       if (confirmed.key !== fresh.key) continue;
       await mutation.assertOwned();
-      await mutation.appendLedger([
+      const written = await mutation.appendLedger([
         {
           payload: {
             reasonId: fresh.report.entry.ref.slice(1),
@@ -66,7 +66,7 @@ export async function ignorePendingChangeWithAppend(
           type: "change.ignored",
         },
       ]);
-      return { ...fresh.report, written: true };
+      return { ...fresh.report, ledgerPath: written.path, written: true };
     }
     throw new Error("skillset: source or pending change evidence kept changing while change ignore was applying; retry the command");
   });
@@ -104,7 +104,7 @@ async function planChangeIgnore(
       ref: `@${entry.id}`,
       sourceUnits,
     },
-    ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl"),
+    ledgerPath: pendingLedgerEventsDir(storageOptions.sourceDir),
     written: false,
   } satisfies ChangeIgnoreReport;
   return {

@@ -8,6 +8,7 @@ import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
 } from "../../../../scripts/test-helpers/git-remote";
+import { PENDING_LEDGER_EVENT_FILE, readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 
 test("SET-330 change ignore previews, preserves reason evidence, and remains idempotent", async () => {
   const root = await ignoreFixture();
@@ -25,9 +26,8 @@ test("SET-330 change ignore previews, preserves reason evidence, and remains ide
   const shortRef = ref.slice(0, 7);
 
   const file = join(root, ".skillset/changes", changeFile);
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
   const sourceBefore = await readFile(file, "utf8");
-  const ledgerBefore = await readFile(ledger, "utf8");
+  const ledgerBefore = await readFoldedLedger(root);
 
   const preview = await runCli("change", "ignore", ref, "--root", root, "--json");
   expect(preview.exitCode).toBe(0);
@@ -37,17 +37,17 @@ test("SET-330 change ignore previews, preserves reason evidence, and remains ide
     report: { entry: { path: `.skillset/changes/${ref.slice(1)}.md`, ref } },
   });
   expect(await readFile(file, "utf8")).toBe(sourceBefore);
-  expect(await readFile(ledger, "utf8")).toBe(ledgerBefore);
+  expect(await readFoldedLedger(root)).toBe(ledgerBefore);
 
   const applied = await runCli("change", "ignore", ref, "--yes", "--root", root, "--json");
   expect(applied.exitCode).toBe(0);
   expect(jsonIgnore(applied.stdout)).toMatchObject({
     state: "written",
-    writes: [".skillset/changes/ledger.jsonl"],
+    writes: [expect.stringMatching(PENDING_LEDGER_EVENT_FILE)],
     report: { entry: { path: `.skillset/changes/${ref.slice(1)}.md`, ref } },
   });
   expect(await readFile(file, "utf8")).toBe(sourceBefore);
-  const ledgerAfter = await readFile(ledger, "utf8");
+  const ledgerAfter = await readFoldedLedger(root);
   expect((ledgerAfter.match(/"type":"change.ignored"/gu) ?? [])).toHaveLength(1);
 
   const listed = await runCli("change", "list", "--root", root, "--json");
@@ -65,7 +65,7 @@ test("SET-330 change ignore previews, preserves reason evidence, and remains ide
   const repeated = await runCli("change", "ignore", ref, "--yes", "--root", root, "--json");
   expect(repeated.exitCode).toBe(0);
   expect(jsonIgnore(repeated.stdout)).toMatchObject({ state: "planned", writes: [] });
-  expect(await readFile(ledger, "utf8")).toBe(ledgerAfter);
+  expect(await readFoldedLedger(root)).toBe(ledgerAfter);
 
   const appliedRelease = await runCli("release", "apply", "--yes", "--root", root);
   expect(appliedRelease.exitCode).toBe(0);
@@ -96,7 +96,7 @@ test("SET-330 change ignore serializes concurrent confirmed dispositions", async
   const reports = results.map((result) => jsonIgnore(result.stdout));
   expect(reports.filter((report) => report.writes.length === 1)).toHaveLength(1);
   expect(reports.filter((report) => report.writes.length === 0)).toHaveLength(7);
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect((ledger.match(/"type":"change.ignored"/gu) ?? [])).toHaveLength(1);
   expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
 });
@@ -119,14 +119,13 @@ test("SET-330 change ignore records a ledger disposition when only the reason bo
   expect(preview).toMatchObject({ report: { alreadyIgnored: false }, state: "planned", writes: [] });
 
   const applied = jsonIgnore((await runCli("change", "ignore", ref, "--yes", "--root", root, "--json")).stdout);
-  expect(applied).toMatchObject({ report: { alreadyIgnored: false }, state: "written", writes: [".skillset/changes/ledger.jsonl"] });
-  const ledger = join(root, ".skillset/changes/ledger.jsonl");
-  const after = await readFile(ledger, "utf8");
+  expect(applied).toMatchObject({ report: { alreadyIgnored: false }, state: "written", writes: [expect.stringMatching(PENDING_LEDGER_EVENT_FILE)] });
+  const after = await readFoldedLedger(root);
   expect((after.match(/"type":"change.ignored"/gu) ?? [])).toHaveLength(1);
 
   const repeated = jsonIgnore((await runCli("change", "ignore", ref, "--yes", "--root", root, "--json")).stdout);
   expect(repeated).toMatchObject({ report: { alreadyIgnored: true }, state: "planned", writes: [] });
-  expect(await readFile(ledger, "utf8")).toBe(after);
+  expect(await readFoldedLedger(root)).toBe(after);
 });
 
 test("SET-330 change ignore replans immediately before append and rejects stale source evidence", async () => {
@@ -147,7 +146,7 @@ test("SET-330 change ignore replans immediately before append and rejects stale 
     since: "HEAD",
     write: true,
   })).rejects.toThrow("change-evidence-stale");
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).not.toContain('"type":"change.ignored"');
   expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
 });
@@ -179,7 +178,7 @@ test("SET-330 change ignore fails without appending when the pending plan never 
     write: true,
   })).rejects.toThrow("kept changing while change ignore was applying");
   expect(revision).toBe(3);
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).not.toContain('"type":"change.ignored"');
   expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
 });
@@ -198,14 +197,14 @@ test("SET-330 change ignore requires an eligible pending reason-only entry", asy
   const invalid = await runCli("change", "ignore", "@abcdef", "--yes", "--root", root);
   expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain("change-evidence-missing");
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 
   const frontmatter = await writeLegacyEntry(root);
   const legacy = await runCli("change", "ignore", "@fedcba", "--yes", "--root", root);
   expect(legacy.exitCode).toBe(1);
   expect(legacy.stderr).toContain("frontmatter pending entries must be migrated before they can be ignored");
   expect(await readFile(frontmatter, "utf8")).toContain("ignored: false");
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 
   const unsupported = await runCli("change", "ignore", "@abcdef", "--since", "HEAD", "--root", root);
   expect(unsupported.exitCode).toBe(2);

@@ -47,7 +47,7 @@ const createCore = (unrecorded = false): {
         to: ".skillset/skills/demo",
       },
       { kind: "delete" as const, path: ".skillset/skills/demo" },
-      { kind: "update" as const, path: ".skillset/changes/ledger.jsonl" },
+      { kind: "append" as const, path: ".skillset/changes/events" },
     ],
     planHash: "sha256:promote-plan",
     selector: "skill:demo",

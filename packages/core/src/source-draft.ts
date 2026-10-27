@@ -56,7 +56,7 @@ import {
   selectorForStandaloneSkill,
 } from "./source-unit-selector";
 import type { BuildGraph, SourcePlugin, SourceSkill } from "./types";
-import { workspaceChangeFile } from "./workspace-state";
+import { pendingLedgerEventsDir } from "./pending-ledger-events";
 
 export {
   SourceDraftPlanError,
@@ -492,7 +492,7 @@ function findDraftBaseline(
 }
 
 function ledgerPath(rootPath: string, sourceDir: string): string {
-  return display(rootPath, join(rootPath, workspaceChangeFile(sourceDir, "ledger.jsonl")));
+  return display(rootPath, join(rootPath, pendingLedgerEventsDir(sourceDir)));
 }
 
 async function skillDirectoryDiff(

@@ -11,6 +11,7 @@ import {
   createTestGitFixtureRoot,
   initializeTestGitRepository,
 } from "../../../../scripts/test-helpers/git-remote";
+import { readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 
 test("SET-636 two concurrent successful adds preserve both ledger record sets", async () => {
   const root = await mutationFixture();
@@ -38,7 +39,7 @@ test("SET-636 two concurrent successful adds preserve both ledger record sets", 
     expect(exitCode, stderr).toBe(0);
   }
 
-  const events = ledgerEvents(await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8"));
+  const events = ledgerEvents(await readFoldedLedger(root));
   const reasons = events.filter((event) => event.type === "reason.created").map((event) => event.payload.reason);
   expect(reasons).toEqual([
     "First concurrent add records an independently auditable pending reason.",
@@ -59,7 +60,7 @@ test("SET-636 a failed release hands the lock to a waiting add, which then commi
     },
     scopes: ["skill:demo"],
   });
-  const ledgerBefore = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledgerBefore = await readFoldedLedger(root);
   const releaseAcquired = join(root, "release-acquired");
   const releaseFail = join(root, "release-fail");
   const addContended = join(root, "add-contended");
@@ -86,7 +87,7 @@ test("SET-636 a failed release hands the lock to a waiting add, which then commi
   const [addStderr, addExit] = await Promise.all([readSpawnText(add.stderr), add.exited]);
   expect(addExit, addStderr).toBe(0);
 
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger.startsWith(ledgerBefore)).toBe(true);
   const events = ledgerEvents(ledger);
   expect(events.some((event) => event.type === "release.applied")).toBe(false);
@@ -168,7 +169,7 @@ test("SET-636 failed release rollback removes only transaction-owned JSONL recor
     },
   })).rejects.toThrow("test: release failed after a foreign ledger append");
 
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).toContain(foreign);
   expect(ledger).toContain(added.entry.id);
   expect(ledgerEvents(ledger).some((event) => event.type === "release.applied")).toBe(false);

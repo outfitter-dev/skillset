@@ -26,6 +26,7 @@ import type { JsonRecord, JsonValue, SkillsetOptions } from "@skillset/core/inte
 import { workspaceChangeFile, workspaceChangesDir } from "@skillset/core";
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
+import { pendingLedgerEventsDir } from "@skillset/core/internal/pending-ledger-events";
 import {
   withChangeLedgerMutation,
   type ChangeLedgerLockOptions,
@@ -193,7 +194,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
     await prepareRepositoryMutationPath(rootPath, absolutePath);
     await writeFile(absolutePath, reasonOnlyMarkdown(reason, { bump, ...(group === undefined ? {} : { group }), scopes }), "utf8");
     try {
-      await mutation.appendLedger([
+      const written = await mutation.appendLedger([
         {
           payload: {
             bump,
@@ -219,7 +220,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
       const refs = refIndex([entry], await readHistoryEntries(rootPath, statusOptions));
       return {
         entry: pendingView(entry, refs),
-        ledgerPath: workspaceChangeFile(statusOptions.sourceDir, "ledger.jsonl"),
+        ledgerPath: written.path,
       };
     } catch (error) {
       try {
@@ -247,6 +248,7 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
     // leaf before either rewrite (or the rollback restore) writes through it.
     await prepareRepositoryMutationPath(rootPath, absolutePath, { createParents: false });
     const previous = await readFile(absolutePath, "utf8");
+    let writtenLedgerPath: string | undefined;
     try {
       if (entry.format === "reason") {
         const body = options.append ? `${entry.reason.trimEnd()}\n\n${newReason}` : newReason;
@@ -260,7 +262,7 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
           }),
           "utf8"
         );
-        await mutation.appendLedger([
+        writtenLedgerPath = (await mutation.appendLedger([
           {
             payload: {
               append: options.append,
@@ -269,7 +271,7 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
             },
             type: "reason.updated",
           },
-        ]);
+        ])).path;
       } else {
         const parts = parseMarkdown(previous, absolutePath);
         const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
@@ -283,9 +285,7 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
       const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
       return {
         entry: pendingView(updated, refs),
-        ...(entry.format === "reason"
-          ? { ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl") }
-          : {}),
+        ...(writtenLedgerPath === undefined ? {} : { ledgerPath: writtenLedgerPath }),
       };
     } catch (error) {
       try {
@@ -377,6 +377,7 @@ export async function migratePendingChangeEntries(
     (await readPendingChangeEntries(rootPath, storageOptions)).filter((entry) => entry.format === "frontmatter")
   );
   let migrations = await planMigrations();
+  let writtenLedgerPath: string | undefined;
 
   if (options.write && migrations.length > 0) {
     // Re-plan under the lock: a concurrent reason edit before acquisition must
@@ -407,7 +408,9 @@ export async function migratePendingChangeEntries(
             await rm(absoluteFromPath, { force: true });
           }
         }
-        await mutation.appendLedger(locked.flatMap((migration) => migrationLedgerEvents(migration)));
+        writtenLedgerPath = (await mutation.appendLedger(
+          locked.flatMap((migration) => migrationLedgerEvents(migration))
+        )).path;
       } catch (error) {
         try {
           await restoreMigrationFiles(rootPath, snapshots);
@@ -425,7 +428,7 @@ export async function migratePendingChangeEntries(
 
   return {
     entries: migrations,
-    ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl"),
+    ledgerPath: writtenLedgerPath ?? pendingLedgerEventsDir(storageOptions.sourceDir),
     written: options.write,
   };
 }

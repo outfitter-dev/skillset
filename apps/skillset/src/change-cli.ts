@@ -290,7 +290,7 @@ export async function runChangeCommand({
     } else {
       printChangeRefresh(report);
       if (!yes && report.entries.length > 0) {
-        console.log("skillset: rerun change refresh with --yes to append current evidence");
+        console.log("skillset: rerun change refresh with --yes to record current evidence");
       }
     }
     return;

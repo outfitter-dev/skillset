@@ -1,7 +1,6 @@
 import { lstat, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { workspaceChangeFile } from "@skillset/core";
 import {
   detectWorkspaceSourceDir,
   loadBuildGraph,
@@ -13,7 +12,8 @@ import {
 } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { freshDraftDiscardEvent } from "@skillset/core/internal/source-draft";
-import { sourceLifecycleLedgerRecord } from "@skillset/core/internal/source-lifecycle-ledger";
+import { pendingLedgerEventsDir } from "@skillset/core/internal/pending-ledger-events";
+import { sourceLifecyclePendingAppend } from "@skillset/core/internal/source-lifecycle-ledger";
 import { applyWorkspaceTransaction } from "@skillset/core/internal/workspace-transaction";
 import type { WorkspaceTransactionOptions } from "@skillset/core/internal/workspace-transaction";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
@@ -203,15 +203,16 @@ async function scaffoldSourceUnitUnlocked(
   if (draftRoot !== undefined) {
     await assertFreshDraftContents(rootPath, draftRoot, []);
   }
+  // A preview names the pending-event directory; an apply names the file.
+  let appendedPaths: readonly string[] = discardEvent === undefined ? [] : [pendingLedgerEventsDir(sourceDir)];
   if (options.write === true && options.draft === true && options.kind === "skill") {
     const event = discardEvent;
     const hooks = options.transactionOptions?.testHooks;
-    await applyWorkspaceTransaction(rootPath, {
+    const report = await applyWorkspaceTransaction(rootPath, {
       writes: plans.map((plan) => ({ content: plan.content, expectedAbsent: true, path: plan.path })),
-      ...(event === undefined ? {} : { appends: [{
-        path: workspaceChangeFile(sourceDir, "ledger.jsonl"),
-        records: (current: string) => [sourceLifecycleLedgerRecord(current, event)],
-      }] }),
+      ...(event === undefined ? {} : { appends: [
+        sourceLifecyclePendingAppend(rootPath, pendingLedgerEventsDir(sourceDir), event),
+      ] }),
     }, {
       testHooks: {
         ...hooks,
@@ -224,6 +225,7 @@ async function scaffoldSourceUnitUnlocked(
         },
       },
     });
+    appendedPaths = report.appendedPaths;
   } else if (options.write === true) {
     for (const plan of plans) {
       const absolutePath = resolveInside(rootPath, plan.path);
@@ -239,10 +241,10 @@ async function scaffoldSourceUnitUnlocked(
         operation: plan.operation ?? ("create" as const),
         path: plan.path,
       })),
-      ...(discardEvent === undefined ? [] : [{
-        operation: "update" as const,
-        path: workspaceChangeFile(sourceDir, "ledger.jsonl"),
-      }]),
+      ...appendedPaths.map((path) => ({
+        operation: "create" as const,
+        path,
+      })),
     ],
     id,
     kind: options.kind,

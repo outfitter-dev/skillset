@@ -16,6 +16,7 @@ import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { publishAtomicFile } from "@skillset/core/internal/atomic-file-publication";
 import { readChangeLedger, type ChangeLedgerEvent } from "@skillset/core/internal/change-ledger";
+import { listPendingLedgerEventFiles } from "@skillset/core/internal/pending-ledger-events";
 import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
 import { latestSourceMoveCursor, sourceIdentityMappings } from "@skillset/core/internal/source-identity-mapping";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
@@ -179,10 +180,12 @@ export async function applyRelease(
       return { files: [], plan, renderedFiles: 0 };
     }
 
+    const pendingEventFiles = await listPendingLedgerEventFiles(rootPath, releaseOptions.sourceDir);
     const now = await nextJsonlTimestampForPaths([
       resolveInside(rootPath, workspaceChangeFile(releaseOptions.sourceDir, LEDGER_FILE)),
       resolveInside(rootPath, workspaceChangeFile(releaseOptions.sourceDir, HISTORY_FILE)),
       resolveInside(rootPath, workspaceChangeFile(releaseOptions.sourceDir, RELEASES_FILE)),
+      ...pendingEventFiles.map((path) => resolveInside(rootPath, path)),
     ]);
     const files = new Set<string>();
     const pending = (await changeCheck(rootPath, releaseOptions)).entries;
@@ -190,9 +193,13 @@ export async function applyRelease(
     const ownedFiles = [
       ...(plan.baselineScopes.length > 0 ? [await snapshotFile(rootPath, statePath)] : []),
       ...await Promise.all(pending.map((entry) => snapshotFile(rootPath, entry.path))),
+      ...await Promise.all(pendingEventFiles.map((path) => snapshotFile(rootPath, path))),
     ];
     let renderedFiles = 0;
     try {
+      // Fold pending event files into ledger.jsonl first, in fold order, so
+      // release.applied follows the events it covers (ADR-0045).
+      await foldPendingLedgerEvents(rootPath, releaseOptions.sourceDir, pendingEventFiles, files, mutation);
       await appendHistory(rootPath, releaseOptions.sourceDir, pending, now, files, mutation);
 
       if (plan.baselineScopes.length > 0) {
@@ -483,6 +490,34 @@ async function appendReleaseRecord(
     })),
   }]);
   files.add(relativePath);
+}
+
+async function foldPendingLedgerEvents(
+  rootPath: string,
+  sourceDir: string | undefined,
+  pendingEventFiles: readonly string[],
+  files: Set<string>,
+  mutation: ChangeLedgerMutation
+): Promise<void> {
+  if (pendingEventFiles.length === 0) return;
+  const ledgerPath = workspaceChangeFile(sourceDir, LEDGER_FILE);
+  for (const path of pendingEventFiles) {
+    const records = (await readFile(resolveInside(rootPath, path), "utf8"))
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line) as object);
+    await mutation.appendJsonl(ledgerPath, records);
+  }
+  files.add(ledgerPath);
+  for (const path of pendingEventFiles) {
+    const absolutePath = resolveInside(rootPath, path);
+    await prepareRepositoryMutationPath(rootPath, absolutePath, {
+      createParents: false,
+      replacesLeaf: true,
+    });
+    await rm(absolutePath, { force: true });
+    files.add(path);
+  }
 }
 
 async function appendReleaseAppliedLedgerEvent(

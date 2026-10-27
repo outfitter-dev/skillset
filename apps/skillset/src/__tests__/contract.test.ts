@@ -28,6 +28,7 @@ import {
   writeHistory,
   writePendingChange,
 } from "./contract-test-helpers";
+import { PENDING_LEDGER_EVENT_FILE, readFoldedLedger } from "../../../../scripts/test-helpers/change-ledger";
 
 test("SET-52: source-unit selectors render conventional display labels", () => {
   const cases: Array<[string, string]> = [
@@ -5305,7 +5306,7 @@ Body.
   expect(pending).toContain("Bump: patch");
   expect(pending).toContain("Group: linear:SET-36");
   expect(pending).toContain("Scope: skill:demo");
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).toContain('"type":"reason.created"');
   expect(ledger).toContain('"type":"change.covered"');
   expect(ledger).toContain('"hashSchema":"skillset-source-unit-v3"');
@@ -5333,7 +5334,7 @@ Body.
     structuredData.report.entry.path,
     structuredData.report.ledgerPath,
   ]);
-  expect(structuredData.report.ledgerPath).toBe(".skillset/changes/ledger.jsonl");
+  expect(structuredData.report.ledgerPath).toMatch(PENDING_LEDGER_EVENT_FILE);
   expect(Object.keys(structuredData.report.entry.sourceHashes)).not.toHaveLength(0);
 
   const structuredReason = await runSkillsetCli(
@@ -5349,7 +5350,7 @@ Body.
   expect(structuredReason.exitCode).toBe(0);
   expect((JSON.parse(structuredReason.stdout) as { data: { writes: string[] } }).data.writes).toEqual([
     structuredData.report.entry.path,
-    ".skillset/changes/ledger.jsonl",
+    expect.stringMatching(PENDING_LEDGER_EVENT_FILE),
   ]);
 
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
@@ -5422,7 +5423,7 @@ Body.
   expect(pending).not.toContain("id:");
   expect(pending).toContain("Bump: patch");
   expect(pending).toContain("Scope: skill:demo");
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).toContain('"type":"reason.created"');
   expect(ledger).toContain('"type":"reason.updated"');
   expect(ledger).toContain(`"reasonId":"${fullId}"`);
@@ -5537,12 +5538,12 @@ Migrate this compatibility frontmatter entry without losing the release reason o
   expect(preview.stdout).toContain("would migrate: .skillset/changes/legacy-name.md -> .skillset/changes/abcdef123456.md");
   expect(preview.stdout).toContain("previewed 1 frontmatter pending entry");
   expect(await Bun.file(join(root, ".skillset/changes/legacy-name.md")).exists()).toBe(true);
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 
   const migrated = await runSkillsetCli("change", "migrate", "--yes", "--root", root);
   expect(migrated.exitCode).toBe(0);
   expect(migrated.stdout).toContain("migrated: .skillset/changes/legacy-name.md -> .skillset/changes/abcdef123456.md");
-  expect(migrated.stdout).toContain("ledger: .skillset/changes/ledger.jsonl");
+  expect(migrated.stdout).toMatch(/ledger: \.skillset\/changes\/events\/\S+\.jsonl/u);
   expect(await Bun.file(join(root, ".skillset/changes/legacy-name.md")).exists()).toBe(false);
 
   const pending = await readFile(join(root, ".skillset/changes/abcdef123456.md"), "utf8");
@@ -5554,7 +5555,7 @@ Migrate this compatibility frontmatter entry without losing the release reason o
   expect(pending).toContain("Ignored: true");
   expect(pending).toContain("Scope: skill:demo");
 
-  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  const ledger = await readFoldedLedger(root);
   expect(ledger).toContain('"type":"reason.created"');
   expect(ledger).toContain('"type":"change.ignored"');
   expect(ledger).toContain('"reasonId":"abcdef123456"');
@@ -5609,7 +5610,7 @@ Migrate should preserve evidence for every declared scope before rewriting this 
   expect(migrated.stderr).toContain("cannot migrate invalid frontmatter pending entries");
   expect(migrated.stderr).toContain("missing source hash evidence for config: root");
   expect(await Bun.file(join(root, ".skillset/changes/missing-evidence.md")).exists()).toBe(true);
-  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+  expect(await readFoldedLedger(root)).toBe("");
 });
 
 test("SET-241: change write flags are scoped to explicit migration", async () => {

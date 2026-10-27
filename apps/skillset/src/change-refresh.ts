@@ -5,7 +5,7 @@ import {
   sourceUnitSelector,
 } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord } from "@skillset/core/internal/types";
-import { workspaceChangeFile } from "@skillset/core";
+import { pendingLedgerEventsDir } from "@skillset/core/internal/pending-ledger-events";
 
 import { changeCheck, resolvePendingChangeRef, uncoveredSourceChanges } from "./change-entries";
 import type { ChangeLedgerLockOptions } from "./change-ledger-lock";
@@ -66,8 +66,8 @@ export async function refreshChangeEvidenceWithAppend(
       const fresh = await planChangeEvidenceRefresh(rootPath, storageOptions, options.ref);
       if (refreshPlanKey(confirmed) !== refreshPlanKey(fresh)) continue;
       await mutation.assertOwned();
-      await mutation.appendLedger(refreshLedgerEvents(fresh.entries));
-      return { ...fresh, written: true };
+      const written = await mutation.appendLedger(refreshLedgerEvents(fresh.entries));
+      return { ...fresh, ledgerPath: written.path, written: true };
     }
     throw new Error("skillset: source or pending change evidence kept changing while change refresh was applying; retry the command");
   });
@@ -131,7 +131,7 @@ async function planChangeEvidenceRefresh(
   }
   return {
     entries,
-    ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl"),
+    ledgerPath: pendingLedgerEventsDir(storageOptions.sourceDir),
     written: false,
   };
 }

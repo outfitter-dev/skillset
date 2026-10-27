@@ -33,7 +33,7 @@ const createCore = (): {
         kind: "copy" as const,
         to: ".skillset/skills/_drafts/demo",
       },
-      { kind: "update" as const, path: ".skillset/changes/ledger.jsonl" },
+      { kind: "append" as const, path: ".skillset/changes/events" },
     ],
     planHash: "sha256:draft-plan",
     selector: "skill:demo",
@@ -53,7 +53,7 @@ const createCore = (): {
         });
         return Promise.resolve({
           ...plan,
-          writtenPaths: [plan.to, ".skillset/changes/ledger.jsonl"],
+          writtenPaths: [plan.to, ".skillset/changes/events/20260917T000000000Z-source-drafted-demo.jsonl"],
         });
       },
       planSourceDraft: () => {
