@@ -209,8 +209,9 @@ keep, and MUST NOT resolve the path by picking one.
 ## Verify before finishing
 
 - Run `skillset check --only outputs --root .`. It MUST pass.
-- Confirm no generated file contains a conflict marker. Managed output roots are
-  marked `-merge` in `.gitattributes`, so git conflicts them whole rather than
-  writing markers into them; a marker in one means something bypassed that.
+- Confirm no generated file contains a conflict marker. Generated output merges
+  as ordinary text, so a true conflict writes markers into it; `skillset resolve
+  --yes` regenerates those paths from the index stages, and a marker left
+  behind means a conflicted path was staged without being resolved.
 - Confirm no authored source was staged by a resolve step that should only have
   touched generated output.

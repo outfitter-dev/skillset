@@ -132,11 +132,11 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-fix",
-      "outputHash": "sha256:a6493c50be70787ea39dbb37ebaac93e2da1d403c1c27ab482baca7476129336",
+      "outputHash": "sha256:f380c358458f48b55d192f1f70312b4b514fea3511e96e30d6a1008dcc385ad8",
       "outputPath": "skillset-fix/SKILL.md",
-      "provenanceHash": "sha256:eebd80dd046a1b3f2a09d5a0e3b2c9719aaf85c4a6071e22ad634384b85c3550",
+      "provenanceHash": "sha256:a5b460a832386f843f9ea2a575338555f542b6bc27e6dbf8bb28a3f0ad517097",
       "role": "bundle",
-      "sourceHash": "sha256:4e078c03a9cad1921ba4a6e37f64ff51afcbe214376e709fb9ff5ddb1248654e",
+      "sourceHash": "sha256:54e03df16b04aac7116a52e7e07b9fbb96b8cbf773039368e5679cd36e168ac1",
       "sourcePath": ".skillset/skills/skillset-fix/SKILL.md",
       "version": "0.4.0"
     }

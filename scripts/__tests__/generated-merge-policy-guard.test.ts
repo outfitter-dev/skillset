@@ -17,11 +17,8 @@ const NESTED_GENERATED = "examples/demo/.agents/skills/demo/SKILL.md";
 const AUTHORED = "authored.md";
 const LEDGER = ".skillset/changes/ledger.jsonl";
 
-const generatedAttributes = (): string =>
-  "**/.agents/skills/** -merge\n**/skillset.lock -merge\n";
-
 const policyAttributes = (): string =>
-  `${generatedAttributes()}.skillset/changes/*.jsonl merge=union\n`;
+  ".skillset/changes/*.jsonl merge=union\n";
 
 /** A committed repository holding one file of each category. */
 const fixture = async (
@@ -124,22 +121,21 @@ describe("merge policy guard", () => {
     });
   });
 
-  test("rejects a generated path no pattern covers", async () => {
-    const root = await fixture(
-      `**/skillset.lock -merge\n.skillset/changes/*.jsonl merge=union\n`
-    );
+  test("rejects a generated path that a pattern still marks -merge or union", async () => {
+    for (const attribute of ["-merge", "merge=union"]) {
+      const root = await fixture(
+        `${policyAttributes()}**/.agents/skills/** ${attribute}\n`
+      );
 
-    const report = await checkMergePolicy(root);
+      const report = await checkMergePolicy(root);
 
-    expect(report.violations).toHaveLength(2);
-    expect(report.violations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          category: "generated-snapshot",
-          path: GENERATED,
-        }),
-      ])
-    );
+      expect([...new Set(report.violations.map((violation) => violation.path))].toSorted()).toEqual(
+        [".agents/skills/demo/SKILL.md", ".agents/skills/skillset.lock"]
+      );
+      expect(
+        report.violations.every((v) => v.category === "generated-snapshot")
+      ).toBe(true);
+    }
   });
 
   test("uses outputPath when a canonical lock item has no files", async () => {
@@ -163,19 +159,16 @@ describe("merge policy guard", () => {
   });
 
   test("rejects a pattern that also swallows authored source", async () => {
-    // An over-broad `-merge` glob is the failure an unanchored `plugins/`
-    // pattern actually produced, and the failure a hardcoded list of authored
-    // paths could never have caught.
+    // An over-broad glob is the failure an unanchored `plugins/` pattern
+    // actually produced, and the failure a hardcoded list of authored paths
+    // could never have caught.
     const root = await fixture("** -merge\n");
 
     const report = await checkMergePolicy(root);
 
-    expect(report.violations.map((violation) => violation.path)).toContain(
-      AUTHORED
-    );
-    expect(
-      report.violations.every((v) => v.category !== "generated-snapshot")
-    ).toBe(true);
+    const paths = report.violations.map((violation) => violation.path);
+    expect(paths).toContain(AUTHORED);
+    expect(paths).toContain(GENERATED);
   });
 
   test("rejects case-insensitive attribute overreach on every host", async () => {
@@ -196,7 +189,7 @@ describe("merge policy guard", () => {
 
   test("rejects a ledger that cannot union", async () => {
     const root = await fixture(
-      `${generatedAttributes()}.skillset/changes/*.jsonl -merge\n`
+      ".skillset/changes/*.jsonl -merge\n"
     );
 
     const report = await checkMergePolicy(root);
@@ -216,7 +209,7 @@ describe("merge policy guard", () => {
     expect(MERGE_POLICY_BY_CATEGORY).toEqual({
       "append-only-ledger": "union",
       authored: "unspecified",
-      "generated-snapshot": "unset",
+      "generated-snapshot": "unspecified",
     });
   });
 });

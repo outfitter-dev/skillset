@@ -145,7 +145,7 @@ The confirmed build restores the expected bytes and backs up each formatted copy
 
 ## A rebase or merge conflicts in generated output
 
-Generated-output conflicts carry no information of their own, so the usual answer is to regenerate from the merged source. Resolve authored source conflicts first, then preview and confirm:
+Branches that change different source units merge without conflicts, because each line of a `skillset.lock` belongs to one unit. A generated-output conflict means both sides changed the same unit, the same configuration, or two units that sort into the same place in one lock. It carries no information of its own, so the usual answer is to regenerate from the merged source. Resolve authored source conflicts first, then preview and confirm:
 
 ```bash
 skillset resolve
