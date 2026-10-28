@@ -1,5 +1,12 @@
 # @skillset/cli
 
+## 0.31.0
+
+### Minor Changes
+
+- 9d25992: Generated `skillset.lock` files move to schema v5. The single whole-file `provenanceHash` is replaced by a top-level `headerHash` and one `provenanceHash` per item, so branches that change different skills, rules, or plugins edit different lock lines and merge as plain text (ADR-0045). A v4 lock whose document hash verifies is rewritten to v5 by the next `skillset build --yes`; nothing else is needed.
+- b36cdca: Change commands no longer append to `.skillset/changes/ledger.jsonl`. `change add`, `reason`, `refresh`, `ignore`, `migrate`, and the applying `draft`, `promote`, `move`, and `new` writes each record their ledger events in one new pending file, `.skillset/changes/events/<YYYYMMDDTHHMMSSmmmZ>-<event-id>.jsonl`, so branches that record changes add different files and merge without conflicts (ADR-0045). Readers fold `ledger.jsonl`, then pending files by name. `skillset release apply` folds pending files into `ledger.jsonl` and removes them. Existing ledgers need no migration.
+
 ## 0.30.0
 
 ### Minor Changes
