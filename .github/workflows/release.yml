@@ -55,6 +55,20 @@ jobs:
           version: bun run version:packages
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Compact version PR release notes
+        if: steps.changesets.outputs.pullRequestNumber != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PR_NUMBER: ${{ steps.changesets.outputs.pullRequestNumber }}
+        run: |
+          body_file="$RUNNER_TEMP/release-pr-body.md"
+          formatted_file="$RUNNER_TEMP/release-pr-body-formatted.md"
+          gh pr view "$RELEASE_PR_NUMBER" --json body --jq .body > "$body_file"
+          bun scripts/release-pr-body.ts "$body_file" > "$formatted_file"
+          if ! cmp -s "$body_file" "$formatted_file"; then
+            gh pr edit "$RELEASE_PR_NUMBER" --body-file "$formatted_file"
+          fi
       - name: Label version PR
         if: steps.pending-changesets.outputs.has_changesets == 'true'
         env:
