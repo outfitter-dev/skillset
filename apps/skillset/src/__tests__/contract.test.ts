@@ -6709,7 +6709,7 @@ Body.
   expect(lock).toContain(`"sourcePointer": "repo:tools/alpha"`);
 });
 
-test("SET-26: bin fails loudly for enabled Codex plugin output", async () => {
+test("SET-26: bin stays uncovered for Codex while Claude output builds", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -6736,8 +6736,11 @@ Body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("codex plugin-bin unsupported");
-  await expect(buildSkillset(root)).rejects.toThrow("Codex plugins do not expose a documented plugin-local bin contract.");
+  await buildSkillset(root);
+  expect(await fileExists(join(root, "plugins/alpha/bin/tool"))).toBe(true);
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
+  expect(lock).toContain('"intentionally_skipped"');
+  expect(lock).toContain("Codex plugins do not expose a documented plugin-local bin contract.");
 });
 
 test("SET-26: repo source pointers reject escapes, generated roots, and missing paths", async () => {
@@ -8419,12 +8422,13 @@ skillset:
   name: unsupported-outcome-root
 claude: false
 codex: true
+cursor: false
 `,
     ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/plugins/tools/bin/run": "#!/usr/bin/env bash\n",
+    ".skillset/plugins/tools/.mcp.json": JSON.stringify({ mcpServers: { demo: { type: "streamable-http", url: "https://example.com/mcp", oauth: { clientId: "demo" } } } }),
     ".skillset/plugins/tools/skills/tool/SKILL.md": `
 ---
 name: tool
@@ -8437,23 +8441,23 @@ Tool body.
 
   const report = await doctorSkillset(root);
   expect(report.ok).toBe(false);
-  expect(report.buildError).toContain("codex plugin-bin unsupported");
-  expect(report.buildError).toContain("Codex plugins do not expose a documented plugin-local bin contract.");
+  expect(report.buildError).toContain("codex plugin-mcp unsupported");
+  expect(report.buildError).toContain("oauth");
   expect(report.notableRenderResults).toContainEqual(
     expect.objectContaining({
-      featureId: "plugin-bin",
+      featureId: "plugin-mcp",
       policy: "unsupported:error",
       status: "unsupported",
       target: "codex",
     })
   );
 
-  const explainedUnsupportedFeature = await explainPath(root, ".skillset/plugins/tools/bin");
+  const explainedUnsupportedFeature = await explainPath(root, ".skillset/plugins/tools/.mcp.json");
   expect(explainedUnsupportedFeature.kind).toBe("source-plugin");
   expect(explainedUnsupportedFeature.entries).toEqual([]);
   expect(explainedUnsupportedFeature.renderResults).toContainEqual(
     expect.objectContaining({
-      featureId: "plugin-bin",
+      featureId: "plugin-mcp",
       policy: "unsupported:error",
       status: "unsupported",
       target: "codex",

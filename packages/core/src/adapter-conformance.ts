@@ -160,10 +160,16 @@ function checkConformanceCase(
   }
 
   const observedStatuses = sortedUnique(matching.map((outcome) => outcome.status));
-  const conforming = matching.filter((outcome) =>
-    expectedStatuses.includes(outcome.status)
-  );
-  const unexpectedStatuses = observedStatuses.filter((status) => !expectedStatuses.includes(status as SkillsetRenderResultStatus));
+  const conforms = (outcome: SkillsetRenderResult): boolean =>
+    expectedStatuses.includes(outcome.status) ||
+    (supportStatus === "unsupported" &&
+      isProviderOnlyPluginComponent(outcome) &&
+      outcome.status === "intentionally_skipped" &&
+      outcome.policy === "default" &&
+      (outcome.outputs?.length ?? 0) === 0 &&
+      outcome.diagnostics?.some((diagnostic) => diagnostic.code === "plugin-component-uncovered") === true);
+  const conforming = matching.filter(conforms);
+  const unexpectedStatuses = sortedUnique(matching.filter((outcome) => !conforms(outcome)).map((outcome) => outcome.status));
   if (conforming.length === 0 || unexpectedStatuses.length > 0) {
     return [
       issue(
@@ -205,6 +211,34 @@ function checkConformanceCase(
     }
   }
   return issues;
+}
+
+// A marker alone must not turn invalid carried content or dependency edges
+// into conforming omissions. Keep this exception at the component boundary.
+function isProviderOnlyPluginComponent(outcome: SkillsetRenderResult): boolean {
+  if (outcome.standardProfile === "agent-plugins-1.0" && outcome.target === undefined) {
+    const destinations: Readonly<Record<string, string>> = {
+      "plugin-apps": "app",
+      "plugin-bin": "bin",
+      "plugin-hooks": "hooks",
+      "plugin-agents": "agents",
+      "plugin-commands": "commands",
+      "plugin-rules": "rules",
+      "plugin-lsp-servers": ".lsp.json",
+      "future-companion-source-pointers": "settings.json",
+      "plugin-themes": "themes",
+      "plugin-monitors": "monitors",
+      "plugin-output-styles": "output-styles",
+    };
+    return destinations[outcome.featureId] !== undefined &&
+      destinations[outcome.featureId] === outcome.destination;
+  }
+  if (outcome.standardProfile !== undefined) return false;
+  if (outcome.target === "codex") {
+    return (outcome.featureId === "plugin-bin" && outcome.destination === "bin") ||
+      (outcome.featureId === "plugin-agents" && outcome.destination === "agents");
+  }
+  return outcome.target === "cursor" && outcome.featureId === "plugin-bin" && outcome.destination === "bin";
 }
 
 function standardExpectedOutcomeStatuses(
