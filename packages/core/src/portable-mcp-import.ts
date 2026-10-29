@@ -112,9 +112,10 @@ function normalizeImportedServer(
 }
 
 function normalizeClaudePlaceholders(value: string): string {
+  // Unbraced placeholders must end at an environment-variable identifier boundary.
   return value
     .replaceAll("${CLAUDE_PLUGIN_ROOT}", "${PLUGIN_ROOT}")
-    .replaceAll("$CLAUDE_PLUGIN_ROOT", "${PLUGIN_ROOT}")
+    .replaceAll(/\$CLAUDE_PLUGIN_ROOT(?![A-Za-z0-9_])/gu, "${PLUGIN_ROOT}")
     .replaceAll("${CLAUDE_PLUGIN_DATA}", "${PLUGIN_DATA}")
-    .replaceAll("$CLAUDE_PLUGIN_DATA", "${PLUGIN_DATA}");
+    .replaceAll(/\$CLAUDE_PLUGIN_DATA(?![A-Za-z0-9_])/gu, "${PLUGIN_DATA}");
 }
