@@ -49,3 +49,11 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 Append or replace compact checkpoints with: issue and acceptance; owner/worktree; stack/branch/base/head; cumulative stack file ownership; implementation and test evidence; review round count and exact reviewed SHA; findings and disposition; repair/integration SHAs; external reviews deferred or acted on; Linear changes; blockers; next eligible action.
 
 Keep raw logs and generated inventories outside tracked notes unless needed for durable evidence. Finalize this ledger at handoff, record skipped gates and unresolved risks, and follow the repository archival policy when the campaign completes.
+
+### SET-774 bounded overlap repair
+
+- Owner: primary thread in `skillset-astra`; new gh-stack layer `set-774-bound-the-pending-ledger-overlap-test-so-it-cannot-starve` above SET-770 checkpoint `3ae77bf19`.
+- Replaced unbounded queued ledger reads with one awaited read at a time, retaining the concurrent folded-record assertions. Both probe and release settle before propagating either failure. No production behavior or timeout changes.
+- Focused two-test file passes under pinned Bun 1.4.0 (1577 assertions) and explicit Bun 1.4.4 (1641 assertions); actual versions printed by each test process. `git diff --check` passes. Original failing logs remain retained. Full pinned gate rerun and independent commit review pending.
+- Matt explicitly authorized focused repair PR layers for encountered errors and reiterated gh-stack. These repairs are part of this campaign; the historical packet-preparation restriction does not block them.
+- Cumulative primary stack now also owns `apps/skillset/src/__tests__/pending-ledger-merge.test.ts`. No separate delivery stack created.

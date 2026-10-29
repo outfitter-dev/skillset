@@ -54,16 +54,23 @@ test("ADR-0045 change entries from two branches merge as plain text and fold on 
   const release = applyRelease(root).finally(() => {
     applying = false;
   });
-  const overlapping: Promise<readonly string[]>[] = [];
-  while (applying) {
-    overlapping.push(readChangeLedger(root).then((events) => events.map((event) => event.id)));
-    await Bun.sleep(0);
-  }
-  const report = await release;
-  expect(overlapping.length).toBeGreaterThan(0);
-  for (const ids of await Promise.all(overlapping)) {
-    expect(ids.slice(0, folded.length)).toEqual(folded.map((event) => event.id));
-  }
+  const readOverlaps = async () => {
+    let reads = 0;
+    // Await each read so the probe cannot flood the filesystem queue while
+    // release apply needs that same queue to finish the fold.
+    do {
+      const ids = (await readChangeLedger(root)).map((event) => event.id);
+      expect(ids.slice(0, folded.length)).toEqual(folded.map((event) => event.id));
+      reads += 1;
+    } while (applying);
+    return reads;
+  };
+  // Settle both operations even if either the release or a read assertion fails.
+  const [released, overlapping] = await Promise.allSettled([release, readOverlaps()]);
+  if (released.status === "rejected") throw released.reason;
+  if (overlapping.status === "rejected") throw overlapping.reason;
+  const report = released.value;
+  expect(overlapping.value).toBeGreaterThan(0);
   expect(report.plan.entries).toHaveLength(2);
   expect(await pendingLedgerEventFiles(root)).toEqual([]);
   const ledger = await readFoldedLedgerRecords(root);
