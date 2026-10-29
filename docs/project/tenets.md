@@ -40,9 +40,9 @@ When no faithful representation exists, Skillset should report the limitation, p
 
 ### Recognize meaning before rewriting syntax
 
-A **hard-coded transform** infers portable intent solely from a token, filename, directory prefix, provider name, or lexical pattern that can express unrelated intent, or emits a destination without an equivalent provider contract. Such lowering is inadmissible even when the output looks native or the string replacement is reversible.
+A **hard-coded transform** infers portable intent solely from a token, filename, directory prefix, provider name, or lexical pattern that can express unrelated intent, or emits a destination without an equivalent provider contract. Such transformation is inadmissible even when the output looks native or the string replacement is reversible.
 
-Use exact, intent-specific mappings backed by current evidence for both source meaning and destination behavior at the recognizer's full breadth. One recognized span cannot authorize unrelated lowering across its document. Preserve ambiguous material, keep it provider-native, or require explicit author intent at the owning typed boundary. Target-specific procedures need a behavior-preserving adapter; lexical resemblance is not one.
+Use exact, intent-specific mappings backed by current evidence for both source meaning and destination behavior at the recognizer's full breadth. One recognized span cannot authorize unrelated transformation across its document. Preserve ambiguous material, keep it provider-native, or require explicit author intent at the owning typed boundary. Target-specific procedures need a behavior-preserving adapter; lexical resemblance is not one.
 
 Collision analysis and negative examples accompany each mapping. Report loss or an unsupported destination through the existing result contract. Exceptions need a named owner, rationale, exact target scope, evidence and regression cases. Structural metadata, a passing corpus and string round trips support review; none alone proves semantic preservation.
 

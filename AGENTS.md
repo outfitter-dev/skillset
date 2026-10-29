@@ -17,9 +17,9 @@ For repository documentation, follow `docs/development/documentation-system.md`.
 
 ## Transform safety
 
-Follow the transform review contract in `CONTRIBUTING.md` and the meaning-before-syntax tenet. Do not infer portable intent solely from ambiguous tokens, filenames, provider names or directory prefixes. Exact mappings require current source and destination evidence at the recognizer's full breadth; one matched span never authorizes unrelated whole-document lowering.
+Follow the transform review contract in `CONTRIBUTING.md` and the meaning-before-syntax tenet. Do not infer portable intent solely from ambiguous tokens, filenames, provider names or directory prefixes. Exact mappings require current source and destination evidence at the recognizer's full breadth; one matched span never authorizes unrelated whole-document transformation.
 
-Inspect recognizers, lowering and exception validators together. Include positive semantic cases and nearby negatives such as `@alice`, `@media`, package scopes, fences and `.claude/` marketplace paths. Reversibility, plausible output, metadata and a passing finite corpus do not establish provider equivalence. Preserve ambiguity or keep it provider-native; report loss/unsupported destinations through existing contracts. Exceptions name an owner, rationale, exact target scope, evidence and regression cases.
+Inspect recognizers, transformation and exception validators together. Include positive semantic cases and nearby negatives such as `@alice`, `@media`, package scopes, fences and `.claude/` marketplace paths. Reversibility, plausible output, metadata and a passing finite corpus do not establish provider equivalence. Preserve ambiguity or keep it provider-native; report loss/unsupported destinations through existing contracts. Exceptions name an owner, rationale, exact target scope, evidence and regression cases.
 
 ## Responsibilities
 

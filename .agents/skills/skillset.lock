@@ -83,14 +83,14 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-dev-compiler",
-      "outputHash": "sha256:5a8c5108a3a48bb8f29a59366c832dd767d52c26ab227ae642da9c6b0222f5eb",
+      "outputHash": "sha256:670d81cc35a9867a97e38ad3edfe724da10b240e95159d8841904260eae86ccc",
       "outputPath": "skillset-dev-compiler/SKILL.md",
       "owner": {
         "standardProfile": "agent-skills"
       },
-      "provenanceHash": "sha256:f91abe59955ab5cec875dfc9d66d32971c7b87e48fa73ab0aac8b75e0083468b",
+      "provenanceHash": "sha256:bda1cd99c0d056e5a7db4c153e2050cf2ab788a48559d26cbad2df0f343eaf5f",
       "role": "standard",
-      "sourceHash": "sha256:9eb62665be97d9a8058539332855d6145b7d9316c365a509c43a67684de33098",
+      "sourceHash": "sha256:bd28ad6ec58c8aa3ffb000dfc05b0c73fe5cfe78fccd52083b4a34ff185de116",
       "sourcePath": ".skillset/skills/skillset-dev-compiler/SKILL.md",
       "version": "0.1.0"
     },

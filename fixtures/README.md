@@ -58,7 +58,7 @@ Each verb accepts an optional entry name to target one repo. A run fails (non-ze
 
 ## Transform and conformance evidence
 
-Follow the [transform review contract](../CONTRIBUTING.md#review-transform-recognition-and-lowering-together). A reversible rewrite or a successful build does not prove provider equivalence. Keep a supported semantic example and a nearby negative corpus together: handles, CSS at-rules, decorators, package scopes, fences, inline literals, mixed-provider filenames, cache paths and marketplace paths where relevant. Assert preserved bytes and the absence of unintended dialect declaration or lowering for ambiguous inputs.
+Follow the [transform review contract](../CONTRIBUTING.md#review-transform-recognition-and-output-together). A reversible rewrite or a successful build does not prove provider equivalence. Keep a supported semantic example and a nearby negative corpus together: handles, CSS at-rules, decorators, package scopes, fences, inline literals, mixed-provider filenames, cache paths and marketplace paths where relevant. Assert preserved bytes and the absence of unintended dialect declaration or transformation for ambiguous inputs.
 
 Test the public recognition and transformation boundaries, including declared directions and exception validation. A synthetic intent protocol proves engine mechanics only; real mappings also need current source and destination contract evidence at the recognizer's full breadth. A reversible provider-prefix mutation that invents a plausible destination is a useful negative control. Coverage lists must require deliberate cases for new built-ins, but neither a list nor evidence metadata proves semantic correctness.
 
