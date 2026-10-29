@@ -2062,9 +2062,11 @@ function reportAdoptionPayloadSchema(): SchemaJsonRecord {
     {
       alreadyAdopted: { type: "boolean" },
       candidateIds: reportIdListSchema(),
+      cutover: requiredObjectSchema({ paths: reportIdListSchema(), total: reportBoundedCountSchema() }, ["paths", "total"]),
       destinations: reportIdListSchema(),
       diagnosticCodes: reportCodeListSchema(),
       importedUnitIds: reportIdListSchema(),
+      guidancePaths: reportIdListSchema(),
       isolatedOutput: reportEvidenceDescriptorSchema(),
       listCounts: reportListCountsSchema([
         "candidateIds",

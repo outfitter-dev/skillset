@@ -28,6 +28,10 @@ skillset init --adopt all --yes
 
 Adoption preserves originals, stages imported source under `.skillset/`, validates it, runs an isolated [projection](../glossary.md#projection), and records an audit report. It does not write live provider output. Conflicting identities, versions, portable metadata, or divergent source block instead of being merged by name alone.
 
+An unmanaged root `AGENTS.md` stays authored source through [native root guidance](../configuration/project-configuration.md). Root `CLAUDE.md` and `.claude/CLAUDE.md` are preserved and reported for guided adoption; they are never native sources or automatic rule imports. If Claude guidance is the better starting point, have an agent compare the documents and synthesize a reviewed `.skillset/RULES.md`. Explicitly reconcile native AGENTS mode before switching to that source, then review the generated `AGENTS.md` and configured Claude front page before replacing originals. The compiler does not judge which document is stronger.
+
+The adoption receipt labels its build as isolated and counts actual writes to the mirror. Its Cutover section lists live unmanaged collisions, including imported skill files, plugin manifests, and marketplace files. `skillset report show <id>` retains that list and the next steps. Review the mirror, preserve or relocate colliding originals after approving their replacements, and then run `skillset build --yes`. A truncated receipt directs you to `skillset diff` for the full live list.
+
 Review the exact route in the generated [`init` reference](../reference/cli/init.md).
 
 ## Import one explicit source

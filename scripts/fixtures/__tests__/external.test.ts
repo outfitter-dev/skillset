@@ -256,7 +256,7 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
 
 test("SET-378: runExternalRepo preserves reports after a graph-load build failure", async () => {
   const clone = await gitFixture({
-    "CLAUDE.md": "---\ndialect: 1\n---\n\nImported instructions.\n",
+    ".claude/skills/invalid/SKILL.md": "---\nname: invalid\ndescription: Invalid dialect.\ndialect: 1\n---\n\nImported skill.\n",
   });
 
   const report = await runExternalRepo("invalid-instructions", clone, ["claude"]);

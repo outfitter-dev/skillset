@@ -584,3 +584,14 @@ describe("skillset.report@1", () => {
     ).toBe(false);
   });
 });
+
+ it("validates bounded adoption cutover evidence while accepting older receipts", () => {
+  const envelope = { ...report, kind: "adoption", payload: adoptionPayload, result: { command: "init.adopt", exitCode: 0, ok: true } };
+  expect(validateSkillsetReport(envelope).ok).toBe(true);
+  for (const cutover of [{ paths: [".claude/skills/foo/SKILL.md"], total: 1 }, { paths: Array.from({ length: 200 }, (_, index) => `file-${index}`), total: 201 }]) {
+    expect(validateSkillsetReport({ ...envelope, payload: { ...adoptionPayload, cutover, guidancePaths: ["CLAUDE.md"] } }).ok).toBe(true);
+  }
+  for (const cutover of [{ paths: ["file"], total: 0 }, { paths: ["../outside"], total: 1 }, { paths: [], total: -1 }, { paths: [], total: 0, unexpected: true }]) {
+    expect(validateSkillsetReport({ ...envelope, payload: { ...adoptionPayload, cutover } }).ok).toBe(false);
+  }
+});
