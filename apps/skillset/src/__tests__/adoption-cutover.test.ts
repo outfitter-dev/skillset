@@ -1,8 +1,8 @@
 import { expect, it } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { readReportBundle } from "@skillset/core";
-import { adoptSkillset } from "../adopt";
+import { ISOLATED_OUT_ROOT, readReportBundle } from "@skillset/core";
+import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { persistAdoptionReceipt } from "../operation-receipt";
 import { contractFixture, runSkillsetCli } from "./contract-test-helpers";
 
@@ -68,4 +68,33 @@ it("records native-mode updates to an existing workspace config as writes", asyn
   expect(report.ok).toBe(true);
   expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("nativeAgents: true");
   expect(report.writtenPaths).toContain("skillset.yaml");
+});
+
+it("keeps isolated success and writes when live cutover inspection fails", async () => {
+  const root = await contractFixture({
+    ".claude/skills/helper/SKILL.md": "---\nname: helper\ndescription: Help.\n---\n\nHelp.\n",
+    "plugins/skillset.lock": "{ malformed\n",
+  });
+  const report = await adoptSkillset(root, { targets: ["claude"], write: true });
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toBeUndefined();
+  expect(report.builtFiles).toBeGreaterThan(0);
+  expect(report.cutoverError).toContain("lock");
+  const isolatedWrites = report.writtenPaths.filter((path) => path.startsWith(`${ISOLATED_OUT_ROOT}/`));
+  expect(isolatedWrites.length).toBeGreaterThanOrEqual(report.builtFiles);
+  expect(isolatedWrites).toContain(`${ISOLATED_OUT_ROOT}/.claude/skills/helper/SKILL.md`);
+  const receipt = await persistAdoptionReceipt(report);
+  const bundle = await readReportBundle(receipt.path);
+  expect(bundle.report.payload).toMatchObject({
+    phases: { build: { status: "passed", count: report.builtFiles } },
+    diagnosticCodes: expect.arrayContaining(["adopt.cutover-inspection-failed"]),
+  });
+  expect(bundle.report.payload).not.toHaveProperty("cutover");
+  expect(bundle.markdown).toContain("Live cutover inspection failed");
+  const fullMarkdown = renderAdoptReportMarkdown(report, { rootPath: root });
+  expect(fullMarkdown).toContain(`Wrote ${report.builtFiles} generated files`);
+  expect(fullMarkdown).toContain("Live cutover inspection failed");
+  expect(fullMarkdown).not.toContain("Run `skillset build --yes`");
+  expect(bundle.markdown).not.toContain("run `skillset build --yes`");
+  expect(await readFile(join(root, "plugins/skillset.lock"), "utf8")).toBe("{ malformed\n");
 });

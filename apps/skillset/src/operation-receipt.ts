@@ -85,6 +85,8 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
   if (lintErrors > 0) diagnosticCodes.add("adopt.lint-failed");
   if (report.buildError !== undefined)
     diagnosticCodes.add("adopt.build-failed");
+  if (report.cutoverError !== undefined)
+    diagnosticCodes.add("adopt.cutover-inspection-failed");
   const candidateIds = boundedUniqueSorted(
     report.candidates.map(adoptCandidateId)
   );
@@ -102,7 +104,9 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
 
   const cutover = boundedUniqueSorted(report.cutover);
   return {
-    cutover: { paths: cutover.items, total: cutover.total },
+    ...(report.cutoverError === undefined
+      ? { cutover: { paths: cutover.items, total: cutover.total } }
+      : {}),
     guidancePaths: report.surveySkips.filter((skip) => skip.surface === "guided-root-guidance").map((skip) => skip.path),
     alreadyAdopted: report.alreadyAdopted,
     candidateIds: candidateIds.items,

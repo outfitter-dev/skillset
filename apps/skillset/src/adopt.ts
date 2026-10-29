@@ -129,6 +129,8 @@ export interface AdoptReport {
    * protection is the cutover safety net.
    */
   readonly cutover: readonly string[];
+  /** Live inspection failed; the collision inventory is unknown. */
+  readonly cutoverError?: string;
   readonly imports: readonly AdoptImportResult[];
   readonly lintIssues: readonly LintIssue[];
   /** The repo's existing Claude catalog, and what adoption kept of it. */
@@ -406,6 +408,7 @@ async function adoptResolvedRoot(
     buildError = errorMessage(error);
   }
 
+  let cutoverError: string | undefined;
   let builtFiles = 0;
   let buildWritePaths: readonly string[] = [];
   let renderResults: readonly SkillsetRenderResult[] = [
@@ -421,12 +424,16 @@ async function adoptResolvedRoot(
       ];
       if (!build.ok) throw new SkillsetBuildBlockedError(build);
       builtFiles = build.writes.writtenPaths.length;
-      const live = await diffSkillsetResult(init.rootPath, buildOptions);
-      cutover.push(...live.diagnostics.flatMap((diagnostic) =>
-        diagnostic.code === "unmanaged-output-collision" && diagnostic.outputPath !== undefined
-          ? [diagnostic.outputPath] : []
-      ));
       buildWritePaths = build.writes.paths;
+      try {
+        const live = await diffSkillsetResult(init.rootPath, buildOptions);
+        cutover.push(...live.diagnostics.flatMap((diagnostic) =>
+          diagnostic.code === "unmanaged-output-collision" && diagnostic.outputPath !== undefined
+            ? [diagnostic.outputPath] : []
+        ));
+      } catch (error) {
+        cutoverError = errorMessage(error);
+      }
     } catch (error) {
       buildError = errorMessage(error);
     }
@@ -457,6 +464,7 @@ async function adoptResolvedRoot(
     builtFiles,
     candidates,
     cutover: [...new Set(cutover)].sort(),
+    ...(cutoverError === undefined ? {} : { cutoverError }),
     imports,
     lintIssues,
     ...(marketplace === undefined ? {} : { marketplace }),
@@ -464,7 +472,7 @@ async function adoptResolvedRoot(
     ok:
       imports.every((result) => result.ok) &&
       lintErrors.length === 0 &&
-      buildError === undefined,
+      buildError === undefined && cutoverError === undefined,
     rootPath: init.rootPath,
     setupFiles: init.files,
     surveyDiagnostics: survey.surveyDiagnostics,
@@ -1019,23 +1027,30 @@ export function renderAdoptReportMarkdown(
   }
 
   lines.push("## Cutover", "");
-  lines.push(
-    `1. Review the generated mirror under \`${ISOLATED_OUT_ROOT}/\` against the originals.`
-  );
-  if (report.cutover.length > 0) {
-    lines.push("2. Remove or relocate these originals — a live build owns their paths:");
-    for (const path of report.cutover) {
-      lines.push(`   - \`${path}\``);
-    }
+  if (report.cutoverError !== undefined) {
+    lines.push(
+      "Live cutover inspection failed; the collision inventory is unknown. Resolve the inspection error and rerun `skillset diff` before planning live writes.",
+      "", "```", report.cutoverError.trimEnd(), "```", ""
+    );
   } else {
-    lines.push("2. No original paths need to move before a live build.");
+    lines.push(
+      `1. Review the generated mirror under \`${ISOLATED_OUT_ROOT}/\` against the originals.`
+    );
+    if (report.cutover.length > 0) {
+      lines.push("2. Remove or relocate these originals — a live build owns their paths:");
+      for (const path of report.cutover) {
+        lines.push(`   - \`${path}\``);
+      }
+    } else {
+      lines.push("2. No original paths need to move before a live build.");
+    }
+    lines.push(
+      "3. Run `skillset build --yes` to write live output.",
+      "",
+      "Until the originals move, live builds refuse to overwrite them as unmanaged files — that protection is the safety net; nothing is lost by building too early.",
+      ""
+    );
   }
-  lines.push(
-    "3. Run `skillset build --yes` to write live output.",
-    "",
-    "Until the originals move, live builds refuse to overwrite them as unmanaged files — that protection is the safety net; nothing is lost by building too early.",
-    ""
-  );
 
   lines.push(
     "## Next steps",

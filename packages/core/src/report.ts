@@ -545,6 +545,10 @@ function renderAdoptionPayload(
       ...renderStringList("Guided root guidance", payload.guidancePaths),
       "Review the preserved Claude guidance alongside AGENTS.md with an agent. If it is the better source, synthesize and review .skillset/RULES.md; explicitly reconcile native AGENTS mode before generating AGENTS.md and CLAUDE.md. Do not replace the originals until the reviewed cutover.",
     ]),
+    ...(payload.diagnosticCodes.includes("adopt.cutover-inspection-failed") ? [
+      "", "## Cutover", "",
+      "Live cutover inspection failed; the collision inventory is unknown. Resolve the inspection error and rerun `skillset diff` before planning live writes.",
+    ] : []),
     ...(payload.cutover === undefined ? [] : [
       "", "## Cutover", "",
       `- Collision paths retained: ${payload.cutover.paths.length}/${payload.cutover.total}`,

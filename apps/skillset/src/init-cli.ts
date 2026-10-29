@@ -268,6 +268,9 @@ function printAdoptReport(
       ? `  ok build: wrote ${report.builtFiles} generated files under logical .skillset/cache/latest/ (XDG-backed)`
       : `  FAIL build: ${report.buildError.split("\n")[0]}`
   );
+  if (report.cutoverError !== undefined) {
+    console.log(`  FAIL live cutover inspection: ${report.cutoverError.split("\n")[0]}`);
+  }
   if (report.cutover.length > 0) {
     console.log(`  cutover: ${report.cutover.join(", ")} (see report)`);
   }
