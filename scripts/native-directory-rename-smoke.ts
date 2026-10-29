@@ -1,7 +1,6 @@
 /* eslint-disable no-await-in-loop -- Barriers and fixture setup are intentionally ordered. */
 
 import {
-  access,
   lstat,
   mkdir,
   mkdtemp,
@@ -16,14 +15,13 @@ import nodePath from "node:path";
 import { renameDirectoryNoReplace } from "../packages/core/src/directory-rename-no-replace";
 import type { DirectoryRenameNoReplaceResult } from "../packages/core/src/directory-rename-no-replace";
 
-const RUN_FLAG = "--directory-rename-packaged-run";
-const WORKER_FLAG = "--directory-rename-packaged-worker";
+import {
+  DIRECTORY_RENAME_WORKER_FLAG,
+  runDirectoryRenameRace,
+  runDirectoryRenameWorker,
+} from "./test-helpers/directory-rename-race";
 
-const missing = async (path: string): Promise<boolean> =>
-  await access(path).then(
-    () => false,
-    () => true
-  );
+const RUN_FLAG = "--directory-rename-packaged-run";
 
 const requireCondition = (condition: boolean, message: string): void => {
   if (!condition) {
@@ -46,22 +44,6 @@ const assertOccupied = (
   );
 };
 
-const waitForPaths = async (paths: readonly string[]): Promise<void> => {
-  const deadline = performance.now() + 15_000;
-  while (true) {
-    const pathStates = await Promise.all(paths.map(missing));
-    if (!pathStates.some(Boolean)) {
-      return;
-    }
-    if (performance.now() >= deadline) {
-      throw new Error(
-        "skillset: packaged directory rename workers did not reach the barrier"
-      );
-    }
-    await Bun.sleep(1);
-  }
-};
-
 const runChild = async (
   argv: readonly string[],
   options: { readonly allowStderr?: boolean } = {}
@@ -81,79 +63,6 @@ const runChild = async (
     requireCondition(stderr === "", `child wrote stderr: ${stderr}`);
   }
   return stdout;
-};
-
-const runWorker = async (): Promise<void> => {
-  const workerIndex = process.argv.indexOf(WORKER_FLAG);
-  const [sourcePath, destinationPath, readyPath, gatePath] = process.argv.slice(
-    workerIndex + 1
-  );
-  if (!(sourcePath && destinationPath && readyPath && gatePath)) {
-    throw new Error(
-      "skillset: packaged directory rename worker is missing an argument"
-    );
-  }
-  await writeFile(readyPath, "ready\n");
-  await waitForPaths([gatePath]);
-  process.stdout.write(
-    JSON.stringify(renameDirectoryNoReplace(sourcePath, destinationPath))
-  );
-};
-
-const runRace = async (root: string): Promise<void> => {
-  const destinationPath = nodePath.join(root, "race-destination");
-  const gatePath = nodePath.join(root, "race-gate");
-  const workers = ["a", "b"].map((name) => ({
-    name,
-    readyPath: nodePath.join(root, `race-ready-${name}`),
-    sourcePath: nodePath.join(root, `race-source-${name}`),
-  }));
-  for (const worker of workers) {
-    await mkdir(worker.sourcePath);
-    await writeFile(
-      nodePath.join(worker.sourcePath, "marker.txt"),
-      `${worker.name}\n`
-    );
-  }
-
-  const children = workers.map((worker) =>
-    runChild([
-      process.execPath,
-      WORKER_FLAG,
-      worker.sourcePath,
-      destinationPath,
-      worker.readyPath,
-      gatePath,
-    ])
-  );
-  await waitForPaths(workers.map((worker) => worker.readyPath));
-  await writeFile(gatePath, "go\n");
-  const childOutputs = await Promise.all(children);
-  const results = childOutputs.map(
-    (stdout) => JSON.parse(stdout) as DirectoryRenameNoReplaceResult
-  );
-  requireCondition(
-    results
-      .map((result) => result.kind)
-      .toSorted()
-      .join(",") === "installed,occupied",
-    `race returned ${results.map((result) => result.kind).join(",")}`
-  );
-
-  const installedMarker = await readMarker(destinationPath);
-  const winner = installedMarker.trim();
-  requireCondition(
-    winner === "a" || winner === "b",
-    `race installed unexpected ${winner}`
-  );
-  const loser = winner === "a" ? "b" : "a";
-  const loserMarker = await readMarker(
-    nodePath.join(root, `race-source-${loser}`)
-  );
-  requireCondition(
-    loserMarker === `${loser}\n`,
-    "race did not preserve the losing source"
-  );
 };
 
 const runOccupiedFixtures = async (root: string): Promise<void> => {
@@ -217,7 +126,7 @@ const runPackagedScenarios = async (): Promise<void> => {
   );
   try {
     await runOccupiedFixtures(root);
-    await runRace(root);
+    await runDirectoryRenameRace(root, [process.execPath]);
     console.log(
       `skillset: packaged directory rename smoke passed (${process.platform} ${process.arch})`
     );
@@ -303,8 +212,8 @@ const runPackagedExecutable = async (): Promise<void> => {
 };
 
 if (import.meta.main) {
-  if (process.argv.includes(WORKER_FLAG)) {
-    await runWorker();
+  if (process.argv.includes(DIRECTORY_RENAME_WORKER_FLAG)) {
+    await runDirectoryRenameWorker(process.argv);
   } else if (process.argv.includes(RUN_FLAG)) {
     await runPackagedScenarios();
   } else {
