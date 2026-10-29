@@ -23,7 +23,7 @@ The npm package installs a small Node launcher plus the native package for the c
 | Bun global | Bun 1.4.0 or newer | Bun 1.4.0 or newer | A global command using the smaller JavaScript distribution |
 | Bun one-shot | Bun 1.4.0 or newer | Bun 1.4.0 or newer | CI or occasional use without a global install |
 | Bun development dependency | Bun 1.4.0 or newer | Bun 1.4.0 or newer | A repository-pinned CLI version |
-| Contributor checkout | Git, curl, and the repository bootstrap | Bun 1.4.0 or newer | Developing Skillset itself |
+| Contributor checkout | Git, curl, and the repository bootstrap | Repository-pinned Bun 1.4.4 | Developing Skillset itself |
 
 `@skillset/cli` is the complete Skillset command surface in the slimmer Bun distribution. It is not a reduced CI product. The native and Bun distributions use the same command contract.
 

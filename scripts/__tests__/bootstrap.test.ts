@@ -123,6 +123,11 @@ const makeShellBootstrapFixture = async (): Promise<{
   const curl = join(fakeBin, "curl");
   await writeFile(curl, '#!/bin/sh\nexec /bin/cat "$SKILLSET_TEST_INSTALLER"\n');
   await chmod(curl, 0o755);
+  // bootstrap.sh appends common install paths. Shadow an ambient matching Bun
+  // so cold-start tests still exercise provisioning on a contributor's machine.
+  const missingBun = join(fakeBin, "bun");
+  await writeFile(missingBun, "#!/bin/sh\nexit 1\n");
+  await chmod(missingBun, 0o755);
   return { fakeBin, home, installer, installLog, root };
 };
 
@@ -526,8 +531,8 @@ describe("bootstrap repo policy", () => {
 
   test("Bun pin stays aligned across repo metadata", () => {
     const range = packageJson.engines?.bun;
-    expect(readPinnedBunVersion(repoRoot)).toBe("1.4.0");
-    expect(readPackageManagerBunVersion(repoRoot)).toBe("1.4.0");
+    expect(readPinnedBunVersion(repoRoot)).toBe("1.4.4");
+    expect(readPackageManagerBunVersion(repoRoot)).toBe("1.4.4");
     expect(supportedBunRangeProblem(range)).toBeUndefined();
     expect(satisfiesSupportedBunRange("1.4.0", range ?? "")).toBe(true);
   });
