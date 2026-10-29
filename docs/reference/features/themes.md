@@ -24,13 +24,15 @@ Place theme files under `.skillset/plugins/<plugin>/themes/`. Discovery is autom
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `<source-root>/plugins/<plugin>/themes/` | plugin root `themes/` plus manifest `experimental.themes: "./themes/"` | n/a | `target_native` / `implemented` | Opaque pass-through; theme semantics remain Claude-native. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `<source-root>/plugins/<plugin>/themes/` | plugin root `themes/` plus manifest `experimental.themes: "./themes/"` | n/a | no output (planned) | `target_native` / `implemented` | Opaque pass-through; theme semantics remain Claude-native. |
+
+The Agent Plugins baseline records this component as [uncovered](plugins.md#uncovered-components) without blocking valid provider output. Cursor support remains planned; no Cursor component is emitted.
 
 ## Diagnostics
 
-- Back up unmanaged [generated-output](../../glossary.md#generated-output) collisions before replacing them in confirmed builds.
+- Refuse unmanaged [generated-output](../../glossary.md#generated-output) collisions until the originals are explicitly reconciled; `build --yes` does not authorize overwriting them.
 - Reject divergent provider source that tries to emit the same generated theme path.
 - Do not copy Claude themes into Codex plugin output.
 

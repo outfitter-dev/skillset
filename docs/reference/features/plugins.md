@@ -81,6 +81,14 @@ The compiler derives component wiring from the final package inventory. Claude's
 
 `claude.bundle.path` cannot split the shared package. Custom package placement remains reserved for SET-561; current package planning accepts only the default `plugins/[name]` placement.
 
+## Uncovered Components
+
+The Agent Plugins baseline does not define every provider component. Commands, plugin agents, hooks, plugin rules, executables, apps, LSP configuration, settings, monitors, output styles and themes can remain provider-native. Valid supported provider output still builds under the default policy; absent baseline coverage is recorded as an `intentionally_skipped` render result with `policy: default`, a reason and evidence. The `plugin-component-uncovered` diagnostic identifies this scoped coverage decision. Codex plugin agents and Codex/Cursor executables use the same uncovered disposition for their missing provider destinations.
+
+An uncovered result claims no output for that destination. Because all providers share a package, a file can exist for another supported provider without becoming portable or supported by every consumer. No provider-only island or weakened `unsupported_destination` policy is required merely to tolerate an absent component contract.
+
+This exception does not excuse invalid manifest, skill or MCP content, unsafe paths, conflicting package bytes, unsupported hook event mappings, plugin dependency limitations or unsupported project-use hydration. Those retain their own diagnostics and policy. [ADR-0046](../../adrs/0046-provider-only-plugin-components-remain-uncovered.md) records the boundary; [render results](../../development/features/render-results.md) explain how to inspect it.
+
 ## Manifest Authority
 
 Every generated field has one writer:
