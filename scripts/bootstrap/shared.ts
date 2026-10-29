@@ -53,13 +53,14 @@ const bootstrapChildEnv = (
     const virtualPath =
       process.platform === "win32"
         ? win32.resolve(virtualBin).toLowerCase()
-        : virtualBin;
+        : resolve(virtualBin);
     env.PATH = env.PATH.split(delimiter)
       .filter(
         (entry) =>
+          entry === "" ||
           (process.platform === "win32"
             ? win32.resolve(entry).toLowerCase()
-            : entry) !== virtualPath
+            : resolve(entry)) !== virtualPath
       )
       .join(delimiter);
   }

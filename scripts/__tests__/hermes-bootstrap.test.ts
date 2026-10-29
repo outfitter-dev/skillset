@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { delimiter, join, sep } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 import {
@@ -198,5 +198,39 @@ test("Windows Path variants use the same cleaned value for probes and spawned ch
       ],
       childPath: process.env.PATH,
     });
+  }
+});
+
+test("virtualenv separator variants are removed while empty PATH entries survive", async () => {
+  const root = await createTestFixtureRoot("skillset-hermes-path-separators-");
+  const virtual = join(root, "venv");
+  const directory = process.platform === "win32" ? "Scripts" : "bin";
+  const bin = join(virtual, directory);
+  await mkdir(bin, { recursive: true });
+  for (const pathEntry of [
+    `${bin}${sep}`,
+    `${virtual}${sep}${sep}${directory}`,
+  ]) {
+    const probe = `
+      import { run } from ${JSON.stringify(sharedModule)};
+      console.log(JSON.stringify(run([process.execPath, "--eval", "console.log(JSON.stringify(process.env.PATH))"], ${JSON.stringify(root)})));
+    `;
+    const result = Bun.spawnSync([process.execPath, "--eval", probe], {
+      env: {
+        ...process.env,
+        VIRTUAL_ENV: virtual,
+        PATH: [pathEntry, "", process.env.PATH].join(delimiter),
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode).toBe(0);
+    expect(new TextDecoder().decode(result.stderr)).toBe("");
+    const child = JSON.parse(new TextDecoder().decode(result.stdout));
+    expect(child.exitCode).toBe(0);
+    expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toBe(
+      ["", process.env.PATH].join(delimiter)
+    );
   }
 });
