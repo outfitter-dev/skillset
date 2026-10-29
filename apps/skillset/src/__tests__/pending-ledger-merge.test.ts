@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -48,8 +48,27 @@ test("ADR-0045 change entries from two branches merge as plain text and fold on 
     "Change beta on its own branch, recorded in its own pending file.",
   ]);
 
-  // Readers take no lock. Reads that overlap the fold must neither throw nor
-  // lose a pending record while it moves into ledger.jsonl.
+  // Exercise each stable state of the fold: copied records can temporarily
+  // exist in both the ledger and pending files, then pending files disappear.
+  const ledgerPath = join(root, ".skillset/changes/ledger.jsonl");
+  const pendingContents = await Promise.all(pending.map(async (path) =>
+    [path, await readFile(join(root, path), "utf8")] as const
+  ));
+  const expectedIds = folded.map((event) => event.id);
+  for (const [, content] of pendingContents) {
+    await appendFile(ledgerPath, content);
+    expect((await readChangeLedger(root)).map((event) => event.id)).toEqual(expectedIds);
+  }
+  for (const path of pending) {
+    await rm(join(root, path));
+    expect((await readChangeLedger(root)).map((event) => event.id)).toEqual(expectedIds);
+  }
+  // Restore the merged state so the real release still performs the fold.
+  await rm(ledgerPath);
+  await Promise.all(pendingContents.map(([path, content]) => writeFile(join(root, path), content)));
+
+  // Sample unlocked reads during release; the staged checks above establish
+  // the intermediate states because sampling alone cannot guarantee overlap.
   let applying = true;
   const release = applyRelease(root).finally(() => {
     applying = false;
