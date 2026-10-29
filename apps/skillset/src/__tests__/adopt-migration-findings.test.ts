@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { expect, spyOn, test } from "bun:test";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { createOperationalPathContext, ISOLATED_OUT_ROOT, resolveOperationalPath } from "@skillset/core";
 import { inspectMigrationMarkers } from "@skillset/core/internal/migration-markers";
@@ -10,6 +10,8 @@ import { createInitialMigrationFlag } from "@skillset/core/internal/migration-st
 import { readReportBundle } from "@skillset/core/internal/report-store";
 import { MIGRATION_STATE_SCHEMA_VERSION } from "@skillset/schema";
 import { persistAdoptionReceipt } from "../operation-receipt";
+
+import * as sourceImport from "../import";
 
 const sourcePath = ".skillset/skills/demo/SKILL.md";
 
@@ -111,4 +113,42 @@ test("a later batch collision does not omit review findings for successfully imp
   expect(report.writtenPaths).toContain(".skillset/skills/a");
   expect(await readFile(join(root, ".claude/skills/a/SKILL.md"), "utf8")).toBe(original);
   expect(await readFile(join(root, ".skillset/skills/b/SKILL.md"), "utf8")).toBe(existing);
+});
+
+
+test("a removed landed source returns a failed receipt with the partial write inventory", async () => {
+  const root = await createTestFixtureRoot("skillset-adopt-removed-finding-");
+  const original = "---\nname: demo\ndescription: Review.\n---\n\nAsk @alice.\n";
+  await Bun.write(join(root, ".claude/skills/demo/SKILL.md"), original);
+  const importSources = sourceImport.importSources;
+  let removed = false;
+  const imported = spyOn(sourceImport, "importSources").mockImplementation(async (...args) => {
+    const report = await importSources(...args);
+    await rm(join(root, sourcePath));
+    removed = true;
+    return report;
+  });
+  try {
+    const report = await adoptSkillset(root, { write: true });
+    expect(removed).toBe(true);
+    expect(report.ok).toBe(false);
+    expect(report.migrationError).toContain("ENOENT");
+    expect(report.imports.some((entry) => !entry.ok)).toBe(true);
+    expect(report.writtenPaths).toContain(".skillset/skills/demo");
+    expect(report.builtFiles).toBe(0);
+    expect(report.writtenPaths).not.toContain(MIGRATION_STATE_PATH);
+    const receipt = await persistAdoptionReceipt(report);
+    const stored = await readReportBundle(receipt.id);
+    expect(stored.report).toMatchObject({
+      payload: {
+        diagnosticCodes: expect.arrayContaining(["adopt.migration-findings-failed"]),
+        phases: { build: { status: "not-run" }, lint: { status: "not-run" } },
+      },
+      result: { ok: false },
+    });
+    expect(stored.report.payload).not.toHaveProperty("cutover");
+    expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toBe(original);
+  } finally {
+    imported.mockRestore();
+  }
 });

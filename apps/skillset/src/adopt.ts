@@ -388,12 +388,13 @@ async function adoptResolvedRoot(
     )
   );
   // Recognition is report evidence, not authority to enable a document dialect.
-  const transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
+  let transformPreviews: readonly TransformPreview[] = [];
 
   let migrationFlags: readonly MigrationFlag[] = [];
   let migrationWritePaths: readonly string[] = [];
   let migrationError: string | undefined;
   try {
+    transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
     const recorded = await recordImportedBodyFindings(init.rootPath, previewSources);
     migrationFlags = recorded.flags;
     migrationWritePaths = recorded.writtenPaths;
