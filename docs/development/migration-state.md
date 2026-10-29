@@ -28,6 +28,8 @@ Core's `reconcileMigrationState` accepts a ledger and a complete observation set
 
 Blocking diagnostics return the original state unchanged. Callers must display diagnostics and must not interpret an unchanged ledger as successful acceptance. A missing sidecar observation is also an orphan: callers must include sidecar findings in a complete scan. Partial scans are outside this API's contract.
 
+An observations array cannot prove its own completeness: an omitted matching observation can make an ambiguous fingerprint appear unique. SET-438's scanner must successfully enumerate and read the full intended source and sidecar set before calling reconciliation. Partial or errored scans block reconciliation, persistence, and readiness; preserving unobserved ledger records alone does not establish a complete scan.
+
 ## Writes and hashes
 
 `readMigrationState` distinguishes an absent snapshot from malformed or unreadable state and refuses existing symlink ancestry. It retains the exact disk bytes. `planMigrationStateWrite` produces one write for the existing workspace transaction, binding either expected absence or those bytes. The transaction checks preimages and containment, preserves concurrent author changes, and rolls back a failed installation. A successful scan does not independently authorize a write.
