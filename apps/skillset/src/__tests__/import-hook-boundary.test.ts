@@ -84,3 +84,16 @@ test("Cursor authored inline hooks replace fallback while Claude island output k
   expect((await Bun.file(join(root, "plugins/demo/.cursor-plugin/plugin.json")).json()).hooks).toEqual({ afterFileEdit: [] });
   expect(await readFile(join(root, "plugins/demo/hooks/hooks.json"), "utf8")).toBe(hooks);
 });
+
+test("malformed hook JSON reports scoping evidence as well as parse uncertainty", async () => {
+  const root = await createTestFixtureRoot("skillset-hook-malformed-boundary-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"native-hooks"}');
+  const original = "{ malformed JSON";
+  await Bun.write(join(sourcePath, "hooks/hooks.json"), original);
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
+  const codes = report.renderResults.flatMap((result) => result.diagnostics?.map((item) => item.code) ?? []);
+  expect(codes).toContain("import-native-hook-lift-unclassified");
+  expect(codes).toContain("import-native-hook-provider-scoped");
+  expect(await readFile(join(report.targetPath, nativePath), "utf8")).toBe(original);
+});

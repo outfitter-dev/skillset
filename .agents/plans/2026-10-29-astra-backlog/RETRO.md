@@ -2,6 +2,8 @@
 
 ### SET-442 Claude native hook source boundary — October 29
 
+- Round-one exact fe981435 review scored 4/5 with one P2: parse failure returned before scoping evidence was appended. A malformed-JSON regression reproduced the omission; scoping evidence now precedes parsing and survives either result. Related adoption proof is green and typecheck passes; final exact review and full verification follow.
+
 - A documented custom config path was explored, then rejected before commit because arbitrary scripts may read their own hooks/hooks.json. The implemented layer keeps every emitted hook directory path and byte, scopes the staged source under _claude/hooks, and makes Cursor explicitly suppress default discovery when its shared package contains only another provider's native hook source. Existing Cursor hook declarations retain precedence. Codex root output gains no hooks extension.
 - Scope is an identified Claude-only default hook directory without extra hook declarations. Unknown/multiple provenance and custom declarations remain unresolved; existing native island collisions fail before source claim. Arbitrary command semantics retain open review findings. Current Codex loader 708e3e2c70142c75682a375669ca60754f76976d explicitly skips hooks for AgentPlugin manifests; this is source evidence, not a provider activation test.
 - Regression proves source/output bytes, companion paths, and a shell script reading its emitted hook config through CLAUDE_PLUGIN_ROOT. Related import/adoption tests, conformance, typecheck, docs and topology checks run before exact review. SET-442 remains incomplete for other provenance/declaration cases.

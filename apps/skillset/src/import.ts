@@ -728,19 +728,7 @@ async function importNativeHookRenderResults(args: {
   const hookPath = join(args.targetPath, args.nativeHookBoundary.hookPath);
   const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
   const targets = await importedNativeHookTargets(args, args.targetPath);
-  let parsed: JsonValue;
-  try {
-    parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
-  } catch (error) {
-    return targets.map((target) => importNativeHookParseResult(args, sourcePath, target, errorMessage(error)));
-  }
-  const diagnostics = classifyNativeHookLiftDiagnostics({
-    parsed,
-    scope: { kind: "plugin", pluginId: args.name },
-    sourcePath,
-    targets,
-  });
-  const results = diagnostics.map((diagnostic) => importNativeHookRenderResult(args, sourcePath, diagnostic));
+  const results: SkillsetRenderResult[] = [];
   if (args.nativeHookBoundary.evidence !== undefined) {
     results.push(defineRenderResult({
       destination: "hooks", featureId: "plugin-hooks", target: "claude", status: "target_native",
@@ -750,7 +738,19 @@ async function importNativeHookRenderResults(args: {
         message: `Preserved the hook directory in a Claude native island; emitted config paths, command bytes and companion paths are unchanged. Evidence: ${args.nativeHookBoundary.evidence}` }],
     }));
   }
-  return results;
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
+  } catch (error) {
+    return [...results, ...targets.map((target) => importNativeHookParseResult(args, sourcePath, target, errorMessage(error)))];
+  }
+  const diagnostics = classifyNativeHookLiftDiagnostics({
+    parsed,
+    scope: { kind: "plugin", pluginId: args.name },
+    sourcePath,
+    targets,
+  });
+  return [...results, ...diagnostics.map((diagnostic) => importNativeHookRenderResult(args, sourcePath, diagnostic))];
 }
 
 function importNativeHookParseResult(
