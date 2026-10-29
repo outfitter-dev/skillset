@@ -17,6 +17,12 @@ test("Claude adoption keeps native tool and user invocation policy inside the Cl
   const report = await adoptSkillset(root, { write: true });
   expect(report.ok).toBe(true);
   const imported = parseMarkdown(await readFile(join(root, ".skillset/skills/native/SKILL.md"), "utf8"), "imported").frontmatter;
+  const outcome = expect.objectContaining({
+    featureId: "standalone-skills", target: "claude", status: "target_native",
+    diagnostics: expect.arrayContaining([expect.objectContaining({ code: "import-preserved-target-native-frontmatter", message: expect.stringContaining("user-invocable") })]),
+  });
+  expect(report.imports[0]?.renderResults).toContainEqual(outcome);
+  expect(report.renderResults).toContainEqual(outcome);
   expect(imported.claude).toMatchObject({ frontmatter: policies });
   for (const key of Object.keys(policies)) expect(imported).not.toHaveProperty(key);
   const context = createOperationalPathContext(root);
@@ -39,6 +45,10 @@ test("explicit Claude plugin imports scope each skill policy and preserve origin
   await Bun.write(join(source, "skills/native/SKILL.md"), skill);
   const report = await importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: source });
   const imported = parseMarkdown(await readFile(join(report.targetPath, "skills/native/SKILL.md"), "utf8"), "plugin skill").frontmatter;
+  expect(report.renderResults).toContainEqual(expect.objectContaining({
+    featureId: "plugin-skills", target: "claude", status: "target_native",
+    diagnostics: expect.arrayContaining([expect.objectContaining({ message: expect.stringContaining("user-invocable") })]),
+  }));
   expect(imported.claude).toMatchObject({ frontmatter: policies });
   for (const key of Object.keys(policies)) expect(imported).not.toHaveProperty(key);
   expect(await readFile(join(source, "skills/native/SKILL.md"), "utf8")).toBe(skill);
@@ -62,6 +72,7 @@ test("unknown import provenance does not fabricate a Claude policy boundary", as
   const imported = parseMarkdown(await readFile(join(report.targetPath, "SKILL.md"), "utf8"), "unknown").frontmatter;
   expect(imported).toMatchObject(policies);
   expect(imported).not.toHaveProperty("claude");
+  expect(report.renderResults).not.toContainEqual(expect.objectContaining({ featureId: "standalone-skills", target: "claude" }));
   expect(report.warnings.join("\n")).toContain("verbatim");
 });
 
@@ -74,4 +85,14 @@ test("matching provider declarations retain other explicit provider metadata", a
   const imported = parseMarkdown(await readFile(join(report.targetPath, "SKILL.md"), "utf8"), "matching").frontmatter;
   expect(imported.claude).toMatchObject({ frontmatter: { ...policies, model: "authored-model" } });
   expect(await readFile(join(source, "SKILL.md"), "utf8")).toBe(matching);
+});
+
+
+test("user-invocable alone has a native outcome without a model-invocation claim", async () => {
+  const root = await createTestFixtureRoot("skillset-import-user-invocation-");
+  const source = join(root, "external");
+  await Bun.write(join(source, "SKILL.md"), "---\nname: native\ndescription: Native visibility.\nuser-invocable: false\n---\nBody.\n");
+  const report = await importSource({ kind: "skill", provider: "claude", rootPath: root, sourcePath: source });
+  expect(report.renderResults).toContainEqual(expect.objectContaining({ featureId: "standalone-skills", status: "target_native", target: "claude" }));
+  expect(report.renderResults).not.toContainEqual(expect.objectContaining({ featureId: "skill-invocation-policy" }));
 });

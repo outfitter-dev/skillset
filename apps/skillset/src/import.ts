@@ -595,6 +595,7 @@ function importFrontmatterRenderResults(args: {
         classification: args.classification,
         provider,
         scoped: args.kind === "skill" && scopedProviders.includes(provider),
+        ...(args.kind === "skill" ? { skillFeatureId: "standalone-skills" as const } : {}),
         sourcePath,
         sourceUnit:
           args.kind === "skill"
@@ -610,6 +611,7 @@ function importFrontmatterRenderResults(args: {
               classification: skill.classification,
               provider,
               scoped: scopedProviders.includes(provider),
+              skillFeatureId: "plugin-skills",
               sourcePath: relative(
                 args.rootPath,
                 join(args.targetPath, skill.path)
@@ -622,6 +624,7 @@ function importFrontmatterRenderResults(args: {
 }
 
 function frontmatterPolicyRenderResults(args: {
+  readonly skillFeatureId?: "standalone-skills" | "plugin-skills";
   readonly classification: FrontmatterClassification;
   readonly provider: TargetName;
   readonly scoped: boolean;
@@ -629,6 +632,10 @@ function frontmatterPolicyRenderResults(args: {
   readonly sourceUnit: string;
 }): readonly SkillsetRenderResult[] {
   const policies = [
+    // Native user visibility is not canonical model invocation eligibility.
+    ...(args.provider === "claude" && args.scoped && args.skillFeatureId !== undefined
+      ? [{ featureId: args.skillFeatureId, fields: args.classification.targetNative.filter((field) => field === "user-invocable") }]
+      : []),
     ...(args.provider === "claude"
       ? [
           {
