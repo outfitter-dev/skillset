@@ -251,7 +251,7 @@ async function compileTarget(
   await adHocSignDarwinExecutable(target, executablePath);
 }
 
-async function adHocSignDarwinExecutable(
+export async function adHocSignDarwinExecutable(
   target: NativeTarget,
   executablePath: string
 ): Promise<void> {
