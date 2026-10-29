@@ -171,5 +171,5 @@ test("SET-447: lookup help exposes capability aliases and qualified evidence", (
   expect(output).toContain("lookup capability [semantic-id-or-native-alias...]");
   expect(output).toContain("developer_instructions");
   expect(output).toContain("pinned evidence");
-  expect(output).toContain("activation or effectiveness");
+  expect(output.replace(/\s+/gu, " ")).toContain("activation or effectiveness");
 });

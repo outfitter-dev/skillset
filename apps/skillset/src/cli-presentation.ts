@@ -235,7 +235,7 @@ const PRESENTATION = {
     group: "Inspect",
     summary: "Look up schema, provider facts, and scoped capability fidelity.",
     flagMeanings: {
-      "--compat": "Compare selected providers. Capability fidelity describes the stated semantic scope against pinned evidence; changed or missing evidence yields unknown. Destination support does not prove runtime activation or effectiveness.",
+      "--compat": "Compare selected providers. Capability fidelity describes the stated semantic scope against pinned evidence; changed or missing registry evidence yields unknown. Implementation changes require regression review. Destination support does not prove runtime activation or effectiveness.",
     },
     synopses: [
       "lookup capability [semantic-id-or-native-alias...] [--compat [claude|codex|cursor...]] [--json]",

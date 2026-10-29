@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { targetNames } from "../targets";
 
@@ -8,6 +11,7 @@ import {
   assertCapabilityAuthorities,
   compareCapability,
   CAPABILITY_FIDELITIES,
+  CAPABILITY_IMPLEMENTATION_EVIDENCE,
   findCapabilities,
   listCapabilities,
   type CapabilityEvidenceAssessment,
@@ -108,5 +112,40 @@ describe("pinned semantic judgments", () => {
     expect(assessPinnedCapabilityJudgment(judgment, "reviewed").fidelity).toBe("exact");
     expect(assessPinnedCapabilityJudgment(judgment, "updated")).toEqual({ fidelity: "unknown", reasons: ["example:example:codex: stale"] });
     expect(assessPinnedCapabilityJudgment(judgment, undefined)).toEqual({ fidelity: "unknown", reasons: ["example:example:codex: missing"] });
+  });
+});
+
+
+describe("reviewed implementation evidence", () => {
+  async function readEvidence(): Promise<Map<string, string>> {
+    const root = resolve(import.meta.dir, "../../../..");
+    return new Map(await Promise.all(CAPABILITY_IMPLEMENTATION_EVIDENCE.map(async ({ path }) =>
+      [path, await readFile(resolve(root, path), "utf8")] as const
+    )));
+  }
+  function drift(contents: ReadonlyMap<string, string>): string[] {
+    return CAPABILITY_IMPLEMENTATION_EVIDENCE.filter(({ path, contentHash }) => {
+      const content = contents.get(path);
+      return content === undefined || `sha256:${createHash("sha256").update(content).digest("hex")}` !== contentHash;
+    }).map(({ path }) => path);
+  }
+  test("cited renderer, test and documentation content still matches the reviewed judgment", async () => {
+    // A failure requires reviewing the semantic judgment, not blindly regenerating hashes.
+    expect(drift(await readEvidence())).toEqual([]);
+  });
+  test("changing or removing an actual cited renderer invalidates implementation review", async () => {
+    const contents = await readEvidence();
+    const path = "packages/core/src/render-codex-skill-sidecars.ts";
+    contents.set(path, contents.get(path)!.replace("allow_implicit_invocation: implicitInvocation", "allow_implicit_invocation: !implicitInvocation"));
+    expect(drift(contents)).toEqual([path]);
+    contents.delete(path);
+    expect(drift(contents)).toEqual([path]);
+  });
+  test("a changed referenced source contract makes a real lookup judgment unknown", () => {
+    const original = findCapabilities("skill-invocation")[0]!;
+    expect(compareCapability(original, ["codex"])[0]?.fidelity).toBe("exact");
+    const changed = { ...original, sourceContractIds: [] };
+    expect(compareCapability(changed, ["codex"])[0]?.fidelity).toBe("unknown");
+    expect(compareCapability(changed, ["codex"])[0]?.limitations.join(" ")).toContain("stale");
   });
 });

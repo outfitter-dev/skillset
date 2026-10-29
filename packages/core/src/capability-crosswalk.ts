@@ -198,6 +198,7 @@ export interface CapabilityComparison {
   readonly fidelity: CapabilityFidelity;
   readonly semanticScope?: string;
   readonly authorityHash: string;
+  readonly implementationEvidence: readonly { readonly path: string; readonly contentHash: string }[];
   readonly limitations: readonly string[];
   readonly evidence: readonly (SkillsetFeatureEvidence & { readonly id: string })[];
   readonly standards: readonly StandardProfileId[];
@@ -244,8 +245,10 @@ export function compareCapability(
         },
         fidelity: assessment.fidelity,
         authorityHash,
+        implementationEvidence: judgment === undefined ? [] : CAPABILITY_IMPLEMENTATION_EVIDENCE,
         ...(judgment === undefined ? {} : { semanticScope: judgment.scope }),
         limitations: [...assessment.reasons, ...(judgment?.limitations ?? []), ...(support.reason === undefined ? [] : [support.reason]),
+          "Fidelity is scoped to the pinned registry contract and reviewed implementation. The regression gate requires re-review when cited implementation files change; lookup does not inspect source files in an installed package.",
           "Destination support and build output do not prove runtime activation or effectiveness."],
         evidence,
         standards: definition.standardProfileIds,
@@ -318,7 +321,7 @@ const judgments: readonly CapabilityJudgment[] = [
   {
     capabilityId: "project-agents", featureId: "project-agents", target: "codex", fidelity: "partial",
     scope: "Project-agent name, description and instructions receive native TOML fields; shared skill-loading intent is only an instruction preface.",
-    limitations: ["The skills preface is advisory, not target-enforced skill metadata. Provider-only fields require explicit provider configuration.", "Implementation proof: packages/core/src/__tests__/skillset.test.ts and docs/reference/features/agents.md."],
+    limitations: ["The skills preface is advisory, not target-enforced skill metadata. Provider-only fields require explicit provider configuration.", "Implementation proof: apps/skillset/src/__tests__/skillset.test.ts and docs/reference/features/agents.md."],
     authorityHash: "sha256:9ef3d5e5bfab312cb15b3d4455ff914c136c78223e70c0d0aa87dcc9096b5601",
   },
   {
@@ -340,3 +343,25 @@ const judgments: readonly CapabilityJudgment[] = [
     authorityHash: "sha256:2f53e3b41d9d118724b6c36a899dfb54c0eff3d52bb66fbc0f9f532fa16fccb0",
   },
 ];
+
+
+/** Reviewed implementation content; the crosswalk regression gate rejects drift. */
+export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
+  { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
+  { path: "packages/core/src/render.ts", contentHash: "sha256:8818f36667762cdeb08062e6d71b66c4f7ab3e712d5c69088fbc7b6b4c336758" },
+  { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:a3de6ef0d5e691ec12f53d5f7d66965b38c25d54e79ace39c500e7c3072f7715" },
+  { path: "packages/core/src/__tests__/skill-invocation-policy.test.ts", contentHash: "sha256:3cd2a7199c8e64f49162939376a017052aa011404455482adda7e3b3f6240561" },
+  { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:61ec143b8422d29aa96334d1ece03d4d12c7d874087a95f2762595644980a281" },
+  { path: "packages/core/src/__tests__/project-agent-skills.test.ts", contentHash: "sha256:e491ac044e0b72d701ff3cf6dc2d5ebc5c69cd87ee8212ae433534118f6336e0" },
+  { path: "apps/skillset/src/__tests__/skillset.test.ts", contentHash: "sha256:3de8e1facabf580e6cccf1ca4e6736f5c286d1e54fd8fefb235d7a17793c88d3" },
+  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:4f38ecdcfeee9d7d6514c8ad8fedbdd4549d6c90b835851bdcc7f98935f54b9c" },
+  { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:9c45bc3e9b12b5540ac503d2c867a44bac29c6448a8a2ae18eada6182dce1f98" },
+  { path: "packages/core/src/__tests__/render-standard-instructions.test.ts", contentHash: "sha256:ea2548155b937c075f2d7b5aaf105866ff36a92bee277cba3d812fd94a8297f2" },
+  { path: "packages/core/src/hooks.ts", contentHash: "sha256:8659ebcef8468a700f3240075b2f6128fd21cccd2364379734e7057239d75d70" },
+  { path: "packages/core/src/render-hooks.ts", contentHash: "sha256:b5ef546bae66dad2a96fd764f240512169d4ea9e23c9932a486be1958ab973b1" },
+  { path: "packages/core/src/hook-capabilities.ts", contentHash: "sha256:2f06a181cc347b256d4d4b4a3145a25f37a4d4f6eb1b5b7e448a7ab1af391296" },
+  { path: "docs/reference/features/skills.md", contentHash: "sha256:5ac78a6a9907b6528aa04e5450e852791fccd3e201798ffa500e8e7fc3d8bf27" },
+  { path: "docs/reference/features/agents.md", contentHash: "sha256:7671e005dffba571ccf0e00f75f99d57a2d6086adb45c38012c0ce67e8ebab7a" },
+  { path: "docs/reference/features/rules.md", contentHash: "sha256:cc350c2a78ca9dce118a13bd04bf3f1924e99dccf01f4accd68e2d5944418adf" },
+  { path: "docs/reference/features/hooks.md", contentHash: "sha256:c32bf59ee8a5c3df4dc5fe90cef9cf44368fbb276b3e81666d4f230daf13fe4f" },
+] as const;

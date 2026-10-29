@@ -24,7 +24,7 @@ skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>
 
 | Option | Meaning |
 | --- | --- |
-| `--compat [value...]` | Compare selected providers. Capability fidelity describes the stated semantic scope against pinned evidence; changed or missing evidence yields unknown. Destination support does not prove runtime activation or effectiveness. |
+| `--compat [value...]` | Compare selected providers. Capability fidelity describes the stated semantic scope against pinned evidence; changed or missing registry evidence yields unknown. Implementation changes require regression review. Destination support does not prove runtime activation or effectiveness. |
 | `--events` | Show lookup event facts. |
 | `--examples` | Show lookup examples. |
 | `--field <value>` | Select one lookup field path. |
