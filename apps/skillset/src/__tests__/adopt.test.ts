@@ -987,7 +987,7 @@ test("adopt fails on lint errors and the CLI exits nonzero", async () => {
 
 test("adopt preserves ambiguous references without declaring a dialect", async () => {
   const skillBody =
-    "Skills live in .claude/skills/x today.\n\nPass $ARGUMENTS along, then ask @reviewer.\n";
+    "Skills live in .claude/skills/x today.\n\nPass $ARGUMENTS along, then ask @alice about ${CLAUDE_SKILL_DIR}.\n";
   const root = await fixture({
     ".claude/skills/x/SKILL.md": `---\nname: x\ndescription: Transform preview fixture.\n---\n\n${skillBody}`,
   });
@@ -1002,7 +1002,8 @@ test("adopt preserves ambiguous references without declaring a dialect", async (
     preview?.matches.map((match) => [match.intent, match.text, match.lowering, match.codexForm])
   ).toEqual([
     ["path.skills-dir", ".claude/skills", "none", undefined],
-    ["invoke.subagent", "@reviewer", "none", undefined],
+    ["invoke.subagent", "@alice", "none", undefined],
+    ["dynamic.env-substitution", "${CLAUDE_SKILL_DIR}", "none", undefined],
   ]);
 
   // Ambiguous reference spellings preserve prose; explicit argument normalization remains separate.
@@ -1011,13 +1012,15 @@ test("adopt preserves ambiguous references without declaring a dialect", async (
   const imported = await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8");
   expect(imported).not.toContain("dialect: claude");
   expect(imported).toContain("Skills live in .claude/skills/x today.");
-  expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @reviewer.");
+  expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @alice about ${CLAUDE_SKILL_DIR}.");
 
   const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain("## Transforms (preview)");
   expect(markdown).not.toContain("`dialect: claude` declared.");
   expect(markdown).toContain("`.claude/skills` (path.skills-dir)");
-  expect(markdown).toContain("No faithful Codex lowering:");
+  expect(markdown).toContain("Preserved for review (no automatic lowering):");
+  expect(markdown).toContain("`@alice` (invoke.subagent): A mention or quoted tool invocation does not establish portable agent identity or invocation semantics.");
+  expect(markdown).toContain("`${CLAUDE_SKILL_DIR}` (dynamic.env-substitution): Codex skills have no templating:");
   expect(markdown).not.toContain("`$ARGUMENTS` (dynamic.arguments)");
 
   // No recognized constructs -> the section is omitted entirely.
