@@ -130,6 +130,7 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
   "metadata",
   "model",
   "user-facing-name",
+  "user-invocable",
 ]);
 
 /** Test-only hooks that observe or substitute the import directory claim. */
@@ -314,16 +315,16 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     }
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
     const classification = classifyFrontmatter(frontmatter);
-    const scopedInvocationProviders = importedInvocationScopeProviders(providers);
+    const scopedPolicyProviders = importedInvocationScopeProviders(providers);
     const pluginSkillFrontmatter = await readImportedPluginSkillFrontmatter(
       stagingPath,
       options.kind,
       copiedFiles
     );
-    await scopeImportedInvocationFrontmatter(
+    await scopeImportedSkillPolicyFrontmatter(
       stagingPath,
       options.kind,
-      scopedInvocationProviders,
+      scopedPolicyProviders,
       frontmatter,
       pluginSkillFrontmatter
     );
@@ -396,9 +397,9 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       targetPath,
       unsupportedFields: classification.unsupported,
       warnings: [
-        ...importWarnings(classification, scopedInvocationProviders),
+        ...importWarnings(classification, scopedPolicyProviders),
         ...pluginSkillFrontmatter.flatMap((skill) =>
-          importWarnings(skill.classification, scopedInvocationProviders)
+          importWarnings(skill.classification, scopedPolicyProviders)
         ),
         ...copied.warnings,
       ],
@@ -524,25 +525,17 @@ function classifyFrontmatter(
 
 function importWarnings(
   classification: FrontmatterClassification,
-  scopedInvocationProviders: readonly TargetName[]
+  scopedPolicyProviders: readonly TargetName[]
 ): readonly string[] {
   const warnings: string[] = [];
-  const scopedCursorFields =
-    scopedInvocationProviders.length > 0 &&
-    classification.targetNative.includes("disable-model-invocation")
-      ? ["disable-model-invocation"]
-      : [];
-  const verbatimFields = classification.targetNative.filter(
-    (field) => !scopedCursorFields.includes(field)
-  );
-  if (scopedCursorFields.length > 0) {
-    const locations = scopedInvocationProviders
-      .map((provider) => `${provider}.frontmatter`)
-      .join(", ");
-    warnings.push(
-      `preserved target-native fields under ${locations}: ${scopedCursorFields.join(", ")}.`
-    );
+  const scopedFields = new Set<string>();
+  for (const provider of scopedPolicyProviders) {
+    const fields = classification.targetNative.filter((field) => importedSkillPolicyFields(provider).includes(field));
+    if (fields.length === 0) continue;
+    for (const field of fields) scopedFields.add(field);
+    warnings.push(`preserved target-native fields under ${provider}.frontmatter: ${fields.join(", ")}.`);
   }
+  const verbatimFields = classification.targetNative.filter((field) => !scopedFields.has(field));
   if (verbatimFields.length > 0) {
     warnings.push(
       `preserved target-native fields verbatim: ${verbatimFields.join(", ")}. ` +
@@ -778,7 +771,7 @@ function isClaudeToolPolicyField(field: string): boolean {
   return field === "allowed-tools" || field === "disallowed-tools";
 }
 
-async function scopeImportedInvocationFrontmatter(
+async function scopeImportedSkillPolicyFrontmatter(
   targetPath: string,
   kind: SingularImportKind,
   providers: readonly TargetName[],
@@ -787,7 +780,7 @@ async function scopeImportedInvocationFrontmatter(
 ): Promise<void> {
   if (providers.length === 0) return;
   if (kind === "skill") {
-    await scopeSkillInvocationFrontmatter(
+    await scopeSkillPolicyFrontmatter(
       join(targetPath, SKILL_FILE),
       frontmatter,
       providers
@@ -795,7 +788,7 @@ async function scopeImportedInvocationFrontmatter(
     return;
   }
   for (const skill of pluginSkillFrontmatter) {
-    await scopeSkillInvocationFrontmatter(
+    await scopeSkillPolicyFrontmatter(
       join(targetPath, skill.path),
       skill.frontmatter,
       providers
@@ -803,44 +796,43 @@ async function scopeImportedInvocationFrontmatter(
   }
 }
 
-async function scopeSkillInvocationFrontmatter(
+async function scopeSkillPolicyFrontmatter(
   skillPath: string,
   frontmatter: JsonRecord,
   providers: readonly TargetName[]
 ): Promise<void> {
-  const nativeValue = frontmatter["disable-model-invocation"];
-  if (nativeValue === undefined) return;
+  const fields = [...new Set(providers.flatMap(importedSkillPolicyFields))]
+    .filter((field) => frontmatter[field] !== undefined);
+  if (fields.length === 0) return;
   const source = await readFile(skillPath, "utf8");
-  await writeFile(
-    skillPath,
-    updateMarkdownSourceDocument(source, skillPath, (parts) => {
-      const { "disable-model-invocation": _nativeInvocation, ...portable } =
-        parts.frontmatter;
-      const scoped = Object.fromEntries(
-        providers.map((provider) => {
-          const target = readRecord(parts.frontmatter, provider) ?? {};
-          const targetFrontmatter = readRecord(target, "frontmatter") ?? {};
-          return [
-            provider,
-            {
-              ...target,
-              frontmatter: {
-                ...targetFrontmatter,
-                "disable-model-invocation": nativeValue,
-              },
-            },
-          ];
-        })
-      );
-      return {
-        ...parts,
-        frontmatter: {
-          ...portable,
-          ...scoped,
-        },
-      };
-    })
-  );
+  const updated = updateMarkdownSourceDocument(source, skillPath, (parts) => {
+    const portable = { ...parts.frontmatter };
+    for (const field of fields) delete portable[field];
+    for (const provider of providers) {
+      const nativeFields = fields.filter((field) => importedSkillPolicyFields(provider).includes(field));
+      if (nativeFields.length === 0) continue;
+      const target = readRecord(parts.frontmatter, provider) ?? {};
+      const targetFrontmatter = { ...(readRecord(target, "frontmatter") ?? {}) };
+      for (const field of nativeFields) {
+        const value = parts.frontmatter[field]!;
+        if (targetFrontmatter[field] !== undefined && !isDeepStrictEqual(targetFrontmatter[field], value)) {
+          throw new Error(`skillset: conflicting ${field} and ${provider}.frontmatter.${field} in ${skillPath}`);
+        }
+        targetFrontmatter[field] = value;
+      }
+      portable[provider] = { ...target, frontmatter: targetFrontmatter };
+    }
+    return { ...parts, frontmatter: portable };
+  });
+  await writeFile(skillPath, updated);
+}
+
+/** Preserve native policy; this mapping makes no cross-provider equivalence claim. */
+function importedSkillPolicyFields(provider: TargetName): readonly string[] {
+  return [
+    ...(providerSupportsNativeInvocationFrontmatter(provider) ? ["disable-model-invocation"] : []),
+    ...(provider === "claude" ? ["allowed-tools", "disallowed-tools", "user-invocable"] : []),
+  ];
 }
 
 async function mergeImportedProviderSkill(
