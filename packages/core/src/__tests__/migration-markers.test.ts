@@ -120,3 +120,26 @@ test("table examples inside code fences do not claim later top-level markers", (
     expect(planMigrationMarker({ content: unannotated, path, flag, beforeLine: 5, kind: "adaptive-markdown" }).placement.kind).toBe("inline");
   }
 });
+
+
+test("tables stop at interrupting blocks and permit markers before following headings", () => {
+  const table = "| Header |\n| --- |\n| row |\n";
+  const localFlag = { ...flag, placement: { kind: "inline" as const, label: "todo" as const, line: 4 } };
+  const content = `${table}# Heading\n`;
+  const plan = planMigrationMarker({ content, path, flag: localFlag, beforeLine: 4, kind: "adaptive-markdown" });
+  expect(plan.placement.kind).toBe("inline");
+  const inspected = inspectMigrationMarkers({ content: `${table}${marker}\n# Heading\n`, path, state: ledger(localFlag) });
+  expect(inspected.diagnostics).toEqual([]);
+  expect(inspected.content).toBe(content);
+  const afterHeading = inspectMigrationMarkers({ content: `${table}# Heading\n${marker}\nText.\n`, path, state: ledger(flag) });
+  expect(afterHeading.diagnostics).toEqual([]);
+});
+
+
+test("an anchor cannot disguise insertion inside a table by splitting its paragraph", () => {
+  const localFlag = { ...flag, placement: { kind: "inline" as const, label: "todo" as const, line: 3 } };
+  const content = `| Header |\n| --- |\n${marker}\n| row |\n`;
+  const inspected = inspectMigrationMarkers({ content, path, state: ledger(localFlag) });
+  expect(inspected.diagnostics.length).toBeGreaterThan(0);
+  expect(inspected.content).toBe(content);
+});

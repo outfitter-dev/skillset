@@ -123,14 +123,20 @@ function markdownStructure(content: string): {
 
 /** CommonMark has no GFM tables; conservatively protect the complete pipe-table region. */
 function inTable(lines: readonly string[], line: number, blocks: readonly Node[], bodyOffset: number): boolean {
+  // Judge an anchor against the Markdown it would leave behind. Otherwise its
+  // HTML block can split a table and make an unsafe insertion appear valid.
+  if (parseMigrationMarker(lines[line - 1] ?? "") !== undefined) {
+    const semantic = markdownStructure(lines.filter((_, index) => index !== line - 1).join("\n"));
+    return inTable(semantic.lines, line, semantic.blocks, semantic.bodyOffset);
+  }
   for (let index = 1; index < lines.length; index += 1) {
     // Raw table spellings in fenced/indented code, HTML, and frontmatter do not define Markdown tables.
-    if (!blocks.some((node) => node.type === "paragraph" && node.sourcepos[0][0] + bodyOffset <= index && node.sourcepos[1][0] + bodyOffset >= index + 1)) continue;
+    const paragraph = blocks.find((node) => node.type === "paragraph" && node.sourcepos[0][0] + bodyOffset <= index && node.sourcepos[1][0] + bodyOffset >= index + 1);
+    if (paragraph === undefined) continue;
     const delimiter = lines[index]!;
     if (!delimiter.includes("|") || !/^ {0,3}\|?[ \t]*:?-+:?(?:[ \t]*\|[ \t]*:?-+:?)*[ \t]*\|?[ \t]*$/u.test(delimiter)) continue;
     if (lines[index - 1]!.trim() === "") continue;
-    let end = index + 1;
-    while (end < lines.length && lines[end]!.trim() !== "") end += 1;
+    const end = paragraph.sourcepos[1][0] + bodyOffset;
     if (line >= index && line <= end) return true;
   }
   return false;
