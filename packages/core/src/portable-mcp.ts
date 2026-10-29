@@ -712,7 +712,8 @@ function rejectProviderPlaceholder(value: string, label: string): void {
   )) {
     const braced = `\${${providerName}}`;
     const unbraced = `$${providerName}`;
-    if (value.includes(braced) || value.includes(unbraced)) {
+    const hasUnbraced = value.match(/\$[A-Za-z_][A-Za-z0-9_]*/gu)?.includes(unbraced) ?? false;
+    if (value.includes(braced) || hasUnbraced) {
       throw new Error(
         `skillset: MCP ${label}: use \${${portableName}} instead of ${value.includes(braced) ? braced : unbraced}`
       );

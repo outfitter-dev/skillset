@@ -50,7 +50,6 @@ describe("portable MCP import", () => {
             "${CLAUDE_PLUGIN_DATA}/state",
           ],
           command: "node",
-          cwd: "${CLAUDE_PLUGIN_ROOT}/scripts",
           env: { CACHE: "${CLAUDE_PLUGIN_DATA}/cache" },
         },
         remote: {
@@ -77,7 +76,6 @@ describe("portable MCP import", () => {
         local: {
           args: ["${PLUGIN_ROOT}/scripts/server.js", "${PLUGIN_DATA}/state"],
           command: "node",
-          cwd: "${PLUGIN_ROOT}/scripts",
           env: { CACHE: "${PLUGIN_DATA}/cache" },
         },
         remote: {
@@ -299,3 +297,35 @@ describe("portable MCP import", () => {
     );
   });
 });
+
+
+test.each([
+  { command: "node", args: ["$CLAUDE_PLUGIN_ROOT"] },
+  { command: "node", env: { CACHE: "$CLAUDE_PLUGIN_DATA" } },
+  { command: "sh", args: ["-c", 'printf %s "$CLAUDE_PLUGIN_ROOT"'] },
+  { command: "node", cwd: "${CLAUDE_PLUGIN_ROOT}/work" },
+  { command: "node", cwd: "./work" },
+])("Claude MCP import preserves originals when field meaning cannot be mapped: %j", async (server) => {
+  const { external, root } = await roots();
+  await writeJson(join(external, ".claude-plugin/plugin.json"), { name: "demo", description: "Demo" });
+  const path = join(external, ".mcp.json");
+  await writeJson(path, { mcpServers: { local: server } });
+  const original = await readFile(path, "utf8");
+  await expect(importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: external })).rejects.toThrow("cwd" in server ? "unmappable field cwd" : "literal or shell meaning cannot be mapped automatically; review the source before importing");
+  expect(await readFile(path, "utf8")).toBe(original);
+  expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
+});
+
+ test.each(["$CLAUDE_PLUGIN_ROOTED", "$CLAUDE_PLUGIN_DATASET", "$CLAUDE_PLUGIN_ROOT_OLD", "$CLAUDE_PLUGIN_DATA2"])(
+  "Claude MCP import preserves longer literal identifiers through validation: %s", async (value) => {
+    const { external, root } = await roots();
+    await writeJson(join(external, ".claude-plugin/plugin.json"), { name: "demo", description: "Demo" });
+    const path = join(external, ".mcp.json");
+    const input = { mcpServers: { local: { command: "node", args: [value], env: { VALUE: value } } } };
+    await writeJson(path, input);
+    const original = await readFile(path, "utf8");
+    const report = await importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: external });
+    expect(JSON.parse(await readFile(join(report.targetPath, ".mcp.json"), "utf8"))).toEqual(input);
+    expect(await readFile(path, "utf8")).toBe(original);
+  }
+);
