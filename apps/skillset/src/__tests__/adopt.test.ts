@@ -985,9 +985,9 @@ test("adopt fails on lint errors and the CLI exits nonzero", async () => {
   expect(result.stdout).toContain("adopt found problems");
 });
 
-test("adopt previews transforms and declares dialect on transformable imports", async () => {
+test("adopt preserves ambiguous references without declaring a dialect", async () => {
   const skillBody =
-    "Skills live in .claude/skills/x today.\n\nPass $ARGUMENTS along, then ask @reviewer.\n";
+    "Skills live in .claude/skills/x today.\n\nPass $ARGUMENTS along, then ask @alice about ${CLAUDE_SKILL_DIR}.\n";
   const root = await fixture({
     ".claude/skills/x/SKILL.md": `---\nname: x\ndescription: Transform preview fixture.\n---\n\n${skillBody}`,
   });
@@ -1001,23 +1001,26 @@ test("adopt previews transforms and declares dialect on transformable imports", 
   expect(
     preview?.matches.map((match) => [match.intent, match.text, match.lowering, match.codexForm])
   ).toEqual([
-    ["path.skills-dir", ".claude/skills", "bidirectional", ".agents/skills"],
-    ["invoke.subagent", "@reviewer", "to-codex", "the `reviewer` agent"],
+    ["path.skills-dir", ".claude/skills", "none", undefined],
+    ["invoke.subagent", "@alice", "none", undefined],
+    ["dynamic.env-substitution", "${CLAUDE_SKILL_DIR}", "none", undefined],
   ]);
 
-  // Transformable matches present -> the imported frontmatter declares the
-  // dialect; raw Claude arguments are normalized to Skillset source markers.
-  expect(preview?.dialectDeclared).toBe(true);
+  // Ambiguous reference spellings preserve prose; explicit argument normalization remains separate.
+  expect(preview?.dialectDeclared).toBe(false);
+  expect(preview?.matches.every((match) => (match.reason?.length ?? 0) > 0)).toBe(true);
   const imported = await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8");
-  expect(imported).toStartWith("---\ndialect: claude\n");
+  expect(imported).not.toContain("dialect: claude");
   expect(imported).toContain("Skills live in .claude/skills/x today.");
-  expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @reviewer.");
+  expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @alice about ${CLAUDE_SKILL_DIR}.");
 
   const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain("## Transforms (preview)");
-  expect(markdown).toContain("`dialect: claude` declared.");
-  expect(markdown).toContain("`.claude/skills` -> `.agents/skills` (path.skills-dir)");
-  expect(markdown).not.toContain("No faithful Codex lowering:");
+  expect(markdown).not.toContain("`dialect: claude` declared.");
+  expect(markdown).toContain("`.claude/skills` (path.skills-dir)");
+  expect(markdown).toContain("Preserved for review (no automatic translation):");
+  expect(markdown).toContain("`@alice` (invoke.subagent): A mention or quoted tool invocation does not establish portable agent identity or invocation semantics.");
+  expect(markdown).toContain("`${CLAUDE_SKILL_DIR}` (dynamic.env-substitution): Codex skills have no templating:");
   expect(markdown).not.toContain("`$ARGUMENTS` (dynamic.arguments)");
 
   // No recognized constructs -> the section is omitted entirely.

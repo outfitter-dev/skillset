@@ -95,7 +95,7 @@ export interface TransformPreviewMatch {
   readonly codexForm?: string;
   readonly intent: string;
   readonly lowering: TransformMatch["lowering"];
-  /** Why no faithful Codex lowering exists (`lowering: "none"` entries). */
+  /** Why this entry is preserved for review without automatic translation. */
   readonly reason?: string;
   readonly text: string;
 }
@@ -967,7 +967,7 @@ export function renderAdoptReportMarkdown(
       const transformable = aggregatePreviewMatches(
         preview.matches.filter((match) => match.lowering !== "none")
       );
-      const blocked = aggregatePreviewMatches(
+      const preserved = aggregatePreviewMatches(
         preview.matches.filter((match) => match.lowering === "none")
       );
       if (transformable.length > 0) {
@@ -978,9 +978,9 @@ export function renderAdoptReportMarkdown(
         }
         lines.push("");
       }
-      if (blocked.length > 0) {
-        lines.push("No faithful Codex lowering:", "");
-        for (const item of blocked) {
+      if (preserved.length > 0) {
+        lines.push("Preserved for review (no automatic translation):", "");
+        for (const item of preserved) {
           lines.push(
             `- ${inlineCode(item.text)} (${item.intent}${countSuffix(item.count)}): ${item.reason ?? "no reason recorded"}`
           );
