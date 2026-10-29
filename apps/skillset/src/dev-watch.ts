@@ -338,7 +338,7 @@ export async function runDevWatch(
     watch,
   }
 ): Promise<void> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan = await createDevWatchPlan(rootPath, options);
   const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
   const recordStreamFailure = (error: unknown, stage: string): void => {
     stream?.failed(error instanceof Error ? error.message : String(error), stage);
@@ -350,6 +350,13 @@ export async function runDevWatch(
   else stream.started(plan, mode);
   const writeOperation = async (reason = "initial") => {
     const report = await runtime.runOnce(rootPath, options, mode, reason);
+    // A config edit can change whether root AGENTS.md is authored or generated.
+    // Keep the last valid plan while a transition is temporarily incomplete.
+    try {
+      plan = await createDevWatchPlan(rootPath, options);
+    } catch {
+      // The preview reports source errors; a later edit can complete the transition.
+    }
     if (initialSignalReceived) return;
     if (stream === undefined) output.write(renderDevWatchPreview(report));
     else stream.operation(report);

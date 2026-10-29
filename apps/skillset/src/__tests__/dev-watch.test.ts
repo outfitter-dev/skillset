@@ -1,4 +1,4 @@
-import { mkdir, symlink } from "node:fs/promises";
+import { mkdir, rm, symlink } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
 import { basename, join } from "node:path";
 
@@ -101,6 +101,51 @@ test("native root guidance triggers preview without watching generated AGENTS fi
   const plan = await createDevWatchPlan(root);
   expect(shouldRunDevPreviewForPath(plan, "AGENTS.md")).toBe(true);
   expect(shouldRunDevPreviewForPath(plan, "nested/AGENTS.md")).toBe(false);
+});
+
+test("watch refreshes root guidance ownership after configuration transitions", async () => {
+  const root = await createTestFixtureRoot("skillset-native-watch-transition-");
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let trigger: ((event: string, filename: string | null) => void) | undefined;
+  let stop: (() => void) | undefined;
+  let runs = 0;
+  let output = "";
+  const operationCount = () => output.split("\n").filter((line) => line.includes('"event":"operation"')).length;
+  let ready: (() => void) | undefined;
+  const watchingReady = new Promise<void>((resolve) => { ready = resolve; });
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: (listener) => { stop = listener; },
+    removeSignalListeners: () => {},
+    collectDirectories: async () => ["."],
+    runOnce: async (runRoot, options, _mode, reason) => {
+      runs += 1;
+      return runDevWatchPreview(runRoot, options, reason);
+    },
+    scheduler: { clearTimeout: () => {}, setTimeout: (callback) => { callback(); return 0; } },
+    watch: ((_path: string, callback: (event: string, filename: string | null) => void) => {
+      trigger = callback;
+      ready?.();
+      return { close: () => {} } as FSWatcher;
+    }) as typeof import("node:fs").watch,
+  });
+  await watchingReady;
+  await rm(join(root, ".skillset/RULES.md"));
+  await Bun.write(join(root, "AGENTS.md"), "# Authored\n");
+  await Bun.write(join(root, "skillset.yaml"), "workspace:\n  nativeAgents: true\n");
+  trigger?.("change", "skillset.yaml");
+  await waitForCondition("native transition preview", () => operationCount() === 2);
+  trigger?.("change", "AGENTS.md");
+  await waitForCondition("native guidance preview", () => operationCount() === 3);
+  await Bun.write(join(root, ".skillset/RULES.md"), "# Generated source\n");
+  await rm(join(root, "AGENTS.md"));
+  await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: transition\n");
+  trigger?.("change", "skillset.yaml");
+  await waitForCondition("generated transition preview", () => operationCount() === 4);
+  trigger?.("change", "AGENTS.md");
+  trigger?.("change", "nested/AGENTS.md");
+  expect(runs).toBe(4);
+  stop?.();
+  await watching;
 });
 
 test("SET-210: dev watch debounces repeated triggers without sleeping", () => {
