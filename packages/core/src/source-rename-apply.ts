@@ -43,6 +43,10 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
   planError: (message: string) => Error,
   action: string
 ): Promise<Plan & { readonly applied: true; readonly writtenPaths: readonly string[] }> {
+  const rootPath = await workspaceRoot(request.rootPath);
+  // Bind the authored input before replanning; generated effects alone do not
+  // fence a concurrent edit to native guidance during transaction installation.
+  const nativeSource = (await loadBuildGraph(rootPath)).nativeRootRuleSource;
   const plan = await planMutation(request);
   if (request.expectedPlanHash !== plan.planHash) {
     throw planError(
@@ -50,7 +54,6 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
     );
   }
 
-  const rootPath = await workspaceRoot(request.rootPath);
   const verification = await verifySkillsetResult(rootPath);
   if (!verification.ok) {
     throw planError(
@@ -61,6 +64,9 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
   const sourceTransaction = sourceTransactionPlan(rootPath, plan);
   const generatedTransaction = generatedTransactionPlan(plan);
   const fullPlan: WorkspaceTransactionPlan = {
+    ...(nativeSource === undefined ? {} : {
+      readOnlyInputs: [{ path: "AGENTS.md", content: nativeSource.sourceContent }],
+    }),
     ...(sourceTransaction.appends === undefined ? {} : { appends: sourceTransaction.appends }),
     ...(sourceTransaction.copies === undefined ? {} : { copies: sourceTransaction.copies }),
     deletes: [
