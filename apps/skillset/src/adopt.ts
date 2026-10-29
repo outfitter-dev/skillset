@@ -95,7 +95,7 @@ export interface TransformPreviewMatch {
   readonly codexForm?: string;
   readonly intent: string;
   readonly lowering: TransformMatch["lowering"];
-  /** Why this entry has no automatic lowering (`lowering: "none"`). */
+  /** Why this entry is preserved for review without automatic translation. */
   readonly reason?: string;
   readonly text: string;
 }
@@ -979,7 +979,7 @@ export function renderAdoptReportMarkdown(
         lines.push("");
       }
       if (preserved.length > 0) {
-        lines.push("Preserved for review (no automatic lowering):", "");
+        lines.push("Preserved for review (no automatic translation):", "");
         for (const item of preserved) {
           lines.push(
             `- ${inlineCode(item.text)} (${item.intent}${countSuffix(item.count)}): ${item.reason ?? "no reason recorded"}`

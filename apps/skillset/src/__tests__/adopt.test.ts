@@ -1018,7 +1018,7 @@ test("adopt preserves ambiguous references without declaring a dialect", async (
   expect(markdown).toContain("## Transforms (preview)");
   expect(markdown).not.toContain("`dialect: claude` declared.");
   expect(markdown).toContain("`.claude/skills` (path.skills-dir)");
-  expect(markdown).toContain("Preserved for review (no automatic lowering):");
+  expect(markdown).toContain("Preserved for review (no automatic translation):");
   expect(markdown).toContain("`@alice` (invoke.subagent): A mention or quoted tool invocation does not establish portable agent identity or invocation semantics.");
   expect(markdown).toContain("`${CLAUDE_SKILL_DIR}` (dynamic.env-substitution): Codex skills have no templating:");
   expect(markdown).not.toContain("`$ARGUMENTS` (dynamic.arguments)");
