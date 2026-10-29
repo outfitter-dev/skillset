@@ -11,7 +11,10 @@ export const MIGRATION_FLAG_ID_PATTERN = "^adopt-[a-z0-9][a-z0-9-]{3,63}$";
 export const MIGRATION_FINGERPRINT_PATTERN = "^sha256:[a-f0-9]{64}$";
 export const MIGRATION_LOCATION_PATTERN = "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$";
 export const MIGRATION_REPORT_ID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
-export const MIGRATION_TIMESTAMP_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$";
+// Canonical UTC milliseconds, including Gregorian month lengths and leap years.
+const leapYear = "(?:[0-9]{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[048]|[2468][048]|[13579][26])00)";
+const calendarDate = `(?:[0-9]{4}-(?:(?:01|03|05|07|08|10|12)-(?:0[1-9]|[12][0-9]|3[01])|(?:04|06|09|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-8]))|${leapYear}-02-29)`;
+export const MIGRATION_TIMESTAMP_PATTERN = `^${calendarDate}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}Z$`;
 export const MIGRATION_CODE_PATTERN = "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$";
 const text = { type: "string", minLength: 1, pattern: "\\S" };
 const line = { type: "integer", minimum: 1 };

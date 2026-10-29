@@ -76,4 +76,14 @@ describe("migration state shared contract", () => {
     const result = validateMigrationState(state({ ...flag, severity: "todo" }));
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ path: "$.flags[0].severity" }));
   });
+
+  it("requires real Gregorian UTC timestamps for current and historical decisions", () => {
+    for (const at of ["2024-02-29T23:59:59.999Z", "2000-02-29T00:00:00.000Z", "0000-02-29T00:00:00.000Z", "2026-04-30T12:30:45.123Z"]) {
+      parity(state({ ...flag, state: "accepted", resolution: { ...resolution, at }, history: [{ ...resolution, state: "resolved", at }] }), true);
+    }
+    for (const at of ["2023-02-29T00:00:00.000Z", "1900-02-29T00:00:00.000Z", "2026-04-31T00:00:00.000Z", "2026-00-01T00:00:00.000Z", "2026-13-01T00:00:00.000Z", "2026-01-00T00:00:00.000Z", "2026-01-01T24:00:00.000Z", "2026-01-01T00:60:00.000Z", "2026-01-01T00:00:60.000Z", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00.000+00:00"]) {
+      parity(state({ ...flag, state: "accepted", resolution: { ...resolution, at } }), false);
+      parity(state({ ...flag, history: [{ ...resolution, state: "resolved", at }] }), false);
+    }
+  });
 });
