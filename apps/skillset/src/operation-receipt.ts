@@ -85,6 +85,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
   if (lintErrors > 0) diagnosticCodes.add("adopt.lint-failed");
   if (report.buildError !== undefined)
     diagnosticCodes.add("adopt.build-failed");
+  if (report.migrationError !== undefined) diagnosticCodes.add("adopt.migration-findings-failed");
   if (report.cutoverError !== undefined)
     diagnosticCodes.add("adopt.cutover-inspection-failed");
   const candidateIds = boundedUniqueSorted(
@@ -104,7 +105,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
 
   const cutover = boundedUniqueSorted(report.cutover);
   return {
-    ...(report.cutoverError === undefined
+    ...(report.cutoverError === undefined && report.migrationError === undefined
       ? { cutover: { paths: cutover.items, total: cutover.total } }
       : {}),
     guidancePaths: report.surveySkips.filter((skip) => skip.surface === "guided-root-guidance").map((skip) => skip.path),
@@ -118,15 +119,11 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
       destinations: destinations.total,
       importedUnitIds: importedUnitIds.total,
     },
-    migrationFlagCodes: report.transformPreviews.some(
-      (preview) => preview.dialectDeclared
-    )
-      ? ["adopt.claude-dialect"]
-      : [],
+    migrationFlagCodes: boundedUniqueSorted((report.migrationFlags ?? []).map((flag) => flag.code)).items,
     phases: {
       build: phase(
         report.builtFiles,
-        blockedBeforeWrite
+        blockedBeforeWrite || report.migrationError !== undefined
           ? "not-run"
           : report.buildError === undefined
             ? "passed"
@@ -144,7 +141,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
       ),
       lint: phase(
         report.lintIssues.length,
-        blockedBeforeWrite ? "not-run" : lintErrors === 0 ? "passed" : "failed"
+        blockedBeforeWrite || report.migrationError !== undefined ? "not-run" : lintErrors === 0 ? "passed" : "failed"
       ),
       setup: phase(
         report.setupFiles.length,

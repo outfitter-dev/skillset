@@ -260,10 +260,13 @@ function printAdoptReport(
     (issue) => issue.severity === "error"
   ).length;
   const lintWarnings = report.lintIssues.length - lintErrors;
-  console.log(
+  if (report.migrationError !== undefined) {
+    console.log(`  FAIL migration findings: ${report.migrationError.split("\n")[0]}`);
+    console.log("  skipped lint and build because migration findings could not be recorded");
+  } else console.log(
     `  ${lintErrors === 0 ? "ok" : "FAIL"} lint: ${lintErrors} error(s), ${lintWarnings} warning(s)`
   );
-  console.log(
+  if (report.migrationError === undefined) console.log(
     report.buildError === undefined
       ? `  ok build: wrote ${report.builtFiles} generated files under logical .skillset/cache/latest/ (XDG-backed)`
       : `  FAIL build: ${report.buildError.split("\n")[0]}`
@@ -275,5 +278,7 @@ function printAdoptReport(
     console.log(`  cutover: ${report.cutover.join(", ")} (see report)`);
   }
   if (receipt !== undefined) printOperationReceipt(receipt);
-  console.log(`skillset: adopt ${report.ok ? "passed" : "found problems"}`);
+  const findingCount = report.migrationFlags?.length ?? 0;
+  if (findingCount > 0) console.log(`  review: ${findingCount} finding(s) recorded in .skillset/adopt/state.json`);
+  console.log(`skillset: adopt ${report.ok ? findingCount > 0 ? "completed; review required" : "passed" : "found problems"}`);
 }
