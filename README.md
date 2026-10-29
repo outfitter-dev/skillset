@@ -19,6 +19,8 @@ skillset init
 skillset init --yes
 ```
 
+Initialization seeds `.skillset/RULES.md` for generated root `AGENTS.md` and `.claude/CLAUDE.md`, or retains an existing unmanaged `AGENTS.md` as authored source. Existing Claude guidance and provider skills need a [reviewed adoption/cutover](docs/guides/importing.md); see [first-build troubleshooting](docs/troubleshooting.md#the-first-build-finds-existing-root-guidance) before replacing originals.
+
 The npm route uses a small Node 18 launcher to select the matching native package; it does not require Bun. On macOS, `brew install outfitter-dev/tap/skillset` installs the native executable with neither Node nor Bun required at command runtime. See [Install Skillset](docs/start/installation.md) for Homebrew, direct GitHub assets, the complete slimmer `@skillset/cli` Bun distribution, CI, local dependency, and contributor paths.
 
 Add authored source under `.skillset/`, then preview and write provider-native output:
@@ -84,7 +86,9 @@ Use `skillset dev --write` only when you want clean source edits to update repo-
 
 ## Adopt existing work
 
-`skillset init` surveys an existing repository for local skills, plugins, and instruction files. `skillset import` copies one selected provider-native source into `.skillset/` without overwriting existing source:
+`skillset init` surveys local skills, plugins, and guidance. Use `skillset init --adopt all --yes` to import supported candidates and build an isolated mirror for review. The report lists live collisions and preserves the originals until cutover. Native root `AGENTS.md` stays source; root `CLAUDE.md` and `.claude/CLAUDE.md` route to agent-guided synthesis into reviewed `RULES.md` when appropriate, never automatic rule import.
+
+`skillset import` copies one selected skill or plugin into `.skillset/` without overwriting existing source:
 
 ```bash
 skillset import /path/to/SKILL.md
