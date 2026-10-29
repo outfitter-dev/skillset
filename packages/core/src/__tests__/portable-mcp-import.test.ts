@@ -3,9 +3,7 @@ import { expect, test } from "bun:test";
 import { normalizeImportedMcpSource } from "../portable-mcp-import";
 
 test.each([
-  ["$CLAUDE_PLUGIN_ROOT/bin", "$CLAUDE_PLUGIN_ROOT/bin"],
   ["${CLAUDE_PLUGIN_ROOT}/bin", "${PLUGIN_ROOT}/bin"],
-  ["$CLAUDE_PLUGIN_DATA/cache", "$CLAUDE_PLUGIN_DATA/cache"],
   ["${CLAUDE_PLUGIN_DATA}/cache", "${PLUGIN_DATA}/cache"],
   ["$CLAUDE_PLUGIN_ROOTED/bin", "$CLAUDE_PLUGIN_ROOTED/bin"],
   ["$CLAUDE_PLUGIN_DATASET", "$CLAUDE_PLUGIN_DATASET"],
@@ -60,7 +58,19 @@ test.each(["${CLAUDE_PLUGIN_ROOT}/work", "$CLAUDE_PLUGIN_ROOT/work", "./work"])(
   }
 );
 
-test("explicit shell arguments retain unbraced provider variables for review", () => {
+test("explicit shell arguments require review without suggesting a replacement", () => {
   const source = { mcpServers: { demo: { command: "sh", args: ["-c", 'printf %s "$CLAUDE_PLUGIN_ROOT"'], env: { VALUE: "$CLAUDE_PLUGIN_DATA" } } } };
-  expect(normalizeImportedMcpSource(source, "claude")).toEqual(source);
+  expect(() => normalizeImportedMcpSource(source, "claude")).toThrow("literal or shell meaning cannot be mapped automatically; review the source before importing");
 });
+
+ test.each(["$CLAUDE_PLUGIN_ROOT/bin", "$CLAUDE_PLUGIN_DATA/cache"])(
+  "bare Claude variable requires review in each expandable field: %s", (value) => {
+    for (const server of [{ command: value }, { command: "node", args: [value] }, { command: "node", env: { VALUE: value } }]) {
+      const source = { mcpServers: { demo: server } };
+      const original = structuredClone(source);
+      expect(() => normalizeImportedMcpSource(source, "claude")).toThrow("literal or shell meaning cannot be mapped automatically; review the source before importing");
+      expect(source).toEqual(original);
+      expect(normalizeImportedMcpSource(source, "codex")).toEqual(source);
+    }
+  }
+);

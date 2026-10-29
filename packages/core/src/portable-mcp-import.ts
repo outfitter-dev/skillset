@@ -112,6 +112,12 @@ function normalizeImportedServer(
 function normalizeClaudePlaceholders(value: string): string {
   // Claude expands braced placeholders in MCP config. Bare variables may be
   // shell syntax or literal arguments; importing them must not infer expansion.
+  const bare = /\$(CLAUDE_PLUGIN_ROOT|CLAUDE_PLUGIN_DATA)(?![A-Za-z0-9_])/u.exec(value);
+  if (bare !== null) {
+    throw new Error(
+      `skillset: imported Claude MCP value contains ${bare[0]}; its literal or shell meaning cannot be mapped automatically; review the source before importing`
+    );
+  }
   return value
     .replaceAll("${CLAUDE_PLUGIN_ROOT}", "${PLUGIN_ROOT}")
     .replaceAll("${CLAUDE_PLUGIN_DATA}", "${PLUGIN_DATA}");

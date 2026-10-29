@@ -311,7 +311,7 @@ test.each([
   const path = join(external, ".mcp.json");
   await writeJson(path, { mcpServers: { local: server } });
   const original = await readFile(path, "utf8");
-  await expect(importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: external })).rejects.toThrow(/CLAUDE_PLUGIN_|cwd/);
+  await expect(importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: external })).rejects.toThrow("cwd" in server ? "unmappable field cwd" : "literal or shell meaning cannot be mapped automatically; review the source before importing");
   expect(await readFile(path, "utf8")).toBe(original);
   expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
 });
