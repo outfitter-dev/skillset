@@ -48,6 +48,8 @@ Imported provider-native hook files stay native by default. Skillset should only
 | root `hooks.json` | n/a | n/a | n/a | `unsupported` | Move the file to `hooks/hooks.json`. |
 | Future `hooks.source` | n/a | n/a | n/a | `planned` | No feature-key source pointer is implemented. |
 
+The Agent Plugins baseline records plugin hooks as [uncovered](plugins.md#uncovered-components) without blocking supported provider hooks. This does not relax destination-specific validation: unsupported event, matcher or handler mappings still follow their error policy, and a shared hook path does not establish identical behavior across providers.
+
 ## Adaptive Hook Units
 
 Adaptive hook units are Skillset-authored source. They let authors define hook behavior once, attach it to the source unit where it belongs, and have Skillset render only provider/destination combinations that preserve the intended scope and runtime behavior.

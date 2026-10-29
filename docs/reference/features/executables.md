@@ -37,7 +37,7 @@ Mark executable source files with `chmod +x`. Skillset derives portable executab
 
 - Reject `bin` sources that are not directories.
 - Reject `repo:` pointers that escape the repo, point into [generated-output](../../glossary.md#generated-output) roots, or reference missing paths.
-- Report Codex, Cursor, and Agent Plugins executable components as uncovered without blocking the build; their coverage result claims no executable output for those destinations.
+- Report Codex, Cursor, and Agent Plugins executable components as [uncovered](plugins.md#uncovered-components) without blocking the build; their coverage result claims no executable output for those destinations.
 - Reject divergent feature and provider-source outputs to the same generated path.
 
 ## Provenance
