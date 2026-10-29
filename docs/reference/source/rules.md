@@ -24,6 +24,12 @@ paths:
 - Keep public behavior aligned with its canonical contract.
 ```
 
+## Native Root Guidance
+
+An unmanaged root `AGENTS.md` can serve as the authored front page. `init`, `create`, or a successful first live build records `workspace.nativeAgents: true` in `skillset.yaml`; read-only previews do not persist the choice. Skillset reads and hashes this source for source inventory, preserves its bytes, and records in-place consumers as `externally_managed` without claiming the file as generated output. Claude receives the front page through its configured generated instruction file. Scoped rules still render normally.
+
+Native `AGENTS.md` is literal Markdown: Skillset does not interpret its frontmatter or template expressions. Relative links are rebased for the Claude projection. `.skillset/RULES.md` and unscoped `.skillset/rules/*.md` are errors in this mode. Put root prose in the authored file; keep directory-specific guidance under scoped rule directories. A missing declared native file, unsafe source path, or conflicting managed lock ownership is an error. See [project configuration](../../configuration/project-configuration.md#retain-authored-root-guidance) for switching back to generated root guidance.
+
 ## Scope
 
 Where a rule sits under `.skillset/rules/` is its scope. `rules/<topic>.md` is unscoped and applies to the whole repository. `rules/<dir>/<topic>.md` governs `<dir>/`, so the rule above governs `docs/`. The filename is the topic and may not contain `[` or `]`.

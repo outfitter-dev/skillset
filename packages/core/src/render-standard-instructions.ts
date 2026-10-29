@@ -70,6 +70,7 @@ async function rulesByDestination(
 ): Promise<ReadonlyMap<string, readonly SourceRule[]>> {
   const destinations = new Map<string, SourceRule[]>();
   for (const rule of rules) {
+    if (graph.root.workspace.nativeAgents === true && rule.rootFrontPage) continue;
     for (const destination of await destinationsForRule(graph, rule)) {
       const existing = destinations.get(destination) ?? [];
       destinations.set(destination, [...existing, rule]);

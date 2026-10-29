@@ -237,6 +237,7 @@ export function collectRenderResults(
 
   outcomes.push(...uncoveredPluginComponentOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedCursorRootRulesOutcomes(graph, options.scopes));
+  outcomes.push(...nativeRootRuleOutcomes(graph, options.scopes));
   if (options.scopes === undefined || options.scopes.includes("project")) {
     outcomes.push(...ruleScopeRenderResults(graph, mapOutputPath));
   }
@@ -418,13 +419,44 @@ function unsupportedProjectSkillCopyStandardOutcomes(
   return outcomes;
 }
 
+function nativeRootRuleOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (graph.nativeRootRuleSource === undefined ||
+      (scopes !== undefined && !scopes.includes("project"))) return [];
+  const shared = {
+    destination: "rule",
+    featureId: "project-instructions",
+    policy: "default" as const,
+    reason: "Authored root AGENTS.md is read in place and never managed as generated output",
+    sourcePath: "AGENTS.md",
+    sourceUnit: "rule:RULES",
+    status: "externally_managed" as const,
+    diagnostics: [{ code: "native-root-guidance", message: "Root AGENTS.md remains authored source" }],
+  };
+  return [
+    ...(graph.standardProjections.adopted.includes("agent-instructions") ? [defineRenderResult({
+      ...shared,
+      standardProfile: "agent-instructions",
+      evidence: evidenceFor("project-instructions", undefined, "agent-instructions") ?? [],
+    })] : []),
+    ...(graph.root.targets.codex.enabled ? [defineRenderResult({
+      ...shared,
+      target: "codex",
+      evidence: evidenceFor("project-instructions", "codex") ?? [],
+    })] : []),
+  ];
+}
+
 function unsupportedCursorRootRulesOutcomes(
   graph: BuildGraph,
   scopes: readonly BuildScope[] | undefined
 ): readonly SkillsetRenderResult[] {
   if (
     (scopes !== undefined && !scopes.includes("project")) ||
-    !graph.root.targets.cursor.enabled
+    !graph.root.targets.cursor.enabled ||
+    graph.root.workspace.nativeAgents === true
   ) {
     return [];
   }

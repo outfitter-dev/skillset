@@ -162,6 +162,14 @@ function checkConformanceCase(
   const observedStatuses = sortedUnique(matching.map((outcome) => outcome.status));
   const conforms = (outcome: SkillsetRenderResult): boolean =>
     expectedStatuses.includes(outcome.status) ||
+    (outcome.status === "externally_managed" &&
+      outcome.featureId === "project-instructions" && outcome.destination === "rule" &&
+      outcome.sourceUnit === "rule:RULES" && outcome.sourcePath === "AGENTS.md" &&
+      outcome.policy === "default" && (outcome.outputs?.length ?? 0) === 0 &&
+      outcome.reason === "Authored root AGENTS.md is read in place and never managed as generated output" &&
+      ((outcome.standardProfile === "agent-instructions" && outcome.target === undefined) ||
+        (outcome.target === "codex" && outcome.standardProfile === undefined)) &&
+      outcome.diagnostics?.some((diagnostic) => diagnostic.code === "native-root-guidance") === true) ||
     (supportStatus === "unsupported" &&
       isProviderOnlyPluginComponent(outcome) &&
       outcome.status === "intentionally_skipped" &&

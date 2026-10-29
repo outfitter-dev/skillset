@@ -1,3 +1,5 @@
+import type { NativeRootRuleSource } from "./native-root-rules";
+
 import type { StandardProfileId } from "@skillset/registry";
 
 import type { PortableMcpModel } from "./portable-mcp";
@@ -56,6 +58,7 @@ export interface RootConfig {
 }
 
 export interface SkillsetWorkspaceConfig {
+  readonly nativeAgents?: true;
   readonly cacheKey?: string;
 }
 
@@ -448,6 +451,7 @@ export interface StandardProjectionPlan {
 }
 
 export interface BuildGraph {
+  readonly nativeRootRuleSource?: NativeRootRuleSource;
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   /** Build mode declared in source, before a command-specific override is applied. */
   readonly configuredBuildMode: CompileBuildMode;

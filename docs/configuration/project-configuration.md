@@ -157,6 +157,14 @@ Root `defaults` supplies per-provider defaults for one feature surface at a time
 
 `workspace.cacheKey` names this repository's machine-local cache bucket. Most repositories should omit it and keep the automatically derived key; see [workspace layout](../reference/source/workspace-layout.md) for the cache paths.
 
+## Retain Authored Root Guidance
+
+`workspace.nativeAgents: true` records that root `AGENTS.md` is authored rule source. Initialization or the first successful live build discovers an unmanaged root `AGENTS.md` and records this setting automatically. A preview reads the file without changing the manifest. Skillset preserves its bytes and never includes it in generated output ownership; Claude receives generated front-page guidance and scoped rules keep their existing destinations.
+
+Native guidance is literal Markdown, without Skillset frontmatter or preprocessing. It cannot coexist with `.skillset/RULES.md` or unscoped `.skillset/rules/*.md`; place root guidance in `AGENTS.md` and keep scoped rules in their subdirectories. To return to generated root guidance, move the content into `.skillset/RULES.md`, remove the authored root file, and remove `workspace.nativeAgents`. A root file already claimed by a lock stays managed and is not automatically adopted.
+
+See [rule source](../reference/source/rules.md) for ownership and projection details.
+
 ## Configure Other Workspace Features
 
 The manifest also hosts project-wide configuration for [agents](../reference/features/agents.md), [changes](../reference/features/changes.md), [dependencies](../reference/features/dependencies.md), [distributions](../reference/features/distributions.md), [marketplaces](../reference/features/marketplaces.md), and [support constraints](../reference/features/supports.md). Follow those feature pages for behavior and the generated workspace schema for exact field shapes.

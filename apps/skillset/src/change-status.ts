@@ -667,6 +667,7 @@ async function rulePreprocessDependencies(
   graph: BuildGraph,
   rule: SourceRule
 ): Promise<readonly string[]> {
+  if (graph.root.workspace.nativeAgents === true && rule.rootFrontPage) return [];
   const dependencies = new Set<string>();
   await preprocessText(rule.body, {
     frontmatter: rule.frontmatter,

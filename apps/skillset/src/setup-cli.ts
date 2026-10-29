@@ -5,6 +5,7 @@ import { formatScaffoldFileLine, formatScaffoldNextStep } from "./scaffold-repor
 import type { SetupReport } from "./setup";
 
 export const printSetupReport = (result: SetupReport, reason: string): void => {
+  if (result.nativeAgents) console.log("skillset: retaining AGENTS.md as authored root guidance (native mode)");
   for (const file of result.files) {
     console.log(formatScaffoldFileLine(file.path, file.status));
   }
@@ -37,7 +38,8 @@ export const printSetupReport = (result: SetupReport, reason: string): void => {
   const created = result.files.filter(
     (file) => file.status === "create"
   ).length;
-  const existing = result.files.length - created;
+  const updated = result.files.filter((file) => file.status === "update").length;
+  const existing = result.files.length - created - updated;
   const gitCreated = result.git?.status === "create" ? 1 : 0;
   const gitExisting = result.git?.status === "exists" ? 1 : 0;
   const baselines = result.baselines.filter(
@@ -46,6 +48,7 @@ export const printSetupReport = (result: SetupReport, reason: string): void => {
   const candidates = result.importCandidates.length;
   const details = [
     `${created + gitCreated} to create`,
+    ...(updated === 0 ? [] : [`${updated} to update`]),
     `${existing + gitExisting} already present`,
     ...(baselines === 0
       ? []

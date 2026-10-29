@@ -1,3 +1,4 @@
+import { resolveNativeRootRuleSource } from "./native-root-rules";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, posix, relative } from "node:path";
 
@@ -160,7 +161,8 @@ export async function loadBuildGraph(
   const { sourceDir, sourcePath, sourceRoot, sourceRootDir, sourceRootPath } = workspace;
   const configLabel = workspace.configRelativePath;
   const sourceManifestLabel = workspace.splitRootManifestRelativePath ?? configLabel;
-  const rootConfig = parseYamlRecord(await readFile(workspace.configPath, "utf8"), configLabel);
+  const configContent = await readFile(workspace.configPath, "utf8");
+  const rootConfig = parseYamlRecord(configContent, configLabel);
   const sourceManifest = workspace.splitRootManifestPath === undefined
     ? rootConfig
     : parseYamlRecord(await readFile(workspace.splitRootManifestPath, "utf8"), sourceManifestLabel);
@@ -184,7 +186,13 @@ export async function loadBuildGraph(
   );
   const distributions = readDistributionConfig(rootConfig, configLabel);
   const marketplaces = readMarketplaceCatalogConfig(rootConfig, configLabel);
-  const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, configLabel);
+  const declaredWorkspace = readSkillsetWorkspaceConfig(rootConfig, configLabel);
+  const nativeRootRuleSource = await resolveNativeRootRuleSource(
+    rootPath, workspace.configPath, configContent, declaredWorkspace.nativeAgents === true
+  );
+  const workspaceConfig = nativeRootRuleSource === undefined
+    ? declaredWorkspace
+    : { ...declaredWorkspace, nativeAgents: true as const };
   const drafts = readDraftSelectors(sourceManifest, metadataLabel);
   const internalMarker = readInternalMarker(rootConfig, configLabel);
   const pluginsConfig = readWorkspacePluginsConfig(rootConfig, configLabel);
@@ -214,6 +222,9 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
+  if (nativeRootRuleSource !== undefined && nativeRootRuleSource.configContent !== nativeRootRuleSource.effectiveConfigContent) {
+    warnings.push("AGENTS.md is authored root guidance; build will record native mode in skillset.yaml without writing AGENTS.md");
+  }
   const externalInputPaths = new Set<string>();
   appendSourceMetadataCompatibilityWarnings(
     warnings,
@@ -263,7 +274,8 @@ export async function loadBuildGraph(
     sourceRootDir,
     filteredTargets,
     warnings,
-    externalInputPaths
+    externalInputPaths,
+    workspaceConfig.nativeAgents === true
   );
   const projectAgents = await loadProjectAgents(
     rootPath,
@@ -354,6 +366,7 @@ export async function loadBuildGraph(
     releaseState,
     rules,
     root,
+    ...(nativeRootRuleSource === undefined ? {} : { nativeRootRuleSource }),
     rootConfigPath: workspace.configPath,
     rootManifestPath: workspace.splitRootManifestPath ?? workspace.configPath,
     rootPath,
@@ -731,12 +744,24 @@ async function loadRules(
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  nativeAgents = false
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly rulesDir: string }> {
   const sourceRootPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
   const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
-  const rootRulesPath = join(sourceRootPath, ROOT_RULES_FILE);
+  const canonicalFrontPage = join(sourceRootPath, ROOT_RULES_FILE);
+  if (nativeAgents && await exists(canonicalFrontPage)) {
+    throw new Error("skillset: native AGENTS.md and RULES.md are mutually exclusive; keep one front-page source");
+  }
+  const rootRulesPath = nativeAgents ? join(rootPath, "AGENTS.md") : canonicalFrontPage;
+  if (nativeAgents && !(await exists(rootRulesPath))) {
+    throw new Error("skillset: workspace.nativeAgents requires authored root AGENTS.md");
+  }
+  if (nativeAgents && canonicalFiles.some((path) => dirname(path) === canonicalPath)) {
+    throw new Error("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
+  }
+  if (nativeAgents) externalInputPaths.add(rootRulesPath);
   const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
   if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
     return { rules: [], rulesDir: join(sourceRootDir, RULES_DIR) };
@@ -748,8 +773,10 @@ async function loadRules(
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
     const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
-    const parts = parseMarkdown(content, sourceLabel);
     const rootFrontPage = sourcePath === rootRulesPath;
+    const parts = nativeAgents && rootFrontPage
+      ? { body: content, frontmatter: {} }
+      : parseMarkdown(content, sourceLabel);
     const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
     const segments = rootFrontPage
       ? []

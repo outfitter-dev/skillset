@@ -47,6 +47,35 @@ const caseSensitiveVolume = await detectCaseSensitiveWorkspaceVolume();
 const caseSensitiveTest = test.skipIf(!caseSensitiveVolume);
 
 describe("workspace transactions", () => {
+  test("allows scaffold entries but rolls back when a forbidden direct source file appears", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "rules"));
+      const source = nodePath.join(root, "rules/late.md");
+      await expect(applyWorkspaceTransaction(root, {
+        absentDirectoryFiles: [{ directory: "rules", suffix: ".md" }],
+        writes: [
+          { path: "rules/.gitkeep", content: "", expectedAbsent: true },
+          { path: "skillset.yaml", content: "workspace: {nativeAgents: true}\n", expectedAbsent: true },
+        ],
+      }, { testHooks: { beforeWriteInstall: async () => { await writeFile(source, "authored concurrently"); } } })).rejects.toThrow("directory file set changed");
+      expect(await readFile(source, "utf8")).toBe("authored concurrently");
+      expect(await Bun.file(nodePath.join(root, "rules/.gitkeep")).exists()).toBe(false);
+      expect(await Bun.file(nodePath.join(root, "skillset.yaml")).exists()).toBe(false);
+    });
+  });
+
+  test("rejects mutation of an ancestor of a read-only input", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await writeFile(nodePath.join(root, "source/input.md"), "authored");
+      await expect(applyWorkspaceTransaction(root, {
+        readOnlyInputs: [{ path: "source/input.md", content: "authored" }],
+        deletes: ["source"],
+      })).rejects.toThrow("read-only input overlaps mutation");
+      expect(await readFile(nodePath.join(root, "source/input.md"), "utf8")).toBe("authored");
+    });
+  });
+
   test("applies writes, moves, and deletes in deterministic report order", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "delete.txt"), "delete before\n");

@@ -275,6 +275,8 @@ export const RULE_FRONTMATTER_KEYS = [
   "supports",
 ] as const;
 
+export const WORKSPACE_KEYS = ["cacheKey", "nativeAgents"] as const;
+
 export const workspaceConfigContract = contract(
   "workspace-config",
   "Workspace Config",
@@ -311,6 +313,7 @@ export const workspaceConfigContract = contract(
       skillset: sourceMetadataSchema(),
       supports: supportsSchema(),
       workspace: strictObjectSchema({
+        nativeAgents: { const: true, type: "boolean" },
         cacheKey: {
           maxLength: WORKSPACE_ID_MAX_LENGTH,
           pattern: WORKSPACE_ID_PATTERN,

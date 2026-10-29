@@ -604,25 +604,25 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/rules/root.md": "# Generated instructions\n",
-      "AGENTS.md": "# Unmanaged instructions\n",
+      ".skillset/rules/app/root.md": "# Generated instructions\n",
+      "app/AGENTS.md": "# Unmanaged instructions\n",
     });
 
     const result = await diffSkillsetResult(root);
     expect(result.outputState).toEqual({
-      blockers: [{ code: "unmanaged-output-collision", path: "AGENTS.md" }],
+      blockers: [{ code: "unmanaged-output-collision", path: "app/AGENTS.md" }],
       hasBaseline: false,
       outputChanges: [],
       sourceChanges: ["skillset.lock"],
       state: "blocked",
     });
 
-    const before = await Bun.file(join(root, "AGENTS.md")).text();
+    const before = await Bun.file(join(root, "app/AGENTS.md")).text();
     const applied = await buildSkillsetResult(root);
     expect(applied.ok).toBe(false);
     expect(applied.outputState).toEqual(result.outputState);
     expect(applied.writes.paths).toEqual([]);
-    expect(await Bun.file(join(root, "AGENTS.md")).text()).toBe(before);
+    expect(await Bun.file(join(root, "app/AGENTS.md")).text()).toBe(before);
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });
 
@@ -635,21 +635,21 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/rules/root.md": "# Generated instructions\n",
+      ".skillset/rules/app/root.md": "# Generated instructions\n",
     });
 
     const preview = await diffSkillsetResult(root);
     expect(preview.ok).toBe(true);
-    await Bun.write(join(root, "AGENTS.md"), "# Appeared after preview\n");
+    await Bun.write(join(root, "app/AGENTS.md"), "# Appeared after preview\n");
 
     const applied = await buildSkillsetResult(root);
     expect(applied.ok).toBe(false);
     expect(applied.outputState).toMatchObject({
-      blockers: [{ code: "unmanaged-output-collision", path: "AGENTS.md" }],
+      blockers: [{ code: "unmanaged-output-collision", path: "app/AGENTS.md" }],
       state: "blocked",
     });
     expect(applied.writes.paths).toEqual([]);
-    expect(await Bun.file(join(root, "AGENTS.md")).text()).toBe("# Appeared after preview\n");
+    expect(await Bun.file(join(root, "app/AGENTS.md")).text()).toBe("# Appeared after preview\n");
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });
 
@@ -672,9 +672,9 @@ Body.
 `,
     });
     await buildSkillsetResult(root);
-    await mkdir(join(root, ".skillset/rules"), { recursive: true });
+    await mkdir(join(root, ".skillset/rules/app"), { recursive: true });
     await writeFile(
-      join(root, ".skillset/rules/root.md"),
+      join(root, ".skillset/rules/app/root.md"),
       "# Generated root instructions\n",
       "utf8"
     );
@@ -685,10 +685,11 @@ Body.
       "utf8"
     );
     await mkdir(join(root, "docs"), { recursive: true });
-    await writeFile(join(root, "AGENTS.md"), "# Allowed source-driven file\n", "utf8");
+    await mkdir(join(root, "app"));
+    await writeFile(join(root, "app/AGENTS.md"), "# Allowed source-driven file\n", "utf8");
 
     const latePath = join(root, "docs/AGENTS.md");
-    const sourceDrivenOutputPaths = new Proxy(["AGENTS.md"], {
+    const sourceDrivenOutputPaths = new Proxy(["app/AGENTS.md"], {
       get(target, property, receiver) {
         if (property !== "includes") return Reflect.get(target, property, receiver);
         return (path: string) => {
@@ -714,7 +715,7 @@ Body.
     });
     expect(result.writes.paths).toEqual([]);
     expect(result.writes.backupRecords).toBeUndefined();
-    expect(await Bun.file(join(root, "AGENTS.md")).text()).toBe("# Allowed source-driven file\n");
+    expect(await Bun.file(join(root, "app/AGENTS.md")).text()).toBe("# Allowed source-driven file\n");
     expect(await Bun.file(latePath).text()).toBe("# Appeared during the build\n");
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
   });

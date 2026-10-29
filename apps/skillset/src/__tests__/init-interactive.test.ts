@@ -180,7 +180,7 @@ describe("SET-312 existing-directory init", () => {
     const root = await mkdtemp(join(disposableRoot, "repo-"));
     const nested = join(root, "packages/demo");
     await mkdir(nested, { recursive: true });
-    await writeFile(join(root, "AGENTS.md"), "# Root instructions\n");
+    await writeFile(join(root, "CLAUDE.md"), "# Root instructions\n");
     await initializeTestGitRepository(root, { disposableRoot });
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "all" },

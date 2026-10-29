@@ -3,7 +3,6 @@ import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, wr
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative } from "node:path";
-import { codexAgentsMdFormat } from "@skillset/registry";
 
 import {
   type AtomicFilePublicationTestHooks,
@@ -1171,7 +1170,9 @@ function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiag
   return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; ${record.targetPath} will be backed up before ${record.action}${rootRulesGuidance(record)}`,
+    message: record.reason === "managed-target-edit"
+      ? `${reason}; ${record.targetPath} will be backed up before ${record.action}`
+      : `${reason}; ${record.targetPath} requires an explicit recovery decision before ${record.action}`,
     outputPath: record.targetPath,
     severity: "warning",
   });
@@ -1184,20 +1185,10 @@ function backupDiagnostic(record: OutputBackupRecord, runId: string, manifestPat
   return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})${rootRulesGuidance(record)}`,
+    message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})`,
     outputPath: record.targetPath,
     severity: "warning",
   });
-}
-
-function rootRulesGuidance(
-  record: Pick<OutputBackupPlanRecord, "reason" | "sourcePath" | "targetPath">
-): string {
-  return record.reason === "unmanaged-collision" &&
-    record.targetPath === codexAgentsMdFormat().fileName &&
-    record.sourcePath?.endsWith("/RULES.md") === true
-    ? "; move authored root instructions to .skillset/RULES.md"
-    : "";
 }
 
 async function writeGitBackupStorage(

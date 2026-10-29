@@ -759,10 +759,17 @@ describe("@skillset/schema contracts", () => {
           },
         ],
       },
-      workspace: { cacheKey: maximumCacheKey },
+      workspace: { cacheKey: maximumCacheKey, nativeAgents: true },
     });
 
     expect(valid).toEqual({ diagnostics: [], ok: true });
+  });
+
+  it("requires nativeAgents to be true when the workspace mode is declared", () => {
+    for (const nativeAgents of [false, "true", 1, null]) {
+      expect(validateWorkspaceConfig({ workspace: { nativeAgents } }).ok).toBe(false);
+    }
+    expect(validateWorkspaceConfig({ workspace: { nativeAgents: true } }).ok).toBe(true);
   });
 
   it("rejects workspace cache keys beyond the shared identity boundary", () => {
