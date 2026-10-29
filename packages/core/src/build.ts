@@ -250,6 +250,17 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
  */
 function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]): readonly SkillsetDiagnostic[] {
   const diagnostics: SkillsetDiagnostic[] = [];
+  if (graph.nativeRootRuleSource !== undefined && graph.root.targets.codex.enabled &&
+      existsSync(join(graph.rootPath, "AGENTS.override.md"))) {
+    diagnostics.push(skillsetDiagnostic({
+      code: "codex-agents-override-shadow",
+      featureId: "project-instructions",
+      message: "unmanaged AGENTS.override.md shadows authored AGENTS.md; Codex reads only the first instruction file in a directory, so the authored guidance is ignored. Review and reconcile the two files.",
+      outputPath: "AGENTS.md",
+      severity: "warning",
+      target: "codex",
+    }));
+  }
   for (const file of rendered) {
     if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
     const override = posix.join(posix.dirname(file.path), "AGENTS.override.md");

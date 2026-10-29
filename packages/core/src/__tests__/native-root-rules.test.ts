@@ -21,6 +21,31 @@ async function fixture(explicit = false): Promise<string> {
 }
 
 describe("native root rule source", () => {
+  it("warns when a Codex override shadows authored root guidance", async () => {
+    const root = await fixture(true);
+    const override = "# Local override\n";
+    await writeFile(join(root, "AGENTS.override.md"), override);
+    for (const result of [await diffSkillsetResult(root), await buildSkillsetResult(root)]) {
+      expect(result.ok).toBe(true);
+      expect(result.diagnostics).toContainEqual(expect.objectContaining({
+        code: "codex-agents-override-shadow", severity: "warning", target: "codex",
+        outputPath: "AGENTS.md", message: expect.stringContaining("AGENTS.override.md shadows authored AGENTS.md"),
+      }));
+    }
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(authored);
+    expect(await readFile(join(root, "AGENTS.override.md"), "utf8")).toBe(override);
+  });
+
+  it("does not report a native-root override for other targets or absent native guidance", async () => {
+    const other = await fixture(true);
+    await writeFile(join(other, "skillset.yaml"), "workspace:\n  nativeAgents: true\ncompile:\n  targets: [claude]\n");
+    await writeFile(join(other, "AGENTS.override.md"), "# Override\n");
+    expect((await diffSkillsetResult(other)).diagnostics.map((item) => item.code)).not.toContain("codex-agents-override-shadow");
+    const plain = await fixture();
+    await rm(join(plain, "AGENTS.md"));
+    await writeFile(join(plain, "AGENTS.override.md"), "# Override\n");
+    expect((await diffSkillsetResult(plain)).diagnostics.map((item) => item.code)).not.toContain("codex-agents-override-shadow");
+  });
   it("keeps native source bytes while deriving Claude and scoped guidance", async () => {
     const root = await fixture(true);
     const graph = await loadBuildGraph(root);
