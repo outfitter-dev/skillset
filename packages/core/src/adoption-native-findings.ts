@@ -30,7 +30,7 @@ export function nativeHookFindings(source: NativeHookFindingSource, content: str
   return diagnostics.map((diagnostic) => flagForDiagnostic(source, content, diagnostic));
 }
 
-function flagForDiagnostic(source: NativeHookFindingSource, content: string, diagnostic: NativeHookLiftDiagnostic): MigrationFlag {
+function flagForDiagnostic(source: NativeHookFindingSource, content: string, diagnostic: Omit<NativeHookLiftDiagnostic, "code"> & { readonly code: NativeHookLiftDiagnostic["code"] | "native-hook-lift-unclassified" }): MigrationFlag {
   return createInitialMigrationFlag({
     code: `adopt.${diagnostic.code}`,
     severity: "warning",
@@ -50,7 +50,7 @@ function flagForDiagnostic(source: NativeHookFindingSource, content: string, dia
 }
 
 function unclassifiedFinding(source: NativeHookFindingSource, content: string, target: TargetName, message: string): MigrationFlag {
-  return flagForDiagnostic(source, content, { code: "native-hook-runtime-unverified", status: "unknown", target, message, event: "unclassified", groupIndex: 0, path: source.path });
+  return flagForDiagnostic(source, content, { code: "native-hook-lift-unclassified", status: "unknown", target, message, event: "unclassified", groupIndex: 0, path: source.path });
 }
 
 function digest(content: string): string {

@@ -88,3 +88,25 @@ for (const git of [false, true]) {
     }
   });
 }
+
+for (const original of ['{"hooks":{"SessionStart":[]}}\n', '{ broken JSON']) {
+  test(`unclassified native hooks retain provider review and receipt codes: ${original}`, async () => {
+    const root = await createTestFixtureRoot("skillset-adopt-hook-unclassified-");
+    await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n");
+    await Bun.write(join(root, ".claude-plugin/plugin.json"), '{"name":"native-hooks"}\n');
+    await Bun.write(join(root, "hooks/hooks.json"), original);
+    const report = await adoptSkillset(root, { write: true });
+    const flags = (await readMigrationState(root)).state.flags;
+    if (original === "{ broken JSON") {
+      expect(report.renderResults.some((result) => result.diagnostics?.some((diagnostic) => diagnostic.code === "import-native-hook-lift-unclassified"))).toBe(true);
+    }
+    expect(flags).toHaveLength(1);
+    expect(flags[0]).toMatchObject({ code: "adopt.native-hook-lift-unclassified", disposition: "ambiguous" });
+    expect(flags[0]?.evidence.some((item) => item.summary.includes("Assessment target: claude"))).toBe(true);
+    expect(await readFile(join(root, hookPath), "utf8")).toBe(original);
+    expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("adopt.native-hook-lift-unclassified");
+    const receipt = await persistAdoptionReceipt(report);
+    const stored = await readReportBundle(receipt.id);
+    expect(stored.report).toMatchObject({ payload: { migrationFlagCodes: ["adopt.native-hook-lift-unclassified"] } });
+  });
+}

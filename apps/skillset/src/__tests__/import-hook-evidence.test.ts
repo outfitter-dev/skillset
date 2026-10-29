@@ -35,3 +35,13 @@ test("hook source carries the importer's per-file provenance without reconstruct
   });
   expect(report.nativeHookSource).toEqual({ path: ".skillset/plugins/native-hooks/hooks/hooks.json", targets: ["claude"], origin });
 });
+
+test("empty hook groups retain explicit assessment targets without emitted diagnostics", async () => {
+  const root = await createTestFixtureRoot("skillset-import-empty-hook-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"native-hooks"}\n');
+  await Bun.write(join(sourcePath, "hooks/hooks.json"), '{"hooks":{"SessionStart":[]}}');
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", providers: ["cursor"] });
+  expect(report.nativeHookSource?.targets).toEqual(["cursor"]);
+  expect(report.renderResults.filter((result) => result.featureId === "plugin-hooks")).toEqual([]);
+});

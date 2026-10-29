@@ -2,6 +2,9 @@
 
 ### SET-442 durable native hook findings — October 29
 
+- Hosted review exposed two additional reporting gaps: empty handler arrays lost assessed targets, and parse failures used the runtime-uncertainty code. Regressions failed for both, then passed after target selection was shared independently of diagnostic emission and unclassified sidecars received their own code. Import, ledger, Markdown and stored receipt proof: 16 tests / 74 assertions. This is a scoped hosted-feedback repair after the two routine reviews.
+- Exact `751c859b` verification completed 4079 pass, 2 skip, 4 todo and only three deferred native-size failures across 4088 tests / 368 files. No passing receipt is claimed; the hosted-feedback repair requires a new exact run.
+
 - Initial immutable `7a7e03af` run completed 4074 pass, 2 skip, 4 todo and four failures across 4084 tests; three are the deferred native-size checks, and the fourth was an external-fixture mock still targeting the old body recorder. The mock now targets the combined recorder, with 17 tests / 125 assertions passing. Repaired related proof: 273 tests / 1739 assertions, typecheck and docs pass.
 - Round-one review of `7a7e03af` found missing Git identity/per-file provenance and invalid JSON pointer locations. The repair carries the importer sourceOrigin callback result into native finding inputs instead of reconstructing it; pointers now include the actual hooks wrapper and escape event segments. Local and Git equivalent-root tests, explicit per-file callback coverage, and pointer regressions cover the repair. The proposed missing-hook-in-only-one-equivalent-root case is rejected by the existing survey and was not used as evidence of a reachable defect.
 

@@ -396,7 +396,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       renderResults,
       ...(hasNativeHookSource ? { nativeHookSource: {
         path: relative(options.rootPath, join(targetPath, "hooks/hooks.json")).replaceAll("\\", "/"),
-        targets: targetNames().filter((target) => renderResults.some((result) => result.featureId === "plugin-hooks" && result.target === target)),
+        targets: await importedNativeHookTargets(options, targetPath),
         ...(nativeHookOrigin === undefined ? {} : { origin: nativeHookOrigin }),
       } } : {}),
       name,
@@ -695,6 +695,16 @@ function importFrontmatterProviders(
   return targetNames().filter((target) => candidates.includes(target));
 }
 
+async function importedNativeHookTargets(
+  options: { readonly provider?: ImportProvider; readonly providers?: readonly ImportProvider[] },
+  targetPath: string
+): Promise<readonly TargetName[]> {
+  const explicitProviders = options.providers ?? (options.provider === undefined ? undefined : [options.provider]);
+  return explicitProviders === undefined
+    ? importedNativePluginTargets(targetPath)
+    : targetNames().filter((target) => explicitProviders.includes(target));
+}
+
 async function importNativeHookRenderResults(args: {
   readonly copiedFiles: readonly string[];
   readonly kind: SingularImportKind;
@@ -707,10 +717,7 @@ async function importNativeHookRenderResults(args: {
   if (args.kind !== "plugin" || !args.copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json")) return [];
   const hookPath = join(args.targetPath, "hooks", "hooks.json");
   const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
-  const explicitProviders = args.providers ?? (args.provider === undefined ? undefined : [args.provider]);
-  const targets = explicitProviders === undefined
-    ? await importedNativePluginTargets(args.targetPath)
-    : targetNames().filter((target) => explicitProviders.includes(target));
+  const targets = await importedNativeHookTargets(args, args.targetPath);
   let parsed: JsonValue;
   try {
     parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
