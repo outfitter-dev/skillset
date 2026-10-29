@@ -3,6 +3,7 @@ import {
   TARGET_NAMES,
   validateAgentFrontmatter,
   validateHookDefinitionSource,
+  validateMigrationState,
   validateRuleFrontmatter,
   validateSkillEval,
   validateSkillFrontmatter,
@@ -21,7 +22,7 @@ import type {
   WorkbenchParseResult,
 } from "./types";
 
-export type WorkbenchSourceContractKind = "agent" | "hook" | "rule" | "skill" | "skill-eval" | "test-declaration" | "workspace-config";
+export type WorkbenchSourceContractKind = "migration-state" | "agent" | "hook" | "rule" | "skill" | "skill-eval" | "test-declaration" | "workspace-config";
 
 const TARGET_LIST = TARGET_NAMES.join(", ");
 
@@ -44,6 +45,19 @@ export function checkWorkbenchSourceContract(
     return sortWorkbenchDiagnostics(parseDiagnostics);
   }
 
+  if (input.kind === "migration-state") {
+    if (parsed.kind !== "json") return [wrongKind(input.path, "migration state", "JSON")];
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...validateMigrationState(parsed.data).diagnostics.map((diagnostic) =>
+      schemaDiagnostic({
+        locationLine: sourceLineForSchemaPath(input.content, diagnostic.path, "json"),
+        message: diagnostic.message,
+        path: input.path,
+        ruleId: diagnostic.code,
+        scope: "workspace",
+        subjectKind: "migration state",
+      })
+    )]);
+  }
   if (input.kind === "agent") {
     return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkAgentContract(parsed, input.path, input.content)]);
   }
@@ -67,7 +81,7 @@ export function checkWorkbenchSourceContract(
 
 function parseKindForContract(kind: WorkbenchSourceContractKind): WorkbenchParseKind {
   if (kind === "agent" || kind === "rule" || kind === "skill") return "markdown";
-  if (kind === "hook" || kind === "skill-eval") return "json";
+  if (kind === "hook" || kind === "skill-eval" || kind === "migration-state") return "json";
   return "yaml";
 }
 
@@ -523,7 +537,7 @@ function checkSkillsetSkillMetadata(
 
 function wrongKind(
   path: string,
-  subjectKind: "agent" | "hook" | "rule" | "skill" | "skill eval" | "test" | "workspace",
+  subjectKind: "agent" | "hook" | "rule" | "skill" | "skill eval" | "migration state" | "test" | "workspace",
   expected: string
 ): WorkbenchDiagnostic {
   return schemaDiagnostic({
@@ -542,7 +556,7 @@ function schemaDiagnostic(args: {
   readonly ruleId: string;
   readonly scope?: "source" | "workspace";
   readonly severity?: "error" | "info" | "warning";
-  readonly subjectKind: "agent" | "hook" | "rule" | "skill" | "skill eval" | "test" | "workspace";
+  readonly subjectKind: "agent" | "hook" | "rule" | "skill" | "skill eval" | "migration state" | "test" | "workspace";
 }): WorkbenchDiagnostic {
   return createWorkbenchDiagnostic({
     featureId: "source-contracts",

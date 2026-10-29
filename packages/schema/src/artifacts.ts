@@ -14,6 +14,7 @@ import {
   ruleFrontmatterContract,
   pluginConfigContract,
   reportContract,
+  migrationStateContract,
   skillEvalContract,
   skillFrontmatterContract,
   skillsetSchemaContracts,
@@ -40,6 +41,7 @@ const schemaFileNames = {
   "rule-frontmatter": "rule-frontmatter.schema.json",
   "plugin-config": "plugin-config.schema.json",
   report: "report.schema.json",
+  "migration-state": "migration-state.schema.json",
   "skill-eval": "skill-eval.schema.json",
   "skill-frontmatter": "skill-frontmatter.schema.json",
   "source-metadata": "source-metadata.schema.json",
@@ -61,6 +63,7 @@ export function deriveSkillsetJsonSchemaArtifacts(): readonly SkillsetJsonSchema
       cliResultContract,
       cliEventContract,
       reportContract,
+      migrationStateContract,
     ].map((contract) => ({
       contractId: contract.id,
       path: `docs/reference/schemas/${SKILLSET_SCHEMA_VERSION}/${schemaFileNames[contract.id]}`,

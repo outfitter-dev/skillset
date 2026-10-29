@@ -172,6 +172,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/cli-result.schema.json",
       "docs/reference/schemas/0.1.0/cli-event.schema.json",
       "docs/reference/schemas/0.1.0/report.schema.json",
+      "docs/reference/schemas/0.1.0/migration-state.schema.json",
     ]);
 
     const combined = artifacts[0]?.schema;
@@ -216,6 +217,7 @@ describe("@skillset/schema contracts", () => {
   it("derives maximal examples that validate against structural contracts", () => {
     const examples = deriveSkillsetExampleArtifacts();
     expect(examples.map((example) => example.path)).toEqual([
+      "docs/reference/examples/migration-state.json",
       "docs/reference/examples/report.json",
       "docs/reference/examples/workspace-config.yaml",
       "docs/reference/examples/plugin-config.yaml",

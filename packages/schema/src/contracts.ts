@@ -1,3 +1,5 @@
+import { migrationStateSchema } from "./migration-state-contract";
+export { MIGRATION_STATE_SCHEMA_VERSION, MIGRATION_FLAG_STATES, MIGRATION_FLAG_SEVERITIES, MIGRATION_FLAG_DISPOSITIONS, MIGRATION_MARKER_LABELS } from "./migration-state-contract";
 import { sortSchemaRecord } from "./json";
 import { RETIRED_RULE_IMPORT_KIND } from "./retired-vocabulary";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
@@ -806,6 +808,13 @@ export const cliResultContract = contract(
     ],
     type: "object",
   }
+);
+
+export const migrationStateContract = contract(
+  "migration-state",
+  "Skillset Migration State",
+  "Workspace migration flags, stable identity evidence, and explicit review decisions.",
+  migrationStateSchema
 );
 
 export const reportContract = contract(
