@@ -586,6 +586,11 @@
           "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
         },
         {
+          "context": "- [ADR-0009](0009-skillset-workspace-layout.md#decision) — workspace and XDG cache boundaries.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        },
+        {
           "context": "- [ADR-0009: Skillset Workspace Layout](../0009-skillset-workspace-layout.md) - repository workspace topology is not reused as hidden user state.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
@@ -999,6 +1004,11 @@
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         },
         {
+          "context": "- [ADR-0018](0018-render-results.md#decision) — per-build rendering truth.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        },
+        {
           "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
@@ -1147,7 +1157,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": ["41", "42", "43", "44"],
+      "amended_by": ["41", "42", "43", "44", "48"],
       "amends": [],
       "created": "2026-07-12",
       "depends_on": ["0", "5", "12", "19"],
@@ -1186,6 +1196,11 @@
           "context": "- [ADR-0022](0022-workflow-oriented-cli.md#final-command-roster) fixes the public roster at 25 commands. It has no `install` or `upgrade`, and it [removed `doctor`](0022-workflow-oriented-cli.md#inspe",
           "from": "0044",
           "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
+        },
+        {
+          "context": "- [ADR-0022](0022-workflow-oriented-cli.md#onboarding-has-three-explicit-owners) — command ownership, narrowly amended here.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
         }
       ],
       "number": "0022",
@@ -1224,6 +1239,11 @@
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
         },
         {
+          "context": "- [ADR-0023](0023-versioned-structured-output-for-cli-automation.md#decision) — finite structured results.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        },
+        {
           "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
           "from": "cli-flags",
           "fromPath": "docs/reference/cli-flags.md"
@@ -1239,7 +1259,7 @@
       "updated": "2026-10-22"
     },
     {
-      "amended_by": [],
+      "amended_by": ["48"],
       "amends": [],
       "created": "2026-06-10",
       "depends_on": ["0", "9", "12", "14", "18", "22"],
@@ -1258,6 +1278,11 @@
           "context": "adoption survey](0024-one-action-repo-adoption.md#adoption-surveys-the-whole-repo-not-just-manifests)",
           "from": "0022",
           "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "- [ADR-0024](0024-one-action-repo-adoption.md#decision) — historical one-action evidence and original-tree purity, narrowly amended here.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
         },
         {
           "context": "Provider-specific material may remain explicit rather than being forced into a fake portable abstraction. The [support matrix](../reference/support-matrix.md) shows current support, and [ADR-0024](../",
@@ -1614,6 +1639,11 @@
           "fromPath": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md"
         },
         {
+          "context": "- [ADR-0033](0033-workspace-authoring-model.md#decision) — current source layout.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        },
+        {
           "context": "- [ADR-0033: Workspace Authoring Model](../0033-workspace-authoring-model.md) - direct internal cutover and canonical repository source.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
@@ -1902,6 +1932,11 @@
       "depends_on": ["0", "4", "19", "22", "23"],
       "inbound": [
         {
+          "context": "- [ADR-0043](0043-global-immutable-operational-reports.md#decision) — immutable global evidence.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        },
+        {
           "context": "[Global Immutable Operational Reports ADR](../../adrs/0043-global-immutable-operational-reports.md).",
           "from": "operational-reports",
           "fromPath": "docs/reference/features/operational-reports.md"
@@ -1988,6 +2023,11 @@
           "context": "Provider-only plugin components outside a destination's component contract are uncovered: they use `intentionally_skipped`, `policy: default`, an explicit support reason, and `plugin-component-uncover",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
+        },
+        {
+          "context": "This exception does not excuse invalid manifest, skill or MCP content, unsafe paths, conflicting package bytes, unsupported hook event mappings, plugin dependency limitations or unsupported project-us",
+          "from": "plugins",
+          "fromPath": "docs/reference/features/plugins.md"
         }
       ],
       "number": "0046",
@@ -2004,7 +2044,13 @@
       "amends": ["33", "35", "39"],
       "created": "2026-10-29",
       "depends_on": ["0", "32", "33", "35", "39"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [ADR-0047](0047-native-root-agents-md-is-authored-rule-source.md#decision) — native root source exception.",
+          "from": "0048",
+          "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        }
+      ],
       "number": "0047",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md",
@@ -2012,6 +2058,21 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Native Root AGENTS.md Is Authored Rule Source",
+      "updated": "2026-10-29"
+    },
+    {
+      "amended_by": [],
+      "amends": ["22", "24"],
+      "created": "2026-10-29",
+      "depends_on": ["0", "9", "18", "22", "23", "24", "33", "43", "47"],
+      "inbound": [],
+      "number": "0048",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0048-adoption-is-a-reviewable-migration.md",
+      "slug": "adoption-is-a-reviewable-migration",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Adoption Is a Reviewable Migration",
       "updated": "2026-10-29"
     }
   ],
