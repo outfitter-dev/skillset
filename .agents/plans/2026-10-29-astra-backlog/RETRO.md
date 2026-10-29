@@ -1,10 +1,10 @@
 # Execution ledger
 
-## Preparation checkpoint
+## Initial preparation checkpoint (historical)
 
-Status: operating packet prepared; backlog execution has not started. Matt will launch the Astra thread separately.
+At the initial packet-writing checkpoint, the operating packet was prepared and implementation had not started. Later planning and execution checkpoints supersede that status.
 
-This packet records the agreed single-owner workflow, draft PR horizon, disjoint-stack rule, asynchronous review/repair integration, two-round local review budget, and proactive Linear maintenance with necessary durable comments and simple milestone-completion project updates. No Linear records, Notion pages, existing PRs, implementation branches, runtime configuration, or release state were changed by preparation.
+This packet records the agreed single-owner workflow, draft PR horizon, disjoint-stack rule, asynchronous review/repair integration, two-round local review budget, and proactive Linear maintenance with necessary durable comments and simple milestone-completion project updates. The initial packet-writing step changed no Linear records, Notion pages, existing PRs, implementation branches, runtime configuration, or release state. The later Bun planning amendment below records its authorized Linear changes separately.
 
 No new Linear issue was assigned to the documentation task. The executor should use the existing Skillset issues rather than create a duplicate campaign tracker. The six-project catch-up snapshot contained 148 open issues including coordination parents and deferred work; refresh the inventory instead of treating that count as a target.
 
@@ -38,7 +38,7 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 - No milestone completed, so no completion update was posted. No unrelated issues, existing owners or release state changed. Shared Linear agent context was unavailable (`Tool get_agent_context not found`); ordinary issue reads/writes worked.
 - Planning checkout: `docs/agents/astra-backlog-execution`, observed head `0e4c68754`; no execution worktree established. Shell Bun 1.4.4 versus repository pin 1.4.0 remains unchanged. No baseline tests, installs, regeneration or production edits performed.
 - Updated existing milestone 1 and 2 descriptions to name the Bun foundation while preserving SET-760/SET-629 and their existing done criteria. No new project or milestone was created.
-- Planning validation: local-link existence and `git diff --check` passed. Linear read-back verified Backlog state and dependency relations. Full runtime gates were not run because only agent working records changed. No current baseline-green claim. Packet edits remain uncommitted on the preparation branch.
+- Planning validation: local-link existence and `git diff --check` passed. Linear read-back verified Backlog state and dependency relations at that checkpoint. Full runtime gates were not run because only agent working records changed. No baseline-green claim was made. The amendment was subsequently committed on the preparation branch as `771bb00572a8aeff9f3e3287a6d80dbd71d21274`.
 - Next action: owner kickoff, live inventory, then SET-770. Optional built-in adoption does not block runtime qualification.
 
 ### Checkpoint template
