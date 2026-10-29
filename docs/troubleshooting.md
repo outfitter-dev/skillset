@@ -59,6 +59,8 @@ skillset build --repair --yes
 
 Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. If both the generated file and its source changed since the last build, repair refuses that path even with `--discard-edits`; settle the source change first, then repair again. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
 
+Repair writes all selected paths or none. A preserved hand edit, a diverged file, or an untrusted lock blocks every write in that selection, including restoration of a missing file. Review the verdicts, then rerun with a narrower generated path to repair an independent safe selection, or resolve the blocking condition first.
+
 ## A formatter rewrote generated output
 
 Repository formatters such as oxfmt, Prettier, and Biome rewrap Markdown and re-indent JSON. Run over generated output, they make every touched file differ from its [lock](glossary.md#lock), and `skillset check` reports drift. Run over `.skillset/`, they change canonical source, so the next build ships the reformatted bytes as the skill's real content.
