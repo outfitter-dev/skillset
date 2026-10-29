@@ -63,6 +63,8 @@ When generated output itself is damaged rather than edited on purpose, use the d
 
 `build --repair` and `resolve` preview first and write only with `--yes`; `check --write` writes directly, so review `skillset diff` before using it. [Troubleshooting](../troubleshooting.md) covers the symptoms that lead to each one.
 
+A repair selection is all-or-nothing: one preserved hand edit, diverged file, or untrusted lock also blocks restoration of missing files in that selection. Naming one path selects its whole lock item. Narrowing helps only across independent lock items; review the resulting preview before applying it.
+
 ## Record meaningful source changes
 
 When the workspace uses Skillset's change ledger, run `skillset change status` after a source change and add the required reason before shipping. The [Changes reference](../reference/features/changes.md) owns ledger and release details.
