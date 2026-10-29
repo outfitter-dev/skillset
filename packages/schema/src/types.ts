@@ -21,6 +21,7 @@ export type SkillsetSchemaContractId =
   | "hook"
   | "rule-frontmatter"
   | "plugin-config"
+  | "migration-state"
   | "report"
   | "skill-eval"
   | "skill-frontmatter"

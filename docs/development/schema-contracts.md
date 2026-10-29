@@ -47,3 +47,7 @@ Treat any of these as a contract drift smell:
 - a provider override is added at top level outside a known provider block.
 
 Fix drift by moving the shared structural rule into `@skillset/schema`, then adapting compiler and Workbench consumers to that shared result.
+
+## Workspace Migration State
+
+The [migration-state contract](migration-state.md) is a standalone workspace schema owned by `@skillset/schema`. Its descriptors and runtime validator share the field definitions; Core owns stable identity and guarded persistence, and Workbench uses the shared structural diagnostics. It is separate from adaptive source fields and package-facing release hashes.

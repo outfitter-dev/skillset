@@ -562,3 +562,8 @@ export {
   type PortableMcpStdioServer,
   type UnsupportedPortableMcpServer,
 } from "./portable-mcp";
+
+export { MIGRATION_STATE_PATH, hashMigrationState, readMigrationState, planMigrationStateWrite } from "./migration-state";
+export type { MigrationStateSnapshot } from "./migration-state";
+export { reconcileMigrationState } from "./migration-state-reconcile";
+export type { MigrationReconciliation, MigrationReconciliationDiagnostic } from "./migration-state-reconcile";

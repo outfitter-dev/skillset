@@ -1,5 +1,14 @@
 # Execution ledger
 
+### Current checkpoint — October 29, 15:08 EDT
+
+- Primary owns `skillset-astra`, stack #741. SET-700 runtime checkpoint `494a5eb848f289148732be1f1a0cb0c21d92f3cc` is published in draft #760; exact full verification finished with 3853 pass, 2 skip, 4 todo, and the three deferred native-size failures. Post-test package, docs, source/output, and Ultracite checks passed separately. No full passing receipt is claimed. Native/adoption external findings were repaired at their owners, restacked, independently revalidated, published, and their addressed threads resolved.
+- SET-437 ADR-0048 is published in draft #761 at `88e6d090f69b84a84899732ca0361a6f8aa74c4c`, with round-two review 5/5, ADR/docs gates green, and Linear design/project ownership aligned. Its runtime parent evidence is historical; no separate full receipt is claimed for the documentation child.
+- SET-446 is the current uncommitted child: schema-owned versioned flags and history, shared Workbench diagnostics, Core deterministic identity/reconciliation, guarded `.skillset/adopt/state.json` writes, and a separate state hash. Focused proof passes 14 tests/102 assertions; typecheck, schema freshness, docs, and Changesets checks pass. Missing observations preserve records; ambiguous/duplicate/changed evidence returns unchanged state. Inline marker parsing/hash exclusion remains SET-436, and lifecycle/readiness remains SET-438. Commit review and immutable aggregate verification are next.
+- Matt's latest direction winds down the separate Astra lanes after current coherent work. Astra-2 is finishing SET-777, including narrowly transferred `portable-mcp.ts` placeholder-boundary logic and its tests; primary verified these paths had no cumulative overlap. Astra-3's exact SET-685 `317a8f4f` full run has 3870 pass and only three deferred native-size failures; it is completing the post-test tail and handoff. Its SET-679 TF-013 proposal was not started and is deferred. No new rolling pickups are assigned to either lane.
+- Primary will acknowledge comprehensive lane handoffs and integrate only after writers are idle and ancestry/overlap are checked. Separate stack refs remain owned by their lanes until handoff. Fast mode remains off. No merge, readiness transition, publication, global configuration, or native-size waiver is implied.
+
+
 ### October 29, 14:36 settlement checkpoint
 
 - Native root, adoption, and onboarding are published as drafts #751, #752, and #753. SET-691's live-inspection repair is committed at `23f8379aa`; it preserves successful isolated build evidence and withholds live-build advice on inspection failure. SET-689's JSON config-write inventory repair is `d6263959e`. Those repairs and new downstream layers still need final restack/publication.

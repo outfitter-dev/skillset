@@ -1,0 +1,482 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/migration-state.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "flags": {
+      "items": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "disposition": {
+                "enum": [
+                  "proven-normalization",
+                  "ambiguous",
+                  "provider-native",
+                  "lossy-unsupported",
+                  "omitted-dependency-scope"
+                ]
+              },
+              "evidence": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "reference": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "summary": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "summary"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "fingerprints": {
+                "additionalProperties": false,
+                "properties": {
+                  "content": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "context": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "content",
+                  "context"
+                ],
+                "type": "object"
+              },
+              "history": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "state": {
+                      "enum": [
+                        "accepted",
+                        "resolved"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "reason",
+                    "at"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "id": {
+                "pattern": "^adopt-[a-z0-9][a-z0-9-]{3,63}$",
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "origin": {
+                "additionalProperties": false,
+                "properties": {
+                  "column": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "placement": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "inline"
+                      },
+                      "label": {
+                        "enum": [
+                          "todo",
+                          "fix"
+                        ]
+                      },
+                      "line": {
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "label",
+                      "line"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "sidecar"
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "pattern": "\\S",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "reason"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "relatedReportIds": {
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "severity": {
+                "enum": [
+                  "error",
+                  "warning",
+                  "info"
+                ]
+              },
+              "source": {
+                "additionalProperties": false,
+                "properties": {
+                  "column": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "state": {
+                "const": "open"
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "severity",
+              "state",
+              "disposition",
+              "message",
+              "source",
+              "fingerprints",
+              "placement",
+              "evidence",
+              "relatedReportIds",
+              "history"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "disposition": {
+                "enum": [
+                  "proven-normalization",
+                  "ambiguous",
+                  "provider-native",
+                  "lossy-unsupported",
+                  "omitted-dependency-scope"
+                ]
+              },
+              "evidence": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "reference": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "summary": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "summary"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "fingerprints": {
+                "additionalProperties": false,
+                "properties": {
+                  "content": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "context": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "content",
+                  "context"
+                ],
+                "type": "object"
+              },
+              "history": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+                      "type": "string"
+                    },
+                    "reason": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "state": {
+                      "enum": [
+                        "accepted",
+                        "resolved"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "reason",
+                    "at"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "id": {
+                "pattern": "^adopt-[a-z0-9][a-z0-9-]{3,63}$",
+                "type": "string"
+              },
+              "message": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "origin": {
+                "additionalProperties": false,
+                "properties": {
+                  "column": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "placement": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "inline"
+                      },
+                      "label": {
+                        "enum": [
+                          "todo",
+                          "fix"
+                        ]
+                      },
+                      "line": {
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "label",
+                      "line"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "sidecar"
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "pattern": "\\S",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "reason"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "relatedReportIds": {
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "resolution": {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reason",
+                  "at"
+                ],
+                "type": "object"
+              },
+              "severity": {
+                "enum": [
+                  "error",
+                  "warning",
+                  "info"
+                ]
+              },
+              "source": {
+                "additionalProperties": false,
+                "properties": {
+                  "column": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "state": {
+                "enum": [
+                  "accepted",
+                  "resolved"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "severity",
+              "state",
+              "disposition",
+              "message",
+              "source",
+              "fingerprints",
+              "placement",
+              "evidence",
+              "relatedReportIds",
+              "history",
+              "resolution"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": "skillset.migration-state@1"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "flags"
+  ],
+  "title": "Skillset Migration State",
+  "type": "object"
+}

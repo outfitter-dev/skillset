@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "skillset.migration-state@1",
+  "flags": [
+    {
+      "id": "adopt-0123456789abcdef01234567",
+      "code": "ambiguous-document-reference",
+      "severity": "error",
+      "state": "open",
+      "disposition": "ambiguous",
+      "message": "Review whether this names a literal file or the guidance role.",
+      "source": {
+        "path": ".skillset/skills/demo/SKILL.md",
+        "line": 5,
+        "column": 1
+      },
+      "origin": {
+        "path": ".claude/skills/demo/SKILL.md",
+        "line": 4
+      },
+      "fingerprints": {
+        "content": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "context": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "placement": {
+        "kind": "inline",
+        "label": "todo",
+        "line": 4
+      },
+      "evidence": [
+        {
+          "summary": "Literal filename has no explicit role declaration.",
+          "reference": "fixture:literal-guidance"
+        }
+      ],
+      "relatedReportIds": [
+        "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5"
+      ],
+      "history": []
+    },
+    {
+      "id": "adopt-fedcba9876543210fedcba987",
+      "code": "provider-native-operation",
+      "severity": "warning",
+      "state": "accepted",
+      "disposition": "provider-native",
+      "message": "Keep the provider-specific procedure in its native boundary.",
+      "source": {
+        "path": ".skillset/_claude/settings.json"
+      },
+      "fingerprints": {
+        "content": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "context": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "placement": {
+        "kind": "sidecar",
+        "reason": "JSON and native islands do not carry inline migration anchors."
+      },
+      "evidence": [
+        {
+          "summary": "Provider-specific procedure has no portable counterpart."
+        }
+      ],
+      "relatedReportIds": [],
+      "resolution": {
+        "reason": "The author intentionally retains the native procedure.",
+        "at": "2026-10-29T18:00:00.000Z"
+      },
+      "history": [
+        {
+          "state": "resolved",
+          "reason": "An earlier alternative was replaced after review.",
+          "at": "2026-10-28T18:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}
