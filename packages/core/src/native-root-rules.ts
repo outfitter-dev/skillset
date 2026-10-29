@@ -65,7 +65,7 @@ export async function resolveNativeRootRuleSource(
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return [];
     throw error;
   });
-  if (rootRules.some((entry) => entry.isFile() && entry.name.endsWith(".md"))) {
+  if (rootRules.some((entry) => (entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith(".md"))) {
     throw new Error("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
   }
   const sourceContent = await readFile(path, "utf8");

@@ -259,6 +259,7 @@ async function applySetupPlan(
         }];
       });
       await applyWorkspaceTransaction(rootPath, {
+        absentDirectoryFiles: [{ directory: ".skillset/rules", suffix: ".md" }],
         readOnlyInputs: [
           { path: "AGENTS.md", content: nativeSource.sourceContent },
           ...(!writes.some((file) => file.path === "skillset.lock")

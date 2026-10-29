@@ -2213,6 +2213,7 @@ async function applyRenderedFileTransaction(
     rootPath,
     {
       ...(nativeSource === undefined ? {} : {
+        absentDirectoryFiles: [{ directory: ".skillset/rules", suffix: ".md" }],
         readOnlyInputs: [
           { path: "AGENTS.md", content: nativeSource.sourceContent },
           { path: ".skillset/RULES.md" },

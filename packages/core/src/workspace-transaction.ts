@@ -95,6 +95,8 @@ export interface WorkspaceTransactionExpectedSourceTree {
 export interface WorkspaceTransactionPlan {
   /** Authored files this operation reads but never owns or writes. */
   readonly readOnlyInputs?: readonly { readonly path: string; readonly content?: string }[];
+  /** Direct files with this suffix must remain absent; unrelated scaffold entries are permitted. */
+  readonly absentDirectoryFiles?: readonly { readonly directory: string; readonly suffix: string }[];
   readonly appends?: readonly WorkspaceTransactionAppend[];
   readonly copies?: readonly WorkspaceTransactionCopy[];
   readonly deletes?: readonly string[];
@@ -367,6 +369,7 @@ export async function applyWorkspaceTransaction(
     })) throw transactionError(`read-only input overlaps mutation: ${input.path.relative}`);
   }
   await assertReadOnlyInputs(resolvedWorkspaceRoot, readOnlyInputs);
+  await assertDirectoryFileAbsence(resolvedWorkspaceRoot, plan.absentDirectoryFiles ?? []);
   assertExpectedAbsentWriteTargets(prepared, initialEntries);
   assertCopyTargetCollisions(prepared, initialEntries);
   await assertMoveTargetCollisions(prepared, initialEntries);
@@ -418,6 +421,7 @@ export async function applyWorkspaceTransaction(
       await removeEmptyOperationAncestors(state, prepared);
     }
     await assertReadOnlyInputs(resolvedWorkspaceRoot, readOnlyInputs);
+    await assertDirectoryFileAbsence(resolvedWorkspaceRoot, plan.absentDirectoryFiles ?? []);
     await cleanupCommittedTransaction(state);
     return {
       appendedPaths: [...new Set(state.appliedAppends.map((append) => append.path.relative))].toSorted(compareStrings),
@@ -434,6 +438,24 @@ export async function applyWorkspaceTransaction(
       throw new WorkspaceTransactionRollbackError(error, rollbackFailures);
     }
     throw error;
+  }
+}
+
+async function assertDirectoryFileAbsence(
+  root: string,
+  inputs: readonly { readonly directory: string; readonly suffix: string }[]
+): Promise<void> {
+  for (const input of inputs) {
+    const path = normalizePath(root, input.directory);
+    const entry = await inspectPath(root, path);
+    if (entry === undefined) continue;
+    if (!entry.isDirectory() || entry.isSymbolicLink()) {
+      throw transactionError(`read-only directory changed since planning: ${path.relative}`);
+    }
+    const children = await readdir(path.absolute, { withFileTypes: true });
+    if (children.some((child) => (child.isFile() || child.isSymbolicLink()) && child.name.endsWith(input.suffix))) {
+      throw transactionError(`read-only directory file set changed since planning: ${path.relative}`);
+    }
   }
 }
 

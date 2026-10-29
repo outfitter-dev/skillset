@@ -142,6 +142,20 @@ describe("native root rule source", () => {
     expect(await Bun.file(join(root, ".claude/CLAUDE.md")).exists()).toBe(false);
   });
 
+  it("rolls back native selection when an unscoped rule appears during staging or installation", async () => {
+    for (const phase of ["beforeInitialInspection", "beforeWriteInstall"] as const) {
+      const root = await fixture();
+      const path = join(root, ".skillset/rules/late.md");
+      await expect(buildSkillsetResult(root, {}, { transactionOptions: { testHooks: {
+        [phase]: async () => { await writeFile(path, "# Concurrent root guidance\n"); },
+      } } })).rejects.toThrow("read-only directory file set changed");
+      expect(await readFile(path, "utf8")).toBe("# Concurrent root guidance\n");
+      expect(await readFile(join(root, "skillset.yaml"), "utf8")).toBe(config);
+      expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(authored);
+      expect(await Bun.file(join(root, ".claude/CLAUDE.md")).exists()).toBe(false);
+    }
+  });
+
   it("preserves late ownership evidence and rejects changes to declared configuration", async () => {
     const root = await fixture();
     await expect(buildSkillsetResult(root, {}, { transactionOptions: { testHooks: {
