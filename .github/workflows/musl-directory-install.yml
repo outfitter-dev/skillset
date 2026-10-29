@@ -52,12 +52,12 @@ jobs:
       - name: Prove source and compiled directory installation on musl
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
-        # oven/bun:1.4.0-alpine, multi-architecture manifest pinned to its bytes.
+        # oven/bun:1.4.4-alpine, multi-architecture manifest pinned to its bytes.
         run: |
           docker run --rm \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" \
             --workdir /workspace --env EXPECTED_ARCH \
-            oven/bun@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb \
+            oven/bun@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a \
             sh -ec '
               test "$(bun --version)" = "$(cat .bun-version)"
               test "$(bun -p process.arch)" = "$EXPECTED_ARCH"
