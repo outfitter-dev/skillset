@@ -1,12 +1,6 @@
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
-const PROVIDER_TYPES: Readonly<Record<string, "streamable-http">> = {
-  http: "streamable-http",
-  streamableHttp: "streamable-http",
-  streamable_http: "streamable-http",
-};
-
 /** Reverse a provider MCP dialect into Skillset's canonical portable source. */
 export function normalizeImportedMcpSource(
   value: JsonValue,
@@ -58,18 +52,19 @@ function normalizeImportedServer(
       (entry): entry is [string, JsonValue] => entry[1] !== undefined
     )
   );
-  const { type } = normalized;
-  if (
-    target !== "agent-plugins" &&
-    typeof type === "string" &&
-    PROVIDER_TYPES[type] !== undefined
-  ) {
-    normalized.type = PROVIDER_TYPES[type];
+  // Only Claude's documented HTTP spelling has this exact native equivalent.
+  // Other aliases remain visible to portable-source validation instead of guessing.
+  if (target === "claude" && normalized.type === "http") {
+    normalized.type = "streamable-http";
   }
+  // Codex defines URL-only servers as Streamable HTTP. Cursor's same shape can
+  // mean HTTP or SSE; Claude requires an explicit remote type. A command also
+  // makes the source contradictory, so leave it for the existing validator.
   if (
+    target === "codex" &&
     normalized.type === undefined &&
-    normalized.url !== undefined &&
-    target !== "agent-plugins"
+    normalized.command === undefined &&
+    normalized.url !== undefined
   ) {
     normalized.type = "streamable-http";
   }
