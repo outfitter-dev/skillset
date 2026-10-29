@@ -239,13 +239,13 @@ claude: false
 codex: true
 cursor: false
 `,
-      ".skillset/rules/root.md": "# Generated instructions\n",
+      ".skillset/rules/app/root.md": "# Generated instructions\n",
       ".skillset/tests.yaml": `
 blocked:
   checks:
     projection: true
 `,
-      "AGENTS.md": "# Unmanaged instructions\n",
+      "app/AGENTS.md": "# Unmanaged instructions\n",
     });
 
     const loaded = await loadSkillsetTestDeclaration(
@@ -280,7 +280,7 @@ blocked:
     expect(evaluation.generatedFiles).toBeGreaterThan(0);
     expect(evaluation.rendered.length).toBe(evaluation.generatedFiles);
     expect(evaluation.renderResults.length).toBeGreaterThan(0);
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(
+    expect(await readFile(join(root, "app/AGENTS.md"), "utf8")).toBe(
       "# Unmanaged instructions\n"
     );
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(

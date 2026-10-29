@@ -2,7 +2,7 @@ import { lstat, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseGeneratedLock } from "./generated-lock";
-import { readInspectableGeneratedLockFromDisk } from "./generated-lock-read";
+import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { updateYamlSourceDocument } from "./source-document";
 import { isJsonRecord } from "./yaml";
 
@@ -42,7 +42,7 @@ export async function resolveNativeRootRuleSource(
   }
   const lockContent = await readOptional(join(rootPath, "skillset.lock"));
   if (lockContent !== undefined) {
-    const inspected = await readInspectableGeneratedLockFromDisk(join(rootPath, "skillset.lock"), {
+    const inspected = await readCurrentGeneratedLockFromDisk(join(rootPath, "skillset.lock"), {
       logicalPath: "skillset.lock", provenance: "inspect", readText: async () => lockContent,
     });
     if (inspected.kind !== "present") throw new Error("skillset: ownership lock disappeared");

@@ -3950,10 +3950,10 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/rules/root.md": `
+    ".skillset/rules/app/root.md": `
 # Root Rule
 `,
-    "AGENTS.md": `
+    "app/AGENTS.md": `
 # Existing Instructions
 `,
   });
@@ -3961,12 +3961,12 @@ codex: true
   const result = await buildSkillsetResult(root);
   expect(result.diagnostics).toContainEqual(expect.objectContaining({
     code: "unmanaged-output-collision",
-    outputPath: "AGENTS.md",
+    outputPath: "app/AGENTS.md",
   }));
   expect(result.ok).toBe(false);
   expect(result.writes.paths).toEqual([]);
-  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
-  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(false);
+  expect(await readFile(join(root, "app/AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+  expect(await exists(join(root, ".claude/rules/app/root.md"))).toBe(false);
   expect(await exists(join(root, ".skillset/snapshots"))).toBe(false);
 });
 
