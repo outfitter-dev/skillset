@@ -15,6 +15,12 @@ For source/config/frontmatter fields, follow `docs/development/schema-contracts.
 
 For repository documentation, follow `docs/development/documentation-system.md`. It defines local ownership, generation, validation, migration accounting, and review expectations under the shared documentation doctrine.
 
+## Transform safety
+
+Follow the transform review contract in `CONTRIBUTING.md` and the meaning-before-syntax tenet. Do not infer portable intent solely from ambiguous tokens, filenames, provider names or directory prefixes. Exact mappings require current source and destination evidence at the recognizer's full breadth; one matched span never authorizes unrelated whole-document lowering.
+
+Inspect recognizers, lowering and exception validators together. Include positive semantic cases and nearby negatives such as `@alice`, `@media`, package scopes, fences and `.claude/` marketplace paths. Reversibility, plausible output, metadata and a passing finite corpus do not establish provider equivalence. Preserve ambiguity or keep it provider-native; report loss/unsupported destinations through existing contracts. Exceptions name an owner, rationale, exact target scope, evidence and regression cases.
+
 ## Responsibilities
 
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.

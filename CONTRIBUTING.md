@@ -64,6 +64,18 @@ Use a Conventional Commit-style title. Explain the context, what changed, how yo
 
 Use plain git for a single branch. For stacked work, use [`gh stack`](https://github.com/github/gh-stack) (`gh extension install github/gh-stack`). Update a branch by restacking it onto trunk: `git rebase` for a single branch, or `gh stack rebase` for a stack. `gh stack rebase` rewrites every branch in the stack and `gh stack sync` also force-pushes them all and updates their PRs, so run either only on a stack you own entirely, and `sync` only when you mean to push. Do not merge trunk into a branch: on a branch that ran `skillset release apply`, `bun run change-stream:guard` rejects the result.
 
+### Review transform recognition and lowering together
+
+Apply [Recognize meaning before rewriting syntax](docs/project/tenets.md#recognize-meaning-before-rewriting-syntax) when adding or widening a transform, detector, automatic dialect declaration, or provider adapter. Review the entire accepted shape, including regex captures and surrounding context, against current primary evidence for both the source meaning and each destination's representation. Evidence that merely mentions both providers is insufficient.
+
+For example, `@alice`, CSS `@media`, decorators and `@scope/package` do not establish a file-reference or invocation intent. A `.claude/` prefix does not establish a corresponding `.codex/` tree: rewriting `.claude/plugins/marketplaces` to `.codex/plugins/marketplaces` invents a destination even if reversing the replacement restores every byte. Fences, inline examples and prose comparing `CLAUDE.md` with `AGENTS.md` also need collision coverage.
+
+A positive control must define both meanings. A test-only `source-intent:demo` → `target-intent:demo` protocol can prove dispatch when its contract explicitly defines that equivalence; it cannot prove a real provider capability. Production lowering needs the actual provider contract and tests of the preserved behavior. Match supported examples with nearby negative cases and inspect the resulting bytes. One recognized span must not silently opt unrelated document content into translation.
+
+PR evidence must identify the recognized meaning, destination contract, semantic tests, negative corpus, and explicit disposition for ambiguity or loss. Unknown meaning stays preserved or provider-native; loss and unsupported destinations use the owning result contract. An exception names its owner, rationale, exact scope, evidence date, limitations and regression cases. Review recognizers, renderers and exception validators together so a scoped exception cannot become a general bypass.
+
+Automated checks can enforce entry structure and deliberate test coverage. They cannot establish that a cited provider document supports an arbitrary recognizer, that evidence remains current, or that every semantic collision is covered. Reviewers own those judgments. Follow the [fixture evidence contract](fixtures/README.md#transform-and-conformance-evidence) and rebuild any changed `.skillset/` guidance before checking generated output.
+
 ### Review agent work against an exact commit
 
 When several agents work in parallel, keep one writer per worktree. A reviewing agent edits nothing. It reads the exact commit under review (`git show <sha>`, `git diff <base-sha>..<sha>`, or a detached checkout of `<sha>` in its own worktree) and reports findings against that SHA. If the reviewer should fix something, hand the finding back to the worktree's owner, or give the reviewer its own worktree on a separate branch.

@@ -42,6 +42,16 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 - A separate bun run docs:check failed on the same golden-path generated-output drift. The packet is under .agents/, outside the product documentation gate. These failures are evidence for the executor to classify against its current baseline, not proof of a new defect caused by the packet.
 - Latest user steering is incorporated: proactive Linear hygiene, issue comments only for necessary future reference, and a simple project update for each genuinely completed milestone.
 
+## Current execution checkpoint — October 29, 18:15 UTC
+
+The primary owner is `skillset-astra` on stack #741. SET-689 [#751](https://github.com/outfitter-dev/skillset/pull/751), SET-691 [#752](https://github.com/outfitter-dev/skillset/pull/752) and SET-707 [#753](https://github.com/outfitter-dev/skillset/pull/753) are published drafts at `7421faf4`, `0f767da2` and `4f123a3d`. Independent reviews are clean at those heads. Immutable full runs pass 3,840 / 3,845 / 3,845 tests respectively with only the three deferred native-size failures; post-test packaging, documentation, generated/source and Ultracite checks pass separately. No passing receipt, readiness, merge or release is claimed. Hosted applicable draft checks pass; full hosted checks are skipped while draft.
+
+New external review on #752 identifies a possible isolated-build/live-inspection reporting conflation and an ordinary init update-inventory gap in the native parent. These are under targeted verification and will be repaired at their owning layers before downstream settlement. Current exact-head reviews do not settle newly reported findings.
+
+Rolling ownership: primary owns the SET-434 canonical policy companion (tenets, CONTRIBUTING, fixtures README, root rules and compiler skill plus generated output), followed by SET-700 component/provider reference alignment. Astra-2 owns SET-434 package enforcement at `8acc110e`, then a bounded SET-447 capability/lookup slice in explicitly reserved registry and lookup files. SET-442 remains blocked by migration flag/ledger contracts; no substitute ledger is authorized. Astra-3 owns SET-511 draft #754, then SET-685 bootstrap child-environment fixes in bootstrap.sh, bootstrap/{main,repo,shared}.ts and a new dedicated test. Existing bootstrap.test.ts remains primary-owned. Each lane keeps its own writer and exact-head evidence; full runs are staggered.
+
+The canonical policy companion defines hard-coded transforms, evidence breadth, whole-document authority limits, negative examples, explicit loss handling and exception ownership. It does not claim that structural validation or a finite corpus proves semantics, or that the separate package gate is already integrated into this branch. Root and compiler-skill guidance were rebuilt from `.skillset/` with a new change entry and supported evidence refresh; no generated file was authored directly. SET-433/434 remain incomplete until the lanes' policy, remediation and acceptance evidence are reconciled.
+
 ## Checkpoint format
 
 ### October 29 Bun foundation planning amendment
