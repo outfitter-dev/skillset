@@ -315,3 +315,17 @@ test.each([
   expect(await readFile(path, "utf8")).toBe(original);
   expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
 });
+
+ test.each(["$CLAUDE_PLUGIN_ROOTED", "$CLAUDE_PLUGIN_DATASET", "$CLAUDE_PLUGIN_ROOT_OLD", "$CLAUDE_PLUGIN_DATA2"])(
+  "Claude MCP import preserves longer literal identifiers through validation: %s", async (value) => {
+    const { external, root } = await roots();
+    await writeJson(join(external, ".claude-plugin/plugin.json"), { name: "demo", description: "Demo" });
+    const path = join(external, ".mcp.json");
+    const input = { mcpServers: { local: { command: "node", args: [value], env: { VALUE: value } } } };
+    await writeJson(path, input);
+    const original = await readFile(path, "utf8");
+    const report = await importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: external });
+    expect(JSON.parse(await readFile(join(report.targetPath, ".mcp.json"), "utf8"))).toEqual(input);
+    expect(await readFile(path, "utf8")).toBe(original);
+  }
+);
