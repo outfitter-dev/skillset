@@ -63,7 +63,7 @@ When generated output itself is damaged rather than edited on purpose, use the d
 
 `build --repair` and `resolve` preview first and write only with `--yes`; `check --write` writes directly, so review `skillset diff` before using it. [Troubleshooting](../troubleshooting.md) covers the symptoms that lead to each one.
 
-A repair selection is all-or-nothing: one preserved hand edit, diverged file, or untrusted lock also blocks restoration of missing files in that selection. Review the verdicts and narrow the selected generated paths when the safe repairs can proceed independently.
+A repair selection is all-or-nothing: one preserved hand edit, diverged file, or untrusted lock also blocks restoration of missing files in that selection. Naming one path selects its whole lock item. Narrowing helps only across independent lock items; review the resulting preview before applying it.
 
 ## Record meaningful source changes
 

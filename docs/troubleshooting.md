@@ -59,7 +59,7 @@ skillset build --repair --yes
 
 Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. If both the generated file and its source changed since the last build, repair refuses that path even with `--discard-edits`; settle the source change first, then repair again. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
 
-Repair writes all selected paths or none. A preserved hand edit, a diverged file, or an untrusted lock blocks every write in that selection, including restoration of a missing file. Review the verdicts, then rerun with a narrower generated path to repair an independent safe selection, or resolve the blocking condition first.
+Repair writes all selected paths or none. A preserved hand edit, a diverged file, or an untrusted lock blocks every write in that selection, including restoration of a missing file. A named path selects every file in the same lock item, so narrowing only helps when the safe files belong to independent lock items. Review the narrower preview before applying it, or resolve the blocking condition first.
 
 ## A formatter rewrote generated output
 
