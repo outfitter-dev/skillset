@@ -152,3 +152,36 @@ test("optional tools present only in a virtualenv are reported missing without a
     { name: "bun", present: true, version: Bun.version },
   ]);
 });
+
+test("Windows Path casing uses the same cleaned value for probes and spawned children", async () => {
+  const root = await createTestFixtureRoot("skillset-hermes-windows-path-");
+  const virtual = join(root, "venv");
+  const bin = join(virtual, "Scripts");
+  await mkdir(bin, { recursive: true });
+  const tool = `skillset-hermes-path-only${process.platform === "win32" ? ".exe" : ""}`;
+  await copyFile(process.execPath, join(bin, tool));
+  const toolsModule = join(import.meta.dir, "..", "bootstrap", "tools.ts");
+  const probe = `
+    // Isolated simulation on non-Windows hosts; CI also runs this on Windows.
+    Object.defineProperty(process, "platform", { value: "win32" });
+    const { collectToolStatus } = await import(${JSON.stringify(toolsModule)});
+    console.log(JSON.stringify(collectToolStatus([${JSON.stringify(tool)}, "bun"], ${JSON.stringify(root)})));
+  `;
+  const env = {
+    ...process.env,
+    VIRTUAL_ENV: virtual,
+    Path: [bin, process.env.PATH].join(delimiter),
+  };
+  delete (env as NodeJS.ProcessEnv).PATH;
+  const result = Bun.spawnSync([process.execPath, "--eval", probe], {
+    env,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  expect(result.exitCode).toBe(0);
+  expect(new TextDecoder().decode(result.stderr)).toBe("");
+  expect(JSON.parse(new TextDecoder().decode(result.stdout))).toEqual([
+    { name: tool, present: false },
+    { name: "bun", present: true, version: Bun.version },
+  ]);
+});

@@ -35,6 +35,16 @@ const bootstrapChildEnv = (
         )
     )
   );
+  // Windows environment keys are case-insensitive; the plain copy is not.
+  if (process.platform === "win32") {
+    const pathKey = Object.keys(env).find(
+      (key) => key.toUpperCase() === "PATH"
+    );
+    if (pathKey !== undefined && pathKey !== "PATH") {
+      env.PATH = env[pathKey];
+      delete env[pathKey];
+    }
+  }
   if (source.VIRTUAL_ENV !== undefined && env.PATH !== undefined) {
     const virtualBin = join(
       source.VIRTUAL_ENV,
