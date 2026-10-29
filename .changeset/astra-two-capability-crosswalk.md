@@ -1,5 +1,4 @@
 ---
-"@skillset/core": minor
 "@skillset/cli": minor
 ---
 

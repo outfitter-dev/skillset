@@ -245,7 +245,7 @@ export function compareCapability(
         },
         fidelity: assessment.fidelity,
         authorityHash,
-        implementationEvidence: judgment === undefined ? [] : CAPABILITY_IMPLEMENTATION_EVIDENCE,
+        implementationEvidence: judgment === undefined ? [] : CAPABILITY_IMPLEMENTATION_EVIDENCE.filter(({ path }) => judgment.implementationPaths.includes(path)),
         ...(judgment === undefined ? {} : { semanticScope: judgment.scope }),
         limitations: [...assessment.reasons, ...(judgment?.limitations ?? []), ...(support.reason === undefined ? [] : [support.reason]),
           "Fidelity is scoped to the pinned registry contract and reviewed implementation. The regression gate requires re-review when cited implementation files change; lookup does not inspect source files in an installed package.",
@@ -259,6 +259,7 @@ export function compareCapability(
 
 
 export interface CapabilityJudgment {
+  readonly implementationPaths: readonly string[];
   readonly capabilityId: string;
   readonly featureId: SkillsetFeatureId;
   readonly target: TargetName;
@@ -308,36 +309,42 @@ export function assessPinnedCapabilityJudgment(
 const judgments: readonly CapabilityJudgment[] = [
   {
     capabilityId: "skill-invocation", featureId: "skill-invocation-policy", target: "codex", fidelity: "exact",
+    implementationPaths: ["packages/core/src/render-codex-skill-sidecars.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is represented directly as policy.allow_implicit_invocation in agents/openai.yaml.",
     limitations: ["Scope is invocation eligibility only, not model compliance or user invocation. Explicit provider overrides are outside this judgment.", "Implementation proof: packages/core/src/__tests__/skill-invocation-policy.test.ts; render-codex-skill-sidecars.ts."],
     authorityHash: "sha256:f75055451ba906f201a1000360ac42e05696f5b5e3bc547c1bac66eb26b76fa9",
   },
   {
     capabilityId: "skill-invocation", featureId: "skill-invocation-policy", target: "claude", fidelity: "equivalent",
+    implementationPaths: ["packages/core/src/render.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is inverted into disable-model-invocation; false eligibility becomes true disablement and vice versa.",
     limitations: ["Scope is invocation eligibility only; this does not disable explicit user invocation or prove runtime enforcement. Explicit provider overrides are outside this judgment.", "Implementation proof: packages/core/src/__tests__/skill-invocation-policy.test.ts; render.ts."],
     authorityHash: "sha256:881316c3151aa8e4da5994858106862812011cdb4314968051d1c1f09a5adc68",
   },
   {
     capabilityId: "project-agents", featureId: "project-agents", target: "codex", fidelity: "partial",
+    implementationPaths: ["packages/core/src/render.ts", "packages/core/src/project-agent-skills.ts", "packages/core/src/__tests__/project-agent-skills.test.ts", "apps/skillset/src/__tests__/skillset.test.ts", "docs/reference/features/agents.md"],
     scope: "Project-agent name, description and instructions receive native TOML fields; shared skill-loading intent is only an instruction preface.",
     limitations: ["The skills preface is advisory, not target-enforced skill metadata. Provider-only fields require explicit provider configuration.", "Implementation proof: apps/skillset/src/__tests__/skillset.test.ts and docs/reference/features/agents.md."],
     authorityHash: "sha256:9ef3d5e5bfab312cb15b3d4455ff914c136c78223e70c0d0aa87dcc9096b5601",
   },
   {
     capabilityId: "project-rules", featureId: "project-instructions", target: "codex", fidelity: "synthesized",
+    implementationPaths: ["packages/core/src/render-rules.ts", "packages/core/src/render-standard-instructions.ts", "packages/core/src/__tests__/render-standard-instructions.test.ts", "docs/reference/features/rules.md"],
     scope: "Rules with literal directory scope and no paths narrowing are combined in deterministic source-path order into the directory AGENTS.md.",
     limitations: ["This judgment excludes paths narrowing, which is degraded, and wildcard scopes, which are unsupported. Native context limits and AGENTS.override.md shadowing still apply.", "Implementation proof: packages/core/src/__tests__/render-standard-instructions.test.ts and docs/reference/features/rules.md."],
     authorityHash: "sha256:bbeafbbf025b130dafbeb55deeaaad150e64ed7c7e58543e4269a3de7bd9bd40",
   },
   {
     capabilityId: "native-hooks", featureId: "plugin-hooks", target: "claude", fidelity: "provider-only",
+    implementationPaths: ["packages/core/src/hooks.ts", "packages/core/src/render-hooks.ts", "packages/core/src/hook-capabilities.ts", "docs/reference/features/hooks.md"],
     scope: "Claude-native plugin hook declarations retain Claude event and handler semantics through validated pass-through.",
     limitations: ["The declaration is provider-native; identically spelled events on other providers do not establish equivalence. Use adaptive hooks for explicitly supported adaptation.", "Implementation proof: packages/core/src/hooks.ts and render-hooks.ts; docs/reference/features/hooks.md."],
     authorityHash: "sha256:69cdb29880ac838f610030b9a714229efeb9fa034c35cd909426e1a0f5ac65fd",
   },
   {
     capabilityId: "plugin-agents", featureId: "plugin-agents", target: "codex", fidelity: "unavailable",
+    implementationPaths: ["packages/core/src/render.ts", "apps/skillset/src/__tests__/skillset.test.ts", "docs/reference/features/agents.md"],
     scope: "The pinned Codex plugin contract has no plugin agents component; Skillset cannot faithfully emit plugin-packaged agents there.",
     limitations: ["This is a plugin-packaging limitation. It does not mean Codex project agents are unavailable.", "Implementation proof: feature plugin-agents unsupportedDestinations and docs/reference/features/agents.md."],
     authorityHash: "sha256:2f53e3b41d9d118724b6c36a899dfb54c0eff3d52bb66fbc0f9f532fa16fccb0",

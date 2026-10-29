@@ -108,7 +108,7 @@ describe("pinned semantic judgments", () => {
     }
   });
   test("changed or absent pinned evidence invalidates a previously exact judgment", () => {
-    const judgment: CapabilityJudgment = { capabilityId: "example", featureId: "example", target: "codex", fidelity: "exact", scope: "Explicit synthetic protocol.", limitations: [], authorityHash: "reviewed" };
+    const judgment: CapabilityJudgment = { implementationPaths: [], capabilityId: "example", featureId: "example", target: "codex", fidelity: "exact", scope: "Explicit synthetic protocol.", limitations: [], authorityHash: "reviewed" };
     expect(assessPinnedCapabilityJudgment(judgment, "reviewed").fidelity).toBe("exact");
     expect(assessPinnedCapabilityJudgment(judgment, "updated")).toEqual({ fidelity: "unknown", reasons: ["example:example:codex: stale"] });
     expect(assessPinnedCapabilityJudgment(judgment, undefined)).toEqual({ fidelity: "unknown", reasons: ["example:example:codex: missing"] });
@@ -148,4 +148,14 @@ describe("reviewed implementation evidence", () => {
     expect(compareCapability(changed, ["codex"])[0]?.fidelity).toBe("unknown");
     expect(compareCapability(changed, ["codex"])[0]?.limitations.join(" ")).toContain("stale");
   });
+});
+
+
+test("per-capability implementation evidence excludes unrelated hook and rule files", () => {
+  const invocation = compareCapability(findCapabilities("skill-invocation")[0]!, ["codex"])[0]!;
+  expect(invocation.implementationEvidence.map(({ path }) => path)).toContain("packages/core/src/render-codex-skill-sidecars.ts");
+  expect(invocation.implementationEvidence.some(({ path }) => path.includes("hook") || path.includes("rule"))).toBe(false);
+  for (const row of listCapabilities().flatMap((entry) => compareCapability(entry, targetNames()))) {
+    if (row.fidelity !== "unknown") expect(row.implementationEvidence.length).toBeGreaterThan(0);
+  }
 });
