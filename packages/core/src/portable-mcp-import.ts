@@ -80,10 +80,13 @@ function normalizeImportedServer(
   }
 
   if (target === "claude") {
-    for (const field of ["command", "cwd"] as const) {
-      if (typeof normalized[field] === "string") {
-        normalized[field] = normalizeClaudePlaceholders(normalized[field]);
-      }
+    // Claude's stdio schema has no cwd field. Importing it as portable source
+    // would introduce behavior that the source provider did not express.
+    if (normalized.cwd !== undefined) {
+      throw new Error(`skillset: imported Claude MCP server ${name} has unmappable field cwd`);
+    }
+    if (typeof normalized.command === "string") {
+      normalized.command = normalizeClaudePlaceholders(normalized.command);
     }
     if (Array.isArray(normalized.args)) {
       normalized.args = normalized.args.map((argument) =>
@@ -107,10 +110,9 @@ function normalizeImportedServer(
 }
 
 function normalizeClaudePlaceholders(value: string): string {
-  // Unbraced placeholders must end at an environment-variable identifier boundary.
+  // Claude expands braced placeholders in MCP config. Bare variables may be
+  // shell syntax or literal arguments; importing them must not infer expansion.
   return value
     .replaceAll("${CLAUDE_PLUGIN_ROOT}", "${PLUGIN_ROOT}")
-    .replaceAll(/\$CLAUDE_PLUGIN_ROOT(?![A-Za-z0-9_])/gu, "${PLUGIN_ROOT}")
-    .replaceAll("${CLAUDE_PLUGIN_DATA}", "${PLUGIN_DATA}")
-    .replaceAll(/\$CLAUDE_PLUGIN_DATA(?![A-Za-z0-9_])/gu, "${PLUGIN_DATA}");
+    .replaceAll("${CLAUDE_PLUGIN_DATA}", "${PLUGIN_DATA}");
 }

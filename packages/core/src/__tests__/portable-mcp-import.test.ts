@@ -3,9 +3,9 @@ import { expect, test } from "bun:test";
 import { normalizeImportedMcpSource } from "../portable-mcp-import";
 
 test.each([
-  ["$CLAUDE_PLUGIN_ROOT/bin", "${PLUGIN_ROOT}/bin"],
+  ["$CLAUDE_PLUGIN_ROOT/bin", "$CLAUDE_PLUGIN_ROOT/bin"],
   ["${CLAUDE_PLUGIN_ROOT}/bin", "${PLUGIN_ROOT}/bin"],
-  ["$CLAUDE_PLUGIN_DATA/cache", "${PLUGIN_DATA}/cache"],
+  ["$CLAUDE_PLUGIN_DATA/cache", "$CLAUDE_PLUGIN_DATA/cache"],
   ["${CLAUDE_PLUGIN_DATA}/cache", "${PLUGIN_DATA}/cache"],
   ["$CLAUDE_PLUGIN_ROOTED/bin", "$CLAUDE_PLUGIN_ROOTED/bin"],
   ["$CLAUDE_PLUGIN_DATASET", "$CLAUDE_PLUGIN_DATASET"],
@@ -13,12 +13,12 @@ test.each([
   ["$CLAUDE_PLUGIN_DATA2", "$CLAUDE_PLUGIN_DATA2"],
   ["${CLAUDE_PLUGIN_ROOTED}/bin", "${CLAUDE_PLUGIN_ROOTED}/bin"],
 ])("Claude MCP placeholder normalization preserves identifier boundaries: %s", (input, expected) => {
-  const server = { command: input, cwd: input, args: [input], env: { VALUE: input } };
+  const server = { command: input, args: [input], env: { VALUE: input } };
   const source = { mcpServers: { demo: server } };
   const original = structuredClone(source);
   expect(normalizeImportedMcpSource(source, "claude")).toEqual({
     mcpServers: {
-      demo: { command: expected, cwd: expected, args: [expected], env: { VALUE: expected } },
+      demo: { command: expected, args: [expected], env: { VALUE: expected } },
     },
   });
   expect(source).toEqual(original);
@@ -48,3 +48,19 @@ test.each(["claude", "cursor", "codex", "agent-plugins"] as const)(
     expect(normalizeImportedMcpSource(conflicting, target)).toEqual(conflicting);
   }
 );
+
+
+test.each(["${CLAUDE_PLUGIN_ROOT}/work", "$CLAUDE_PLUGIN_ROOT/work", "./work"])(
+  "Claude cwd is not silently promoted to portable intent: %s", (cwd) => {
+    const source = { mcpServers: { demo: { command: "node", cwd } } };
+    const original = structuredClone(source);
+    expect(() => normalizeImportedMcpSource(source, "claude")).toThrow("cwd");
+    expect(source).toEqual(original);
+    expect(normalizeImportedMcpSource(source, "codex")).toEqual(source);
+  }
+);
+
+test("explicit shell arguments retain unbraced provider variables for review", () => {
+  const source = { mcpServers: { demo: { command: "sh", args: ["-c", 'printf %s "$CLAUDE_PLUGIN_ROOT"'], env: { VALUE: "$CLAUDE_PLUGIN_DATA" } } } };
+  expect(normalizeImportedMcpSource(source, "claude")).toEqual(source);
+});
