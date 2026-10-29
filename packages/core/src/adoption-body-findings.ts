@@ -1,14 +1,9 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import type { MigrationFlag, MigrationState } from "@skillset/schema";
+import type { MigrationFlag } from "@skillset/schema";
 import { recognizeTransforms, transformEntries } from "@skillset/transforms";
 import { readRecord, readString } from "./config";
-import { inspectMigrationMarkers, planMigrationMarker } from "./migration-markers";
+import { planMigrationMarker } from "./migration-markers";
 import { createInitialMigrationFlag } from "./migration-state-reconcile";
-import { assertMigrationState, planMigrationStateWrite, readMigrationState } from "./migration-state";
-import { compareStrings } from "./path";
-import { prepareRepositoryMutationPath } from "./repository-mutation";
-import { applyWorkspaceTransaction, type WorkspaceTransactionOptions } from "./workspace-transaction";
 import { parseMarkdown } from "./yaml";
 
 /** Recognition is lexical evidence only; it does not establish source dialect or portable intent. */
@@ -27,57 +22,7 @@ interface AnnotatedDocument {
   readonly flags: readonly MigrationFlag[];
 }
 
-/**
- * Add findings only for newly imported sources. This is not a workspace rescan:
- * existing records are retained exactly, and paths already owned by the ledger
- * require the review lifecycle instead of guessed identity reconciliation.
- */
-export async function recordImportedBodyFindings(
-  rootPath: string,
-  sourcePaths: readonly string[],
-  transactionOptions: WorkspaceTransactionOptions = {}
-): Promise<{ readonly flags: readonly MigrationFlag[]; readonly writtenPaths: readonly string[] }> {
-  if (sourcePaths.length === 0) return { flags: [], writtenPaths: [] };
-  const previous = await readMigrationState(rootPath);
-  const documents: AnnotatedDocument[] = [];
-  for (const path of [...new Set(sourcePaths)].sort(compareStrings)) {
-    if (previous.state.flags.some((flag) => flag.source.path === path)) {
-      throw new Error(`skillset: ${path} already has migration records; review them before adding findings for this source.`);
-    }
-    const prepared = await prepareRepositoryMutationPath(rootPath, path, { createParents: false });
-    const content = await readFile(prepared.path, "utf8");
-    const inspected = inspectMigrationMarkers({ content, path, state: previous.state });
-    if (inspected.diagnostics.length > 0) {
-      throw new Error(`skillset: ${path}: ${inspected.diagnostics.map((item) => item.message).join("; ")}`);
-    }
-    documents.push(annotateBody(path, content));
-  }
-  const flags = documents.flatMap((document) => document.flags);
-  if (flags.length === 0) return { flags: [], writtenPaths: [] };
-  const next: MigrationState = { ...previous.state, flags: [...previous.state.flags, ...flags] };
-  assertMigrationState(next);
-  for (const document of documents) {
-    const inspected = inspectMigrationMarkers({ content: document.content, path: document.path, state: next });
-    if (inspected.diagnostics.length > 0 || inspected.content !== document.before) {
-      throw new Error(`skillset: ${document.path}: migration locators do not preserve the imported source.`);
-    }
-  }
-  const writes = [
-    ...documents.filter((document) => document.content !== document.before).map((document) => ({
-      path: document.path, content: document.content, expectedContent: document.before,
-    })),
-    planMigrationStateWrite(previous, next),
-  ];
-  await applyWorkspaceTransaction(rootPath, {
-    writes,
-    readOnlyInputs: documents.filter((document) => document.content === document.before).map((document) => ({
-      path: document.path, content: document.before,
-    })),
-  }, transactionOptions);
-  return { flags, writtenPaths: writes.map((write) => write.path) };
-}
-
-function annotateBody(path: string, before: string): AnnotatedDocument {
+export function annotateImportedBody(path: string, before: string): AnnotatedDocument {
   const { body, frontmatter } = parseMarkdown(before, path);
   const bodyLines = body.split("\n");
   const bodyOffset = before.split(/\r\n|\n|\r/u).length - bodyLines.length;

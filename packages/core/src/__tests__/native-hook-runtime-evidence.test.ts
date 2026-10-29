@@ -41,3 +41,11 @@ test("known structural rejection remains separate from unknown command semantics
   expect(diagnostics[0]).toMatchObject({ code: "native-hook-unsupported", status: "unsupported" });
   expect(diagnostics[0]?.message).toContain("does not support");
 });
+
+for (const parsed of [true, { hooks: "invalid" }, { hooks: { SessionStart: "invalid" } }]) {
+  test(`malformed native structures do not disappear from classification: ${JSON.stringify(parsed)}`, () => {
+    const diagnostics = classifyNativeHookLiftDiagnostics({ parsed, scope: { kind: "plugin" }, sourcePath: "hooks/hooks.json", targets: ["claude"] });
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({ code: "native-hook-unsupported", status: "unsupported" });
+  });
+}

@@ -1,5 +1,13 @@
 # Execution ledger
 
+### SET-442 durable native hook findings — October 29
+
+- Parent draft #772 is published at `42c9ad82d1795c89de3dda5bd1ec6bac58573058`, independently reviewed 5/5. Full immutable verification completed 4064 pass, 2 skip, 4 todo and only three deferred native-size failures across 4073 tests / 366 files. No passing receipt is claimed.
+- Native hook diagnostics now become durable sidecar records alongside body findings. The shared new-source transaction binds hook JSON as a read-only preimage, writes Markdown locators and ledger together, and refuses existing-source decisions rather than pretending a partial scan is reconciliation. Body planning stays in its existing owner; the small coordinator and native planner are separate modules.
+- Hook JSON and original provider files remain byte-preserved; findings include target, location evidence, origin where known, and conservative content/context fingerprints. Native structural incompatibility and unknown command semantics retain different dispositions. Malformed non-object/event shapes now produce diagnostics rather than vanishing from the report. Markdown reports list review codes/dispositions; receipts keep codes. This does not establish a build-time native-hook boundary or complete SET-442.
+- End-to-end regression first reproduced the absent sidecar. Transaction regressions cover distinct provider identities, concurrent edits, late rollback, existing decisions and malformed JSON. Final related tests, review and exact verification follow.
+- Matt approved the previously rejected exact Linear progress comment; it was posted unchanged as `80cdb9e2-db93-438c-94ee-6ecc8c2dda2f`. That approval is not treated as permission for different payloads.
+
 ### SET-442 native hook diagnostic evidence — October 29
 
 - Parent draft #771 is published at `00c44f1f61337672d2a57786a0768dc1250949ff`, round-two review 5/5. Its final exact full run completed 4056 pass, 2 skip, 4 todo and only three deferred native-size failures across 4065 tests / 364 files. The initial four fixture/evidence failures were repaired; no passing full receipt is claimed.

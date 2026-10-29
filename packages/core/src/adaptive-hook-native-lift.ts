@@ -35,14 +35,22 @@ export interface NativeHookLiftDiagnosticsOptions {
 export function classifyNativeHookLiftDiagnostics(
   options: NativeHookLiftDiagnosticsOptions
 ): readonly NativeHookLiftDiagnostic[] {
-  if (!isJsonRecord(options.parsed)) return [];
+  if (!isJsonRecord(options.parsed)) {
+    return unsupportedNativeStructure(options, "Native hook source must be a JSON object.");
+  }
+  if (options.parsed.hooks !== undefined && !isJsonRecord(options.parsed.hooks)) {
+    return unsupportedNativeStructure(options, "Native hook hooks field must be an event map.");
+  }
   const events = isJsonRecord(options.parsed.hooks) ? options.parsed.hooks : options.parsed;
   const surface = options.surface ?? "plugin";
   const diagnostics: NativeHookLiftDiagnostic[] = [];
 
   for (const [event, groups] of Object.entries(events)) {
     if (events === options.parsed && event === "hooks") continue;
-    if (!Array.isArray(groups)) continue;
+    if (!Array.isArray(groups)) {
+      diagnostics.push(...unsupportedNativeStructure(options, `Native hook ${event} must map to an array of handler groups.`, event));
+      continue;
+    }
     groups.forEach((group, groupIndex) => {
       const path = `${options.sourcePath}#/${event}/${groupIndex}`;
       const candidate = nativeHookGroupCandidate({
@@ -88,6 +96,17 @@ export function classifyNativeHookLiftDiagnostics(
   }
 
   return diagnostics;
+}
+
+function unsupportedNativeStructure(
+  options: NativeHookLiftDiagnosticsOptions,
+  message: string,
+  event = "unclassified"
+): readonly NativeHookLiftDiagnostic[] {
+  return options.targets.map((target) => ({
+    code: "native-hook-unsupported", status: "unsupported", target, message,
+    event, groupIndex: 0, path: `${options.sourcePath}#/${event}`,
+  }));
 }
 
 function nativeHookGroupCandidate(options: {
