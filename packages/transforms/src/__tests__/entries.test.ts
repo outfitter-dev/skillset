@@ -14,17 +14,18 @@ import {
   lowerTransform,
 } from "../index";
 
-test("SET-547: path and instruction entries render the registry's pinned locations", () => {
-  const lowered = (body: string, from: "claude" | "codex", to: "claude" | "codex") =>
-    recognizeTransforms(body, from).map((match) => lowerTransform(match, to));
-  expect(lowered(`see ${providerSkillsDirectory("claude")}/demo`, "claude", "codex")).toContain(
-    providerSkillsDirectory("codex")
-  );
-  expect(lowered(`edit ${providerProjectConfigDirectory("claude")}/settings.json`, "claude", "codex")).toContain(
-    `${providerProjectConfigDirectory("codex")}/`
-  );
-  expect(lowered(`read ${codexAgentsMdFormat().fileName}`, "codex", "claude")).toContain("CLAUDE.md");
-  expect(lowered("read CLAUDE.md", "claude", "codex")).toContain(codexAgentsMdFormat().fileName);
+test("registry-pinned paths are recognized without inferring equivalent destinations", () => {
+  for (const [body, dialect] of [
+    [`see ${providerSkillsDirectory("claude")}/demo`, "claude"],
+    [`edit ${providerProjectConfigDirectory("claude")}/settings.json`, "claude"],
+    [`read ${codexAgentsMdFormat().fileName}`, "codex"],
+    ["read CLAUDE.md", "claude"],
+  ] as const) {
+    const matches = recognizeTransforms(body, dialect);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.lowering).toBe("none");
+    expect(lowerTransform(matches[0]!, "codex")).toBeUndefined();
+  }
 });
 
 test("every built-in entry is registered, evidence-backed, and flagged correctly", () => {
