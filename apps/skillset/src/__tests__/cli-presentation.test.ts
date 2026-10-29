@@ -164,3 +164,12 @@ describe("SET-307 CLI presentation", () => {
     }
   });
 });
+
+
+test("SET-447: lookup help exposes capability aliases and qualified evidence", () => {
+  const output = renderCliHelp(["lookup", "--help"], { color: false, width: 120 });
+  expect(output).toContain("lookup capability [semantic-id-or-native-alias...]");
+  expect(output).toContain("developer_instructions");
+  expect(output).toContain("pinned evidence");
+  expect(output).toContain("activation or effectiveness");
+});

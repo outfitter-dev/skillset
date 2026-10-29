@@ -57,6 +57,7 @@ export function readLookupSubject(value: string): LookupSubject {
     throw new CliUsageError(`skillset: lookup subject ${RETIRED_RULE_KIND} is retired; use skillset lookup rule`);
   }
   if (
+    value === "capability" ||
     value === "activation" ||
     value === "agent" ||
     value === "hooks" ||
@@ -69,7 +70,7 @@ export function readLookupSubject(value: string): LookupSubject {
   ) {
     return value;
   }
-  throw new CliUsageError("skillset: expected lookup subject activation, locations, skill, agent, rule, workspace, hooks, plugin, or standards");
+  throw new CliUsageError("skillset: expected lookup subject capability, activation, locations, skill, agent, rule, workspace, hooks, plugin, or standards");
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {
@@ -123,6 +124,17 @@ function printLookupReport(
       writer,
       `  ${diagnostic.severity}: ${diagnostic.code}: ${diagnostic.message}`
     );
+  }
+  if (report.capabilities.length > 0) {
+    for (const row of report.capabilities) {
+      writeLine(writer, `  [${row.target}] ${row.capabilityId}/${row.featureId}: ${row.fidelity}`);
+      if (row.semanticScope !== undefined) writeLine(writer, `    scope: ${row.semanticScope}`);
+      writeLine(writer, `    source: ${row.canonical.shape}`);
+      writeLine(writer, `    realization: ${row.realization.description}`);
+      writeLine(writer, `    destination: ${row.destination?.id ?? "no format snapshot"}; support: ${row.realization.destinationSupport}`);
+      for (const limitation of row.limitations) writeLine(writer, `    limitation: ${limitation}`);
+      writeLine(writer, `    evidence: ${row.evidence.map(({ id }) => id).join(", ") || "none"}`);
+    }
   }
   if (report.fields.length > 0) {
     writeLine(writer, "  fields:");
