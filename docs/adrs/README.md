@@ -60,3 +60,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0043](0043-global-immutable-operational-reports.md) | Global Immutable Operational Reports | Accepted |
 | [0044](0044-machine-scope-lifecycle-commands.md) | Machine-Scope Lifecycle Commands | Accepted |
 | [0045](0045-generated-state-merges-as-plain-text.md) | Generated State Merges as Plain Text | Accepted |
+| [0046](0046-provider-only-plugin-components-remain-uncovered.md) | Provider-only Plugin Components Remain Uncovered Without Blocking | Accepted |

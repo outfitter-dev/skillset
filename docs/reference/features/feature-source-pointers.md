@@ -38,7 +38,7 @@ bin:
 | Feature key | Claude | Codex | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `mcp` | `.mcp.json` / manifest field | `.mcp.json` / manifest field | `implemented` | Conventional `<source-root>/plugins/<plugin>/.mcp.json` is auto-discovered. `mcp.source` can point at a repo-owned JSON file. |
-| `bin` | plugin-root `bin/` | `unsupported` | `target_native` / `implemented` for Claude | Conventional `<source-root>/plugins/<plugin>/bin/` is auto-discovered. `bin.source` can point at a repo-owned directory. Enabled Codex plugin output fails loudly. |
+| `bin` | plugin-root `bin/` | `unsupported` | `target_native` / `implemented` for Claude | Conventional `<source-root>/plugins/<plugin>/bin/` is auto-discovered. `bin.source` can point at a repo-owned directory. Codex and Cursor record the executable component as uncovered without blocking supported output. |
 | `apps` | n/a | `.app.json` / manifest field | `target_native` / `implemented pass-through`, `planned` pointer adapter | `.app.json` is copied as a native companion path today. `apps.source` is not supported. |
 | `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path behavior continues. Plugin-root `hooks.json` and `hooks.source` are not supported. |
 | generic `components.*` | n/a | n/a | `unsupported` | Rejected shape because ownership and target semantics become vague. |
@@ -54,11 +54,11 @@ Claude plugin-root `bin/` is a documented target-native component added to the B
 ## Diagnostics
 
 - Reject `repo:` pointers that escape the repository root.
-- Reject pointers whose feature key is unknown or unsupported for every enabled target.
+- Reject pointers whose feature key is unknown.
 - Reject `mcp` sources that are not files and `bin` sources that are not directories.
 - Validate known structured files after preprocessing.
 - Report conventional discovery in list/explain/lock provenance so auto-enabled files do not feel magical.
-- Fail rather than silently skip when a feature cannot render to an enabled target.
+- Record provider-only component omissions explicitly in render results and locks. Invalid carried content and unsafe paths still fail.
 
 ## Provenance
 

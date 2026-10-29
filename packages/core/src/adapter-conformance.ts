@@ -160,10 +160,15 @@ function checkConformanceCase(
   }
 
   const observedStatuses = sortedUnique(matching.map((outcome) => outcome.status));
-  const conforming = matching.filter((outcome) =>
-    expectedStatuses.includes(outcome.status)
-  );
-  const unexpectedStatuses = observedStatuses.filter((status) => !expectedStatuses.includes(status as SkillsetRenderResultStatus));
+  const conforms = (outcome: SkillsetRenderResult): boolean =>
+    expectedStatuses.includes(outcome.status) ||
+    (supportStatus === "unsupported" &&
+      outcome.status === "intentionally_skipped" &&
+      outcome.policy === "default" &&
+      (outcome.outputs?.length ?? 0) === 0 &&
+      outcome.diagnostics?.some((diagnostic) => diagnostic.code === "plugin-component-uncovered") === true);
+  const conforming = matching.filter(conforms);
+  const unexpectedStatuses = sortedUnique(matching.filter((outcome) => !conforms(outcome)).map((outcome) => outcome.status));
   if (conforming.length === 0 || unexpectedStatuses.length > 0) {
     return [
       issue(

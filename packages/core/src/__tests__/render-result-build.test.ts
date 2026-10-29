@@ -1012,45 +1012,6 @@ echo alpha
     }));
   });
 
-  it("enforces unsupported outcome policy with actionable render errors", async () => {
-    const agentRoot = await fixture({
-      ...OUTCOME_FIXTURE,
-      "skillset.yaml": OUTCOME_FIXTURE["skillset.yaml"]!.replace(
-        "unsupportedDestination: warn",
-        "unsupportedDestination: error"
-      ),
-      ".skillset/plugins/alpha/subagents/reviewer.md": `
-# Plugin Reviewer
-
-Review plugin output.
-`,
-    });
-    await expectUnsupportedOutcome(agentRoot, {
-      destination: "agents",
-      featureId: "plugin-agents",
-      reason: "Codex plugin documentation does not include a plugin agents component.",
-      sourceUnit: "plugin.alpha.feature:agents",
-    });
-
-    const binRoot = await fixture({
-      ...OUTCOME_FIXTURE,
-      "skillset.yaml": OUTCOME_FIXTURE["skillset.yaml"]!.replace(
-        "unsupportedDestination: warn",
-        "unsupportedDestination: error"
-      ),
-      ".skillset/plugins/alpha/bin/tool": `
-#!/usr/bin/env bash
-echo alpha
-`,
-    });
-    await expectUnsupportedOutcome(binRoot, {
-      destination: "bin",
-      featureId: "plugin-bin",
-      reason: "Codex plugins do not expose a documented plugin-local bin contract.",
-      sourceUnit: "plugin.alpha.feature:bin",
-    });
-  });
-
   it("reports Cursor dependencies as unsupported without fabricated outputs", async () => {
     const source = {
       "skillset.yaml": `
@@ -2912,34 +2873,32 @@ echo alpha
       expect(result.diagnostics).toContainEqual(
         expect.objectContaining({
           code: `unsupported-destination-${policy}`,
-          featureId: "plugin-bin",
+          featureId: "dependencies",
           severity: "warning",
-          sourceUnit: "plugin.alpha.feature:bin",
-          target: "codex",
+          sourceUnit: "plugin.alpha.feature:dependencies",
         })
       );
       expect(result.renderResults).toContainEqual(
         expect.objectContaining({
-          destination: "bin",
-          featureId: "plugin-bin",
+          featureId: "dependencies",
           policy: `unsupported:${policy}`,
-          reason: "Codex plugins do not expose a documented plugin-local bin contract.",
-          sourceUnit: "plugin.alpha.feature:bin",
+          reason: "agent-plugins-1.0 does not declare dependencies in its support envelope",
+          sourceUnit: "plugin.alpha.feature:dependencies",
           status: "unsupported",
-          target: "codex",
+          standardProfile: "agent-plugins-1.0",
         })
       );
 
       const lock = await readJson(join(root, "skillset.lock"));
       expect(JSON.stringify(lock)).toContain(`"policy":"unsupported:${policy}"`);
-      expect(JSON.stringify(lock)).toContain("Codex plugins do not expose a documented plugin-local bin contract.");
+      expect(JSON.stringify(lock)).toContain("agent-plugins-1.0 does not declare dependencies in its support envelope");
 
       const verify = await verifySkillsetResult(root);
       expect(verify.ok).toBe(true);
       expect(verify.diagnostics).toContainEqual(
         expect.objectContaining({
           code: `unsupported-destination-${policy}`,
-          featureId: "plugin-bin",
+          featureId: "dependencies",
           severity: "warning",
         })
       );
@@ -2982,9 +2941,9 @@ Use one.
       expect.objectContaining({
         destination: "bin",
         featureId: "plugin-bin",
-        policy: "unsupported:warn",
+        policy: "default",
         sourceUnit: "plugin.alpha.feature:bin",
-        status: "unsupported",
+        status: "intentionally_skipped",
         target: "codex",
       })
     );

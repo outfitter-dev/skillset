@@ -11,7 +11,6 @@ import {
   checkAdapterConformance,
   diffSkillsetResult,
   getSkillsetFeature,
-  SkillsetRenderResultError,
   type AdapterConformanceCase,
   type SkillsetRenderResult,
 } from "@skillset/core";
@@ -223,17 +222,29 @@ skillset:
   it("proves unsupported feature claims through structured render results", async () => {
     const root = await fixture({
       ...CONFORMANCE_FIXTURE,
+      ".skillset/plugins/alpha/skillset.yaml": "skillset:\n  name: alpha\n",
       ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
     });
 
-    const report = checkAdapterConformance(await renderErrorResults(root), [
+    const results = (await diffSkillsetResult(root)).renderResults;
+    const cases = [
       { featureId: "plugin-bin", sourceUnit: "plugin.alpha.feature:bin", target: "codex" },
-    ]);
+    ] as const;
+    const report = checkAdapterConformance(results, cases);
 
     expect(report).toEqual({ issues: [], ok: true });
+    const uncovered = results.find((result) => result.featureId === "plugin-bin" && result.target === "codex")!;
+    for (const changed of [
+      { ...uncovered, diagnostics: [] },
+      { ...uncovered, outputs: [{ path: "plugins/alpha/bin/tool" }] },
+      { ...uncovered, reason: "invented capability" },
+      { ...uncovered, evidence: [] },
+    ]) {
+      expect(checkAdapterConformance([changed], cases).ok).toBe(false);
+    }
   });
 
   it("reports missing, mismatched, and reason-drifted outcomes deterministically", () => {
@@ -359,16 +370,6 @@ echo alpha
     ).toEqual(["standard-profile-evidence-mismatch"]);
   });
 });
-
-async function renderErrorResults(root: string): Promise<readonly SkillsetRenderResult[]> {
-  try {
-    await diffSkillsetResult(root);
-  } catch (error) {
-    expect(error).toBeInstanceOf(SkillsetRenderResultError);
-    return (error as SkillsetRenderResultError).renderResults;
-  }
-  throw new Error("expected diffSkillsetResult to reject");
-}
 
 function outcome(
   overrides: {

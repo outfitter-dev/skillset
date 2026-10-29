@@ -235,7 +235,7 @@ export function collectRenderResults(
     ));
   }
 
-  outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
+  outcomes.push(...uncoveredPluginComponentOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedCursorRootRulesOutcomes(graph, options.scopes));
   if (options.scopes === undefined || options.scopes.includes("project")) {
     outcomes.push(...ruleScopeRenderResults(graph, mapOutputPath));
@@ -1885,7 +1885,7 @@ function featureOutcome(args: {
   });
 }
 
-function unsupportedPluginFeatureOutcomes(
+function uncoveredPluginComponentOutcomes(
   graph: BuildGraph,
   scopes: readonly BuildScope[] | undefined
 ): readonly SkillsetRenderResult[] {
@@ -1905,11 +1905,12 @@ function unsupportedPluginFeatureOutcomes(
             destination: "bin",
             ...(evidence === undefined ? {} : { evidence }),
             featureId,
-            policy: "unsupported:error",
+            policy: "default",
             reason: requiredReasonForStatus(featureId, target, "unsupported"),
             sourcePath: normalizePath(relative(graph.rootPath, feature.sourcePath)),
             sourceUnit: selectorForPluginFeature(plugin.id, feature.key),
-            status: "unsupported",
+            status: "intentionally_skipped",
+            diagnostics: [{ code: "plugin-component-uncovered" }],
             target,
           })
         );
@@ -1926,11 +1927,12 @@ function unsupportedPluginFeatureOutcomes(
         destination: "agents",
         ...(evidence === undefined ? {} : { evidence }),
         featureId,
-        policy: "unsupported:error",
+        policy: "default",
         reason: requiredReasonForStatus(featureId, "codex", "unsupported"),
         sourcePath: `${pluginPath}/subagents`,
         sourceUnit: selectorForPluginFeature(plugin.id, "agents"),
-        status: "unsupported",
+        status: "intentionally_skipped",
+        diagnostics: [{ code: "plugin-component-uncovered" }],
         target: "codex",
       })
     );
@@ -1978,7 +1980,7 @@ function unsupportedAgentPluginStandardOutcomes(
       if (feature.key !== "app" && feature.key !== "bin") continue;
       const featureId = feature.key === "app" ? "plugin-apps" : "plugin-bin";
       outcomes.push(
-        unsupportedAgentPluginFeatureOutcome({
+        uncoveredAgentPluginFeatureOutcome({
           destination: feature.key,
           featureId,
           plugin,
@@ -2002,7 +2004,7 @@ function unsupportedAgentPluginStandardOutcomes(
       const sourcePath = join(plugin.path, relativePath);
       if (!hasMeaningfulFiles(sourcePath)) continue;
       outcomes.push(
-        unsupportedAgentPluginFeatureOutcome({
+        uncoveredAgentPluginFeatureOutcome({
           destination,
           featureId,
           plugin,
@@ -2020,7 +2022,7 @@ function unsupportedAgentPluginStandardOutcomes(
       !hasMeaningfulFiles(join(plugin.path, "hooks"))
     ) {
       outcomes.push(
-        unsupportedAgentPluginFeatureOutcome({
+        uncoveredAgentPluginFeatureOutcome({
           destination: "hooks",
           featureId: "plugin-hooks",
           plugin,
@@ -2120,7 +2122,7 @@ function unsupportedMcpReason(entry: {
   return `MCP server ${entry.name} is unsupported: ${entry.reason}; fields: ${entry.fields.join(", ")}`;
 }
 
-function unsupportedAgentPluginFeatureOutcome(args: {
+function uncoveredAgentPluginFeatureOutcome(args: {
   readonly destination: string;
   readonly featureId: string;
   readonly plugin: SourcePlugin;
@@ -2132,12 +2134,13 @@ function unsupportedAgentPluginFeatureOutcome(args: {
     destination: args.destination,
     ...(evidence === undefined ? {} : { evidence }),
     featureId: args.featureId,
-    policy: "unsupported:error",
+    policy: "default",
     reason: `agent-plugins-1.0 does not declare ${args.featureId} in its support envelope`,
     sourcePath: args.sourcePath,
     sourceUnit: args.sourceUnit,
     standardProfile: "agent-plugins-1.0",
-    status: "unsupported",
+    status: "intentionally_skipped",
+    diagnostics: [{ code: "plugin-component-uncovered" }],
   });
 }
 

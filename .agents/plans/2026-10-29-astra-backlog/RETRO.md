@@ -12,16 +12,14 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 
 ## Current execution state
 
-- Owner: primary Astra campaign thread; user activated the goal October 29.
-- Owned worktree: `/Users/mg/Developer/outfitter/skillset-astra`; primary stack is `main` ← `docs/agents/astra-backlog-execution` ← `set-770-capture-bun-140-baseline-and-map-skillsets-144-compatibility`. Trunk/base `24800e02e`; planning head and baseline start `771bb0057`.
-- First candidate: SET-770 baseline, then SET-603 → SET-771 → SET-772 Bun foundation after live ownership/dependency checks. SET-748 follows as the first ordinary backlog candidate.
-- Existing work to reconcile: SET-554 In Review; SET-708 In Progress; refresh all live evidence.
-- Review: Terra high round 1 accepted packet `24800e02e..771bb0057` at 5/5, no actionable findings; no separate fast control exposed. Reviewer worktree `/Users/mg/Developer/outfitter/skillset-astra-review-plan` is read-only. Read-only research mapped Bun exposure; no implementation delegated yet.
-- SET-770 is In Progress. [Bun baseline](BUN-BASELINE.md) records exact identity, artifacts, failures and runtime-only parity for 221 generated files. SET-774 tracks the reproduced pending-ledger overlap-test runaway; it blocks final qualification.
-- External work: #735 release head `e7610c87` has successful check/skillset-ci/provider validation, still unmerged; #726/#727 Dagger and #623 prerelease work remain externally owned. Matt said to move past #623 as an overlap blocker; scoped Bun documentation edits may proceed without touching that PR branch or release behavior.
-- Existing evidence: SET-554's PR #514 merged September 21, but acceptance/status reconciliation remains pending; SET-708's PR #659 merged and its comment preserves two residual docs items (collision entry and all-or-nothing repair wording). Do not restart either implementation.
-- Cumulative primary-stack touched paths currently consist of the four packet Markdown files plus BUN-BASELINE.md. No production edits or runtime pin changes yet; baseline capture driver/raw artifacts are ignored local evidence.
-- Next action: commit the baseline checkpoint, repair SET-774 in the same stack, then finish the full baseline and proceed with the Bun foundation.
+- Primary owner works in `/Users/mg/Developer/outfitter/skillset-astra`; all delivery work belongs to [stack #741](https://github.com/outfitter-dev/skillset/stack/741), rooted at `24800e02e`. The preparation checkout retains the bottom plan branch. Review/repair worktrees are isolated and idle unless explicitly assigned.
+- Published draft layers: plan #737, baseline SET-770 #738, ledger-test repair SET-774 #739, Bun upgrade SET-603 #740, compatibility SET-771 #742, qualification evidence SET-772 #743, formatter-summary SET-748 #744, recovery wording SET-708 #745. Current ancestry is aligned; nothing is merged or marked ready.
+- SET-771 and SET-748 are In Review. SET-772 remains In Progress with incomplete native qualification. SET-708 is partial pending SET-689. SET-554 delivery was reconciled and closed; SET-773 research assessment is Done.
+- Current implementation layer: SET-686 provider-only component coverage above SET-708 head `602e5fb633a4d8bafef391f16eb2f102b934c05a`. It owns only its scoped collector/conformance/tests, ADR, docs, Changeset, and this ledger in the same stack.
+- Exact full verification at SET-772 `97b96e708` and SET-748 `e9f371dec` failed only the three owner-deferred native-size assertions; neither has a passing receipt. SET-748 adds two passing tests (3805 pass, 2 skip, 4 todo). No further trimming investigation is planned; SET-775 owns it.
+- Addressed external threads: #737 historical preparation wording; #739 deterministic stable fold-state coverage and narrowed sampling claim; #740 explicit size-gate disposition. Each has a reply and resolution. New #737 thread `PRRT_kwDOSwcCJ86xptyN` identifies stale SET-760 first-pull wording in REFS.md; retain for the owning-layer settlement repair.
+- External work #735 release, #726/#727 Dagger, and #623 prerelease remains externally owned. No merges, publication, readiness changes, global configuration, or ownership transfers are authorized.
+- Next: finish SET-686 verification/review, then settle accumulated stack interactions and current-head evidence before further dependent work.
 
 ## Preparation validation and review
 
@@ -105,3 +103,11 @@ Keep raw logs and generated inventories outside tracked notes unless needed for 
 - SET-554 is now Done after read-only acceptance reconciliation: merged #514 / `24232c65a877ec3f51f4f39f674c02d102f7cebf` is in current ancestry, all acceptance has code/test/marker-receipt evidence, and #601/#602 retain edge-case fixes. Added delivery reconciliation to the historical brief. SET-579 and SET-571 remain separate hydration scope.
 - SET-773 is Done as a research-only outcome. Its Linear closeout contains the full owner/applicability matrix: width/wrapping already adopted; no canonical tool changes; optional exact TS 5.9.3 typechecker parity and SET-760 CPU profiling pilots; other proposals deferred or not applicable. No speculative implementation issues added. No whole project milestone completed, so no milestone-completion update was posted.
 - SET-708 review round 1 found one P3 caveat: a named repair path expands to its whole lock item. Corrected both pages to say narrowing only helps across independent lock items and to review the resulting preview. This preserves the implementation's grouped ownership boundary.
+
+### SET-686 provider-only component coverage
+
+- New owned layer `set-686-provider-only-plugin-components-block-the-build-because` follows SET-708. Read the full issue and October 16/28 owner decisions; SET-686 is In Progress.
+- Initial regression suite reproduced the default-error failure for the provider-only component families. The scoped producers now record `intentionally_skipped` with `policy: default`, a support reason, evidence, and `plugin-component-uncovered` provenance. Supported provider files still render; no policy-engine or status-schema change.
+- ADR-0046 amends ADR-0028 to distinguish absent component contracts from invalid standard-carried content. Dependencies, explicit project-use hydration, invalid manifests/MCP/skills, unsupported hook event mappings, and safety failures keep their existing policy.
+- Component tests cover Claude commands/hooks/agents, mixed-provider bin/agents, workspace hook attachments, all eleven standard-excluded component paths, repeat builds, verification, and lock provenance. Related tests, 49 boundary tests, fast conformance, ADR validation, docs, and generated-output checks passed before final full verification. Added negative conformance checks for missing markers, fabricated output, reason drift, and missing evidence.
+- SET-708 final docs checkpoint `602e5fb633a4d8bafef391f16eb2f102b934c05a` received independent round-two review at 5/5. All eight published draft heads are synchronized. Hosted draft checks are distinct from full readiness evidence.

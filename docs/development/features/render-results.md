@@ -54,6 +54,8 @@ Normalization produces deterministic field order and sorts outputs, diagnostics,
 | `intentionally_skipped` | Scope, target configuration, or policy excluded the output. |
 | `failed` | Validation or rendering could not produce safe output. |
 
+Provider-only plugin components outside a destination's component contract are uncovered: they use `intentionally_skipped`, `policy: default`, an explicit support reason, and `plugin-component-uncovered` diagnostic provenance without output for that destination. They do not block supported provider output or imply runtime support. Invalid standard-carried components, dependency edges, and project-use hydration retain their existing policy. See [ADR-0046](../../adrs/0046-provider-only-plugin-components-remain-uncovered.md).
+
 The default unsupported-destination policy is `error`. `warn`, `skip`, and `force` can soften only `lossy` and `unsupported`; `failed` always blocks. A softened result retains the renderer's already-defined output set and provenance. It cannot synthesize output, broaden a provider capability, or relabel an unsupported projection as faithful. An enabled target that would produce no usable output still fails.
 
 ## Outputs and Consumers
