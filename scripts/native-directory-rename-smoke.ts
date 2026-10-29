@@ -15,6 +15,7 @@ import nodePath from "node:path";
 import { renameDirectoryNoReplace } from "../packages/core/src/directory-rename-no-replace";
 import type { DirectoryRenameNoReplaceResult } from "../packages/core/src/directory-rename-no-replace";
 
+import { getNativeTarget } from "./native-targets";
 import {
   DIRECTORY_RENAME_WORKER_FLAG,
   runDirectoryRenameRace,
@@ -172,16 +173,11 @@ const runPackagedExecutable = async (): Promise<void> => {
       { allowStderr: true }
     );
     if (process.platform === "darwin") {
-      await runChild(
-        [
-          "codesign",
-          "--force",
-          "--sign",
-          "-",
-          "--timestamp=none",
-          executablePath,
-        ],
-        { allowStderr: true }
+      // Build-only helpers read repository metadata; compiled workers must not load them.
+      const { adHocSignDarwinExecutable } = await import("./native-artifacts");
+      await adHocSignDarwinExecutable(
+        getNativeTarget(`darwin-${process.arch}`),
+        executablePath
       );
     }
     const emptyPath = nodePath.join(root, "empty-path");
