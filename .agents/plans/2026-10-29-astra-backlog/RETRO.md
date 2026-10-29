@@ -17,9 +17,9 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 - SET-771 and SET-748 are In Review. SET-772 remains In Progress with incomplete native qualification. SET-708 is partial pending SET-689. SET-554 delivery was reconciled and closed; SET-773 research assessment is Done.
 - Current implementation layer: SET-686 provider-only component coverage above SET-708 head `602e5fb633a4d8bafef391f16eb2f102b934c05a`. It owns only its scoped collector/conformance/tests, ADR, docs, Changeset, and this ledger in the same stack.
 - Exact full verification at SET-772 `97b96e708` and SET-748 `e9f371dec` failed only the three owner-deferred native-size assertions; neither has a passing receipt. SET-748 adds two passing tests (3805 pass, 2 skip, 4 todo). No further trimming investigation is planned; SET-775 owns it.
-- Addressed external threads: #737 historical preparation wording; #739 deterministic stable fold-state coverage and narrowed sampling claim; #740 explicit size-gate disposition. Each has a reply and resolution. New #737 thread `PRRT_kwDOSwcCJ86xptyN` identifies stale SET-760 first-pull wording in REFS.md; retain for the owning-layer settlement repair.
+- Addressed external threads: #737 historical preparation wording; #739 deterministic stable fold-state coverage and narrowed sampling claim; #740 explicit size-gate disposition. Each has a reply and resolution. The #737 queue reference was subsequently repaired at the owning layer and resolved. The #744 informational mixed-drift recovery note was explicitly dispositioned: summary classification changes, conservative recovery authority remains unchanged.
 - External work #735 release, #726/#727 Dagger, and #623 prerelease remains externally owned. No merges, publication, readiness changes, global configuration, or ownership transfers are authorized.
-- Next: finish SET-686 verification/review, then settle accumulated stack interactions and current-head evidence before further dependent work.
+- Settlement horizon: nine dependent draft layers; finish the current-head evidence map for owner review before further accumulation. The remaining backlog is not claimed complete.
 
 ## Preparation validation and review
 
@@ -113,3 +113,25 @@ Keep raw logs and generated inventories outside tracked notes unless needed for 
 - SET-708 final docs checkpoint `602e5fb633a4d8bafef391f16eb2f102b934c05a` received independent round-two review at 5/5. All eight published draft heads are synchronized. Hosted draft checks are distinct from full readiness evidence.
 - Independent review round one at `e874576b94b3d36816074fdac751b0c8e816a146` scored 4/5 with one P2: conformance accepted the uncovered marker for arbitrary unsupported features. Restricted acceptance to the exact component/destination pairs and added negative dependency/MCP cases. Current production producers were already scoped.
 - Full-suite iteration exposed older generic failure fixtures using bin/hooks/agents as a blocker. Replaced those triggers with invalid carried MCP or unsupported hook events; bin/agent-specific tests now prove successful output and uncovered provenance. Focused repairs pass. The iterative full run overlapped these edits, so it is diagnostic evidence only; an exact-commit run follows the repair checkpoint.
+
+### Settlement handoff
+
+All nine layers are published in [stack #741](https://github.com/outfitter-dev/skillset/stack/741). The final restack changed only the bottom REFS first-pull correction. Backup `archive/astra-pre-settlement-20261029-686` preserves the earlier top. Independent current-head revalidation confirmed unchanged behavioral trees and ordered ancestry, with no residual findings.
+
+| Issue / layer | PR | Disposition |
+| --- | --- | --- |
+| Operating packet | [#737](https://github.com/outfitter-dev/skillset/pull/737) | Reviewed; historical wording and queue-reference feedback resolved. |
+| SET-770 baseline | [#738](https://github.com/outfitter-dev/skillset/pull/738) | Baseline evidence complete; draft delivery pending. |
+| SET-774 bounded ledger test | [#739](https://github.com/outfitter-dev/skillset/pull/739) | Implemented and reviewed; stable intermediate-state proof retained. |
+| SET-603 Bun 1.4.4 | [#740](https://github.com/outfitter-dev/skillset/pull/740) | Implemented and reviewed; full native qualification remains partial. |
+| SET-771 compatibility | [#742](https://github.com/outfitter-dev/skillset/pull/742) | Implemented and reviewed; raw-output parity and intended backslash correction classified. |
+| SET-772 qualification | [#743](https://github.com/outfitter-dev/skillset/pull/743) | Partial; native-size budget and unavailable matching-host evidence remain explicit. |
+| SET-748 formatter summary | [#744](https://github.com/outfitter-dev/skillset/pull/744) | Implemented and reviewed; mixed-case recovery retains conservative preview semantics. |
+| SET-708 recovery wording | [#745](https://github.com/outfitter-dev/skillset/pull/745) | Independent wording delivered in draft; collision documentation remains blocked by SET-689. |
+| SET-686 uncovered components | [#746](https://github.com/outfitter-dev/skillset/pull/746) | Implemented; round-two review 5/5 at `68a29918d1482cc2192817d1d8c4348456ccb4fe`, revalidated after restack. |
+
+Current lower-layer reviewed heads: plan `d8bed58a51dfaf81ce9b0e569c55a94e9fee7f1d`; SET-770 `0f044c765172b639d78a3fe887108407380fc1f4`; SET-774 `92fc7589ea8ecb29ea88b4e33399d92c6f34f493`; SET-603 `a90f0cc8d4c2185f9d2c04493a6fb7647deb5c9c`; SET-771 `08c2c9c73573f7452a14bf00610ee68766c946cd`; SET-772 `5090106802ab42f45ba61138a314f4178ce2bbe8`; SET-748 `727fea56c83a93eedb9c2bfe39b8f35ecdedfe08`; SET-708 `44358da7e37af3fbda8a0552b2672d78c2e2a96e`. The final SET-686 head and its verification result are attached to #746, so this ledger does not pretend to contain its own commit SHA.
+
+SET-554 is Done by merged-delivery reconciliation; SET-773 is Done as research without optional tool adoption. SET-775 remains owner-deferred. Next eligible contract work includes SET-726 then SET-689, SET-437, and the downstream SET-700/459 work informed by SET-686; none is claimed implemented here. Externally owned release and Dagger branches remain untouched.
+
+All PRs stay draft. Draft fast CI does not establish the full gate or release acceptance. Final exact-commit verification and hosted results belong to the PR evidence; known failed native budgets are never converted to passing receipts. No merge, publication, readiness transition, deployment, user-level configuration, or destructive cleanup occurred. No entire project milestone met its delivery criteria, so no completion announcement was posted. Keep this packet active while qualification and owner settlement remain open; archive it before eventual merge readiness when the campaign is closed.
