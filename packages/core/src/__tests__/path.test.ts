@@ -130,6 +130,25 @@ describe("resolveInside", () => {
 });
 
 describe("assertRealPathInside", () => {
+  test.skipIf(process.platform === "win32")("keeps literal POSIX backslashes during realpath containment", async () => {
+    const root = await createTestFixtureRoot("skillset-path-literal-");
+    const child = nodePath.join(root, "literal\\name", "file.txt");
+    await mkdir(nodePath.dirname(child), { recursive: true });
+    await writeFile(child, "ok\n");
+    expect(await assertRealPathInside(root, child)).toBe(await realpath(child));
+  });
+
+  test("resolves nested symlink escapes before checking containment", async () => {
+    const root = await createTestFixtureRoot("skillset-path-nested-");
+    const outside = await createTestFixtureRoot("skillset-path-nested-out-");
+    await mkdir(nodePath.join(outside, "nested"));
+    await writeFile(nodePath.join(outside, "nested", "file.txt"), "outside\n");
+    await symlink(outside, nodePath.join(root, "escape"));
+    await expect(assertRealPathInside(root, nodePath.join(root, "escape", "nested", "file.txt"))).rejects.toThrow(
+      "refusing to operate outside repo root"
+    );
+  });
+
   test("accepts a real descendant and refuses a path outside the root", async () => {
     const root = await createTestFixtureRoot("skillset-path-inside-");
     const child = nodePath.join(root, "nested", "file.txt");
