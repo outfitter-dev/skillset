@@ -109,3 +109,14 @@ test("multiple markers preserve semantic text and authored positions without dro
   expect(result.content).toBe(`${prefix}First.\n\nSecond.\n`);
   expect(result.sourceLines).toEqual([1, 2, 3, 4, 6, 7, 9, 10]);
 });
+
+test("table examples inside code fences do not claim later top-level markers", () => {
+  for (const fence of ["```", "~~~"]) {
+    const content = `${fence}md\n| Header |\n| --- |\n${fence}\n${marker}\nAuthored paragraph.\n`;
+    const result = inspectMigrationMarkers({ content, path, state: ledger(flag) });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.content).toBe(`${fence}md\n| Header |\n| --- |\n${fence}\nAuthored paragraph.\n`);
+    const unannotated = result.content;
+    expect(planMigrationMarker({ content: unannotated, path, flag, beforeLine: 5, kind: "adaptive-markdown" }).placement.kind).toBe("inline");
+  }
+});

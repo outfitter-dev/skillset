@@ -46,7 +46,7 @@ export function inspectMigrationMarkers(args: {
     const text = lines[line - 1]!;
     if (!markerPrefix.test(text)) continue;
     const marker = parseMigrationMarker(text);
-    if (marker === undefined || node.sourcepos[0][0] !== node.sourcepos[1][0] || inTable(lines, line)) {
+    if (marker === undefined || node.sourcepos[0][0] !== node.sourcepos[1][0] || inTable(lines, line, blocks, bodyOffset)) {
       diagnose("migration/malformed-marker", line, "Migration anchor must be an exact standalone comment at a safe Markdown block boundary.");
       continue;
     }
@@ -89,7 +89,7 @@ export function planMigrationMarker(args: {
   if (args.flag.source.path !== args.path) return sidecar("The flag belongs to a different source path.");
   const { blocks, bodyOffset, lines, endings } = markdownStructure(args.content);
   const block = blocks.find((node) => node.sourcepos[0][0] + bodyOffset === args.beforeLine);
-  if (block === undefined || !["paragraph", "heading", "list"].includes(block.type) || inTable(lines, args.beforeLine)) {
+  if (block === undefined || !["paragraph", "heading", "list"].includes(block.type) || inTable(lines, args.beforeLine, blocks, bodyOffset)) {
     return sidecar("Inline anchors require a top-level paragraph, heading or list boundary outside frontmatter, tables and code.");
   }
   const label = args.flag.placement.kind === "inline" ? args.flag.placement.label : "todo";
@@ -122,8 +122,10 @@ function markdownStructure(content: string): {
 }
 
 /** CommonMark has no GFM tables; conservatively protect the complete pipe-table region. */
-function inTable(lines: readonly string[], line: number): boolean {
+function inTable(lines: readonly string[], line: number, blocks: readonly Node[], bodyOffset: number): boolean {
   for (let index = 1; index < lines.length; index += 1) {
+    // Raw table spellings in fenced/indented code, HTML, and frontmatter do not define Markdown tables.
+    if (!blocks.some((node) => node.type === "paragraph" && node.sourcepos[0][0] + bodyOffset <= index && node.sourcepos[1][0] + bodyOffset >= index + 1)) continue;
     const delimiter = lines[index]!;
     if (!delimiter.includes("|") || !/^ {0,3}\|?[ \t]*:?-+:?(?:[ \t]*\|[ \t]*:?-+:?)*[ \t]*\|?[ \t]*$/u.test(delimiter)) continue;
     if (lines[index - 1]!.trim() === "") continue;
