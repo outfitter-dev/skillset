@@ -20,7 +20,8 @@ interface PackageJson {
   readonly name?: string;
 }
 
-export const has = (tool: string): boolean => Bun.which(tool) !== null;
+export const has = (tool: string): boolean =>
+  Bun.which(tool, { PATH: bootstrapChildEnv().PATH ?? "" }) !== null;
 
 /** Bootstrap children must not inherit a previous agent's Git overrides or Python activation. */
 const bootstrapChildEnv = (

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
@@ -73,7 +73,11 @@ test("bootstrap install children shed virtualenv state while preserving parent, 
     capture,
     `await Bun.write(${JSON.stringify(output)}, JSON.stringify(process.env));`
   );
-  const env: NodeJS.ProcessEnv = { ...contaminatedEnv(), CI: "parent-ci", LEFTHOOK: "1" };
+  const env: NodeJS.ProcessEnv = {
+    ...contaminatedEnv(),
+    CI: "parent-ci",
+    LEFTHOOK: "1",
+  };
   const result = Bun.spawnSync(
     [
       process.execPath,
@@ -112,4 +116,39 @@ test("bootstrap install children shed virtualenv state while preserving parent, 
   ]) {
     expect(child[key]).toBe(env[key]);
   }
+});
+
+test("optional tools present only in a virtualenv are reported missing without aborting setup", async () => {
+  const root = await createTestFixtureRoot("skillset-hermes-tools-");
+  const virtual = join(root, "venv");
+  const bin = join(virtual, process.platform === "win32" ? "Scripts" : "bin");
+  await mkdir(bin, { recursive: true });
+  const tool = `skillset-hermes-venv-only${process.platform === "win32" ? ".exe" : ""}`;
+  await copyFile(process.execPath, join(bin, tool));
+  const toolsModule = join(import.meta.dir, "..", "bootstrap", "tools.ts");
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      "--eval",
+      `
+    import { collectToolStatus } from ${JSON.stringify(toolsModule)};
+    console.log(JSON.stringify(collectToolStatus([${JSON.stringify(tool)}, "bun"], ${JSON.stringify(root)})));
+  `,
+    ],
+    {
+      env: {
+        ...process.env,
+        VIRTUAL_ENV: virtual,
+        PATH: [bin, process.env.PATH].join(delimiter),
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+  expect(result.exitCode).toBe(0);
+  expect(new TextDecoder().decode(result.stderr)).toBe("");
+  expect(JSON.parse(new TextDecoder().decode(result.stdout))).toEqual([
+    { name: tool, present: false },
+    { name: "bun", present: true, version: Bun.version },
+  ]);
 });
