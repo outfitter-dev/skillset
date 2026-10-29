@@ -13,7 +13,7 @@ import {
 import type { MigrationFlag } from "@skillset/schema";
 import { recognizeAdoptionBody } from "@skillset/core/internal/adoption-body-findings";
 import { recordImportedFindings } from "@skillset/core/internal/adoption-findings";
-import { adoptedHookFindingSources } from "./adoption-hook-sources";
+import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
 import type { ReleaseBaselineEntry } from "./adoption";
 import {
   buildSkillsetResult,
@@ -80,6 +80,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly nativeHookSources?: readonly NativeHookFindingSource[];
   readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
   /** Rule destination relative to the root (e.g. `.skillset/rules/agents.md`). */
@@ -396,7 +397,7 @@ async function adoptResolvedRoot(
   let migrationError: string | undefined;
   try {
     transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
-    const recorded = await recordImportedFindings(init.rootPath, { bodyPaths: previewSources, nativeHooks: adoptedHookFindingSources(imports) });
+    const recorded = await recordImportedFindings(init.rootPath, { bodyPaths: previewSources, nativeHooks: imports.flatMap((result) => result.nativeHookSources ?? []) });
     migrationFlags = recorded.flags;
     migrationWritePaths = recorded.writtenPaths;
   } catch (error) {
@@ -579,6 +580,7 @@ async function importCandidate(
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
+      nativeHookSources: batch.imports.flatMap((report) => report.nativeHookSource === undefined ? [] : [report.nativeHookSource]),
       ok: true,
       units,
       warnings: batch.warnings,
@@ -597,6 +599,7 @@ async function importCandidate(
       candidate,
       detail: errorMessage(error),
       renderResults: partialImports.flatMap((report) => report.renderResults),
+      nativeHookSources: partialImports.flatMap((report) => report.nativeHookSource === undefined ? [] : [report.nativeHookSource]),
       ok: false,
       units: adoptedUnits(rootPath, candidate, partialImports),
       warnings: partialImports.flatMap((report) => report.warnings),

@@ -39,20 +39,21 @@ export function classifyNativeHookLiftDiagnostics(
     return unsupportedNativeStructure(options, "Native hook source must be a JSON object.");
   }
   if (options.parsed.hooks !== undefined && !isJsonRecord(options.parsed.hooks)) {
-    return unsupportedNativeStructure(options, "Native hook hooks field must be an event map.");
+    return unsupportedNativeStructure(options, "Native hook hooks field must be an event map.", "unclassified", "/hooks");
   }
   const events = isJsonRecord(options.parsed.hooks) ? options.parsed.hooks : options.parsed;
+  const pointerRoot = events === options.parsed ? "" : "/hooks";
   const surface = options.surface ?? "plugin";
   const diagnostics: NativeHookLiftDiagnostic[] = [];
 
   for (const [event, groups] of Object.entries(events)) {
     if (events === options.parsed && event === "hooks") continue;
     if (!Array.isArray(groups)) {
-      diagnostics.push(...unsupportedNativeStructure(options, `Native hook ${event} must map to an array of handler groups.`, event));
+      diagnostics.push(...unsupportedNativeStructure(options, `Native hook ${event} must map to an array of handler groups.`, event, `${pointerRoot}/${pointerSegment(event)}`));
       continue;
     }
     groups.forEach((group, groupIndex) => {
-      const path = `${options.sourcePath}#/${event}/${groupIndex}`;
+      const path = `${options.sourcePath}#${pointerRoot}/${pointerSegment(event)}/${groupIndex}`;
       const candidate = nativeHookGroupCandidate({
         event,
         group,
@@ -98,14 +99,19 @@ export function classifyNativeHookLiftDiagnostics(
   return diagnostics;
 }
 
+function pointerSegment(value: string): string {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
 function unsupportedNativeStructure(
   options: NativeHookLiftDiagnosticsOptions,
   message: string,
-  event = "unclassified"
+  event = "unclassified",
+  pointer = ""
 ): readonly NativeHookLiftDiagnostic[] {
   return options.targets.map((target) => ({
     code: "native-hook-unsupported", status: "unsupported", target, message,
-    event, groupIndex: 0, path: `${options.sourcePath}#/${event}`,
+    event, groupIndex: 0, path: `${options.sourcePath}#${pointer}`,
   }));
 }
 

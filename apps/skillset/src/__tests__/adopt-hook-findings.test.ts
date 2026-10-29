@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import { initializeTestGitRepository } from "../../../../scripts/test-helpers/git-remote";
 import { join } from "node:path";
 import { readMigrationState, MIGRATION_STATE_PATH, hashMigrationState } from "@skillset/core/internal/migration-state";
 import { readReportBundle } from "@skillset/core/internal/report-store";
@@ -50,3 +52,39 @@ test("malformed hook event shapes still reach the durable review ledger", async 
   expect(report.migrationFlags?.map((flag) => flag.id)).toEqual(flags.map((flag) => flag.id));
   expect(await readFile(join(root, hookPath), "utf8")).toBe(original);
 });
+
+for (const git of [false, true]) {
+  test(`merged plugin hook findings retain the actual per-file origin (git=${git})`, async () => {
+    const disposableRoot = await createTestFixtureRoot("skillset-hook-origin-");
+    const root = join(disposableRoot, "repo");
+    await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude, codex]\n");
+    const manifest = JSON.stringify({ name: "native-hooks", description: "Native hooks", version: "1.0.0" });
+    const skill = "---\nname: demo\ndescription: Demo.\n---\n\nShared skill.\n";
+    for (const provider of ["claude", "codex"]) {
+      await Bun.write(join(root, `plugins/${provider}-demo/.${provider}-plugin/plugin.json`), manifest);
+      await Bun.write(join(root, `plugins/${provider}-demo/skills/demo/SKILL.md`), skill);
+    }
+    const original = '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo original"}]}]}}\n';
+    const originPath = "plugins/claude-demo/hooks/hooks.json";
+    await Bun.write(join(root, originPath), original);
+    await Bun.write(join(root, "plugins/codex-demo/hooks/hooks.json"), original);
+    if (git) await initializeTestGitRepository(root, { disposableRoot });
+    const input = git ? pathToFileURL(root).href : root;
+    const report = await adoptSkillset(input, { write: true });
+    try {
+      expect(report.surveyDiagnostics).toEqual([]);
+      expect(report.imports[0]?.candidate.plugin?.relation).toBe("equivalent");
+      const flags = (await readMigrationState(report.rootPath)).state.flags;
+      expect(flags.length).toBeGreaterThan(0);
+      expect(flags.every((flag) => flag.origin?.path === originPath)).toBe(true);
+      if (report.acquisition.kind === "git") {
+        const { ref, repo } = report.acquisition;
+        expect(flags.every((flag) => flag.evidence.some((item) => item.reference === repo))).toBe(true);
+        expect(flags.every((flag) => flag.evidence.some((item) => item.summary.includes(ref)))).toBe(true);
+      }
+      expect(await readFile(join(root, originPath), "utf8")).toBe(original);
+    } finally {
+      if (report.acquisition.kind === "git") await rm(report.rootPath, { force: true, recursive: true });
+    }
+  });
+}

@@ -3,13 +3,13 @@ import type { MigrationFlag } from "@skillset/schema";
 import { classifyNativeHookLiftDiagnostics, type NativeHookLiftDiagnostic } from "./adaptive-hook-native-lift";
 import { createInitialMigrationFlag } from "./migration-state-reconcile";
 import { compareStrings } from "./path";
-import type { JsonValue, TargetName } from "./types";
+import type { JsonValue, SourceOrigin, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
 export interface NativeHookFindingSource {
   readonly path: string;
   readonly targets: readonly TargetName[];
-  readonly originPath?: string;
+  readonly origin?: SourceOrigin;
 }
 
 /** Native JSON never receives inline locators or inferred command transformations. */
@@ -37,10 +37,12 @@ function flagForDiagnostic(source: NativeHookFindingSource, content: string, dia
     disposition: diagnostic.status === "unsupported" ? "lossy-unsupported" : diagnostic.status === "native-only" ? "provider-native" : "ambiguous",
     message: `[${diagnostic.target}] ${diagnostic.message}`,
     source: { path: source.path },
-    ...(source.originPath === undefined ? {} : { origin: { path: source.originPath } }),
+    ...(source.origin === undefined ? {} : { origin: { path: source.origin.path } }),
     fingerprints: { content: digest(content), context: digest(`${diagnostic.target}:${diagnostic.path}`) },
     placement: { kind: "sidecar", reason: "Provider-native JSON must remain byte-preserved." },
     evidence: [
+      ...(source.origin?.repo === undefined ? [] : [{ summary: "Original repository.", reference: source.origin.repo }]),
+      ...(source.origin?.ref === undefined ? [] : [{ summary: `Original revision: ${source.origin.ref}.` }]),
       { summary: `Assessment target: ${diagnostic.target}; hook location: ${diagnostic.path}. Event/handler evidence does not verify arbitrary command semantics.`, ...(diagnostic.providerRef === undefined ? {} : { reference: diagnostic.providerRef }) },
     ],
     relatedReportIds: [],

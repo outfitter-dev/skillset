@@ -49,3 +49,15 @@ for (const parsed of [true, { hooks: "invalid" }, { hooks: { SessionStart: "inva
     expect(diagnostics[0]).toMatchObject({ code: "native-hook-unsupported", status: "unsupported" });
   });
 }
+
+test("native hook evidence uses escaped JSON pointers for the actual document shape", () => {
+  for (const wrapped of [false, true]) {
+    const events = { "Custom/~Event": [{ hooks: [{ type: "command", command: "echo native" }] }] };
+    const diagnostics = classifyNativeHookLiftDiagnostics({ parsed: wrapped ? { hooks: events } : events, scope: { kind: "plugin" }, sourcePath: "hooks/hooks.json", targets: ["claude"] });
+    expect(diagnostics[0]?.path).toBe(`hooks/hooks.json#${wrapped ? "/hooks" : ""}/Custom~1~0Event/0`);
+  }
+  const badRoot = classifyNativeHookLiftDiagnostics({ parsed: true, scope: { kind: "plugin" }, sourcePath: "hooks/hooks.json", targets: ["claude"] });
+  expect(badRoot[0]?.path).toBe("hooks/hooks.json#");
+  const badEvents = classifyNativeHookLiftDiagnostics({ parsed: { hooks: "bad" }, scope: { kind: "plugin" }, sourcePath: "hooks/hooks.json", targets: ["claude"] });
+  expect(badEvents[0]?.path).toBe("hooks/hooks.json#/hooks");
+});

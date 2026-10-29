@@ -18,6 +18,7 @@ import {
 } from "@skillset/core/internal/directory-rename-no-replace";
 import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
+import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import {
   readRecord,
@@ -170,6 +171,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly nativeHookSource?: NativeHookFindingSource;
   readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly copiedFiles: readonly string[];
@@ -310,6 +312,8 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
             agentPluginImport !== undefined
           )
         : copied.files;
+    const hasNativeHookSource = options.kind === "plugin" && copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json");
+    const nativeHookOrigin = hasNativeHookSource ? options.sourceOrigin?.(sourcePath, "hooks/hooks.json") : undefined;
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
     }
@@ -390,6 +394,11 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       inferredSourceFields: classification.recognized,
       kind: options.kind,
       renderResults,
+      ...(hasNativeHookSource ? { nativeHookSource: {
+        path: relative(options.rootPath, join(targetPath, "hooks/hooks.json")).replaceAll("\\", "/"),
+        targets: targetNames().filter((target) => renderResults.some((result) => result.featureId === "plugin-hooks" && result.target === target)),
+        ...(nativeHookOrigin === undefined ? {} : { origin: nativeHookOrigin }),
+      } } : {}),
       name,
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: classification.targetNative,

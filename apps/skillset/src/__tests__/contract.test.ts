@@ -1562,7 +1562,7 @@ test("SET-10: plugin import reports native hook lift diagnostics without rewriti
       expect.objectContaining({
         code: "import-native-hook-runtime-unverified",
         message: expect.stringContaining("supported event/handler structure for claude"),
-        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/Notification/0",
+        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/hooks/Notification/0",
       }),
     ]),
     featureId: "plugin-hooks",
@@ -1575,7 +1575,7 @@ test("SET-10: plugin import reports native hook lift diagnostics without rewriti
       expect.objectContaining({
         code: "import-native-hook-unsupported",
         message: "Codex does not support adaptive hook event Notification.",
-        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/Notification/0",
+        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/hooks/Notification/0",
       }),
     ]),
     featureId: "plugin-hooks",
@@ -1618,7 +1618,7 @@ test("SET-250: plugin import detects Cursor manifests and native hook lift diagn
       expect.objectContaining({
         code: "import-native-hook-runtime-unverified",
         message: expect.stringContaining("supported event/handler structure for cursor"),
-        path: ".skillset/plugins/cursor-hooks/hooks/hooks.json#/sessionStart/0",
+        path: ".skillset/plugins/cursor-hooks/hooks/hooks.json#/hooks/sessionStart/0",
       }),
     ]),
     featureId: "plugin-hooks",
