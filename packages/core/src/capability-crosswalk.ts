@@ -354,7 +354,7 @@ const judgments: readonly CapabilityJudgment[] = [
 
 /** Reviewed implementation content; the crosswalk regression gate rejects drift. */
 export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
-  { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c5b5165e72eac18dff9cebaef1a76764f13b41a707112374ed5da096251f7053" },
+  { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:84aa20e153b19b5933056e177d2c4ae20319a4917d07dfb4afa0fbf07b9dd3b6" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
   { path: "packages/core/src/render.ts", contentHash: "sha256:ebfd6be09e8f265b738801a60a7e131a722e5af35d9976a782bb9fd890c7fd67" },
   { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:a3de6ef0d5e691ec12f53d5f7d66965b38c25d54e79ace39c500e7c3072f7715" },
