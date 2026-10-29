@@ -10,6 +10,15 @@ import {
 } from "../terminology-guard";
 
 describe("terminology guard", () => {
+  it("permits only the exact deferred transform capability fixture", () => {
+    const owner = "apps/skillset/src/__tests__/dialect.test.ts";
+    const capability = '    lowering: "to-codex",';
+    expect(scanContent(owner, capability)).toEqual([]);
+    expect(scanContent("apps/skillset/src/other.ts", capability)).toHaveLength(1);
+    expect(scanContent(owner, `${capability} // lowering outcome`)).not.toHaveLength(0);
+    expect(scanContent(owner, 'lowering: "bidirectional",')).toHaveLength(1);
+  });
+
   it("flags retired render-result vocabulary", () => {
     expect(scanContent("a.ts", "type X = SkillsetLoweringOutcome;").map((v) => v.label)).toContain(
       "SkillsetLowering* -> SkillsetRenderResult*"
