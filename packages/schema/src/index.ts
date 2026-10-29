@@ -222,3 +222,5 @@ export { validateMigrationState, isMigrationState } from "./migration-state";
 export type { MigrationState, MigrationFlag, MigrationFinding, MigrationObservation, MigrationLocation, MigrationFingerprints, MigrationPlacement, MigrationEvidence, MigrationResolution, MigrationDecision } from "./migration-state-types";
 
 export { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_LOCK_ITEM_KEYS } from "./generated-lock-fields";
+export { parseMigrationMarker, formatMigrationMarker } from "./migration-marker";
+export type { MigrationMarker } from "./migration-marker";

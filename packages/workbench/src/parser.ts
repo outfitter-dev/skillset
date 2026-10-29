@@ -1,3 +1,5 @@
+import type { MigrationState } from "@skillset/schema";
+import { inspectMigrationMarkers } from "@skillset/core/internal/migration-markers";
 import { createWorkbenchDiagnostic } from "./diagnostics";
 import {
   workbenchDiagnosticsFromMarkdownCodeFences,
@@ -31,11 +33,14 @@ export function inferWorkbenchParseKind(path: string): WorkbenchParseKind {
 export function parseWorkbenchDocument(args: {
   readonly content: string;
   readonly kind?: WorkbenchParseKind;
+  readonly migrationState?: MigrationState;
   readonly path: string;
 }): WorkbenchParseResult {
   const kind = args.kind ?? inferWorkbenchParseKind(args.path);
   if (kind === "json") return parseJson(args.path, args.content);
-  if (kind === "markdown") return parseMarkdown(args.path, args.content);
+  if (kind === "markdown") return args.migrationState === undefined
+    ? parseMarkdown(args.path, args.content)
+    : parseMigrationMarkdown(args.path, args.content, args.migrationState);
   if (kind === "toml") return parseToml(args.path, args.content);
   if (kind === "yaml") return parseYaml(args.path, args.content);
   return { diagnostics: [], kind, path: args.path };
@@ -44,9 +49,39 @@ export function parseWorkbenchDocument(args: {
 export function checkWorkbenchSyntax(args: {
   readonly content: string;
   readonly kind?: WorkbenchParseKind;
+  readonly migrationState?: MigrationState;
   readonly path: string;
 }): readonly WorkbenchDiagnostic[] {
   return parseWorkbenchDocument(args).diagnostics;
+}
+
+function parseMigrationMarkdown(path: string, content: string, state: MigrationState): WorkbenchParseResult {
+  const inspected = inspectMigrationMarkers({ content, path, state });
+  const parsed = parseMarkdown(path, inspected.content);
+  if (parsed.kind !== "markdown") return parsed;
+  const authoredLine = (line: number): number => inspected.sourceLines[line - 1] ?? line;
+  return {
+    ...parsed,
+    ...(parsed.bodyStartLine === undefined ? {} : {
+      bodyStartLine: authoredLine(parsed.bodyStartLine),
+      bodySourceLines: inspected.sourceLines.slice(parsed.bodyStartLine - 1),
+    }),
+    headings: parsed.headings.map((heading) => ({ ...heading, line: authoredLine(heading.line) })),
+    diagnostics: [
+      ...parsed.diagnostics.map((diagnostic) => ({
+        ...diagnostic,
+        ...(diagnostic.location === undefined ? {} : { location: {
+          ...diagnostic.location,
+          ...(diagnostic.location.line === undefined ? {} : { line: authoredLine(diagnostic.location.line) }),
+          ...(diagnostic.location.endLine === undefined ? {} : { endLine: authoredLine(diagnostic.location.endLine) }),
+        } }),
+      })),
+      ...inspected.diagnostics.map((diagnostic) => createWorkbenchDiagnostic({
+        location: { path, line: diagnostic.line }, message: diagnostic.message, ruleId: diagnostic.code,
+        scope: "source", severity: "error", subject: { kind: "markdown", path },
+      })),
+    ],
+  };
 }
 
 function parseJson(path: string, content: string): WorkbenchParseResult {

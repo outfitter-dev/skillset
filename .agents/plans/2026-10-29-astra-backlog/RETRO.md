@@ -1,5 +1,14 @@
 # Execution ledger
 
+### Resumed execution — October 29, SET-436
+
+- Matt explicitly directed continuous eligible backlog execution after the 26-draft settlement. That settlement is a preserved checkpoint, not completion of the campaign. Primary retains stack #741; no readiness, merge, publication or native-size waiver is granted.
+- Current child `set-436-emit-safe-inline-adoption-flags-and-exclude-them-from` starts at settled `7f77a2835`. SET-436 is In Progress; SET-438 still depends on SET-436/442. The marker slice owns exact schema grammar, ledger-backed safe insertion/removal, compiler and release-hash exclusion, authored diagnostic mappings, and reverse-reconciliation protection.
+- Initial marker integration passed focused tests, schema/docs/release/generated checks and fast conformance. Round one at `6d0a66bc` found fenced-table false positives; repaired at `c2c6e0987`. Round two found the table region crossing headings. The second repair uses paragraph ends and checks marker-free context so a comment cannot disguise a table-row insertion; regressions cover both allowed adjacent headings and rejected row splits. Two routine rounds are exhausted: findings are repaired with local proof, independent final-head acceptance remains pending settlement.
+- Historical full `6d0a66bc` run: 4010 pass, 2 skip, 4 todo, 6 fail. Three are deferred native-size failures; three detect the newly changed render.ts evidence hash. Reviewed renderer diff changes only skill source hashing to omit validated annotations; invocation-policy, project-agent and plugin-agent capability claims are unchanged. Evidence hash refresh and focused crosswalk/policy/agent regressions accompany the marker repair. No passing full receipt is claimed.
+- The existing ledger remains authoritative. No migration lifecycle, full scanner completeness, status/show UI, readiness result, or source/ledger mutation command is claimed by these primitives. Those remaining acceptance surfaces stay with the dependent migration work. Native trimming remains deferred, with the three known full-gate size failures retained.
+
+
 ### Current settlement checkpoint — October 29, 15:33 EDT
 
 - Accumulation has ended at 26 coherent layers; primary owns stack #741 and is settling the current delivery horizon under PLAN.md. All PRs remain draft. Earlier current-state sections below are historical checkpoints. No readiness, merge, release, native-size waiver, or global configuration action is inferred.

@@ -331,7 +331,7 @@ async function skillUnit(
   hash.update("id\0");
   hash.update(id);
   hash.update("\0");
-  await hashDirectory(hash, sourceDir, isGeneratedEntityChangelogPath);
+  await hashDirectory(hash, sourceDir, isGeneratedEntityChangelogPath, skill);
   await hashResources(hash, skill.resources);
   await hashPreprocessDependencies(hash, graph, preprocessDependencies);
   return {
@@ -589,7 +589,8 @@ async function hashPathInto(hash: ReturnType<typeof createHash>, sourcePath: str
 async function hashDirectory(
   hash: ReturnType<typeof createHash>,
   sourceDir: string,
-  shouldSkip?: RelativePathPredicate
+  shouldSkip?: RelativePathPredicate,
+  skill?: SourceSkill
 ): Promise<void> {
   hash.update("dir\0");
   for (const file of await collectFiles(sourceDir)) {
@@ -598,7 +599,7 @@ async function hashDirectory(
     hash.update(relativeFile);
     hash.update("\0");
     hashExecutableMode(hash, (await stat(file)).mode);
-    hash.update(await readFile(file));
+    hash.update(file === skill?.sourcePath && skill.semanticSourceContent !== undefined ? skill.semanticSourceContent : await readFile(file));
     hash.update("\0");
   }
 }

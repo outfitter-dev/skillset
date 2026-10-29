@@ -10,6 +10,7 @@ import {
   validateTestDeclaration,
   validateWorkspaceConfig,
   type SkillsetSchemaDiagnostic,
+  type MigrationState,
 } from "@skillset/schema";
 
 import { createWorkbenchDiagnostic, sortWorkbenchDiagnostics } from "./diagnostics";
@@ -27,6 +28,7 @@ export type WorkbenchSourceContractKind = "migration-state" | "agent" | "hook" |
 const TARGET_LIST = TARGET_NAMES.join(", ");
 
 export interface WorkbenchSourceContractInput {
+  readonly migrationState?: MigrationState;
   readonly content: string;
   readonly kind: WorkbenchSourceContractKind;
   readonly path: string;
@@ -37,6 +39,7 @@ export function checkWorkbenchSourceContract(
 ): readonly WorkbenchDiagnostic[] {
   const parsed = parseWorkbenchDocument({
     content: input.content,
+    ...(input.migrationState === undefined ? {} : { migrationState: input.migrationState }),
     kind: parseKindForContract(input.kind),
     path: input.path,
   });
