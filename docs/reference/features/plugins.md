@@ -73,7 +73,7 @@ plugins/review-tools/skills/<effective-name>/SKILL.md
 plugins/review-tools/assets/**
 ```
 
-Authored skill grouping directories organize source only. Generated package skills are immediate children named by their effective skill names. Skillset compares provider renderings before writing: provider-only frontmatter keys can coexist, while conflicting values or body bytes fail with a provider-specific diagnostic. Two sources that flatten to the same effective name also fail and name both sources.
+Authored skill grouping directories organize source only. Generated package skills are immediate children named by their effective skill names. Skillset compares provider renderings before writing: provider-only frontmatter keys can coexist, while conflicting values or body bytes fail with a provider-specific diagnostic. A provider delta cannot introduce `allowed-tools` when the shared Agent Skills baseline has no such policy. An explicitly authored baseline policy remains shared; different provider values still conflict. Two sources that flatten to the same effective name also fail and name both sources.
 
 The Agent Plugins baseline owns the portable root manifest, shared skill tree, portable `mcp.json`, and recognized neutral support files. Claude and Cursor manifests remain in their documented metadata directories. Package presentation assets are copied once to root `assets/`; skill-local assets and declared `shared:` or `plugin:` resources remain inside their skill directory. The pinned Cursor evidence documents a relative logo but does not establish arbitrary package assets as a native component, so the generated support matrix keeps Cursor asset support planned.
 
