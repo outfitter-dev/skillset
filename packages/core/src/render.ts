@@ -948,12 +948,29 @@ function mergePluginSkillRenderings(
   const preprocessDependencies = new Set<string>();
   const resources = new Map<string, SourceResource>();
   const transforms: AppliedTransform[] = [];
+  const standardRendering = renderings.find(
+    (rendering) => rendering.provider === "agent-plugins-1.0"
+  );
+  const standardFrontmatter = standardRendering === undefined
+    ? undefined
+    : parseMarkdown(standardRendering.markdown.content, skill.sourcePath).frontmatter;
 
   for (const rendering of renderings) {
     const parsed = parseMarkdown(
       rendering.markdown.content,
       `${relative(graph.rootPath, skill.sourcePath)} -> ${rendering.provider}`
     );
+    // allowed-tools is a standard policy field, not a provider-only extension.
+    // A native delta may not introduce policy absent from the shared baseline.
+    // An explicitly authored baseline policy remains owned by that baseline;
+    // conflicting provider values are rejected by the ordinary merge below.
+    if (standardFrontmatter !== undefined &&
+      standardFrontmatter["allowed-tools"] === undefined &&
+      parsed.frontmatter["allowed-tools"] !== undefined) {
+      throwPluginSkillProviderIncompatible(
+        graph, plugin, skill, rendering.provider, "allowed-tools"
+      );
+    }
     const normalizedBody = `${parsed.body.trimEnd()}\n`;
     if (body !== undefined && body !== normalizedBody) {
       throwPluginSkillProviderIncompatible(

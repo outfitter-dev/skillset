@@ -46,6 +46,8 @@ cursor: false
 ---
 name: repo-skill
 description: Repo skill.
+tools:
+  read: true
 ---
 
 Use the repo skill.
@@ -125,8 +127,6 @@ echo setup
 ---
 name: plugin-skill
 description: Plugin skill.
-tools:
-  read: true
 ---
 
 Use the plugin skill.
@@ -713,9 +713,9 @@ compile:
       expect.objectContaining({
         featureId: "tools-policy",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins/alpha/skills/plugin-skill/SKILL.md" }),
+          expect.objectContaining({ path: ".claude/skills/repo-skill/SKILL.md" }),
         ]),
-        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        sourceUnit: "skill:repo-skill",
         status: "transformed",
         target: "claude",
       })
@@ -724,7 +724,7 @@ compile:
       expect.objectContaining({
         destination: "skill-tools",
         featureId: "tools-policy",
-        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        sourceUnit: "skill:repo-skill",
         target: "codex",
       })
     );
@@ -851,11 +851,12 @@ compile:
         target: "codex",
       })
     );
-    expect(scoped.renderResults).toContainEqual(
+    const pluginScoped = await diffSkillsetResult(root, { scopes: ["plugins"] });
+    expect(pluginScoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "tools-policy",
         policy: "scope:excluded",
-        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        sourceUnit: "skill:repo-skill",
         status: "intentionally_skipped",
         target: "claude",
       })
@@ -3391,19 +3392,19 @@ Body.
     const claudeSkillDestinations = preview.renderResults
       .filter(
         (result) =>
-          result.sourceUnit === "plugin.alpha.skill:plugin-skill" && result.target === "claude"
+          result.sourceUnit === "skill:repo-skill" && result.target === "claude"
       )
       .map((result) => result.destination)
       .sort();
     expect(claudeSkillDestinations).toContain("skill");
     expect(claudeSkillDestinations).toContain("skill-frontmatter");
 
-    // The shared package records Codex policy metadata beside the one skill.
+    // The Codex standalone projection records its own policy metadata sidecar.
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         destination: "skill-tools",
         featureId: "tools-policy",
-        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        sourceUnit: "skill:repo-skill",
         target: "codex",
       })
     );
