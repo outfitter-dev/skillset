@@ -439,7 +439,7 @@ async function adoptResolvedRoot(
   ])];
   const writtenPaths = [...new Set([
     ...acquisitionWrittenPaths,
-    ...init.files.filter((file) => file.status === "create").map((file) => file.path),
+    ...init.files.filter((file) => file.status !== "exists").map((file) => file.path),
     ...imports.flatMap((entry) => [
       ...(entry.destination === undefined ? [] : [entry.destination]),
       ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),

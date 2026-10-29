@@ -58,3 +58,14 @@ for (const native of [false, true]) {
     expect(bundle.markdown).toContain("synthesize");
   });
 }
+
+it("records native-mode updates to an existing workspace config as writes", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: existing\ncompile:\n  targets: [claude]\n",
+    "AGENTS.md": "# Existing authored guidance\n",
+  });
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(true);
+  expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("nativeAgents: true");
+  expect(report.writtenPaths).toContain("skillset.yaml");
+});
