@@ -35,6 +35,54 @@ describe("native root rule source", () => {
     expect((await verifySkillset(root)).failures).toEqual([]);
   });
 
+  it("preserves literal leading Markdown separators in Claude projections", async () => {
+    for (const prose of ["---\n\nFollow the project guide.\n", "---\n[invalid yaml\n---\nGuidance.\n"]) {
+      const root = await fixture();
+      await writeFile(join(root, "AGENTS.md"), prose);
+      await buildSkillset(root);
+      expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(prose);
+      expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain(prose.trimEnd());
+      expect((await verifySkillset(root)).failures).toEqual([]);
+    }
+  });
+
+  it("permits unhashed v4 migration without discarding managed root claims", async () => {
+    for (const managed of [false, true]) {
+      const root = await fixture();
+      if (managed) {
+        await rm(join(root, "AGENTS.md"));
+        await writeFile(join(root, ".skillset/RULES.md"), "# Managed guidance\n");
+      }
+      await buildSkillset(root);
+      const path = join(root, "skillset.lock");
+      const lock = JSON.parse(await readFile(path, "utf8"));
+      lock.schemaVersion = 4;
+      delete lock.headerHash;
+      for (const item of lock.items) delete item.provenanceHash;
+      await writeFile(path, JSON.stringify(lock));
+      const graph = await loadBuildGraph(root);
+      expect(graph.nativeRootRuleSource !== undefined).toBe(!managed);
+      await buildSkillset(root);
+      expect(JSON.parse(await readFile(path, "utf8")).schemaVersion).toBe(5);
+      expect((await verifySkillset(root)).failures).toEqual([]);
+    }
+  });
+
+  it("rejects invalid v4 hashes and missing v5 provenance during native discovery", async () => {
+    for (const version of [4, 5]) {
+      const root = await fixture();
+      await buildSkillset(root);
+      const path = join(root, "skillset.lock");
+      const lock = JSON.parse(await readFile(path, "utf8"));
+      lock.schemaVersion = version;
+      delete lock.headerHash;
+      if (version === 4) lock.provenanceHash = `sha256:${"0".repeat(64)}`;
+      await writeFile(path, JSON.stringify(lock));
+      await expect(loadBuildGraph(root)).rejects.toThrow(version === 4 ? "invalid provenanceHash" : "requires headerHash");
+      expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(authored);
+    }
+  });
+
   it("previews discovery without writes, persists it on build, and repeats cleanly", async () => {
     const root = await fixture();
     const preview = await diffSkillsetResult(root);

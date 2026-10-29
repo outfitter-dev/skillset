@@ -1168,6 +1168,12 @@ cursor: false
     await buildSkillsetResult(root);
     await Bun.write(join(root, outputPath), "hand edit\n");
 
+    const preview = await diffSkillsetResult(root);
+    expect(preview.diagnostics).toContainEqual(expect.objectContaining({
+      code: "managed-output-edited",
+      message: expect.stringContaining("will be backed up before overwrite"),
+      outputPath,
+    }));
     const result = await buildSkillsetResult(root);
     const backupRunId = result.writes.backupRunId;
 

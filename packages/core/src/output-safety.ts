@@ -1170,7 +1170,9 @@ function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiag
   return skillsetDiagnostic({
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
     featureId: "output-safety",
-    message: `${reason}; ${record.targetPath} requires an explicit recovery decision before ${record.action}`,
+    message: record.reason === "managed-target-edit"
+      ? `${reason}; ${record.targetPath} will be backed up before ${record.action}`
+      : `${reason}; ${record.targetPath} requires an explicit recovery decision before ${record.action}`,
     outputPath: record.targetPath,
     severity: "warning",
   });

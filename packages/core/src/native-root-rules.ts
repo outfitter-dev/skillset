@@ -52,8 +52,11 @@ export async function resolveNativeRootRuleSource(
       if (declared) throw new Error("skillset: native AGENTS.md is still claimed by skillset.lock; reconcile its managed ownership before selecting native mode");
       return undefined;
     }
-    // Untrusted evidence may preserve a managed claim but cannot prove absence of ownership.
-    parseGeneratedLock(rawLock, "skillset.lock");
+    // Unhashed v4 locks retain the build's one-time integrity migration path.
+    // Invalid hashes and damaged v5 provenance still cannot establish absence.
+    if (!(lock.schemaVersion === 4 && isJsonRecord(rawLock) && rawLock.provenanceHash === undefined)) {
+      parseGeneratedLock(rawLock, "skillset.lock");
+    }
   }
   if (!entry.isFile() || entry.isSymbolicLink()) {
     throw new Error("skillset: native root AGENTS.md must be a regular file, not a symlink or directory");
