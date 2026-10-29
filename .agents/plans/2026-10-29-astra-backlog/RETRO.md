@@ -1,5 +1,12 @@
 # Execution ledger
 
+### SET-442 raw argument preservation — October 29
+
+- Parent draft #769 is published at `96f65ec65dc2295d396e72636ee14a823e62b8f0`; its exact full run completed 4046 pass, 2 skip, 4 todo and only three deferred native-size failures across 4055 tests / 362 files. Both external review threads were repaired, replied to and resolved. The minimal Linear progress comment was blocked by automatic approval review; specific payload authorization is pending, with evidence retained locally and on GitHub.
+- Read-only audit found the raw argument rewrite bypassing migration findings for every provider, including escaped literals and fenced code. The official Claude skill substitutions documentation confirms native all/indexed forms and backslash escaping, but does not establish other destinations' runtime equivalence; dotted Skillset grammar is not proof of a native named-argument contract. Local provider-library path was unavailable, so official docs were checked directly on October 29.
+- Removed the unproven body rewrite and its raw-file fallback. Imported raw tokens now reach the existing ambiguous-finding producer, while explicitly authored canonical markers remain unchanged. Original files, escaped examples, fences, standalone provider roots and shared plugin source are covered. This correction does not claim positive normalization/evidence acceptance is complete.
+- Red regressions reproduced rewriting on Claude, Codex and Cursor roots. Focused proof: 60 tests / 456 assertions pass, plus typecheck, docs and Changesets. Exact review, aggregate verification and draft publication follow. Remaining SET-442 includes evidence-backed positive normalization and report associations, unknown/native field and hook boundaries, and external semantic fixture acceptance.
+
 ### SET-442 durable body findings — October 29
 
 - Draft #769 was published at reviewed `c057837c` (round two 5/5). Its immutable full run completed 4044 pass, 2 skip, 4 todo and three deferred native-size failures across 4053 tests; post-test gates and hosted draft checks pass. External review then exposed Markdown claiming skipped validation succeeded and the fixture harness omitting durable flags. Scoped regressions reproduced both and the related fixture failure-propagation gap; repaired reports now retain migration errors, withhold cutover advice, count flags and avoid comparisons after skipped validation. Focused proof: 64 tests / 478 assertions and typecheck pass. A narrow external-review repair follows; earlier review/full results remain historical.
