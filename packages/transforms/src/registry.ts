@@ -24,6 +24,21 @@ export const registerTransformEntry = (entry: TransformEntry): void => {
       );
     }
   }
+  if (entry.lowering === "none") {
+    if (Object.values(entry.forms).some((form) => form.render !== undefined)) {
+      throw new Error(`report-only transform must not carry a renderer: ${entry.intent}`);
+    }
+  } else {
+    if (entry.forms.claude === undefined) {
+      throw new Error(`transform needs a source recognizer: ${entry.intent}`);
+    }
+    if (
+      entry.forms.codex?.render === undefined ||
+      (entry.lowering === "bidirectional" && entry.forms.claude.render === undefined)
+    ) {
+      throw new Error(`transform needs a target renderer for every declared direction: ${entry.intent}`);
+    }
+  }
   transformEntries.set(entry.intent, entry);
 };
 
