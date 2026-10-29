@@ -14,7 +14,7 @@
 - [Release: beta to launch](https://linear.app/outfitter/project/release-beta-to-launch-ce62b966b1c0): SET-457/466 public surface; SET-478 finished-path gate.
 - [Adoption and migration](https://linear.app/outfitter/project/adoption-and-migration-30bf72dfcb8a): SET-437 accepted architecture; SET-444 semantic fixture gate.
 - [Guidance and docs](https://linear.app/outfitter/project/guidance-and-docs-da2ff75f4932): SET-708 already In Progress at catch-up.
-- [Developer workflow and verification](https://linear.app/outfitter/project/developer-workflow-and-verification-93699cfa0caf): SET-760 research-only first pull; release mechanics have separate owner gates.
+- [Developer workflow and verification](https://linear.app/outfitter/project/developer-workflow-and-verification-93699cfa0caf): SET-770 first pull, then SET-603/771/772 (Bun 1.4.4 foundation); SET-760 remains separate research-only; release mechanics have separate owner gates.
 - [Migration contract and execution plan](https://linear.app/outfitter/document/guided-adoption-migration-contract-and-execution-plan-cad53f1e2170), amended October 28.
 
 ## Supporting context
