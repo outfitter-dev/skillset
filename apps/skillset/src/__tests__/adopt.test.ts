@@ -876,8 +876,8 @@ test("adopt carries native hook lift diagnostics into its domain report", async 
   const importOutcome = expect.objectContaining({
     diagnostics: expect.arrayContaining([
       expect.objectContaining({
-        code: "import-native-hook-lift-candidate",
-        message: expect.stringContaining("lossless-adaptive for claude"),
+        code: "import-native-hook-runtime-unverified",
+        message: expect.stringContaining("supported event/handler structure for claude"),
         path: ".skillset/plugins/native-hooks/hooks/hooks.json#/SessionStart/0",
       }),
     ]),

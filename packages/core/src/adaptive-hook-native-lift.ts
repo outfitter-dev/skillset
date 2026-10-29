@@ -1,6 +1,5 @@
 import {
   classifyAdaptiveHookIntent,
-  type AdaptiveHookIntentStatus,
   type AdaptiveHookRenderSurface,
 } from "./adaptive-hook-classifier";
 import type { ResolvedAdaptiveHookAttachment } from "./adaptive-hook-attachments";
@@ -8,7 +7,7 @@ import type { AdaptiveHookScope, JsonRecord, JsonValue, TargetName } from "./typ
 import { isJsonRecord } from "./yaml";
 
 export type NativeHookLiftDiagnosticCode =
-  | "native-hook-lift-candidate"
+  | "native-hook-runtime-unverified"
   | "native-hook-native-only"
   | "native-hook-unsupported";
 
@@ -21,7 +20,7 @@ export interface NativeHookLiftDiagnostic {
   readonly message: string;
   readonly path: string;
   readonly providerRef?: string;
-  readonly status: AdaptiveHookIntentStatus;
+  readonly status: "native-only" | "unsupported" | "unknown";
   readonly target: TargetName;
 }
 
@@ -67,16 +66,21 @@ export function classifyNativeHookLiftDiagnostics(
           continue;
         }
         const classification = classifyAdaptiveHookIntent(candidate.item, target, surface);
+        // Event/handler compatibility cannot establish the semantics of an
+        // arbitrary command, its environment, or provider payload consumption.
+        const status = classification.status === "lossless-adaptive" || classification.status === "provider-scoped-adaptive"
+          ? "unknown"
+          : classification.status;
         diagnostics.push({
-          code: codeForStatus(classification.status),
+          code: codeForStatus(status),
           event,
           groupIndex,
           matcherEvaluation: classification.matcherEvaluation,
           matcherKind: classification.matcherKind,
-          message: messageForClassification(classification.status, event, groupIndex, target, classification.reason),
+          message: messageForClassification(status, event, groupIndex, target, classification.reason),
           path,
           providerRef: classification.providerRef,
-          status: classification.status,
+          status,
           target,
         });
       }
@@ -165,21 +169,21 @@ function nativeHookGroupCandidate(options: {
   };
 }
 
-function codeForStatus(status: AdaptiveHookIntentStatus): NativeHookLiftDiagnosticCode {
+function codeForStatus(status: NativeHookLiftDiagnostic["status"]): NativeHookLiftDiagnosticCode {
   if (status === "native-only") return "native-hook-native-only";
   if (status === "unsupported") return "native-hook-unsupported";
-  return "native-hook-lift-candidate";
+  return "native-hook-runtime-unverified";
 }
 
 function messageForClassification(
-  status: AdaptiveHookIntentStatus,
+  status: NativeHookLiftDiagnostic["status"],
   event: string,
   groupIndex: number,
   target: TargetName,
   reason: string | undefined
 ): string {
-  if (status === "lossless-adaptive" || status === "provider-scoped-adaptive") {
-    return `Native hook ${event} group ${groupIndex} can be represented as ${status} for ${target}; import preserves hooks/hooks.json until lift is explicit.`;
+  if (status === "unknown") {
+    return `Native hook ${event} group ${groupIndex} has a supported event/handler structure for ${target}, but command runtime semantics have not been verified; preserve native source and review its environment and payload contract before adaptation.`;
   }
   return reason ?? `Native hook ${event} group ${groupIndex} cannot be lifted adaptively for ${target}.`;
 }
