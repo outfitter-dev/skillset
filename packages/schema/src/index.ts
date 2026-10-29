@@ -220,3 +220,5 @@ export {
 export { migrationStateContract, MIGRATION_STATE_SCHEMA_VERSION, MIGRATION_FLAG_STATES, MIGRATION_FLAG_SEVERITIES, MIGRATION_FLAG_DISPOSITIONS, MIGRATION_MARKER_LABELS } from "./contracts";
 export { validateMigrationState, isMigrationState } from "./migration-state";
 export type { MigrationState, MigrationFlag, MigrationFinding, MigrationObservation, MigrationLocation, MigrationFingerprints, MigrationPlacement, MigrationEvidence, MigrationResolution, MigrationDecision } from "./migration-state-types";
+
+export { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_LOCK_ITEM_KEYS } from "./generated-lock-fields";
