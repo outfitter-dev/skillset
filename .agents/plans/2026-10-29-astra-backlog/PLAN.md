@@ -17,7 +17,7 @@ When Matt starts the Astra thread with this packet, proceed continuously through
 - Run appropriate checks, commit, push owned branches, and create/update draft PRs.
 - Delegate bounded research, independent review, and repair work in isolated worktrees; exchange task and handoff messages with those participants.
 - Integrate repair commits into the owning branch and restack branches this campaign owns, with affected writers idle.
-- Maintain existing Linear issues, descriptions, dependency relations, and implementation evidence to reflect confirmed work and scope divergence.
+- Proactively maintain existing Linear issues, descriptions, statuses, milestones, dependency relations, and implementation evidence; add necessary durable issue comments and concise project updates when milestones complete.
 
 The target is a coherent draft stack followed by a settlement pass that makes it ready for owner review and merge. This grant does not authorize merges, package publication, deployments, release-channel or visibility changes, adding remotes, global runtime/configuration changes, destructive cleanup of user work, or messages to unrelated people/services. Existing PRs and stacks owned by others require an explicit ownership handoff before mutation or history rewrites. A historical implementation hold is not a reason to re-ask about work this packet now authorizes; an unresolved current owner or external release gate still matters.
 
@@ -109,6 +109,16 @@ Draft PRs are checkpoints, not occasions to stop the implementation campaign for
 
 Record and defer feedback that does not affect subsequent implementation. Keep a finding-to-owner/PR/head list so deferred comments cannot disappear in compaction. This explicit user instruction changes the timing of review response; it does not make unresolved comments disappear or authorize ignoring them at readiness. Do not resolve threads without a fix, reasoned disposition, or verified evidence.
 
+## Proactive Linear maintenance
+
+Astra owns tracker hygiene throughout execution; do not leave it for Matt or wait to be asked. Keep issue status, scope, acceptance criteria, milestone placement, dependencies, and linked implementation evidence consistent with confirmed work. Preserve the existing project/status taxonomy and file new confirmed work into an existing project and milestone; do not create a duplicate campaign tracker or speculative backlog.
+
+Comment on an issue only when the information is necessary for future reference: a decision or rationale, substantive scope divergence, a durable blocker/handoff, or acceptance evidence that the issue and linked PR do not otherwise preserve clearly. Avoid routine progress narration, duplicate CI logs, per-commit comments, and comments that merely repeat fields or the PR. Update the current issue brief when intent changes; a chronological comment alone is insufficient. Record tracker mutations in RETRO.md without copying the entire issue history.
+
+When a milestone actually meets its current done criteria, post one simple update to its Linear project. State the milestone completed, the resulting capability/outcome, relevant issue/PR links, and the next milestone or material blocker. A few sentences suffice. Reuse an existing update for corrections and avoid duplicate completion announcements. Draft implementation or passing head checks do not prove merged/released delivery: if delivery is still pending, reflect that in issue state and any useful checkpoint update rather than declaring the milestone complete. If the milestone's criteria require merge/publication outside this grant, report that remaining owner step.
+
+Suggested project update: "Completed [milestone]: [outcome]. Evidence: [issue/PR links]. Next: [next milestone]; [material blocker, if any]." Do not generate an update for every issue, review round, or commit.
+
 ## Verification and release records
 
 Follow the current repository commands and hooks, not historical command spellings embedded in old issues. In this checkout the key surfaces include focused sandboxed tests, docs:check, schema:generate/schema:check when schemas change, skillset:build and generated-output checks when source changes, changeset:check, check:fast, check, skillset:check:ci, and exact-commit verify receipts. Read current package scripts and lefthook.yml before relying on that list.
@@ -148,6 +158,8 @@ Keep implementing independent work while reviews and checks run.
 
 Triage external reviews for downstream impact; defer other feedback to the
 settlement pass. Preserve all quality and acceptance requirements. Keep Linear
-and the handoff ledger truthful. No merge, publication, deployment, global
+current proactively; comment only for necessary future reference, and post a
+simple project update when a milestone truly completes. Keep the handoff ledger
+truthful. No merge, publication, deployment, global
 configuration changes, or unrelated cleanup is authorized by this kickoff.
 ```

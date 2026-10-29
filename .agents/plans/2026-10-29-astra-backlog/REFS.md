@@ -2,7 +2,7 @@
 
 ## Authority and repository guidance
 
-- Matt's October 29, 2026 conversation: one Astra owner; continuous high-quality backlog work; subagents/review worktrees; focused repairs integrated and restacked; disjoint separate stacks; draft PRs with external review settlement deferred; at most two routine local review rounds using GPT-6.1 Terra high/fast threads where available; committed local packet requested.
+- Matt's October 29, 2026 conversation: one Astra owner; continuous high-quality backlog work; subagents/review worktrees; focused repairs integrated and restacked; disjoint separate stacks; draft PRs with external review settlement deferred; at most two routine local review rounds using GPT-6.1 Terra high/fast threads where available; proactive Linear management, issue comments only when needed for future reference, and simple project updates at milestone completion; committed local packet requested.
 - [Repository instructions](../../../AGENTS.md), [contribution guidance](../../../CONTRIBUTING.md), [planning preferences](../PLANNING.md), and [documentation system](../../../docs/development/documentation-system.md).
 - [Tenets](../../../docs/project/tenets.md), [ADR index](../../../docs/adrs/README.md), and [beta decision record](../../../docs/project/plans/beta-release.md). Read governing decisions before changing their contracts.
 - Preparation checkout: main at 24800e02ed4e7150ea1bc7130c35603c98ea9da2, clean before this packet. This is provenance, not the executing thread's assumed base.

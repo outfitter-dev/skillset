@@ -4,7 +4,7 @@
 
 Status: operating packet prepared; backlog execution has not started. Matt will launch the Astra thread separately.
 
-This packet records the agreed single-owner workflow, draft PR horizon, disjoint-stack rule, asynchronous review/repair integration, and two-round local review budget. No Linear records, Notion pages, existing PRs, implementation branches, runtime configuration, or release state were changed by preparation.
+This packet records the agreed single-owner workflow, draft PR horizon, disjoint-stack rule, asynchronous review/repair integration, two-round local review budget, and proactive Linear maintenance with necessary durable comments and simple milestone-completion project updates. No Linear records, Notion pages, existing PRs, implementation branches, runtime configuration, or release state were changed by preparation.
 
 No new Linear issue was assigned to the documentation task. The executor should use the existing Skillset issues rather than create a duplicate campaign tracker. The six-project catch-up snapshot contained 148 open issues including coordination parents and deferred work; refresh the inventory instead of treating that count as a target.
 
@@ -19,6 +19,14 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 - Active review/repair threads: none.
 - Deferred findings and blockers: none introduced by preparation; existing issue blockers remain in Linear.
 - Next action: launch Astra with PLAN.md's copyable kickoff, reconcile current state, and begin eligible work.
+
+## Preparation validation and review
+
+- Local Markdown links and git diff --check passed. Pre-commit repo sanity, whitespace, and generated-output checks passed (95 generated files).
+- Independent GPT-6.1 Terra high review of f7cebc756 reported one concern based on interpreting "local" as private/unpushed. That concern was withdrawn after checking Matt's explicit request to commit the repository document for reviewers. No findings remained. No separate fast-mode setting was exposed by the review runtime.
+- The full bun run check was invoked. Guards, typecheck, and package build passed; the test phase encountered failures in untouched surfaces: docs golden-path generated-output drift, adopted standards receipt/fixture identity, and a pending-ledger merge test timeout. No green full-gate claim is made. Do not repair unrelated implementation as part of this packet-writing task.
+- A separate bun run docs:check failed on the same golden-path generated-output drift. The packet is under .agents/, outside the product documentation gate. These failures are evidence for the executor to classify against its current baseline, not proof of a new defect caused by the packet.
+- Latest user steering is incorporated: proactive Linear hygiene, issue comments only for necessary future reference, and a simple project update for each genuinely completed milestone.
 
 ## Checkpoint format
 
