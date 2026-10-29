@@ -330,9 +330,9 @@ const judgments: readonly CapabilityJudgment[] = [
   },
   {
     capabilityId: "project-rules", featureId: "project-instructions", target: "codex", fidelity: "synthesized",
-    implementationPaths: ["packages/core/src/render-rules.ts", "packages/core/src/render-standard-instructions.ts", "packages/core/src/__tests__/render-standard-instructions.test.ts", "docs/reference/features/rules.md"],
-    scope: "Rules with literal directory scope and no paths narrowing are combined in deterministic source-path order into the directory AGENTS.md.",
-    limitations: ["This judgment excludes paths narrowing, which is degraded, and wildcard scopes, which are unsupported. Native context limits and AGENTS.override.md shadowing still apply.", "Implementation proof: packages/core/src/__tests__/render-standard-instructions.test.ts and docs/reference/features/rules.md."],
+    implementationPaths: ["packages/core/src/render-rules.ts", "packages/core/src/render-standard-instructions.ts", "packages/core/src/__tests__/render-standard-instructions.test.ts", "packages/core/src/__tests__/native-root-rules.test.ts", "docs/reference/features/rules.md"],
+    scope: "Generated rules with literal directory scope and no paths narrowing are combined in deterministic source-path order into the directory AGENTS.md.",
+    limitations: ["This judgment excludes paths narrowing, which is degraded, and wildcard scopes, which are unsupported. Native root AGENTS.md is read in place and is outside this synthesis judgment. Native context limits and AGENTS.override.md shadowing still apply.", "Implementation proof: packages/core/src/__tests__/render-standard-instructions.test.ts and docs/reference/features/rules.md."],
     authorityHash: "sha256:bbeafbbf025b130dafbeb55deeaaad150e64ed7c7e58543e4269a3de7bd9bd40",
   },
   {
@@ -354,21 +354,22 @@ const judgments: readonly CapabilityJudgment[] = [
 
 /** Reviewed implementation content; the crosswalk regression gate rejects drift. */
 export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
+  { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c5b5165e72eac18dff9cebaef1a76764f13b41a707112374ed5da096251f7053" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
-  { path: "packages/core/src/render.ts", contentHash: "sha256:8818f36667762cdeb08062e6d71b66c4f7ab3e712d5c69088fbc7b6b4c336758" },
+  { path: "packages/core/src/render.ts", contentHash: "sha256:ebfd6be09e8f265b738801a60a7e131a722e5af35d9976a782bb9fd890c7fd67" },
   { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:a3de6ef0d5e691ec12f53d5f7d66965b38c25d54e79ace39c500e7c3072f7715" },
   { path: "packages/core/src/__tests__/skill-invocation-policy.test.ts", contentHash: "sha256:3cd2a7199c8e64f49162939376a017052aa011404455482adda7e3b3f6240561" },
   { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:61ec143b8422d29aa96334d1ece03d4d12c7d874087a95f2762595644980a281" },
   { path: "packages/core/src/__tests__/project-agent-skills.test.ts", contentHash: "sha256:e491ac044e0b72d701ff3cf6dc2d5ebc5c69cd87ee8212ae433534118f6336e0" },
-  { path: "apps/skillset/src/__tests__/skillset.test.ts", contentHash: "sha256:3de8e1facabf580e6cccf1ca4e6736f5c286d1e54fd8fefb235d7a17793c88d3" },
-  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:4f38ecdcfeee9d7d6514c8ad8fedbdd4549d6c90b835851bdcc7f98935f54b9c" },
-  { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:9c45bc3e9b12b5540ac503d2c867a44bac29c6448a8a2ae18eada6182dce1f98" },
+  { path: "apps/skillset/src/__tests__/skillset.test.ts", contentHash: "sha256:2148d7acb3eaf1aac275ee0af0efa89da9d106266c1f94a8cf3d4ab4df270c71" },
+  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:0d96c31d9dad2492b05629a59094b70ad7d9bb1d3263c1986c1a2ab4561a0ff6" },
+  { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:608f1171d11ce31c910871a2027a2d6909a3a1106e750d5057eea46eebae33c2" },
   { path: "packages/core/src/__tests__/render-standard-instructions.test.ts", contentHash: "sha256:ea2548155b937c075f2d7b5aaf105866ff36a92bee277cba3d812fd94a8297f2" },
   { path: "packages/core/src/hooks.ts", contentHash: "sha256:8659ebcef8468a700f3240075b2f6128fd21cccd2364379734e7057239d75d70" },
   { path: "packages/core/src/render-hooks.ts", contentHash: "sha256:b5ef546bae66dad2a96fd764f240512169d4ea9e23c9932a486be1958ab973b1" },
   { path: "packages/core/src/hook-capabilities.ts", contentHash: "sha256:2f06a181cc347b256d4d4b4a3145a25f37a4d4f6eb1b5b7e448a7ab1af391296" },
   { path: "docs/reference/features/skills.md", contentHash: "sha256:5ac78a6a9907b6528aa04e5450e852791fccd3e201798ffa500e8e7fc3d8bf27" },
-  { path: "docs/reference/features/agents.md", contentHash: "sha256:7671e005dffba571ccf0e00f75f99d57a2d6086adb45c38012c0ce67e8ebab7a" },
-  { path: "docs/reference/features/rules.md", contentHash: "sha256:cc350c2a78ca9dce118a13bd04bf3f1924e99dccf01f4accd68e2d5944418adf" },
-  { path: "docs/reference/features/hooks.md", contentHash: "sha256:c32bf59ee8a5c3df4dc5fe90cef9cf44368fbb276b3e81666d4f230daf13fe4f" },
+  { path: "docs/reference/features/agents.md", contentHash: "sha256:838e466c12e21195998898c009a5297d6d9da4bb98c43f5b4c7ea052cf1d828d" },
+  { path: "docs/reference/features/rules.md", contentHash: "sha256:5272d1776cc67e1ad8b974b8ee53126ad588942495e56aeeaec8bd72f7662bad" },
+  { path: "docs/reference/features/hooks.md", contentHash: "sha256:828d3b3b763bcad640e7b66eaa06c26c4125e8bb7cb17ab667809213e552991d" },
 ] as const;

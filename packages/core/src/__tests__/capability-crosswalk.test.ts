@@ -165,3 +165,10 @@ test("per-capability implementation evidence excludes unrelated hook and rule fi
     if (row.fidelity !== "unknown") expect(row.implementationEvidence.length).toBeGreaterThan(0);
   }
 });
+
+test("the synthesized rule judgment excludes authored native root guidance", () => {
+  const row = compareCapability(findCapabilities("project-rules")[0]!, ["codex"])[0]!;
+  expect(row.fidelity).toBe("synthesized");
+  expect(row.limitations.join(" ")).toContain("Native root AGENTS.md is read in place");
+  expect(row.implementationEvidence.map(({ path }) => path)).toContain("packages/core/src/__tests__/native-root-rules.test.ts");
+});
