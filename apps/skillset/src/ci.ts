@@ -54,6 +54,8 @@ export interface CiReport {
   /** Generated paths rewritten by a `--fix` rebuild. */
   readonly fixedPaths: readonly string[];
   readonly lintIssues: readonly LintIssue[];
+  /** Remaining layout-only drift, excluding registered provider-format work. */
+  readonly layoutOnlyDriftPaths?: readonly string[];
   readonly ok: boolean;
   /** Managed generated paths changed since the last recorded output hash. */
   readonly outputEditedPaths: readonly string[];
@@ -255,8 +257,16 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   const recovery = classifyRecoveryGuidance(recoveryInput());
   const reportedRepairableLockPaths = repairableManagedLockPaths();
   const reportedRepairableLockPathSet = new Set(reportedRepairableLockPaths);
+  const plannedProviderPaths = new Set(
+    [...(providerReport?.safeUpdates ?? []), ...(providerReport?.manualReviews ?? [])]
+      .flatMap((action) => action.affectedPaths)
+  );
+  const reportedLayoutOnlyPaths = providerAnalysisError === undefined
+    ? layoutOnlyDriftPathList.filter((path) => drift.changed.includes(path) && !plannedProviderPaths.has(path))
+    : [];
+  const reportedLayoutOnlyPathSet = new Set(reportedLayoutOnlyPaths);
   const reportedProviderUpdatePaths = providerUpdatePaths.filter(
-    (path) => !reportedRepairableLockPathSet.has(path)
+    (path) => !reportedRepairableLockPathSet.has(path) && !reportedLayoutOnlyPathSet.has(path)
   );
   const reportedSourceSuggestions = sourceSuggestions.filter(
     (suggestion) => !reportedRepairableLockPathSet.has(suggestion.generatedPath)
@@ -272,6 +282,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     drift,
     fixedPaths,
     lintIssues,
+    ...(reportedLayoutOnlyPaths.length === 0 ? {} : { layoutOnlyDriftPaths: reportedLayoutOnlyPaths }),
     ok:
       buildError === undefined &&
       changeError === undefined &&
@@ -314,8 +325,11 @@ export function hasDrift(drift: SkillsetDiff): boolean {
 }
 
 export function targetEditedOutputPaths(report: CiReport): readonly string[] {
-  const repairableLocks = new Set(report.repairableManagedLockPaths);
-  return report.outputEditedPaths.filter((path) => !repairableLocks.has(path));
+  const separatelyClassified = new Set([
+    ...report.repairableManagedLockPaths,
+    ...(report.layoutOnlyDriftPaths ?? []),
+  ]);
+  return report.outputEditedPaths.filter((path) => !separatelyClassified.has(path));
 }
 
 /** Marker that lets CI workflows find and update an existing report comment. */
@@ -395,6 +409,12 @@ export function renderCiReportMarkdown(report: CiReport): string {
       );
     }
     lines.push("");
+  }
+
+  if ((report.layoutOnlyDriftPaths?.length ?? 0) > 0) {
+    lines.push("### Generated layout differences", "");
+    for (const path of report.layoutOnlyDriftPaths ?? []) lines.push(`- \`${path}\``);
+    lines.push("", "These generated files differ only in whitespace or layout.", "");
   }
 
   const targetEditedPaths = targetEditedOutputPaths(report);
