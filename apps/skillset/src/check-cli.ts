@@ -188,6 +188,9 @@ function printCiReport(report: CiReport): void {
       console.log(`  fixed ${path}`);
     }
   }
+  for (const path of report.layoutOnlyDriftPaths ?? []) {
+    console.log(`  generated layout difference ${path}`);
+  }
   for (const path of targetEditedOutputPaths(report)) {
     console.log(`  target-side generated edit ${path}`);
   }
@@ -276,6 +279,10 @@ function printCiReport(report: CiReport): void {
   }
   if ((report.changesetIssues ?? []).length > 0) {
     problems.push(`${report.changesetIssues?.length} Changesets issue(s)`);
+  }
+  const layoutOnlyCount = report.layoutOnlyDriftPaths?.length ?? 0;
+  if (layoutOnlyCount > 0) {
+    problems.push(`${layoutOnlyCount} generated file(s) differ only in layout`);
   }
   const targetEditedPaths = targetEditedOutputPaths(report);
   if (targetEditedPaths.length > 0) {
