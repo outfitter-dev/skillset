@@ -34,6 +34,25 @@ it("init records native mode in an existing config while retaining comments", as
   expect(await Bun.file(join(root, ".skillset/RULES.md")).exists()).toBe(false);
 });
 
+it("init JSON includes native-mode config updates only after confirmed writes", async () => {
+  const root = await contractFixture({
+    "AGENTS.md": "# Authored\n",
+    "skillset.yaml": "compile:\n  targets: [claude, codex]\n",
+  });
+  const preview = await runSkillsetCli("init", "--root", root, "--json");
+  expect(preview.exitCode).toBe(0);
+  expect(JSON.parse(preview.stdout).data.writes).toEqual([]);
+  expect(await readFile(join(root, "skillset.yaml"), "utf8")).not.toContain("nativeAgents");
+  const applied = await runSkillsetCli("init", "--yes", "--root", root, "--json");
+  expect(applied.exitCode).toBe(0);
+  const result = JSON.parse(applied.stdout).data;
+  expect(result.report.files).toContainEqual({ path: "skillset.yaml", status: "update" });
+  expect(result.state).toBe("written");
+  expect(result.writes).toContain("skillset.yaml");
+  expect(result.writes).not.toContain("AGENTS.md");
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Authored\n");
+});
+
 it("create preserves existing native guidance and rejects competing root rules before setup writes", async () => {
   const root = await createTestFixtureRoot("skillset-native-create-");
   await writeFile(join(root, "AGENTS.md"), "# Authored\n");
