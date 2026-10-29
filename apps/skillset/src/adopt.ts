@@ -828,9 +828,13 @@ export function renderAdoptReportMarkdown(
   lines.push(
     `- imports: ${succeeded.length} succeeded, ${failed.length} failed`,
     `- plugin candidate diagnostics: ${report.surveyDiagnostics.filter((diagnostic) => diagnostic.severity === "error").length} error(s), ${report.surveyDiagnostics.filter((diagnostic) => diagnostic.severity === "warning").length} warning(s)`,
-    `- lint: ${lintErrors.length} error(s), ${lintWarnings.length} warning(s)`,
+    report.migrationError !== undefined
+      ? "- lint: not run; migration finding recording failed"
+      : `- lint: ${lintErrors.length} error(s), ${lintWarnings.length} warning(s)`,
     blockedBeforeWrite
       ? "- build (isolated): not run; adoption blocked before source writes"
+      : report.migrationError !== undefined
+      ? "- build (isolated): not run; migration finding recording failed"
       : report.buildError === undefined
       ? `- build (isolated): ${report.builtFiles} generated files`
       : "- build (isolated): failed",
@@ -918,8 +922,14 @@ export function renderAdoptReportMarkdown(
     lines.push("");
   }
 
+  if (report.migrationError !== undefined) {
+    lines.push("## Migration findings", "", "Recording failed:", "", "```", report.migrationError.trimEnd(), "```", "");
+  }
+
   lines.push("## Lint", "");
-  if (report.lintIssues.length === 0) {
+  if (report.migrationError !== undefined) {
+    lines.push("Not run because migration finding recording failed.", "");
+  } else if (report.lintIssues.length === 0) {
     lines.push("No lint issues.", "");
   } else {
     for (const issue of lintErrors) {
@@ -975,6 +985,8 @@ export function renderAdoptReportMarkdown(
   lines.push("## Build (isolated)", "");
   if (blockedBeforeWrite) {
     lines.push("Not run. Adoption stopped before source writes because plugin candidate diagnostics must be resolved.", "");
+  } else if (report.migrationError !== undefined) {
+    lines.push("Not run because migration finding recording failed.", "");
   } else if (report.buildError === undefined) {
     lines.push(
       `Wrote ${report.builtFiles} generated files into the mirror under \`${ISOLATED_OUT_ROOT}/\`, laid out as the repo root would be. The live tree is untouched.`,
@@ -1009,7 +1021,9 @@ export function renderAdoptReportMarkdown(
   }
 
   lines.push("## Cutover", "");
-  if (report.cutoverError !== undefined) {
+  if (report.migrationError !== undefined) {
+    lines.push("Live cutover inspection was not run; the collision inventory is unknown. Resolve the migration finding error and rerun adoption before planning live writes.", "");
+  } else if (report.cutoverError !== undefined) {
     lines.push(
       "Live cutover inspection failed; the collision inventory is unknown. Resolve the inspection error and rerun `skillset diff` before planning live writes.",
       "", "```", report.cutoverError.trimEnd(), "```", ""

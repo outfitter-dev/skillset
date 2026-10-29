@@ -5,7 +5,7 @@ import { createOperationalPathContext, ISOLATED_OUT_ROOT, resolveOperationalPath
 import { inspectMigrationMarkers } from "@skillset/core/internal/migration-markers";
 import { readMigrationState, MIGRATION_STATE_PATH, hashMigrationState } from "@skillset/core/internal/migration-state";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
-import { adoptSkillset } from "../adopt";
+import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { createInitialMigrationFlag } from "@skillset/core/internal/migration-state-reconcile";
 import { readReportBundle } from "@skillset/core/internal/report-store";
 import { MIGRATION_STATE_SCHEMA_VERSION } from "@skillset/schema";
@@ -81,6 +81,14 @@ test("an existing decision prevents guessed replacement and records skipped buil
   const report = await adoptSkillset(root, { write: true });
   expect(report.ok).toBe(false);
   expect(report.migrationError).toContain("already has migration records");
+  const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
+  expect(markdown).toContain("build (isolated): not run");
+  expect(markdown).toContain("lint: not run");
+  expect(markdown).toContain(report.migrationError!);
+  expect(markdown).not.toContain("Wrote 0 generated files");
+  expect(markdown).not.toContain("No lint issues.");
+  expect(markdown).not.toContain("Run `skillset build --yes`");
+  expect(markdown).not.toContain("No original paths need to move");
   expect(report.builtFiles).toBe(0);
   expect(report.writtenPaths).not.toContain(MIGRATION_STATE_PATH);
   expect(await readFile(join(root, MIGRATION_STATE_PATH), "utf8")).toBe(stateBytes);

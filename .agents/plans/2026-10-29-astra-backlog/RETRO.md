@@ -2,6 +2,8 @@
 
 ### SET-442 durable body findings — October 29
 
+- Draft #769 was published at reviewed `c057837c` (round two 5/5). Its immutable full run completed 4044 pass, 2 skip, 4 todo and three deferred native-size failures across 4053 tests; post-test gates and hosted draft checks pass. External review then exposed Markdown claiming skipped validation succeeded and the fixture harness omitting durable flags. Scoped regressions reproduced both and the related fixture failure-propagation gap; repaired reports now retain migration errors, withhold cutover advice, count flags and avoid comparisons after skipped validation. Focused proof: 64 tests / 478 assertions and typecheck pass. A narrow external-review repair follows; earlier review/full results remain historical.
+
 - Round-one review of `f7d9f172` found an unhandled preview read after a landed import disappears. A fault-injection regression reproduced the rejection; preview reads now share the migration error boundary, preserving partial write inventory and failed receipt with skipped lint/build. The focused migration/receipt suites pass 15 tests / 142 assertions and typecheck passes. Final exact review and verification follow the repair.
 
 - Parent body/shared-policy layer is draft #768 at `9ad529af3d029954457f4d310f79d2fd06942f3a`, independently reviewed 5/5. Full immutable implementation predecessor `5e0ea17cfbd2536fbe2cf9fe5df7ea445e69a339` completed with 4027 pass, 2 skip, 4 todo, and only three deferred native-size failures across 4036 tests / 360 files. The final parent delta is release-record-only. Hosted/receipt acceptance remains bounded; no passing full receipt or readiness claim.
