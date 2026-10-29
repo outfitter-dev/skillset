@@ -1,5 +1,19 @@
 # Execution ledger
 
+### SET-442 durable native hook findings — October 29
+
+- Hosted review exposed two additional reporting gaps: empty handler arrays lost assessed targets, and parse failures used the runtime-uncertainty code. Regressions failed for both, then passed after target selection was shared independently of diagnostic emission and unclassified sidecars received their own code. Import, ledger, Markdown and stored receipt proof: 16 tests / 74 assertions. This is a scoped hosted-feedback repair after the two routine reviews.
+- Exact `751c859b` verification completed 4079 pass, 2 skip, 4 todo and only three deferred native-size failures across 4088 tests / 368 files. No passing receipt is claimed; the hosted-feedback repair requires a new exact run.
+
+- Initial immutable `7a7e03af` run completed 4074 pass, 2 skip, 4 todo and four failures across 4084 tests; three are the deferred native-size checks, and the fourth was an external-fixture mock still targeting the old body recorder. The mock now targets the combined recorder, with 17 tests / 125 assertions passing. Repaired related proof: 273 tests / 1739 assertions, typecheck and docs pass.
+- Round-one review of `7a7e03af` found missing Git identity/per-file provenance and invalid JSON pointer locations. The repair carries the importer sourceOrigin callback result into native finding inputs instead of reconstructing it; pointers now include the actual hooks wrapper and escape event segments. Local and Git equivalent-root tests, explicit per-file callback coverage, and pointer regressions cover the repair. The proposed missing-hook-in-only-one-equivalent-root case is rejected by the existing survey and was not used as evidence of a reachable defect.
+
+- Parent draft #772 is published at `42c9ad82d1795c89de3dda5bd1ec6bac58573058`, independently reviewed 5/5. Full immutable verification completed 4064 pass, 2 skip, 4 todo and only three deferred native-size failures across 4073 tests / 366 files. No passing receipt is claimed.
+- Native hook diagnostics now become durable sidecar records alongside body findings. The shared new-source transaction binds hook JSON as a read-only preimage, writes Markdown locators and ledger together, and refuses existing-source decisions rather than pretending a partial scan is reconciliation. Body planning stays in its existing owner; the small coordinator and native planner are separate modules.
+- Hook JSON and original provider files remain byte-preserved; findings include target, location evidence, origin where known, and conservative content/context fingerprints. Native structural incompatibility and unknown command semantics retain different dispositions. Malformed non-object/event shapes now produce diagnostics rather than vanishing from the report. Markdown reports list review codes/dispositions; receipts keep codes. This does not establish a build-time native-hook boundary or complete SET-442.
+- End-to-end regression first reproduced the absent sidecar. Transaction regressions cover distinct provider identities, concurrent edits, late rollback, existing decisions and malformed JSON. Final related tests, review and exact verification follow.
+- Matt approved the previously rejected exact Linear progress comment; it was posted unchanged as `80cdb9e2-db93-438c-94ee-6ecc8c2dda2f`. That approval is not treated as permission for different payloads.
+
 ### SET-442 native hook diagnostic evidence — October 29
 
 - Parent draft #771 is published at `00c44f1f61337672d2a57786a0768dc1250949ff`, round-two review 5/5. Its final exact full run completed 4056 pass, 2 skip, 4 todo and only three deferred native-size failures across 4065 tests / 364 files. The initial four fixture/evidence failures were repaired; no passing full receipt is claimed.

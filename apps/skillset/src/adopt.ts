@@ -11,7 +11,9 @@ import {
 } from "@skillset/core";
 
 import type { MigrationFlag } from "@skillset/schema";
-import { recognizeAdoptionBody, recordImportedBodyFindings } from "@skillset/core/internal/adoption-body-findings";
+import { recognizeAdoptionBody } from "@skillset/core/internal/adoption-body-findings";
+import { recordImportedFindings } from "@skillset/core/internal/adoption-findings";
+import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
 import type { ReleaseBaselineEntry } from "./adoption";
 import {
   buildSkillsetResult,
@@ -78,6 +80,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly nativeHookSources?: readonly NativeHookFindingSource[];
   readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
   /** Rule destination relative to the root (e.g. `.skillset/rules/agents.md`). */
@@ -394,7 +397,7 @@ async function adoptResolvedRoot(
   let migrationError: string | undefined;
   try {
     transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
-    const recorded = await recordImportedBodyFindings(init.rootPath, previewSources);
+    const recorded = await recordImportedFindings(init.rootPath, { bodyPaths: previewSources, nativeHooks: imports.flatMap((result) => result.nativeHookSources ?? []) });
     migrationFlags = recorded.flags;
     migrationWritePaths = recorded.writtenPaths;
   } catch (error) {
@@ -577,6 +580,7 @@ async function importCandidate(
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
+      nativeHookSources: batch.imports.flatMap((report) => report.nativeHookSource === undefined ? [] : [report.nativeHookSource]),
       ok: true,
       units,
       warnings: batch.warnings,
@@ -595,6 +599,7 @@ async function importCandidate(
       candidate,
       detail: errorMessage(error),
       renderResults: partialImports.flatMap((report) => report.renderResults),
+      nativeHookSources: partialImports.flatMap((report) => report.nativeHookSource === undefined ? [] : [report.nativeHookSource]),
       ok: false,
       units: adoptedUnits(rootPath, candidate, partialImports),
       warnings: partialImports.flatMap((report) => report.warnings),
@@ -797,6 +802,7 @@ export function renderAdoptReportMarkdown(
       ? `- build (isolated): ${report.builtFiles} generated files`
       : "- build (isolated): failed",
     `- render results: ${report.renderResults.length}`,
+    ...((report.migrationFlags?.length ?? 0) === 0 ? [] : [`- review findings: ${report.migrationFlags!.length}`]),
     ""
   );
 
@@ -882,6 +888,14 @@ export function renderAdoptReportMarkdown(
 
   if (report.migrationError !== undefined) {
     lines.push("## Migration findings", "", "Recording failed:", "", "```", report.migrationError.trimEnd(), "```", "");
+  }
+
+  if ((report.migrationFlags?.length ?? 0) > 0) {
+    lines.push("## Review findings", "", "Review these findings before cutover; successful import and isolated build do not establish migration readiness. Full evidence is in `.skillset/adopt/state.json`.", "");
+    for (const flag of report.migrationFlags ?? []) {
+      lines.push(`- ${inlineCode(flag.id)}: ${inlineCode(flag.code)}; ${flag.disposition}; ${inlineCode(flag.source.path)} (${flag.placement.kind}).`);
+    }
+    lines.push("");
   }
 
   lines.push("## Lint", "");
