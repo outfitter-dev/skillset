@@ -675,11 +675,6 @@ codex:
 `,
       "Review the change.",
     ],
-    [
-      "Claude-dialect translation",
-      "dialect: claude",
-      "Read CLAUDE.md and .claude/skills/review before continuing.",
-    ],
   ])(
     "fails coalescing when %s requires incompatible SKILL.md bytes",
     async (_name, extraFrontmatter, body) => {

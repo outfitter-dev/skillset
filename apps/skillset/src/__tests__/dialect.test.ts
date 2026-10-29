@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { buildSkillset } from "@skillset/core";
+import { registerTransformEntry, transformEntries } from "@skillset/transforms";
 
 const SKILL_BODY = [
   "Skills live in .claude/skills/x and config in ~/.claude/foo.",
@@ -38,11 +39,38 @@ ${SKILL_BODY}
 `,
 };
 
-test("dialect: claude rejects a divergent Codex delta at the fixed Agent Skills root", async () => {
+test("dialect preserves ambiguous body text at the shared Agent Skills root", async () => {
   const root = await fixture(DIALECT_FIXTURE);
-  await expect(buildSkillset(root)).rejects.toThrow(
-    "generated output collision at .agents/skills/x/SKILL.md requires incompatible bytes"
-  );
+  await buildSkillset(root);
+  for (const name of ["x", "y"]) {
+    const output = await readFile(join(root, `.agents/skills/${name}/SKILL.md`), "utf8");
+    expect(output).toContain(SKILL_BODY);
+  }
+});
+
+test("explicit semantic translation still rejects a divergent shared-root delta", async () => {
+  const intent = "test.dialect-explicit";
+  registerTransformEntry({
+    intent,
+    description: "Test-only explicit semantic translation.",
+    evidence: [{ source: "test-only protocol", verified: "2026-10-29" }],
+    lowering: "to-codex",
+    forms: {
+      claude: { pattern: /source-intent:demo/gu },
+      codex: { pattern: /target-intent:demo/gu, render: () => "target-intent:demo" },
+    },
+  });
+  try {
+    const root = await fixture({
+      ...DIALECT_FIXTURE,
+      ".skillset/skills/x/SKILL.md": DIALECT_FIXTURE[".skillset/skills/x/SKILL.md"]!.replace(SKILL_BODY, "source-intent:demo"),
+    });
+    await expect(buildSkillset(root)).rejects.toThrow(
+      "generated output collision at .agents/skills/x/SKILL.md requires incompatible bytes"
+    );
+  } finally {
+    transformEntries.delete(intent);
+  }
 });
 
 test("unknown dialect values fail the build loudly", async () => {
@@ -63,7 +91,7 @@ Body.
   );
 });
 
-test("dialect: claude instructions translate AGENTS.md but not .claude/rules", async () => {
+test("dialect: claude instructions preserve ambiguous references in every projection", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -81,8 +109,8 @@ Keep CLAUDE.md current; agents live under .claude/agents.
   await buildSkillset(root);
 
   const agents = await readFile(join(root, "AGENTS.md"), "utf8");
-  expect(agents).toContain("Keep AGENTS.md current; agents live under .codex/agents.");
-  expect(agents).not.toContain("CLAUDE.md current");
+  expect(agents).toContain("Keep CLAUDE.md current; agents live under .claude/agents.");
+  expect(agents).not.toContain(".codex/agents");
 
   const rule = await readFile(join(root, ".claude/rules/conventions.md"), "utf8");
   expect(rule).toBe("Keep CLAUDE.md current; agents live under .claude/agents.\n");
@@ -90,10 +118,7 @@ Keep CLAUDE.md current; agents live under .claude/agents.
   const workspaceLock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
     items: readonly { name: string; transforms?: readonly unknown[] }[];
   };
-  expect(workspaceLock.items.find((item) => item.name === "AGENTS.md")?.transforms).toEqual([
-    { count: 1, intent: "doc.project-instructions" },
-    { count: 1, intent: "path.project-config-dir" },
-  ]);
+  expect(workspaceLock.items.find((item) => item.name === "AGENTS.md")?.transforms).toBeUndefined();
 
   const rulesLock = JSON.parse(
     await readFile(join(root, ".claude/rules/skillset.lock"), "utf8")
