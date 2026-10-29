@@ -690,13 +690,18 @@ async function importNativeHookRenderResults(args: {
   readonly copiedFiles: readonly string[];
   readonly kind: SingularImportKind;
   readonly name: string;
+  readonly provider?: ImportProvider;
+  readonly providers?: readonly ImportProvider[];
   readonly rootPath: string;
   readonly targetPath: string;
 }): Promise<readonly SkillsetRenderResult[]> {
   if (args.kind !== "plugin" || !args.copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json")) return [];
   const hookPath = join(args.targetPath, "hooks", "hooks.json");
   const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
-  const targets = await importedNativePluginTargets(args.targetPath);
+  const explicitProviders = args.providers ?? (args.provider === undefined ? undefined : [args.provider]);
+  const targets = explicitProviders === undefined
+    ? await importedNativePluginTargets(args.targetPath)
+    : targetNames().filter((target) => explicitProviders.includes(target));
   let parsed: JsonValue;
   try {
     parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;

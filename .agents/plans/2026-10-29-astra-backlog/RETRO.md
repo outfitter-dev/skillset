@@ -1,5 +1,12 @@
 # Execution ledger
 
+### SET-442 native hook diagnostic evidence — October 29
+
+- Parent draft #771 is published at `00c44f1f61337672d2a57786a0768dc1250949ff`, round-two review 5/5. Its final exact full run completed 4056 pass, 2 skip, 4 todo and only three deferred native-size failures across 4065 tests / 364 files. The initial four fixture/evidence failures were repaired; no passing full receipt is claimed.
+- Native hook import previously reported lossless/provider-scoped adaptation from only event and handler shape. It now reports unknown runtime semantics for structurally supported commands, retains specific structural rejection diagnostics, and keeps explicitly authored adaptive-hook classification unchanged. Negative cases include both Claude root spellings, a similarly named variable, an arbitrary script and a plain command; absence of a known variable never proves portability.
+- Explicit provider selections now take precedence in import diagnostic assessment; native manifest discovery remains the fallback. Regressions demonstrate both prior incorrect target selection and native hook byte preservation. This reporting layer does not establish build-time native-hook isolation, durable hook review flags, or full SET-442 acceptance.
+- Five runtime-claim and two target-selection regressions failed before repair. Related adoption/contract/classifier proof passes 265 tests / 1706 assertions; final focused and exact review/verification follow. Linear writes remain blocked by the prior approval review; no retry was made.
+
 ### Plugin hook runtime roots — October 29
 
 - Raw argument layer at `0e8f5f911b7bff3344a9e2ace3231accc28de161` passed independent review at 5/5. Its exact full run completed 4052 pass, 2 skip, 4 todo and only the three deferred native-size failures across 4061 tests / 363 files. SET-442 remains incomplete.
