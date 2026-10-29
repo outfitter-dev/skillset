@@ -1,5 +1,12 @@
 # Execution ledger
 
+### SET-442 provider-field layer — October 29
+
+- Parent SET-436 is draft #766 at `18e4ff78`; full exact verification completed with 4016 pass, 2 skip, 4 todo and only three deferred native-size failures. Draft hosted checks pass; full hosted check is skipped under draft policy. Final-head independent acceptance remains pending settlement after two routine rounds and locally proven repairs.
+- SET-442 is In Progress on its owned child. First layer scopes explicitly imported Claude skill tool/user-invocation policy inside `claude.frontmatter`, covers standalone and plugin imports, preserves original bytes, and blocks conflicting declarations before claiming a destination. Initial tests reproduced all three gaps; 43 focused adoption tests and typecheck pass after the fix.
+- This is one implementation layer, not completion of SET-442. Per-case body classification, normalization evidence, durable migration flags, unknown-provider/field handling, capability fidelity reporting, native hook variable boundaries, and pinned external-fixture acceptance remain required. Existing import warnings are not a substitute for that taxonomy. No partial imported-file enumeration is passed off as a complete ledger scan.
+
+
 ### Resumed execution — October 29, SET-436
 
 - Matt explicitly directed continuous eligible backlog execution after the 26-draft settlement. That settlement is a preserved checkpoint, not completion of the campaign. Primary retains stack #741; no readiness, merge, publication or native-size waiver is granted.
