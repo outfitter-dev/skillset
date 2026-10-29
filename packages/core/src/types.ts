@@ -296,6 +296,8 @@ export interface SourceAdaptiveHookScriptReference {
 export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
+  /** Semantic body lines mapped to one-based authored document lines when anchors were removed. */
+  readonly bodySourceLines?: readonly number[];
   readonly dialect?: SourceDialect;
   readonly draftOrigin?: "_drafts" | "config" | "status";
   readonly evalDeclaration?: SourceSkillEval;
@@ -308,6 +310,8 @@ export interface SourceSkill {
   readonly relativePath: string;
   readonly resources: readonly SourceResource[];
   readonly sourceOrigin?: SourceOrigin;
+  /** Exact primary source bytes with validated migration anchors removed. */
+  readonly semanticSourceContent?: string;
   readonly sourcePath: string;
   readonly status?: "draft" | "live";
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
@@ -386,6 +390,8 @@ export interface StandaloneSkill extends SourceSkill {}
 
 export interface SourceRule {
   readonly body: string;
+  /** Semantic body lines mapped to one-based authored document lines when anchors were removed. */
+  readonly bodySourceLines?: readonly number[];
   readonly dialect?: SourceDialect;
   readonly frontmatter: JsonRecord;
   readonly id: string;
@@ -420,6 +426,8 @@ export interface SourceIslandFile {
 export interface SourceProjectAgent {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
+  /** Semantic body lines mapped to one-based authored document lines when anchors were removed. */
+  readonly bodySourceLines?: readonly number[];
   readonly filename: string;
   readonly frontmatter: JsonRecord;
   readonly hookAttachments: readonly SourceHookAttachment[];

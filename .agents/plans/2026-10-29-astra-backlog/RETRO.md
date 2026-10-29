@@ -1,5 +1,13 @@
 # Execution ledger
 
+### Resumed execution — October 29, SET-436
+
+- Matt explicitly directed continuous eligible backlog execution after the 26-draft settlement. That settlement is a preserved checkpoint, not completion of the campaign. Primary retains stack #741; no readiness, merge, publication or native-size waiver is granted.
+- Current child `set-436-emit-safe-inline-adoption-flags-and-exclude-them-from` starts at settled `7f77a2835`. SET-436 is In Progress; SET-438 still depends on SET-436/442. The marker slice owns exact schema grammar, ledger-backed safe insertion/removal, compiler and release-hash exclusion, authored diagnostic mappings, and reverse-reconciliation protection.
+- Initial red regressions reproduced marker leakage and ignored missing anchors. Current focused proof: 17 tests/130 assertions, including standalone/plugin skills, nested rules, project agents, all provider bytes and lock/source-inventory parity, unsafe contexts, ownership errors and preserved source mutations. Schema generation/check is clean; broader checks, exact-commit review and draft delivery are pending.
+- The existing ledger remains authoritative. No migration lifecycle, full scanner completeness, status/show UI, readiness result, or source/ledger mutation command is claimed by these primitives. Those remaining acceptance surfaces stay with the dependent migration work. Native trimming remains deferred, with the three known full-gate size failures retained.
+
+
 ### Current settlement checkpoint — October 29, 15:33 EDT
 
 - Accumulation has ended at 26 coherent layers; primary owns stack #741 and is settling the current delivery horizon under PLAN.md. All PRs remain draft. Earlier current-state sections below are historical checkpoints. No readiness, merge, release, native-size waiver, or global configuration action is inferred.
