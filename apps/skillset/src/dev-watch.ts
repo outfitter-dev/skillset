@@ -187,8 +187,9 @@ export async function runDevWatchPreview(
   options: SkillsetOptions = {},
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan: DevWatchPlan | undefined;
   try {
+    plan = await createDevWatchPlan(rootPath, options);
     const lint = await lintSkillset(rootPath, options);
     const diff = await diffSkillsetResult(rootPath, options);
     return {
@@ -217,9 +218,9 @@ export async function runDevWatchPreview(
       error: error instanceof Error ? error.message : String(error),
       mode: "preview",
       ok: false,
-      outputRoots: plan.outputRoots,
+      outputRoots: plan?.outputRoots ?? [],
       reason,
-      sourceRoot: plan.sourceRoot,
+      sourceRoot: plan?.sourceRoot ?? ".skillset",
       warnings: [],
     };
   }
@@ -230,8 +231,9 @@ export async function runDevWatchApply(
   options: SkillsetOptions = {},
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan: DevWatchPlan | undefined;
   try {
+    plan = await createDevWatchPlan(rootPath, options);
     const lint = await lintSkillset(rootPath, options);
     const build = await buildSkillsetResult(rootPath, options);
     return {
@@ -255,9 +257,9 @@ export async function runDevWatchApply(
       error: error instanceof Error ? error.message : String(error),
       mode: "write",
       ok: false,
-      outputRoots: plan.outputRoots,
+      outputRoots: plan?.outputRoots ?? [],
       reason,
-      sourceRoot: plan.sourceRoot,
+      sourceRoot: plan?.sourceRoot ?? ".skillset",
       warnings: [],
     };
   }
