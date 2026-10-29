@@ -12,7 +12,7 @@ test.each([
   "Install @scope/package",
   "See ~/.claude/plugins/marketplaces/demo and .claude/skills-backup/demo.",
   "Claude uses CLAUDE.md; Codex uses AGENTS.md.",
-])("adoption preserves ambiguous text without opting into dialect lowering: %s", async (body) => {
+])("adoption preserves ambiguous text without opting into dialect translation: %s", async (body) => {
   const root = await createTestFixtureRoot("skillset-adopt-ambiguity-");
   const source = join(root, ".claude/skills/demo/SKILL.md");
   await mkdir(join(root, ".claude/skills/demo"), { recursive: true });
