@@ -90,7 +90,7 @@ A migration flag or successful isolated build never authorizes overwriting unman
 
 ### Amendments and implementation sequencing
 
-This record narrowly amends ADR-0022's rejection of a repository lifecycle domain and ADR-0024's one-action completion framing. Their historical evidence remains unchanged. It adds the durable review state and readiness distinction while preserving repo-local onboarding, original-tree purity and isolated projection.
+This record narrowly amends ADR-0022's rejection of a repository lifecycle domain and its blanket exclusion of a top-level `adopt` command. The future `migrate` domain owns repository review; the future `adopt` command is reserved for SET-563's unmanaged-skill operation. The current CLI remains unchanged until each operation ships, and repository onboarding stays with `init --adopt` until explicit cutover. It also amends ADR-0024's one-action completion framing with durable review state and a separate readiness decision. Both predecessors retain their historical evidence; repo-local onboarding, original-tree purity and isolated projection remain required.
 
 ADR-0009's source-adjacent state rule accommodates the migration ledger; ADR-0018 still owns render results, ADR-0023 the command envelope, ADR-0033 the workspace layout, ADR-0043 global reports, and ADR-0047 native root guidance. No parallel report store, provider output tree or source layout is introduced.
 
