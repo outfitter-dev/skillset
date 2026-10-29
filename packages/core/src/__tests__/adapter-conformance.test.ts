@@ -247,6 +247,27 @@ echo alpha
     }
   });
 
+  it("rejects uncovered markers on dependencies and standard-carried MCP", async () => {
+    const root = await fixture({
+      "skillset.yaml": "skillset:\n  name: coverage-boundary\ncompile:\n  targets: [claude]\n  unsupportedDestination: warn\n",
+      ".skillset/plugins/alpha/skillset.yaml": "skillset:\n  name: alpha\ndependencies:\n  plugins:\n    - name: external-tools\n      range: ^1.0.0\n",
+      ".skillset/plugins/alpha/.mcp.json": JSON.stringify({ mcpServers: { demo: { type: "streamable-http", url: "https://example.com/mcp", oauth: { clientId: "demo" } } } }),
+    });
+    const results = (await diffSkillsetResult(root)).renderResults;
+    for (const featureId of ["dependencies", "plugin-mcp"]) {
+      const original = results.find((result) => result.featureId === featureId && result.standardProfile === "agent-plugins-1.0" && result.status === "unsupported");
+      expect(original).toBeDefined();
+      const forged: SkillsetRenderResult = {
+        ...original!,
+        status: "intentionally_skipped",
+        policy: "default",
+        outputs: [],
+        diagnostics: [{ code: "plugin-component-uncovered" }],
+      };
+      expect(checkAdapterConformance([forged], [{ featureId, standardProfile: "agent-plugins-1.0" }]).issues.map((issue) => issue.code)).toEqual(["status-mismatch"]);
+    }
+  });
+
   it("reports missing, mismatched, and reason-drifted outcomes deterministically", () => {
     const cases: readonly AdapterConformanceCase[] = [
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },

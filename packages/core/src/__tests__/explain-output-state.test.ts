@@ -7,12 +7,12 @@ import { explainPath } from "../authoring";
 import { buildSkillsetResult, renderPolicyBlockingResults } from "../build";
 import { defineRenderResult } from "../render-result";
 
-const HOOKS =
-  '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo pre"}]}]}}\n';
-
 describe("SET-732: explain output state", () => {
   it("reports never-written plugin hooks as planned, blocked, and written by the hooks render", async () => {
-    const root = await fixture({ ".skillset/plugins/toolkit/hooks/hooks.json": HOOKS });
+    const root = await fixture({
+      ".skillset/plugins/toolkit/skillset.yaml": "skillset:\n  name: toolkit\nhooks:\n  Notification:\n    - notify\n",
+      ".skillset/plugins/toolkit/hooks/notify.json": JSON.stringify({ events: ["Notification"], run: { command: "echo notify" } }),
+    });
     await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked");
 
     const explained = await explainPath(root, "plugins/toolkit/hooks/hooks.json");
@@ -26,21 +26,20 @@ describe("SET-732: explain output state", () => {
     );
     expect(explained.renderResults.length).toBeGreaterThan(0);
     for (const outcome of explained.renderResults) {
-      expect(outcome.featureId).toBe("plugin-hooks");
+      expect(["plugin-hooks", "adaptive-hooks"]).toContain(outcome.featureId);
       expect(outcome.outputs?.map((output) => output.path)).toContain(
         "plugins/toolkit/hooks/hooks.json"
       );
     }
     expect(explained.blockingRenderResults).toEqual([
       expect.objectContaining({
-        featureId: "plugin-hooks",
-        standardProfile: "agent-plugins-1.0",
+        featureId: "adaptive-hooks",
+        target: "codex",
         status: "unsupported",
       }),
     ]);
     expect(explained.notes).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("rendered from .skillset/plugins/toolkit/hooks/hooks.json"),
         expect.stringContaining("Output derivation is blocked by 1 render result"),
         expect.stringContaining("Not written: plugins/toolkit/hooks/hooks.json"),
       ])

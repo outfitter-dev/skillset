@@ -2320,7 +2320,7 @@ Beta body.
   expect(await exists(join(root, "plugins/beta/skills/beta-skill/SKILL.md"))).toBe(true);
 });
 
-test("Codex-enabled plugin agents fail loudly instead of promoting to project agents", async () => {
+test("Codex plugin agents stay uncovered without promoting to project agents", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -2347,8 +2347,12 @@ Alpha body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("codex plugin-agents unsupported");
-  await expect(buildSkillset(root)).rejects.toThrow("Codex plugin documentation does not include a plugin agents component.");
+  await buildSkillset(root);
+  expect(await exists(join(root, "plugins/alpha/agents/reviewer.md"))).toBe(true);
+  expect(await exists(join(root, ".codex/agents/reviewer.toml"))).toBe(false);
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
+  expect(lock).toContain('"intentionally_skipped"');
+  expect(lock).toContain("Codex plugin documentation does not include a plugin agents component.");
 });
 
 test("build copies declared shared resources into generated skill folders", async () => {

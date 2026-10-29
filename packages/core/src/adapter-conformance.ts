@@ -163,6 +163,7 @@ function checkConformanceCase(
   const conforms = (outcome: SkillsetRenderResult): boolean =>
     expectedStatuses.includes(outcome.status) ||
     (supportStatus === "unsupported" &&
+      isProviderOnlyPluginComponent(outcome) &&
       outcome.status === "intentionally_skipped" &&
       outcome.policy === "default" &&
       (outcome.outputs?.length ?? 0) === 0 &&
@@ -210,6 +211,34 @@ function checkConformanceCase(
     }
   }
   return issues;
+}
+
+// A marker alone must not turn invalid carried content or dependency edges
+// into conforming omissions. Keep this exception at the component boundary.
+function isProviderOnlyPluginComponent(outcome: SkillsetRenderResult): boolean {
+  if (outcome.standardProfile === "agent-plugins-1.0" && outcome.target === undefined) {
+    const destinations: Readonly<Record<string, string>> = {
+      "plugin-apps": "app",
+      "plugin-bin": "bin",
+      "plugin-hooks": "hooks",
+      "plugin-agents": "agents",
+      "plugin-commands": "commands",
+      "plugin-rules": "rules",
+      "plugin-lsp-servers": ".lsp.json",
+      "future-companion-source-pointers": "settings.json",
+      "plugin-themes": "themes",
+      "plugin-monitors": "monitors",
+      "plugin-output-styles": "output-styles",
+    };
+    return destinations[outcome.featureId] !== undefined &&
+      destinations[outcome.featureId] === outcome.destination;
+  }
+  if (outcome.standardProfile !== undefined) return false;
+  if (outcome.target === "codex") {
+    return (outcome.featureId === "plugin-bin" && outcome.destination === "bin") ||
+      (outcome.featureId === "plugin-agents" && outcome.destination === "agents");
+  }
+  return outcome.target === "cursor" && outcome.featureId === "plugin-bin" && outcome.destination === "bin";
 }
 
 function standardExpectedOutcomeStatuses(

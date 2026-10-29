@@ -330,13 +330,13 @@ test("SET-387: a later setup failure preserves completed trial evidence", async 
 test("SET-387: target rendering failures are retained as render infrastructure evidence", async () => {
   const root = await fixture({
     "skillset.yaml": "skillset:\n  name: eval-render-failure\ncodex: true\n",
-    ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\nbin: true\n",
+    ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
     ".skillset/plugins/demo/skills/helper/SKILL.md": "---\nname: helper\ndescription: Render failure fixture.\n---\n\nBody.\n",
     ".skillset/plugins/demo/skills/helper/evals/evals.json": JSON.stringify({
       skill_name: "helper",
       evals: [{ expected_output: "Ungraded.", id: 1, prompt: "Never run." }],
     }),
-    ".skillset/plugins/demo/bin/tool": "#!/bin/sh\n",
+    ".skillset/plugins/demo/.mcp.json": JSON.stringify({ mcpServers: { demo: { type: "streamable-http", url: "https://example.com/mcp", oauth: { clientId: "demo" } } } }),
   });
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
   const report = await runSkillsetEvals(root, {
