@@ -100,7 +100,10 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
     )
   );
 
+  const cutover = boundedUniqueSorted(report.cutover);
   return {
+    cutover: { paths: cutover.items, total: cutover.total },
+    guidancePaths: report.surveySkips.filter((skip) => skip.surface === "guided-root-guidance").map((skip) => skip.path),
     alreadyAdopted: report.alreadyAdopted,
     candidateIds: candidateIds.items,
     destinations: destinations.items,

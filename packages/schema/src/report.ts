@@ -448,9 +448,11 @@ function checkAdoptionPayload(
     [
       "alreadyAdopted",
       "candidateIds",
+      "cutover",
       "destinations",
       "diagnosticCodes",
       "importedUnitIds",
+      "guidancePaths",
       "isolatedOutput",
       "listCounts",
       "migrationFlagCodes",
@@ -471,6 +473,12 @@ function checkAdoptionPayload(
     path,
     diagnostics
   );
+  if (value.cutover !== undefined && checkRecord(value.cutover, `${path}.cutover`, diagnostics)) {
+    checkShape(value.cutover, ["paths", "total"], ["paths", "total"], `${path}.cutover`, diagnostics);
+    checkRelativeIdList(value.cutover.paths, `${path}.cutover.paths`, diagnostics);
+    checkBoundedCount(value.cutover.total, `${path}.cutover.total`, diagnostics);
+    checkRetainedListCounts({ paths: value.cutover.total }, { paths: value.cutover.paths }, `${path}.cutover`, diagnostics);
+  }
   checkBoolean(value.alreadyAdopted, `${path}.alreadyAdopted`, diagnostics);
   checkRelativeIdList(value.candidateIds, `${path}.candidateIds`, diagnostics);
   checkRelativeIdList(value.destinations, `${path}.destinations`, diagnostics);
@@ -480,6 +488,7 @@ function checkAdoptionPayload(
     `${path}.importedUnitIds`,
     diagnostics
   );
+  if (value.guidancePaths !== undefined) checkRelativeIdList(value.guidancePaths, `${path}.guidancePaths`, diagnostics);
   if (value.isolatedOutput !== undefined) {
     checkEvidenceDescriptor(
       value.isolatedOutput,

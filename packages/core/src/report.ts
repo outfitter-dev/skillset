@@ -433,6 +433,8 @@ function cloneAdoptionPayload(
   value: SkillsetAdoptionReportPayload
 ): SkillsetAdoptionReportPayload {
   return {
+    ...(value.cutover === undefined ? {} : { cutover: { paths: [...value.cutover.paths], total: value.cutover.total } }),
+    ...(value.guidancePaths === undefined ? {} : { guidancePaths: [...value.guidancePaths] }),
     alreadyAdopted: value.alreadyAdopted,
     candidateIds: [...value.candidateIds],
     destinations: [...value.destinations],
@@ -529,7 +531,7 @@ function renderAdoptionPayload(
     ...renderPhaseSummary("Setup", payload.phases.setup),
     ...renderPhaseSummary("Import", payload.phases.import),
     ...renderPhaseSummary("Lint", payload.phases.lint),
-    ...renderPhaseSummary("Build", payload.phases.build),
+    ...renderPhaseSummary("Build (isolated)", payload.phases.build),
     ...renderRenderResultCounts(payload.renderResults),
     `- Candidate IDs retained: ${payload.candidateIds.length}/${payload.listCounts.candidateIds}`,
     `- Imported units retained: ${payload.importedUnitIds.length}/${payload.listCounts.importedUnitIds}`,
@@ -539,6 +541,21 @@ function renderAdoptionPayload(
     ...renderStringList("Destinations", payload.destinations),
     ...renderStringList("Diagnostic codes", payload.diagnosticCodes),
     ...renderStringList("Migration flags", payload.migrationFlagCodes),
+    ...(payload.guidancePaths === undefined || payload.guidancePaths.length === 0 ? [] : [
+      ...renderStringList("Guided root guidance", payload.guidancePaths),
+      "Review the preserved Claude guidance alongside AGENTS.md with an agent. If it is the better source, synthesize and review .skillset/RULES.md; explicitly reconcile native AGENTS mode before generating AGENTS.md and CLAUDE.md. Do not replace the originals until the reviewed cutover.",
+    ]),
+    ...(payload.cutover === undefined ? [] : [
+      "", "## Cutover", "",
+      `- Collision paths retained: ${payload.cutover.paths.length}/${payload.cutover.total}`,
+      ...payload.cutover.paths.map((path) => `- ${renderInlineCode(path)}`),
+      "", "## Next steps", "",
+      "Review the isolated output against the originals. Preserve or relocate the listed originals only after reviewing the replacement; live builds refuse to overwrite unmanaged files.",
+      ...(payload.cutover.total > payload.cutover.paths.length ? ["The retained list is incomplete. Run `skillset diff` to inspect all live collisions before cutover."] : []),
+      payload.phases.build.status === "passed"
+        ? "After resolving the collisions, run `skillset build --yes` to write live output."
+        : "Resolve the reported failures and complete an isolated build before cutting over to live output.",
+    ]),
     ...(payload.isolatedOutput === undefined
       ? []
       : renderEvidenceDescriptor("Isolated output", payload.isolatedOutput)),

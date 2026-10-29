@@ -325,7 +325,7 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   expect(report.buildError).toBeUndefined();
   // SET-731: the build owns the catalog now, so its identity is declared and
   // the original joins the cutover list.
-  expect(report.cutover).toEqual([".claude-plugin/marketplace.json"]);
+  expect(report.cutover).toEqual([".claude-plugin/marketplace.json", "plugins/demo/.claude-plugin/plugin.json", "plugins/demo/skills/demo-skill/SKILL.md"]);
   expect(report.marketplace).toEqual({
     catalog: "demo-marketplace",
     path: ".claude-plugin/marketplace.json",
@@ -471,19 +471,14 @@ test("blocked reusable adoption does not persist nested audit artifacts", async 
   expect(report.writtenPaths).toEqual([]);
 });
 
-test("failed instruction adoption reports its partial copied destination", async () => {
-  const root = await fixture({
-    "CLAUDE.md": "---\ninvalid: [\n---\n\nHandwritten guidance.\n",
-  });
-
+test("adoption preserves malformed Claude frontmatter without parsing it as source", async () => {
+  const content = "---\ninvalid: [\n---\n\nHandwritten guidance.\n";
+  const root = await fixture({ "CLAUDE.md": content });
   const report = await adoptSkillset(root, { write: true });
-  const imported = report.imports.find((result) => result.candidate.kind === "rules");
-
-  expect(report.ok).toBe(false);
-  expect(imported?.ok).toBe(false);
-  expect(imported?.destination).toBe(".skillset/rules/claude.md");
-  expect(report.writtenPaths).toContain(".skillset/rules/claude.md");
-  expect(await exists(join(root, ".skillset/rules/claude.md"))).toBe(true);
+  expect(report.ok).toBe(true);
+  expect(report.imports).toHaveLength(0);
+  expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe(content);
+  expect(await exists(join(root, ".skillset/rules/claude.md"))).toBe(false);
 });
 
 test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor", async () => {
@@ -928,7 +923,7 @@ test("adopt preserves survey skip outcomes when imported source cannot load", as
   expect(markdown).toContain("claude intentionally_skipped:");
 });
 
-test("adopt records an instructions collision as a failed import without throwing", async () => {
+test("adopt preserves existing rules while routing Claude guidance to review", async () => {
   const root = await fixture({
     ...Object.fromEntries(Object.entries(MARKETPLACE_FIXTURE).filter(([path]) => path !== "AGENTS.md")),
     "CLAUDE.md": AGENTS_CONTENT,
@@ -937,17 +932,15 @@ test("adopt records an instructions collision as a failed import without throwin
 
   const report = await adoptSkillset(root, { write: true });
 
-  expect(report.ok).toBe(false);
-  const failed = report.imports.find((result) => result.candidate.kind === "rules");
-  expect(failed?.ok).toBe(false);
-  expect(failed?.detail).toContain("already exists");
+  expect(report.ok).toBe(true);
+  expect(report.imports.some((result) => result.candidate.path === "CLAUDE.md")).toBe(false);
   expect(await readFile(join(root, ".skillset/rules/claude.md"), "utf8")).toBe(
     "pre-existing\n"
   );
-  // The collision must not block the rest of the migration.
+  // Preserved guidance does not block the other imports.
   expect(report.imports.find((result) => result.candidate.kind === "plugin")?.ok).toBe(true);
-  expect(report.cutover).toEqual([".claude-plugin/marketplace.json"]);
-  expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("## Failed imports");
+  expect(report.cutover).toEqual([".claude-plugin/marketplace.json", "plugins/demo/.claude-plugin/plugin.json", "plugins/demo/skills/demo-skill/SKILL.md"]);
+  expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("guided-root-guidance");
 });
 
 test("adopt reports source written before a later batch import fails", async () => {
@@ -1097,19 +1090,13 @@ test("adopt leaves unsupported Claude argument bracket forms raw", async () => {
   expect(imported).not.toContain("{{$ARGUMENTS[foo]}}");
 });
 
-test("adopt prepends a frontmatter block to transformable instruction imports", async () => {
+test("adopt leaves Claude guidance unchanged without declaring a source dialect", async () => {
   const instructions = "# Conventions\n\nKeep CLAUDE.md current.\n";
   const root = await fixture({ "CLAUDE.md": instructions });
-
   const report = await adoptSkillset(root, { write: true });
-
-  const preview = report.transformPreviews.find(
-    (entry) => entry.path === ".skillset/rules/claude.md"
-  );
-  expect(preview?.dialectDeclared).toBe(true);
-  expect(await readFile(join(root, ".skillset/rules/claude.md"), "utf8")).toBe(
-    `---\ndialect: claude\nskillset:\n  origin:\n    path: CLAUDE.md\n---\n\n${instructions}`
-  );
+  expect(report.transformPreviews).toEqual([]);
+  expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe(instructions);
+  expect(await exists(join(root, ".skillset/rules/claude.md"))).toBe(false);
   expect(report.buildError).toBeUndefined();
 });
 
