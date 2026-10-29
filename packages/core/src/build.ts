@@ -1,3 +1,4 @@
+import { assertNativeRootRuleSource, type NativeRootRuleSource } from "./native-root-rules";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -727,7 +728,8 @@ async function runBuildProjection(
           writePreimages,
           resolveOutputPath,
           true,
-          inspectionOptions.transactionOptions
+          inspectionOptions.transactionOptions,
+          graph.nativeRootRuleSource
         );
     return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
@@ -755,7 +757,8 @@ async function runBuildProjection(
         writePreimages,
         resolveOutputPath,
         false,
-        inspectionOptions.transactionOptions
+        inspectionOptions.transactionOptions,
+        graph.nativeRootRuleSource
       );
 
   return buildResult(rendered, diagnostics, writeOutputState, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
@@ -2148,7 +2151,8 @@ async function applyRenderedFileTransaction(
   writePreimages: ReadonlyMap<string, OutputWritePreimage>,
   resolveOutputPath: OutputPathResolver,
   writeAll: boolean,
-  transactionOptions: WorkspaceTransactionOptions | undefined
+  transactionOptions: WorkspaceTransactionOptions | undefined,
+  nativeSource?: NativeRootRuleSource
 ): Promise<{
   readonly deletedPaths: readonly string[];
   readonly writtenPaths: readonly string[];
@@ -2197,27 +2201,44 @@ async function applyRenderedFileTransaction(
     }
     writes.push(file);
   }
-  if (writes.length === 0 && staleManagedPaths.length === 0) {
+  const configWrite = nativeSource !== undefined && nativeSource.configContent !== nativeSource.effectiveConfigContent
+    ? [{ path: relative(rootPath, nativeSource.configPath), content: nativeSource.effectiveConfigContent, expectedContent: nativeSource.configContent }]
+    : [];
+  if (nativeSource !== undefined) await assertNativeRootRuleSource(rootPath, nativeSource);
+  if (writes.length === 0 && staleManagedPaths.length === 0 && configWrite.length === 0) {
     return { deletedPaths: [], writtenPaths: [] };
   }
   await assertOutputWritePreimages(writePreimages, resolveOutputPath);
   const transactionReport = await applyWorkspaceTransaction(
     rootPath,
     {
+      ...(nativeSource === undefined ? {} : {
+        readOnlyInputs: [
+          { path: "AGENTS.md", content: nativeSource.sourceContent },
+          { path: ".skillset/RULES.md" },
+          ...(configWrite.length === 0 ? [{ path: nativeSource.configPath, content: nativeSource.configContent }] : []),
+          ...(!writes.some((file) => file.path === "skillset.lock")
+            ? [{ path: "skillset.lock", ...(nativeSource.lockContent === undefined ? {} : { content: nativeSource.lockContent }) }]
+            : []),
+        ],
+      }),
       deletes: staleManagedPaths.filter(
         (path) =>
           !caseOnlyMoveSources.has(path) &&
           !missingCaseOnlyMoveSources.has(path)
       ),
       moves: caseOnlyMoves,
-      writes: writes.map((file) => ({
+      writes: [...configWrite, ...writes.map((file) => ({
         content: file.content,
+        ...(file.path === "skillset.lock" && nativeSource?.lockContent !== undefined
+          ? { expectedContent: nativeSource.lockContent }
+          : {}),
         ...(writePreimages.get(file.path)?.state === "absent"
           ? { expectedAbsent: true }
           : {}),
         mode: file.mode,
         path: file.path,
-      })),
+      }))],
     },
     transactionOptions
   );
@@ -2235,7 +2256,7 @@ async function applyRenderedFileTransaction(
   );
   return {
     deletedPaths: deletedPaths.sort(compareStrings),
-    writtenPaths: writes.map((file) => file.path).sort(compareStrings),
+    writtenPaths: [...configWrite.map((file) => file.path), ...writes.map((file) => file.path)].sort(compareStrings),
   };
 }
 

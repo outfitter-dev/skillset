@@ -1135,13 +1135,14 @@ Stale.
       "skillset.yaml": `
 skillset:
   name: unmanaged-preview-root
-claude: false
-codex: true
+claude: true
+codex: false
+cursor: false
 `,
-      ".skillset/rules/root.md": `
+      ".skillset/RULES.md": `
 # Generated Instructions
 `,
-      "AGENTS.md": `
+      ".claude/CLAUDE.md": `
 # Hand Authored Instructions
 `,
     });
@@ -1151,13 +1152,13 @@ codex: true
     expect(preview.diagnostics).toContainEqual(expect.objectContaining({
       code: "unmanaged-output-collision",
       featureId: "output-safety",
-      message: expect.stringContaining("will be backed up"),
-      outputPath: "AGENTS.md",
+      message: expect.stringContaining("requires an explicit recovery decision"),
+      outputPath: ".claude/CLAUDE.md",
       severity: "warning",
     }));
     expectKnownDiagnosticFeatureIds(preview.diagnostics);
     expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Hand Authored Instructions");
+    expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain("# Hand Authored Instructions");
   });
 
   it("backs up target-side edits before replacing managed output", async () => {

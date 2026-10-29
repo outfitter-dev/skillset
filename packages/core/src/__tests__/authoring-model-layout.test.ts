@@ -944,7 +944,7 @@ skillset:
     );
   });
 
-  it("preflights an authored root AGENTS.md recovery and points its author to RULES.md", async () => {
+  it("rejects competing native AGENTS.md and RULES.md without altering either source", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
@@ -969,16 +969,7 @@ Demo.
       "# Generated instructions\n"
     );
     await writeFile(join(root, "AGENTS.md"), "# Authored instructions\n");
-    const result = await buildSkillsetResult(root);
-    expect(result.diagnostics).toContainEqual(
-      expect.objectContaining({
-        code: "unmanaged-output-collision",
-        message: expect.stringContaining(
-          "move authored root instructions to .skillset/RULES.md"
-        ),
-        outputPath: "AGENTS.md",
-      })
-    );
+    await expect(buildSkillsetResult(root)).rejects.toThrow("RULES.md");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(
       "# Authored instructions\n"
     );

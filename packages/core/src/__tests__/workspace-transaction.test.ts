@@ -47,6 +47,18 @@ const caseSensitiveVolume = await detectCaseSensitiveWorkspaceVolume();
 const caseSensitiveTest = test.skipIf(!caseSensitiveVolume);
 
 describe("workspace transactions", () => {
+  test("rejects mutation of an ancestor of a read-only input", async () => {
+    await withWorkspace(async (root) => {
+      await mkdir(nodePath.join(root, "source"));
+      await writeFile(nodePath.join(root, "source/input.md"), "authored");
+      await expect(applyWorkspaceTransaction(root, {
+        readOnlyInputs: [{ path: "source/input.md", content: "authored" }],
+        deletes: ["source"],
+      })).rejects.toThrow("read-only input overlaps mutation");
+      expect(await readFile(nodePath.join(root, "source/input.md"), "utf8")).toBe("authored");
+    });
+  });
+
   test("applies writes, moves, and deletes in deterministic report order", async () => {
     await withWorkspace(async (root) => {
       await writeFile(nodePath.join(root, "delete.txt"), "delete before\n");

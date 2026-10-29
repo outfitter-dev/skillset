@@ -156,3 +156,4 @@ supports:
       source: repo:package.json
 workspace:
   cacheKey: example-team
+  nativeAgents: true

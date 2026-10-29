@@ -539,7 +539,7 @@ function printStatusReport(
   if (driftCount > 0) {
     writeLine(
       writer,
-      `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
+      `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed${report.outputState.state === "blocked" ? " (resolve output blockers before building)" : " (run skillset build --yes)"}`
     );
   }
   writeLine(

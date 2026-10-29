@@ -36,7 +36,7 @@ skillset build
 skillset build --yes
 ```
 
-An unconfirmed build writes nothing. A confirmed build prepares recovery snapshots before replacing a collision or target-side edit. `compile.build: updated` changes missing, changed, or stale managed files; `all` selects every configured generated file. Neither deletes unmanaged neighbors.
+An unconfirmed build writes nothing. Unmanaged output collisions block an ordinary build; warnings describe the required recovery decision, not permission to overwrite. An existing unmanaged root `AGENTS.md` is the [native source exception](../source/rules.md#native-root-guidance): a successful build records native mode and never writes that file. Authorized replacements of managed target-side edits prepare recovery snapshots before writing. `compile.build: updated` changes missing, changed, or stale managed files; `all` selects every configured generated file. Neither deletes unmanaged neighbors.
 
 `--isolated` applies the same rules inside the logical `.skillset/cache/latest/` mirror without touching live output roots. The generated [`build`](../cli/build.md), [`diff`](../cli/diff.md), and [`restore`](../cli/restore.md) pages own exact syntax.
 

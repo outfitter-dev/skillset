@@ -471,7 +471,7 @@ describe("SET-291 prompt adapters", () => {
 
   test("the init orchestration boundary previews then leaves default-No repositories untouched", async () => {
     const root = await createTestFixtureRoot("skillset-interactive-init-");
-    await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
+    await writeFile(join(root, "CLAUDE.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([
       { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
@@ -508,12 +508,12 @@ describe("SET-291 prompt adapters", () => {
       "checkbox",
       "confirm",
     ]);
-    expect(await readdir(root)).toEqual(["AGENTS.md"]);
+    expect(await readdir(root)).toEqual(["CLAUDE.md"]);
   });
 
   test("explicit adoption skips the matching prompt but collects missing choices", async () => {
     const root = await createTestFixtureRoot("skillset-explicit-init-");
-    await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
+    await writeFile(join(root, "CLAUDE.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([
       { kind: "checkbox", value: ["claude", "codex"] },
       { kind: "checkbox", value: [] },
@@ -530,7 +530,7 @@ describe("SET-291 prompt adapters", () => {
     await runInitCommand(
       {
         directory: undefined,
-        initAdopt: ["rules:AGENTS.md"],
+        initAdopt: ["rules:CLAUDE.md"],
         jsonOutput: false,
         options: {},
         rootExplicit: true,
@@ -548,12 +548,12 @@ describe("SET-291 prompt adapters", () => {
       "checkbox",
       "confirm",
     ]);
-    expect(await readdir(root)).toEqual(["AGENTS.md"]);
+    expect(await readdir(root)).toEqual(["CLAUDE.md"]);
   });
 
   test("machine init bypasses an injected interactive session", async () => {
     const root = await createTestFixtureRoot("skillset-machine-init-");
-    await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
+    await writeFile(join(root, "CLAUDE.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([]);
     const session = createInteractiveSession({
       adapter,
@@ -580,6 +580,6 @@ describe("SET-291 prompt adapters", () => {
 
     adapter.assertComplete();
     expect(adapter.prompts).toEqual([]);
-    expect(await readdir(root)).toEqual(["AGENTS.md"]);
+    expect(await readdir(root)).toEqual(["CLAUDE.md"]);
   });
 });

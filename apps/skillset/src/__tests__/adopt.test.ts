@@ -94,7 +94,6 @@ test("adopt plan mode surveys only and writes nothing", async () => {
   expect(report.alreadyAdopted).toBe(false);
   expect(report.candidates).toEqual([
     { kind: "plugin", path: "plugins/demo" },
-    { kind: "rules", path: "AGENTS.md" },
   ]);
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
   expect(report.renderResults).toContainEqual(
@@ -152,7 +151,6 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
     }
     expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
       ["plugin", true],
-      ["rules", true],
     ]);
 
     const markdown = renderAdoptReportMarkdown(report, { rootPath: report.rootPath });
@@ -200,7 +198,7 @@ test("SET-277: adoption resolves relative destinations from the caller cwd", asy
 
   expect(report.ok).toBe(true);
   expect(report.rootPath).toBe(join(cwd, "destination"));
-  expect(await Bun.file(join(cwd, "destination/.skillset/rules/agents.md")).exists()).toBe(true);
+  expect(await Bun.file(join(cwd, "destination/AGENTS.md")).exists()).toBe(true);
 });
 
 test("SET-277: local and remote acquisition write the same adoption plan into a destination", async () => {
@@ -322,13 +320,12 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   expect(report.write).toBe(true);
   expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
     ["plugin", true],
-    ["rules", true],
   ]);
   expect(report.builtFiles).toBeGreaterThan(0);
   expect(report.buildError).toBeUndefined();
   // SET-731: the build owns the catalog now, so its identity is declared and
   // the original joins the cutover list.
-  expect(report.cutover).toEqual(["AGENTS.md", ".claude-plugin/marketplace.json"]);
+  expect(report.cutover).toEqual([".claude-plugin/marketplace.json"]);
   expect(report.marketplace).toEqual({
     catalog: "demo-marketplace",
     path: ".claude-plugin/marketplace.json",
@@ -342,9 +339,8 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   // Imported source lands in canonical .skillset/ homes with source-origin metadata.
   expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("targets:");
   expect(await exists(join(root, ".skillset/plugins/demo/skillset.yaml"))).toBe(true);
-  const importedInstructions = await readFile(join(root, ".skillset/rules/agents.md"), "utf8");
-  expect(importedInstructions).toContain("skillset:\n  origin:\n    path: AGENTS.md");
-  expect(importedInstructions).toContain(AGENTS_CONTENT.trimEnd());
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(AGENTS_CONTENT);
+  expect(await exists(join(root, ".skillset/rules/agents.md"))).toBe(false);
   expect(await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")).toContain(
     "path: plugins/demo"
   );
@@ -364,7 +360,7 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   expect(markdown).toContain("### Render results");
   expect(markdown).toContain("claude intentionally_skipped:");
   expect(markdown).toContain("codex rendered:");
-  expect(markdown).toContain("`AGENTS.md`");
+  expect(report.cutover).not.toContain("AGENTS.md");
   expect(markdown).toContain("unmanaged");
   expect(report.ok).toBe(true);
   expect(report.renderResults).toContainEqual(
@@ -397,7 +393,7 @@ test("adopt write mode imports everything and builds the mirror", async () => {
 
 test("SET-451: adopt reports a blocked isolated build instead of claiming success", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
-  const collisionPath = cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md"));
+  const collisionPath = cachePath(root, join(ISOLATED_OUT_ROOT, ".claude/CLAUDE.md"));
   await mkdir(dirname(collisionPath), { recursive: true });
   await writeFile(collisionPath, "user file\n", "utf8");
 
@@ -477,7 +473,7 @@ test("blocked reusable adoption does not persist nested audit artifacts", async 
 
 test("failed instruction adoption reports its partial copied destination", async () => {
   const root = await fixture({
-    "AGENTS.md": "---\ninvalid: [\n---\n\nHandwritten guidance.\n",
+    "CLAUDE.md": "---\ninvalid: [\n---\n\nHandwritten guidance.\n",
   });
 
   const report = await adoptSkillset(root, { write: true });
@@ -485,9 +481,9 @@ test("failed instruction adoption reports its partial copied destination", async
 
   expect(report.ok).toBe(false);
   expect(imported?.ok).toBe(false);
-  expect(imported?.destination).toBe(".skillset/rules/agents.md");
-  expect(report.writtenPaths).toContain(".skillset/rules/agents.md");
-  expect(await exists(join(root, ".skillset/rules/agents.md"))).toBe(true);
+  expect(imported?.destination).toBe(".skillset/rules/claude.md");
+  expect(report.writtenPaths).toContain(".skillset/rules/claude.md");
+  expect(await exists(join(root, ".skillset/rules/claude.md"))).toBe(true);
 });
 
 test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor", async () => {
@@ -934,8 +930,9 @@ test("adopt preserves survey skip outcomes when imported source cannot load", as
 
 test("adopt records an instructions collision as a failed import without throwing", async () => {
   const root = await fixture({
-    ...MARKETPLACE_FIXTURE,
-    ".skillset/rules/agents.md": "pre-existing\n",
+    ...Object.fromEntries(Object.entries(MARKETPLACE_FIXTURE).filter(([path]) => path !== "AGENTS.md")),
+    "CLAUDE.md": AGENTS_CONTENT,
+    ".skillset/rules/claude.md": "pre-existing\n",
   });
 
   const report = await adoptSkillset(root, { write: true });
@@ -944,7 +941,7 @@ test("adopt records an instructions collision as a failed import without throwin
   const failed = report.imports.find((result) => result.candidate.kind === "rules");
   expect(failed?.ok).toBe(false);
   expect(failed?.detail).toContain("already exists");
-  expect(await readFile(join(root, ".skillset/rules/agents.md"), "utf8")).toBe(
+  expect(await readFile(join(root, ".skillset/rules/claude.md"), "utf8")).toBe(
     "pre-existing\n"
   );
   // The collision must not block the rest of the migration.
@@ -1123,7 +1120,7 @@ test("adopt CLI without --yes prints the survey and writes nothing", async () =>
   const result = await runSkillsetCli("init", "--root", root, "--adopt", "all");
 
   expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain("import candidate rules AGENTS.md");
+  expect(result.stdout).not.toContain("import candidate rules AGENTS.md");
   expect(result.stdout).toContain("import candidate plugin plugins/demo");
   expect(result.stdout).toContain("skipped commands .claude/commands");
   expect(result.stdout).toContain("rerun init with --adopt and --yes");

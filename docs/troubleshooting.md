@@ -23,6 +23,12 @@ This is expected when `init` only surveyed the repository. Before confirming a p
 
 See [Import Existing Work](guides/importing.md) for the difference between whole-repository adoption and direct import.
 
+## The First Build Finds Existing Root Guidance
+
+An unmanaged root `AGENTS.md` becomes authored guidance automatically. A successful live build records `workspace.nativeAgents: true` in `skillset.yaml` and preserves the file byte for byte. If `.skillset/RULES.md` or unscoped `.skillset/rules/*.md` also exists, consolidate the root prose in `AGENTS.md` before building; scoped rules remain separate. A root `AGENTS.md` already claimed by a lock stays generated, so hand edits there still require recovery review.
+
+Other unmanaged output collisions still block the build. Inspect each named path and preserve its content before choosing recovery; preview warnings do not promise that ordinary build will back up or overwrite it. `status` identifies blocked output instead of recommending `build --yes` as a cure. See [native root guidance](reference/source/rules.md#native-root-guidance) and [Output Safety](reference/features/output-safety.md).
+
 ## Import refused a source path
 
 The path may be ambiguous, unsupported, unsafe, or already owned by existing source. Inspect the reported kind and [destination](glossary.md#destination); add an explicit `--kind` only when you know the directory shape. There is no overwrite mode for existing canonical source.

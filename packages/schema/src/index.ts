@@ -38,6 +38,7 @@ export {
   validateActivationProofReceipt,
 } from "./activation-proof";
 export {
+  WORKSPACE_KEYS,
   AGENT_FRONTMATTER_KEYS,
   ALLOWED_TOOLS_TARGET_KEYS,
   COMMON_FRONTMATTER_KEYS,

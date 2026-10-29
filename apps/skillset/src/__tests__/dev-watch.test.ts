@@ -145,14 +145,14 @@ test("SET-451: dev preview reports blocked output collisions in text and JSONL",
   const root = await createTestFixtureRoot("skillset-dev-watch-blocked-preview-");
   await Bun.write(
     join(root, "skillset.yaml"),
-    "skillset:\n  name: blocked-preview\ncompile:\n  targets: [codex]\n"
+    "skillset:\n  name: blocked-preview\ncompile:\n  targets: [claude]\n"
   );
   await mkdir(join(root, ".skillset/rules"), { recursive: true });
   await Bun.write(
-    join(root, ".skillset/rules/root.md"),
+    join(root, ".skillset/RULES.md"),
     "# Generated project instructions\n"
   );
-  await Bun.write(join(root, "AGENTS.md"), "# Unmanaged project instructions\n");
+  await Bun.write(join(root, ".claude/CLAUDE.md"), "# Unmanaged project instructions\n");
 
   const report = await runDevWatchPreview(root, {}, "test");
   const rendered = renderDevWatchPreview(report);

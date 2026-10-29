@@ -1932,11 +1932,12 @@ test("SET-451: blocked build previews never offer or perform an ordinary apply",
     "skillset.yaml": `
 skillset:
   name: blocked-plan-root
-claude: false
-codex: true
+claude: true
+codex: false
+cursor: false
 `,
-    ".skillset/rules/root.md": "# Generated instructions\n",
-    "AGENTS.md": "# Unmanaged instructions\n",
+    ".skillset/RULES.md": "# Generated instructions\n",
+    ".claude/CLAUDE.md": "# Unmanaged instructions\n",
   });
 
   const planned = await runSkillsetCli("build", "--root", root);
@@ -1947,7 +1948,7 @@ codex: true
   const applied = await runSkillsetCli("build", "--root", root, "--yes");
   expect(applied.exitCode).toBe(1);
   expect(applied.stderr).toContain("no generated files were written");
-  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Unmanaged instructions\n");
+  expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toBe("# Unmanaged instructions\n");
 });
 
 test("SET-109: distribute plan previews plugin distribution without writing", async () => {
@@ -6184,13 +6185,14 @@ test("SET-19: CLI restores backed up unmanaged output collisions", async () => {
     "skillset.yaml": `
 skillset:
   name: restore-root
-claude: false
-codex: true
+claude: true
+codex: false
+cursor: false
 `,
-    ".skillset/rules/root.md": `
+    ".skillset/RULES.md": `
 # Generated Instructions
 `,
-    "AGENTS.md": `
+    ".claude/CLAUDE.md": `
 # Existing Instructions
 `,
 	  });
@@ -6198,19 +6200,19 @@ codex: true
 	  const previewBuild = await runSkillsetCli("build", "--root", root);
 	  expect(previewBuild.exitCode).toBe(1);
 	  expect(previewBuild.stderr).toContain("existing file is not owned by Skillset");
-	  expect(previewBuild.stderr).toContain("will be backed up");
+	  expect(previewBuild.stderr).toContain("requires an explicit recovery decision");
 	  expect(previewBuild.stderr).toContain("build is blocked");
 	  expect(previewBuild.stdout).not.toContain("rerun with --yes");
 	  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
-	  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+	  expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain("# Existing Instructions");
 
-  const backupId = await createExplicitUnmanagedBackup(root);
-  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+  const backupId = await createExplicitUnmanagedBackup(root, ".claude/CLAUDE.md");
+  expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain("# Generated Instructions");
 
   const preview = await runSkillsetCli("restore", backupId, "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("restore preview 1 file");
-  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+  expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain("# Generated Instructions");
 
   const structuredPreview = await runSkillsetCli("restore", backupId, "--root", root, "--json");
   expect(structuredPreview.exitCode).toBe(0);
@@ -6224,7 +6226,7 @@ codex: true
   const restored = await runSkillsetCli("restore", backupId, "--root", root, "--yes");
   expect(restored.exitCode).toBe(0);
   expect(restored.stdout).toContain("restored 1 file");
-  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+  expect(await readFile(join(root, ".claude/CLAUDE.md"), "utf8")).toContain("# Existing Instructions");
 });
 
 test("SET-331: CLI lists integrity-checked output backups without writing", async () => {
@@ -7140,7 +7142,7 @@ test("SET-62: nested plugin scan dedupes marketplace sources and guards containm
   expect(report.importCandidates).toEqual([{ kind: "plugin", path: "plugins/alpha" }]);
 });
 
-test("SET-62: init surfaces handwritten root instruction files as candidates", async () => {
+test("SET-62: init retains native AGENTS and surfaces other handwritten rule candidates", async () => {
   const root = await contractFixture({
     "AGENTS.md": "# Agents\n\nHandwritten guidance.",
     "CLAUDE.md": "# Claude\n\nHandwritten guidance.",
@@ -7149,7 +7151,6 @@ test("SET-62: init surfaces handwritten root instruction files as candidates", a
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
 
   expect(report.importCandidates).toEqual([
-    { kind: "rules", path: "AGENTS.md" },
     { kind: "rules", path: "CLAUDE.md" },
   ]);
 });
@@ -8844,13 +8845,13 @@ async function runSkillsetCliWithInput(input: string, ...args: readonly string[]
   return { exitCode, stderr, stdout };
 }
 
-async function createExplicitUnmanagedBackup(root: string): Promise<string> {
+async function createExplicitUnmanagedBackup(root: string, outputPath = "AGENTS.md"): Promise<string> {
   const prepared = await prepareOutputBackups(
     root,
     [{
       content: new TextEncoder().encode("# Generated Instructions\n"),
       mode: 0o644,
-      path: "AGENTS.md",
+      path: outputPath,
       sourcePath: ".skillset/rules/root.md",
     }],
     [],
@@ -8865,6 +8866,6 @@ async function createExplicitUnmanagedBackup(root: string): Promise<string> {
   );
   const runId = prepared.backup?.runId;
   if (runId === undefined) throw new Error("missing explicit backup id");
-  await writeFile(join(root, "AGENTS.md"), "# Generated Instructions\n");
+  await writeFile(join(root, outputPath), "# Generated Instructions\n");
   return runId;
 }

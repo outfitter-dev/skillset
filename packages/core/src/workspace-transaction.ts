@@ -41,6 +41,8 @@ export interface WorkspaceTransactionWrite {
   readonly content: string | Uint8Array;
   /** The caller approved this target only while it was absent. */
   readonly expectedAbsent?: boolean;
+  /** Existing bytes approved by the caller; checked against the staged preimage. */
+  readonly expectedContent?: string;
   readonly mode?: GeneratedFileMode;
   readonly path: string;
 }
@@ -91,6 +93,8 @@ export interface WorkspaceTransactionExpectedSourceTree {
  * absolute, but every path must resolve inside `workspaceRoot`.
  */
 export interface WorkspaceTransactionPlan {
+  /** Authored files this operation reads but never owns or writes. */
+  readonly readOnlyInputs?: readonly { readonly path: string; readonly content?: string }[];
   readonly appends?: readonly WorkspaceTransactionAppend[];
   readonly copies?: readonly WorkspaceTransactionCopy[];
   readonly deletes?: readonly string[];
@@ -232,6 +236,8 @@ interface NormalizedCopy {
 interface NormalizedWrite {
   readonly content: string | Uint8Array;
   readonly expectedAbsent?: boolean;
+  /** Existing bytes approved by the caller; checked against the staged preimage. */
+  readonly expectedContent?: string;
   readonly mode?: GeneratedFileMode;
   readonly operation: Extract<
     WorkspaceTransactionOperation,
@@ -347,6 +353,20 @@ export async function applyWorkspaceTransaction(
     prepared,
     options.testHooks
   );
+  const readOnlyInputs = (plan.readOnlyInputs ?? []).map((input) => ({
+    ...input, path: normalizePath(resolvedWorkspaceRoot, input.path),
+  }));
+  for (const input of readOnlyInputs) {
+    if (prepared.operations.some((operation) => {
+      const mutations = "path" in operation ? [operation.path] :
+        operation.kind === "copy" ? [operation.to] : [operation.from, operation.to];
+      return mutations.some((path) => {
+        const absolute = nodePath.resolve(resolvedWorkspaceRoot, path);
+        return isPathInside(absolute, input.path.absolute) || isPathInside(input.path.absolute, absolute);
+      });
+    })) throw transactionError(`read-only input overlaps mutation: ${input.path.relative}`);
+  }
+  await assertReadOnlyInputs(resolvedWorkspaceRoot, readOnlyInputs);
   assertExpectedAbsentWriteTargets(prepared, initialEntries);
   assertCopyTargetCollisions(prepared, initialEntries);
   await assertMoveTargetCollisions(prepared, initialEntries);
@@ -397,6 +417,7 @@ export async function applyWorkspaceTransaction(
     if (prepared.removeEmptyParents) {
       await removeEmptyOperationAncestors(state, prepared);
     }
+    await assertReadOnlyInputs(resolvedWorkspaceRoot, readOnlyInputs);
     await cleanupCommittedTransaction(state);
     return {
       appendedPaths: [...new Set(state.appliedAppends.map((append) => append.path.relative))].toSorted(compareStrings),
@@ -413,6 +434,20 @@ export async function applyWorkspaceTransaction(
       throw new WorkspaceTransactionRollbackError(error, rollbackFailures);
     }
     throw error;
+  }
+}
+
+async function assertReadOnlyInputs(
+  root: string,
+  inputs: readonly { readonly path: NormalizedPath; readonly content?: string }[]
+): Promise<void> {
+  for (const input of inputs) {
+    const entry = await inspectPath(root, input.path);
+    if (input.content === undefined && entry === undefined) continue;
+    if (input.content === undefined || entry?.isFile() !== true || entry.isSymbolicLink() ||
+      await readFile(input.path.absolute, "utf8") !== input.content) {
+      throw transactionError(`read-only input changed since planning: ${input.path.relative}`);
+    }
   }
 }
 
@@ -450,6 +485,7 @@ function preparePlan(
       const path = normalizePath(workspaceRoot, write.path);
       return {
         content: write.content,
+        ...(write.expectedContent === undefined ? {} : { expectedContent: write.expectedContent }),
         ...(write.expectedAbsent === undefined
           ? {}
           : { expectedAbsent: write.expectedAbsent }),
@@ -1157,7 +1193,15 @@ async function applyWrites(
     await invokeApplyHook(hooks, prepared.operations, write.operation);
     await ensureSafeParent(state, write.path, hooks);
     const currentEntry = await inspectPath(state.workspaceRoot, write.path);
-    const stagedPreimage = state.preimages.has(write.path.relative);
+    const preimage = state.preimages.get(write.path.relative);
+    const stagedPreimage = preimage !== undefined;
+    if (write.expectedContent !== undefined && (
+      preimage === undefined ||
+      !(await lstat(preimage.journalPath)).isFile() ||
+      await readFile(preimage.journalPath, "utf8") !== write.expectedContent
+    )) {
+      throw transactionError(`write preimage changed since planning: ${write.path.relative}`);
+    }
     if (stagedPreimage && currentEntry !== undefined) {
       preserveCreatedDirectoryAncestors(state, write.path.absolute);
       throw transactionError(
@@ -1185,6 +1229,9 @@ async function applyWrites(
       `${String(index).padStart(6, "0")}-${nodePath.basename(write.path.absolute)}`
     );
     await writeFile(stagingPath, write.content);
+    if (write.expectedContent !== undefined && write.mode === undefined && preimage !== undefined) {
+      await chmod(stagingPath, (await lstat(preimage.journalPath)).mode & 0o7777);
+    }
     if (write.mode !== undefined && supportsGeneratedFileModes()) {
       await chmod(stagingPath, write.mode);
     }

@@ -357,10 +357,11 @@ describe("SET-287 finite read-only JSON", () => {
     await mkdir(path.join(root, ".skillset", "rules"), { recursive: true });
     await writeFile(
       path.join(root, "skillset.yaml"),
-      "skillset:\n  name: build-diagnostics-json\nclaude: false\ncodex: true\n"
+      "skillset:\n  name: build-diagnostics-json\nclaude: true\ncodex: false\ncursor: false\n"
     );
-    await writeFile(path.join(root, ".skillset", "rules", "guide.md"), "# Managed guidance\n");
-    await writeFile(path.join(root, "AGENTS.md"), "# Unmanaged guidance\n");
+    await writeFile(path.join(root, ".skillset", "RULES.md"), "# Managed guidance\n");
+    await mkdir(path.join(root, ".claude"));
+    await writeFile(path.join(root, ".claude/CLAUDE.md"), "# Unmanaged guidance\n");
 
     const result = await runJsonRoute("build", "--root", root, "--yes");
     expect(result.stderr).toBe("");
@@ -374,14 +375,14 @@ describe("SET-287 finite read-only JSON", () => {
     expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
     expect(envelope.ok).toBe(false);
     expect(envelope.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: "AGENTS.md", severity: "warning" }),
+      expect.objectContaining({ path: ".claude/CLAUDE.md", severity: "warning" }),
     ]));
     expect(envelope.data).toMatchObject({
       report: { outputState: { state: "blocked" }, writes: { paths: [] } },
       state: "blocked",
       writes: [],
     });
-    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toBe("# Unmanaged guidance\n");
+    expect(await readFile(path.join(root, ".claude/CLAUDE.md"), "utf8")).toBe("# Unmanaged guidance\n");
     expect(await Bun.file(path.join(root, ".skillset", "snapshots")).exists()).toBe(false);
   });
 
