@@ -1,5 +1,11 @@
 # Execution ledger
 
+### Plugin hook runtime roots — October 29
+
+- Raw argument layer at `0e8f5f911b7bff3344a9e2ace3231accc28de161` passed independent review at 5/5. Its exact full run completed 4052 pass, 2 skip, 4 todo and only the three deferred native-size failures across 4061 tests / 363 files. SET-442 remains incomplete.
+- Source-backed plugin script commands previously used an unsupported Cursor root variable and unquoted paths. Provider registry evidence now records the documented root environment names. Claude and Codex share the documented CLAUDE_PLUGIN_ROOT alias so their shared hooks file agrees; Cursor uses CURSOR_PLUGIN_ROOT. Authored commands remain unchanged. Primary documentation was checked directly on October 29.
+- Four regression cases execute generated shell commands with only documented root variables, covering each provider and a shared package with spaces in both workspace and script paths. This proves generated command execution under that environment contract, not provider-host activation. Focused and related hook tests pass; final review and aggregate verification follow.
+
 ### SET-442 raw argument preservation — October 29
 
 - Parent draft #769 is published at `96f65ec65dc2295d396e72636ee14a823e62b8f0`; its exact full run completed 4046 pass, 2 skip, 4 todo and only three deferred native-size failures across 4055 tests / 362 files. Both external review threads were repaired, replied to and resolved. The minimal Linear progress comment was blocked by automatic approval review; specific payload authorization is pending, with evidence retained locally and on GitHub.
