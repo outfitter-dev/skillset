@@ -19,6 +19,15 @@
 
 ## Supporting context
 
+### Bun 1.4.4 foundation
+
+- Matt's October 27 **Skillset: Bun 1.4.4 Upgrade Plan**, supplied in the October 29 conversation, authorizes the planning amendment. Its uninspected-repo assumptions are corrected in PLAN.md and the live issue briefs.
+- [SET-770: baseline and applicability](https://linear.app/outfitter/issue/SET-770), [SET-603: toolchain upgrade](https://linear.app/outfitter/issue/SET-603), [SET-771: semantic compatibility](https://linear.app/outfitter/issue/SET-771), [SET-772: qualification](https://linear.app/outfitter/issue/SET-772), and [SET-773: optional built-ins assessment](https://linear.app/outfitter/issue/SET-773).
+- Official release evidence: [Bun 1.4](https://bun.sh/blog/bun-v1.4), [1.4.1](https://bun.sh/blog/bun-v1.4.1), [1.4.2](https://bun.sh/blog/bun-v1.4.2), [1.4.3](https://bun.sh/blog/bun-v1.4.3), [1.4.4](https://bun.sh/blog/bun-v1.4.4). SET-770 owns the complete release-to-call-site applicability review.
+- Local owners: [compiler YAML](../../../packages/core/src/yaml.ts), [authored YAML preservation](../../../packages/core/src/source-document.ts), [Workbench parsers](../../../packages/workbench/src/parser.ts), [structured output](../../../packages/core/src/structured-output.ts), [Bun policy tests](../../../scripts/__tests__/bootstrap.test.ts), and [release policy](../../../docs/development/package-releases.md).
+
+### Earlier campaign context
+
 - [Skillset lanes](https://app.notion.com/p/4071b36f46cb810ca322c1f2da414fc5): six-project overview, milestones, convergence points, settled October 28 decisions, filing rules. Its execution-lane interpretation is replaced by this packet; its work organization remains useful.
 - [Earlier autonomous campaign playbook](https://app.notion.com/p/4071b36f46cb81ac90eded338e80765a): historical multi-role/multi-lane setup. This packet supersedes that execution topology. Do not recreate its coordinator/architect/recon fleet, schedules, or permissions from its templates.
 

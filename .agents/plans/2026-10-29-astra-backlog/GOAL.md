@@ -6,6 +6,7 @@ The execution contract is [PLAN.md](PLAN.md). Its standing authority becomes act
 
 ## Success
 
+- Establish the Bun 1.4.4 foundation through SET-770 → SET-603 → SET-771 → SET-772 before ordinary feature accumulation; keep optional built-in adoption (SET-773) separate and evidence-driven.
 - Coherent, verified changes are committed and available in draft PRs, with issue traceability and required docs/generated output/release records.
 - One default stack; separate delivery stacks never overlap files. Review/repair worktrees belong to their parent stack.
 - Asynchronous GPT-6.1 Terra high/fast reviews where available; no more than two routine review/repair rounds per checkpoint. Residual blocking findings stay explicit and prevent unsafe downstream claims.
