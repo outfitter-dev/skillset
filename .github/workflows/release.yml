@@ -15,13 +15,29 @@ on:
     paths:
       - .github/workflows/**
   workflow_dispatch:
+    inputs:
+      channel:
+        description: "stable runs the version PR and stable publish lanes; next runs only the next prerelease lane"
+        type: choice
+        options: [stable, next]
+        default: stable
+      force:
+        description: "next only: publish even when nothing package-facing changed since the last next tag"
+        type: boolean
+        default: false
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+# The next prerelease lane runs as its own dispatched run in a separate group,
+# started by release-next-dispatch.yml, so a long native build for `next`
+# never holds the stable group and a stable run waiting on `npm` approval never
+# holds `next` back. A newer pending stable run cancels an older pending one in
+# the same group; keeping next out of it keeps a queued stable publish from
+# being dropped behind it.
+concurrency: ${{ github.workflow }}-${{ github.ref }}${{ inputs.channel == 'next' && '-next' || '' }}
 
 jobs:
   version:
     name: Version Packages
-    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main'
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && inputs.channel != 'next'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -412,3 +428,173 @@ jobs:
       tag: ${{ needs.github-release.outputs.tag }}
     secrets:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+  next-plan:
+    name: Next Prerelease Plan
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.channel == 'next'
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+    outputs:
+      should_publish: ${{ steps.plan.outputs.should_publish }}
+      source_sha: ${{ steps.plan.outputs.source_sha }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Fail closed unless the signing policy is explicit
+        env:
+          SKILLSET_MACOS_SIGNING_POLICY: ${{ vars.SKILLSET_MACOS_SIGNING_POLICY }}
+        run: bun run release:signing-check
+      - name: Plan next prerelease
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SKILLSET_NEXT_FORCE: ${{ inputs.force }}
+          SKILLSET_RELEASE_POLICY_CI_ATTEMPTS: "120"
+          SKILLSET_RELEASE_POLICY_CI_WAIT_MS: "15000"
+        run: bun scripts/next-release.ts plan
+
+  next-native:
+    name: Build and Smoke Next Native Prerelease
+    needs: next-plan
+    if: needs.next-plan.outputs.should_publish == 'true'
+    uses: ./.github/workflows/native.yml
+    with:
+      artifact-name: skillset-native-next-${{ needs.next-plan.outputs.version }}
+      source-sha: ${{ needs.next-plan.outputs.source_sha }}
+      next-version: ${{ needs.next-plan.outputs.version }}
+    permissions:
+      contents: read
+
+  next-attest:
+    name: Attest Next Native Assets
+    needs: [next-plan, next-native]
+    if: needs.next-native.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: ${{ needs.next-plan.outputs.source_sha }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Apply next prerelease version
+        env:
+          NEXT_VERSION: ${{ needs.next-plan.outputs.version }}
+        run: bun scripts/next-release.ts apply --version "$NEXT_VERSION"
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: skillset-native-next-${{ needs.next-plan.outputs.version }}
+          path: ${{ runner.temp }}/native
+      - name: Stage exact release asset set
+        run: bun run release:assets -- stage --native-out-dir "$RUNNER_TEMP/native" --release-dir "$RUNNER_TEMP/release-assets"
+      - name: Attest exact release asset set
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: ${{ runner.temp }}/release-assets/skillset-v*
+      - name: Verify required attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for asset in "$RUNNER_TEMP"/release-assets/skillset-v*; do
+            gh attestation verify "$asset" --repo "$GITHUB_REPOSITORY"
+          done
+
+  next-publish:
+    name: Publish coordinated set to npm next
+    needs: [next-plan, next-attest]
+    if: needs.next-attest.result == 'success' && needs.next-plan.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    environment: npm-next
+    permissions:
+      attestations: read
+      contents: read
+      id-token: write
+    outputs:
+      registry_complete: ${{ steps.publish.outputs.registry_complete }}
+      tag: ${{ steps.publish.outputs.tag }}
+      version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          ref: ${{ needs.next-plan.outputs.source_sha }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm install --location=global npm@11.12.1
+      - run: bun install --frozen-lockfile
+      - name: Apply next prerelease version
+        env:
+          NEXT_VERSION: ${{ needs.next-plan.outputs.version }}
+        run: bun scripts/next-release.ts apply --version "$NEXT_VERSION"
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: skillset-native-next-${{ needs.next-plan.outputs.version }}
+          path: ${{ runner.temp }}/native
+      - name: Validate coordinated release before publish
+        run: |
+          bun run release:assets -- stage --native-out-dir "$RUNNER_TEMP/native" --release-dir "$RUNNER_TEMP/release-assets"
+          for asset in "$RUNNER_TEMP"/release-assets/skillset-v*; do
+            gh attestation verify "$asset" --repo "$GITHUB_REPOSITORY"
+          done
+          bun run publish:release-check -- --native-out-dir "$RUNNER_TEMP/native" --stage-dir "$RUNNER_TEMP/release-tarballs"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Refuse anything but the next dist-tag
+        env:
+          NEXT_VERSION: ${{ needs.next-plan.outputs.version }}
+        run: |
+          tag="$(bun -e 'const { distTagForVersion } = await import("./scripts/publish.ts"); console.log(distTagForVersion(process.argv[1]));' "$NEXT_VERSION")"
+          if [ "$tag" != "next" ]; then
+            echo "next lane resolved dist-tag $tag for $NEXT_VERSION; refusing to publish" >&2
+            exit 1
+          fi
+      - name: Publish package set
+        id: publish
+        run: bun run publish:packages -- --native-out-dir "$RUNNER_TEMP/native" --stage-dir "$RUNNER_TEMP/release-tarballs"
+
+  next-tag:
+    name: Tag next prerelease source
+    needs: [next-plan, next-publish]
+    if: needs.next-publish.outputs.registry_complete == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.next-plan.outputs.source_sha }}
+      - name: Create or verify the v<version> tag
+        env:
+          NEXT_VERSION: ${{ needs.next-plan.outputs.version }}
+          SOURCE_SHA: ${{ needs.next-plan.outputs.source_sha }}
+        run: |
+          tag="v$NEXT_VERSION"
+          git fetch --force --tags origin
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            tag_target="$(git rev-list -n 1 "$tag")"
+            if [ "$tag_target" != "$SOURCE_SHA" ]; then
+              echo "$tag points to $tag_target, expected $SOURCE_SHA" >&2
+              exit 1
+            fi
+          else
+            git tag "$tag" "$SOURCE_SHA"
+            git push origin "refs/tags/$tag"
+          fi
