@@ -153,7 +153,7 @@ test("optional tools present only in a virtualenv are reported missing without a
   ]);
 });
 
-test("Windows Path casing uses the same cleaned value for probes and spawned children", async () => {
+test("Windows Path variants use the same cleaned value for probes and spawned children", async () => {
   const root = await createTestFixtureRoot("skillset-hermes-windows-path-");
   const virtual = join(root, "venv");
   const bin = join(virtual, "Scripts");
@@ -165,23 +165,38 @@ test("Windows Path casing uses the same cleaned value for probes and spawned chi
     // Isolated simulation on non-Windows hosts; CI also runs this on Windows.
     Object.defineProperty(process, "platform", { value: "win32" });
     const { collectToolStatus } = await import(${JSON.stringify(toolsModule)});
-    console.log(JSON.stringify(collectToolStatus([${JSON.stringify(tool)}, "bun"], ${JSON.stringify(root)})));
+    const { run } = await import(${JSON.stringify(sharedModule)});
+    const path = run([process.execPath, "--eval", "console.log(JSON.stringify(process.env.PATH))"], ${JSON.stringify(root)});
+    if (path.exitCode !== 0) throw new Error(path.stderr);
+    console.log(JSON.stringify({
+      tools: collectToolStatus([${JSON.stringify(tool)}, "bun"], ${JSON.stringify(root)}),
+      childPath: JSON.parse(path.stdout),
+    }));
   `;
-  const env = {
-    ...process.env,
-    VIRTUAL_ENV: virtual,
-    Path: [bin, process.env.PATH].join(delimiter),
-  };
-  delete (env as NodeJS.ProcessEnv).PATH;
-  const result = Bun.spawnSync([process.execPath, "--eval", probe], {
-    env,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  expect(result.exitCode).toBe(0);
-  expect(new TextDecoder().decode(result.stderr)).toBe("");
-  expect(JSON.parse(new TextDecoder().decode(result.stdout))).toEqual([
-    { name: tool, present: false },
-    { name: "bun", present: true, version: Bun.version },
-  ]);
+  for (const pathEntry of [
+    bin,
+    `${bin.toUpperCase().replaceAll("\\", "/")}/`,
+    `${bin.replaceAll("/", "\\")}\\`,
+  ]) {
+    const env = {
+      ...process.env,
+      VIRTUAL_ENV: virtual,
+      Path: [pathEntry, process.env.PATH].join(delimiter),
+    };
+    delete (env as NodeJS.ProcessEnv).PATH;
+    const result = Bun.spawnSync([process.execPath, "--eval", probe], {
+      env,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode).toBe(0);
+    expect(new TextDecoder().decode(result.stderr)).toBe("");
+    expect(JSON.parse(new TextDecoder().decode(result.stdout))).toEqual({
+      tools: [
+        { name: tool, present: false },
+        { name: "bun", present: true, version: Bun.version },
+      ],
+      childPath: process.env.PATH,
+    });
+  }
 });

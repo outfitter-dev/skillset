@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Relative source import: bootstrap runs before `bun install` links the
@@ -50,8 +50,17 @@ const bootstrapChildEnv = (
       source.VIRTUAL_ENV,
       process.platform === "win32" ? "Scripts" : "bin"
     );
+    const virtualPath =
+      process.platform === "win32"
+        ? win32.resolve(virtualBin).toLowerCase()
+        : virtualBin;
     env.PATH = env.PATH.split(delimiter)
-      .filter((entry) => entry !== virtualBin)
+      .filter(
+        (entry) =>
+          (process.platform === "win32"
+            ? win32.resolve(entry).toLowerCase()
+            : entry) !== virtualPath
+      )
       .join(delimiter);
   }
   return env;
