@@ -123,15 +123,21 @@ describe("reviewed implementation evidence", () => {
       [path, await readFile(resolve(root, path), "utf8")] as const
     )));
   }
+  // Hash canonical Git text so checkout line-ending policy does not create false drift.
   function drift(contents: ReadonlyMap<string, string>): string[] {
     return CAPABILITY_IMPLEMENTATION_EVIDENCE.filter(({ path, contentHash }) => {
       const content = contents.get(path);
-      return content === undefined || `sha256:${createHash("sha256").update(content).digest("hex")}` !== contentHash;
+      return content === undefined || `sha256:${createHash("sha256").update(content.replace(/\r\n/gu, "\n")).digest("hex")}` !== contentHash;
     }).map(({ path }) => path);
   }
   test("cited renderer, test and documentation content still matches the reviewed judgment", async () => {
     // A failure requires reviewing the semantic judgment, not blindly regenerating hashes.
     expect(drift(await readEvidence())).toEqual([]);
+  });
+  test("checkout CRLF conversion does not invalidate the reviewed Git text", async () => {
+    const contents = await readEvidence();
+    for (const [path, content] of contents) contents.set(path, content.replace(/\r?\n/gu, "\r\n"));
+    expect(drift(contents)).toEqual([]);
   });
   test("changing or removing an actual cited renderer invalidates implementation review", async () => {
     const contents = await readEvidence();
