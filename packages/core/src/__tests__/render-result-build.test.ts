@@ -851,7 +851,7 @@ compile:
         target: "codex",
       })
     );
-    const pluginScoped = await diffSkillsetResult(root, { scopes: ["plugin:alpha"] });
+    const pluginScoped = await diffSkillsetResult(root, { scopes: ["plugins"] });
     expect(pluginScoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "tools-policy",
