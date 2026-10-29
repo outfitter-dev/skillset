@@ -1,3 +1,4 @@
+import { compareCapability, findCapabilities, listCapabilities, type CapabilityComparison } from "./capability-crosswalk";
 import {
   listProviderActivationDescriptors,
   type ProviderActivationDescriptor,
@@ -48,7 +49,7 @@ import {
 } from "./tools-realization";
 import type { TargetName } from "./types";
 
-export type LookupSubject = "activation" | "agent" | "hooks" | "locations" | "plugin" | "rule" | "skill" | "standards" | "workspace";
+export type LookupSubject = "capability" | "activation" | "agent" | "hooks" | "locations" | "plugin" | "rule" | "skill" | "standards" | "workspace";
 export type LookupView = "compat" | "events" | "examples" | "fields" | "frontmatter" | "schema" | "values";
 export type LookupDiagnosticSeverity = "error" | "warning";
 
@@ -159,6 +160,7 @@ export interface LookupStandardProfile {
 }
 
 export interface LookupReport {
+  readonly capabilities: readonly CapabilityComparison[];
   readonly activation: readonly LookupActivation[];
   readonly aspects: readonly string[];
   readonly compatibility: readonly LookupCompatibility[];
@@ -178,6 +180,11 @@ export interface LookupReport {
 }
 
 const SUBJECTS = [
+  {
+    defaultViews: ["compat"],
+    description: "Semantic capabilities, native aliases, realization, fidelity, and evidence across providers.",
+    subject: "capability",
+  },
   {
     defaultViews: ["compat"],
     description: "Provider activation observability, evidence effects, claims, reasons, and manual actions.",
@@ -311,6 +318,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
   if (subject === undefined) {
     return {
       activation: [],
+      capabilities: [],
       aspects,
       compatibility: [],
       diagnostics,
@@ -327,6 +335,8 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     };
   }
 
+  const capabilities = views.includes("compat") && subject === "capability"
+    ? lookupCapabilities(aspects, targets, diagnostics) : [];
   const contract = contractForLookup(subject, aspects);
   const fields: LookupField[] = [];
   const events: LookupEvent[] = [];
@@ -378,6 +388,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
 
   if (
     views.includes("compat") &&
+    subject !== "capability" &&
     subject !== "activation" &&
     subject !== "locations" &&
     subject !== "standards"
@@ -391,6 +402,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
 
   return {
     activation,
+    capabilities,
     aspects,
     compatibility,
     diagnostics,
@@ -413,7 +425,7 @@ export function listLookupViews(subject: LookupSubject): readonly LookupView[] {
   const contract = contractForLookup(subject, []);
   return LOOKUP_VIEW_ORDER.filter((view) => {
     if (view === "events") return subject === "hooks";
-    if (view === "compat") return subject === "activation" || subject === "locations" || subject === "standards" || SUBJECT_FEATURES[subject] !== undefined;
+    if (view === "compat") return subject === "capability" || subject === "activation" || subject === "locations" || subject === "standards" || SUBJECT_FEATURES[subject] !== undefined;
     if (view === "frontmatter") {
       return subject === "agent" || subject === "rule" || subject === "skill";
     }
@@ -636,7 +648,8 @@ function invalidCombinationDiagnostics(
     });
   }
   if (
-    (subject === "activation" ||
+    (subject === "capability" ||
+      subject === "activation" ||
       subject === "locations" ||
       subject === "standards") &&
     views.some((view) => view !== "compat")
@@ -925,4 +938,21 @@ function readStringArray(value: SchemaJsonValue | undefined): readonly string[] 
 function readStringList(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+
+function lookupCapabilities(
+  aspects: readonly string[], targets: readonly TargetName[], diagnostics: LookupDiagnostic[]
+): readonly CapabilityComparison[] {
+  const entries = aspects.length === 0 ? listCapabilities() : aspects.flatMap((aspect) => {
+    const matches = findCapabilities(aspect);
+    if (matches.length === 0) diagnostics.push({
+      code: "lookup/capability/not-found", severity: "error",
+      message: `No semantic capability or native alias matches ${aspect}.`,
+    });
+    return matches;
+  });
+  return [...new Map(entries.map((entry) => [entry.id, entry])).values()]
+    .sort((left, right) => compareStrings(left.id, right.id))
+    .flatMap((entry) => compareCapability(entry, targets));
 }
