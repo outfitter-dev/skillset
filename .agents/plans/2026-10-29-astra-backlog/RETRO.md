@@ -1,6 +1,15 @@
 # Execution ledger
 
-### Current checkpoint — October 29, 15:02 EDT
+### Current checkpoint — October 29, 15:24 EDT
+
+- Primary owns the integrated 24-PR stack #741. All delivered PRs remain draft; no merges or releases. Lane2 and lane3 explicitly handed off and stopped implementation. The final integrated delivery head is `3a908dcc4cc9c2f3f0930be960a05eba57173264`, identical tree `9173913c39a5315068e5ec1b33559bcd27d05eda` to candidate `735cd79e21fe711b9fb6d3aa0554552e90387b3b`. Independent exact-head/ancestry revalidation is 5/5. All original handoff heads remain under `archive/astra-consolidation-20261029-*`.
+- Candidate immutable full run: 3974 pass, 2 skip, 4 todo, 3 deferred native-size failures. Ultracite, source/generated checks, docs, packaging smoke, whitespace and trunk-scoped change CI passed separately in that exact clone. No passing aggregate receipt or native qualification is claimed. Schema artifact inventory repair is included; SET-446 is now draft #763.
+- Remote reparenting initially returned HTTP 422 for #748 while preserving its old base. Recovery used supported grouping-only unstack of #750/#757 and `gh stack link 741` with the seven existing PRs. All PRs/history/branches survived. Local tracking now matches the 24-branch chain; live root bases #748→SET-446 and #754→SET-777 were verified. Crosswalk evidence correction belongs to SET-447.
+- Astra-3 triage is complete: 50 docs findings, 21 hardcoding findings and 20 canon proposals mapped, 119 artifact hashes retained. Handoff is `/Users/mg/.codex/worktrees/a9d2/skillset/.agents/goals/2026-10-29-astra-3-triage/TRIAGE.md` (sha256 `e46fe1fabea07b63ab0ed9fef43962039080f876c3da97e22b0dd37c2bdfa3b2`), with focused SET-778–792 and existing-issue evidence. Primary accepted the prioritized queue. Audit trees/archives remain intact; no claim all findings are resolved.
+- Current child addresses SET-778 native rename/move transaction safety. Its regression fixture exposed prerequisite SET-780 alias preconditions: six previews initially failed before reaching the race. Commit `57180612` makes native config preconditions relative and proves a symlinked-workspace build. After it, unchanged rename/move controls pass and four deterministic race cases reproduce unauthorized stale commits. The focused transaction repair adds the authored source to existing read-only transaction preconditions. SET-778/780 remain In Progress pending exact review/verification/draft delivery; SET-779 is next.
+- SET-436 remains unstarted; native-size trimming and matching-host qualification remain deferred/partial under prior owner direction. No project milestone completion is claimed.
+
+### Historical checkpoint — October 29, 15:02 EDT
 
 - Primary owns `skillset-astra`, stack #741. SET-700 runtime checkpoint `494a5eb848f289148732be1f1a0cb0c21d92f3cc` is published in draft #760; exact full verification finished with 3853 pass, 2 skip, 4 todo, and the three deferred native-size failures. Post-test package, docs, source/output, and Ultracite checks passed separately. No full passing receipt is claimed. Native/adoption external findings were repaired at their owners, restacked, independently revalidated, published, and their addressed threads resolved.
 - SET-437 ADR-0048 is published in draft #761 at `88e6d090f69b84a84899732ca0361a6f8aa74c4c`, with round-two review 5/5, ADR/docs gates green, and Linear design/project ownership aligned. Its runtime parent evidence is historical; no separate full receipt is claimed for the documentation child.
@@ -32,7 +41,7 @@ No new Linear issue was assigned to the documentation task. The executor should 
 
 Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7150ea1bc7130c35603c98ea9da2. Validation results and handoff commit are recorded by the preparing thread; the executing thread must record its own actual paths, refs, ownership, and runtime.
 
-## Current execution state
+## Historical execution state (native implementation checkpoint)
 
 - Primary owner: `/Users/mg/Developer/outfitter/skillset-astra`, stack #741, trunk `24800e02ed4e7150ea1bc7130c35603c98ea9da2`. Ten published draft layers (#737–740, #742–747); none merged or ready. Existing lower heads remain unchanged.
 - SET-726 decision is published in draft #747 at `b3814395b9cd2e41870089e1c7df9cb7537c4b8f`. SET-689 implementation is locally committed at `7421faf4be566057d0fd9d80d85fafd1a92922b0`, reviewed with no remaining findings, awaiting draft delivery. SET-691 is the current child implementation.

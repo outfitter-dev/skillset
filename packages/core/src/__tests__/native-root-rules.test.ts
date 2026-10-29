@@ -46,6 +46,16 @@ describe("native root rule source", () => {
     await writeFile(join(plain, "AGENTS.override.md"), "# Override\n");
     expect((await diffSkillsetResult(plain)).diagnostics.map((item) => item.code)).not.toContain("codex-agents-override-shadow");
   });
+  it("builds declared native guidance through a workspace directory alias", async () => {
+    const root = await fixture(true);
+    const aliases = await createTestFixtureRoot("native-workspace-alias-");
+    const alias = join(aliases, "workspace");
+    await symlink(root, alias, "junction");
+    await buildSkillset(alias);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe(authored);
+    expect((await verifySkillset(alias)).failures).toEqual([]);
+  });
+
   it("keeps native source bytes while deriving Claude and scoped guidance", async () => {
     const root = await fixture(true);
     const graph = await loadBuildGraph(root);
