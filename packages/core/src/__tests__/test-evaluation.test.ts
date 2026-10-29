@@ -8,6 +8,7 @@ import {
   evaluateSkillsetTestWorkspace,
   loadSkillsetTestDeclaration,
   stageSkillsetTestWorkspace,
+  stageSkillsetSourceWorkspace,
   type SkillsetRuntimeProbeRequest,
 } from "@skillset/core/internal/test-evaluation";
 
@@ -21,6 +22,28 @@ Demo body.
 `;
 
 describe("Core test evaluation", () => {
+  it("stages native root guidance for filtered tests and full runtime workspaces", async () => {
+    const guidance = "# Authored\r\n\r\n{{literal}}\r\n";
+    const root = await fixture({
+      "skillset.yaml": "workspace:\n  nativeAgents: true\ncompile:\n  targets: [claude]\n",
+      "AGENTS.md": guidance,
+      ".skillset/skills/demo/SKILL.md": SOURCE,
+      ".skillset/tests.yaml": "demo:\n  select:\n    skills:\n      primary: [demo]\n  checks:\n    projection: true\n",
+    });
+    await writeFile(join(root, "AGENTS.md"), guidance);
+    const { graph, declaration } = await loadSkillsetTestDeclaration(root, "demo");
+    const parent = await createTestFixtureRoot("skillset-native-stage-");
+    for (const kind of ["test", "source"] as const) {
+      const staged = join(parent, kind);
+      await mkdir(staged);
+      if (kind === "test") await stageSkillsetTestWorkspace(root, graph, declaration, staged);
+      else await stageSkillsetSourceWorkspace(root, graph, staged);
+      expect(await readFile(join(staged, "AGENTS.md"), "utf8")).toBe(guidance);
+      const result = await evaluateSkillsetTestWorkspace(staged, graph, declaration, {});
+      expect(result.buildError).toBeUndefined();
+      expect(await readFile(join(staged, ".claude/CLAUDE.md"), "utf8")).toContain("{{literal}}");
+    }
+  });
   it("exposes resolved runtime claims on declared activation probes", async () => {
     const root = await fixture({
       "skillset.yaml": `

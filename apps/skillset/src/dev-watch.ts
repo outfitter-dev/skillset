@@ -24,6 +24,7 @@ import { codexAgentsMdFormat } from "@skillset/registry";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
+  readonly nativeRootGuidance?: boolean;
   readonly ignoredRoots: readonly string[];
   readonly outputRoots: readonly string[];
   readonly rootPath: string;
@@ -127,6 +128,7 @@ export async function createDevWatchPlan(
 
   return {
     configPaths,
+    ...(graph.nativeRootRuleSource === undefined ? {} : { nativeRootGuidance: true }),
     ignoredRoots,
     outputRoots: graph.outputRoots,
     rootPath: graph.rootPath,
@@ -142,6 +144,7 @@ export function shouldRunDevPreviewForPath(
   if (eventPath === undefined || eventPath.length === 0) return true;
   const relativeEventPath = normalizeEventPath(plan.rootPath, eventPath);
   if (relativeEventPath === undefined) return false;
+  if (plan.nativeRootGuidance === true && relativeEventPath === "AGENTS.md") return true;
   if (isIgnoredDevWatchPath(plan, relativeEventPath)) return false;
   return isSameOrInside(relativeEventPath, plan.sourceRoot) || plan.configPaths.includes(relativeEventPath);
 }

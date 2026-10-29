@@ -94,6 +94,15 @@ test("SET-210: dev watch plan covers created source repos", async () => {
   expect(shouldRunDevPreviewForPath(plan, ".claude/skills/review-notes/SKILL.md")).toBe(false);
 });
 
+test("native root guidance triggers preview without watching generated AGENTS files", async () => {
+  const root = await createTestFixtureRoot("skillset-native-watch-");
+  await Bun.write(join(root, "AGENTS.md"), "# Authored\n");
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  const plan = await createDevWatchPlan(root);
+  expect(shouldRunDevPreviewForPath(plan, "AGENTS.md")).toBe(true);
+  expect(shouldRunDevPreviewForPath(plan, "nested/AGENTS.md")).toBe(false);
+});
+
 test("SET-210: dev watch debounces repeated triggers without sleeping", () => {
   const scheduled: Array<{ callback: () => void; cleared: boolean; delayMs: number }> = [];
   const scheduler: DevWatchScheduler = {
