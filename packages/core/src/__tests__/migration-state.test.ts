@@ -120,3 +120,30 @@ test("ledger plans reject concurrent creation, symlink ancestry, and roll back l
   await expect(readMigrationState(linked)).rejects.toThrow();
   await expect(applyWorkspaceTransaction(linked, plan)).rejects.toThrow();
 });
+
+test("changed review evidence cannot carry an accepted or resolved decision through either matching path", () => {
+  const initial = scan(observation());
+  const flag = initial.flags[0]!;
+  for (const state of ["accepted", "resolved"] as const) {
+    const reviewed: MigrationState = { ...initial, flags: [{ ...flag, state, resolution: { reason: "Based on original evidence.", at: "2026-10-29T18:00:00.000Z" } }] };
+    for (const id of [undefined, flag.id]) {
+      for (const change of [
+        { evidence: [{ summary: "Prior provider evidence was withdrawn." }] },
+        { message: "The same text now has a different interpretation." },
+        { origin: { path: "different-origin.md" } },
+      ]) {
+        const result = reconcileMigrationState(reviewed, [{ ...observation(), ...change, ...(id ? { id } : {}) }]);
+        expect(result.state).toEqual(reviewed);
+        expect(result.diagnostics.some((item) => item.code === "migration/stale-evidence" && item.severity === "error")).toBe(true);
+      }
+    }
+  }
+});
+
+test("evidence order is not a semantic change during relocation", () => {
+  const item = { ...observation(), evidence: [{ summary: "First source." }, { summary: "Second source.", reference: "fixture:second" }] };
+  const initial = scan(item);
+  const result = reconcileMigrationState(initial, [{ ...item, source: { path: "moved.md" }, evidence: [...item.evidence].reverse() }]);
+  expect(result.diagnostics.every((entry) => entry.severity !== "error")).toBe(true);
+  expect(result.state.flags[0]?.source.path).toBe("moved.md");
+});

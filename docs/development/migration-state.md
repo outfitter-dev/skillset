@@ -21,8 +21,8 @@ An accepted or resolved flag requires a reason and timestamp. Open flags have no
 Core's `reconcileMigrationState` accepts a ledger and a complete observation set:
 
 1. Validate the shared shape and reject duplicate ledger IDs.
-2. Reserve explicit IDs first. An unknown ID is an orphan, and duplicate explicit anchors are errors. Changed code, severity, disposition, or fingerprints under an existing explicit ID produces a stale-evidence error; its prior decision is retained.
-3. Match remaining observations using exact content **and** context fingerprints, diagnostic code, severity, and disposition. A match requires one remaining ledger record and one observation. Multiple candidates require explicit anchors; scan order never chooses a winner.
+2. Reserve explicit IDs first. An unknown ID is an orphan, and duplicate explicit anchors are errors. Changed code, severity, disposition, fingerprints, message, origin, or supporting evidence under an existing explicit ID produces a stale-evidence error; its prior decision is retained.
+3. Match remaining observations using exact content **and** context fingerprints, diagnostic code, severity, and disposition. A match requires one remaining ledger record and one observation. Multiple candidates require explicit anchors; scan order never chooses a winner. A matched observation with changed message, origin, or supporting evidence is also stale and cannot inherit a prior decision. Evidence ordering alone is not a semantic change.
 4. Create IDs for unmatched new observations from those semantic attributes plus source and origin locations. Identity is never derived only from a mutable path or line. Those initial occurrence coordinates distinguish repeated content; later relocation uses the retained ID or unique fingerprints.
 5. Propose current source/placement updates while retaining original evidence, origin, review decisions, and history. Merge related report IDs. A moved location produces a stale-location warning. A missing observation preserves its ledger record and produces an orphan warning; deleting a marker never resolves it.
 

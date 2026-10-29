@@ -50,7 +50,7 @@ export function reconcileMigrationState(previous: MigrationState, observations: 
     const existing = old.get(observation.id);
     if (existing === undefined) {
       error("migration/orphan", "Explicit anchor has no ledger entry; review its origin instead of inventing ownership.", observation);
-    } else if (matchKey(existing) !== matchKey(observation)) {
+    } else if (matchKey(existing) !== matchKey(observation) || reviewEvidence(existing) !== reviewEvidence(observation)) {
       error("migration/stale-evidence", "Explicit anchor evidence changed; retain its prior decision until reviewed.", observation);
     } else matched.set(existing.id, observation);
   }
@@ -69,7 +69,10 @@ export function reconcileMigrationState(previous: MigrationState, observations: 
     if (candidates.length > 1 || (candidates.length === 1 && pendingCounts.get(matchKey(item)) !== 1)) {
       error("migration/ambiguous-identity", "Fingerprint evidence does not identify one ledger entry and one observation; retain explicit anchors.", item);
     } else if (candidates.length === 1) {
-      matched.set(candidates[0]!.id, item);
+      const existing = candidates[0]!;
+      if (reviewEvidence(existing) !== reviewEvidence(item)) {
+        error("migration/stale-evidence", "Matched content has changed review evidence; retain its prior decision until reviewed.", item);
+      } else matched.set(existing.id, item);
     } else {
       const id = initialId(item);
       if (old.has(id)) error("migration/duplicate", "Initial identity collides with a retained ledger entry.", item);
@@ -103,4 +106,12 @@ function matchKey(item: MigrationObservation): string {
 
 function initialId(item: MigrationObservation): string {
   return `adopt-${migrationDigest({ evidence: matchKey(item), source: item.source, origin: item.origin }).slice(0, 32)}`;
+}
+
+function reviewEvidence(item: MigrationObservation): string {
+  return migrationDigest({
+    message: item.message,
+    origin: item.origin,
+    evidence: item.evidence.map((entry) => migrationDigest(entry)).sort(compareStrings),
+  });
 }
