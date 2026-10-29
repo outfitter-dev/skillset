@@ -4,13 +4,14 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 
 import {
   lowerTransform,
-  recognizeTransforms,
   type TransformMatch,
 } from "@skillset/transforms";
 import {
   type SkillsetRenderResult,
 } from "@skillset/core";
 
+import type { MigrationFlag } from "@skillset/schema";
+import { recognizeAdoptionBody, recordImportedBodyFindings } from "@skillset/core/internal/adoption-body-findings";
 import type { ReleaseBaselineEntry } from "./adoption";
 import {
   buildSkillsetResult,
@@ -130,6 +131,8 @@ export interface AdoptReport {
   readonly lintIssues: readonly LintIssue[];
   /** The repo's existing Claude catalog, and what adoption kept of it. */
   readonly marketplace?: AdoptedMarketplace;
+  readonly migrationFlags?: readonly MigrationFlag[];
+  readonly migrationError?: string;
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly rootPath: string;
@@ -387,9 +390,20 @@ async function adoptResolvedRoot(
   // Recognition is report evidence, not authority to enable a document dialect.
   const transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
 
+  let migrationFlags: readonly MigrationFlag[] = [];
+  let migrationWritePaths: readonly string[] = [];
+  let migrationError: string | undefined;
+  try {
+    const recorded = await recordImportedBodyFindings(init.rootPath, previewSources);
+    migrationFlags = recorded.flags;
+    migrationWritePaths = recorded.writtenPaths;
+  } catch (error) {
+    migrationError = errorMessage(error);
+  }
+
   let lintIssues: readonly LintIssue[] = [];
   let buildError: string | undefined;
-  try {
+  if (migrationError === undefined) try {
     const graph = await loadBuildGraph(init.rootPath, buildOptions);
     lintIssues = (await inspectSkillset(graph)).issues;
   } catch (error) {
@@ -403,7 +417,7 @@ async function adoptResolvedRoot(
     ...surveySkipRenderResults(survey.surveySkips),
     ...imports.flatMap((result) => result.renderResults),
   ];
-  if (buildError === undefined) {
+  if (buildError === undefined && migrationError === undefined) {
     try {
       const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
       renderResults = [
@@ -440,6 +454,7 @@ async function adoptResolvedRoot(
       ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
     ]),
     ...baselinePaths,
+    ...migrationWritePaths,
     ...buildWritePaths,
   ])];
   const report: AdoptReport = {
@@ -455,12 +470,14 @@ async function adoptResolvedRoot(
     ...(cutoverError === undefined ? {} : { cutoverError }),
     imports,
     lintIssues,
+    migrationFlags,
+    ...(migrationError === undefined ? {} : { migrationError }),
     ...(marketplace === undefined ? {} : { marketplace }),
     renderResults,
     ok:
       imports.every((result) => result.ok) &&
       lintErrors.length === 0 &&
-      buildError === undefined && cutoverError === undefined,
+      buildError === undefined && cutoverError === undefined && migrationError === undefined,
     rootPath: init.rootPath,
     setupFiles: init.files,
     surveyDiagnostics: survey.surveyDiagnostics,
@@ -543,13 +560,13 @@ async function importCandidate(
   allCandidates: readonly SetupImportCandidate[],
   previewSources: string[]
 ): Promise<AdoptImportResult> {
-
+  let landedImports: readonly ImportReport[] = [];
   try {
     const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
+    landedImports = batch.imports;
     const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
-      for (const file of report.copiedFiles) {
-        if (basename(file) !== SKILL_FILE) continue;
+      for (const file of importedPrimarySkillFiles(report)) {
         await normalizeImportedPromptArguments(join(report.targetPath, file));
         previewSources.push(
           relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/")
@@ -568,7 +585,12 @@ async function importCandidate(
       warnings: batch.warnings,
     };
   } catch (error) {
-    const partialImports = error instanceof ImportBatchError ? error.imports : [];
+    const partialImports = error instanceof ImportBatchError ? error.imports : landedImports;
+    for (const report of partialImports) {
+      for (const file of importedPrimarySkillFiles(report)) {
+        previewSources.push(relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/"));
+      }
+    }
     return {
       baselinePaths: [...new Set(partialImports.flatMap((report) =>
         report.baselinePath === undefined ? [] : [report.baselinePath]
@@ -581,6 +603,16 @@ async function importCandidate(
       warnings: partialImports.flatMap((report) => report.warnings),
     };
   }
+}
+
+/** A nested SKILL.md below a discovered skill is a companion, not another source unit. */
+function importedPrimarySkillFiles(report: ImportReport): readonly string[] {
+  const files = report.copiedFiles.map((file) => file.replaceAll("\\", "/"));
+  if (report.kind === "skill") return files.filter((file) => file === SKILL_FILE);
+  const candidates = files.filter((file) => file.startsWith("skills/") && basename(file) === SKILL_FILE);
+  return candidates.filter((file) => !candidates.some((other) =>
+    other !== file && file.startsWith(`${dirname(other)}/`)
+  ));
 }
 
 function adoptedUnits(
@@ -740,7 +772,7 @@ async function buildTransformPreviews(
   for (const path of paths) {
     const raw = await readFile(join(rootPath, path), "utf8");
     const body = basename(path) === SKILL_FILE ? markdownBody(raw, path) : raw;
-    const matches = recognizeTransforms(maskSkillsetPromptArguments(body), "claude");
+    const matches = recognizeAdoptionBody(body);
     if (matches.length === 0) continue;
     previews.push({
       dialectDeclared: false,
@@ -760,12 +792,7 @@ async function buildTransformPreviews(
   return previews;
 }
 
-function maskSkillsetPromptArguments(body: string): string {
-  return body.replaceAll(
-    /\{\{\s*\$ARGUMENTS(?:\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*|\b)\s*\}\}/gu,
-    ""
-  );
-}
+
 
 function markdownBody(raw: string, label: string): string {
   try {

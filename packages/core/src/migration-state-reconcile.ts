@@ -1,4 +1,4 @@
-import { validateMigrationState, type MigrationFlag, type MigrationObservation, type MigrationState } from "@skillset/schema";
+import { MIGRATION_STATE_SCHEMA_VERSION, validateMigrationState, type MigrationFinding, type MigrationFlag, type MigrationObservation, type MigrationState } from "@skillset/schema";
 import { assertMigrationState, migrationDigest } from "./migration-state";
 import { compareStrings } from "./path";
 
@@ -102,6 +102,13 @@ export function reconcileMigrationState(previous: MigrationState, observations: 
 
 function matchKey(item: MigrationObservation): string {
   return migrationDigest({ code: item.code, severity: item.severity, disposition: item.disposition, fingerprints: item.fingerprints });
+}
+
+/** Mint a new finding without reconciling, relocating, or inheriting any prior decision. */
+export function createInitialMigrationFlag(finding: MigrationFinding): MigrationFlag {
+  const flag: MigrationFlag = { ...finding, id: initialId(finding), state: "open", history: [] };
+  assertMigrationState({ schemaVersion: MIGRATION_STATE_SCHEMA_VERSION, flags: [flag] });
+  return flag;
 }
 
 function initialId(item: MigrationObservation): string {

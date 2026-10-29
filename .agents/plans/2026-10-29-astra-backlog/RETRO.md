@@ -1,5 +1,14 @@
 # Execution ledger
 
+### SET-442 durable body findings — October 29
+
+- Parent body/shared-policy layer is draft #768 at `9ad529af3d029954457f4d310f79d2fd06942f3a`, independently reviewed 5/5. Full immutable implementation predecessor `5e0ea17cfbd2536fbe2cf9fe5df7ea445e69a339` completed with 4027 pass, 2 skip, 4 todo, and only three deferred native-size failures across 4036 tests / 360 files. The final parent delta is release-record-only. Hosted/receipt acceptance remains bounded; no passing full receipt or readiness claim.
+- This child records recognized ambiguous primary skill-body text as open migration findings with stable initial IDs, source/origin locations, content/context fingerprints, and recognizer evidence explicitly treated as unknown author intent. It does not transform those matches or claim fresh provider equivalence. Existing ledger records are retained exactly; any incoming source already represented in the ledger is refused instead of being partially reconciled or inheriting acceptance.
+- Safe locators and ledger writes share the existing preimage-bound workspace transaction. Sidecar-only sources are bound read-only inputs; concurrent edits and ledger creation abort without clobbering author changes, and late failures roll back both writes. Marker removal must reproduce exact source bytes, including CRLF; locations account for every inserted line. Findings sharing one source line use one locator plus sidecars.
+- Primary skill discovery now excludes nested companion SKILL.md files from normalization/locator processing. Successful units from a failed import batch still receive findings and remain in the write inventory. Immutable receipts retain actual finding codes without authored prose; recording failures report skipped lint/build and no known cutover inventory. Successful operations with findings say review is required.
+- Broader proof: 81 tests / 583 assertions pass across adoption, receipt, state, and marker suites; final partial-import regression suite adds 7 tests / 61 assertions. Typecheck, docs, terminology, ownership and Changesets checks pass before commitment. Exact review and full verification follow. Remaining SET-442 scope includes normalization evidence/provenance, unknown/native fields and hooks, report associations and complete lifecycle integration, and pinned external semantic-fixture acceptance.
+
+
 ### SET-442 body and shared-policy boundary — October 29
 
 - Removed adoption's automatic whole-document dialect declaration. A synthetic positive recognizer plus unrelated provider paths/social text proves that recognized spans remain report evidence and do not authorize other rewrites. Authored bodies and original provider files are preserved; durable classifications and migration flags remain the next layer.

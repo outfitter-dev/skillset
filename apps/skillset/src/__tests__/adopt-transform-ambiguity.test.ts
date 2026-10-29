@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { createOperationalPathContext, ISOLATED_OUT_ROOT, resolveOperationalPath } from "@skillset/core";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { adoptSkillset } from "../adopt";
+import { readMigrationState } from "@skillset/core/internal/migration-state";
+import { inspectMigrationMarkers } from "@skillset/core/internal/migration-markers";
 
 test.each([
   "Follow @alice for updates.",
@@ -55,7 +57,10 @@ test("one supported recognition never opts unrelated imported text into a docume
     expect(report.transformPreviews.some((preview) => preview.matches.some((match) => match.intent === intent))).toBe(true);
     const imported = await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8");
     expect(imported).not.toContain("dialect: claude");
-    expect(imported).toContain(body);
+    const { state } = await readMigrationState(root);
+    const semantic = inspectMigrationMarkers({ content: imported, path: ".skillset/skills/demo/SKILL.md", state });
+    expect(semantic.diagnostics).toEqual([]);
+    expect(semantic.content).toContain(body);
     expect(await readFile(source, "utf8")).toBe(original);
   } finally {
     transformEntries.delete(intent);
