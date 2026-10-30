@@ -101,11 +101,12 @@ function markdownLayoutEqual(expected: string, actual: string): boolean {
  * blank-line-separated prose blocks (compared by words and structure).
  */
 function markdownSegments(text: string): readonly MarkdownSegment[] {
-  const lines = text.replaceAll("\r\n", "\n").split("\n").map(trimLayoutWhitespace);
+  // Normalize prose only after extracting raw verbatim regions.
+  const lines = text.replaceAll("\r\n", "\n").split("\n");
   const segments: MarkdownSegment[] = [];
   let index = 0;
-  if (lines[0] === "---") {
-    const end = lines.indexOf("---", 1);
+  if (trimLayoutWhitespace(lines[0] ?? "") === "---") {
+    const end = lines.findIndex((line, index) => index > 0 && trimLayoutWhitespace(line) === "---");
     if (end > 0) {
       segments.push({ kind: "verbatim", lines: lines.slice(0, end + 1) });
       index = end + 1;
@@ -133,7 +134,7 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
       continue;
     }
     if (line.trim() === "") flushProse();
-    else prose.push(line);
+    else prose.push(trimLayoutWhitespace(line));
     index += 1;
   }
   flushProse();
