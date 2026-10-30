@@ -67,7 +67,7 @@ export async function scopeImportedNativeHooks(args: {
   // the plugin root or a compiler-managed component tree.
   for (const directory of directories) {
     const top = directory.split("/")[0] ?? directory;
-    if (directory === "." || ["skills", "commands", "agents", "rules", "assets", "bin"].includes(top) || top.startsWith(".") || top.startsWith("_")) {
+    if (directory === "." || ["skills", "commands", "agents", "subagents", "shared", "rules", "assets", "bin"].includes(top) || top.startsWith(".") || top.startsWith("_")) {
       throw new Error(`skillset: native hook resource directory ${directory} overlaps a managed plugin surface; provide explicit source configuration. Original files are unchanged and no destination was claimed.`);
     }
   }
@@ -81,7 +81,11 @@ export async function scopeImportedNativeHooks(args: {
   if (moves.length > 0 && metadata.preprocess !== false && args.files.some((path) => targetNames().some((target) => path.startsWith(`_${target}/`)))) return cannotScope();
   const scopedPath = (path: string) => moves.some((move) => path === move || path.startsWith(`${move}/`)) ? `_claude/${path}` : path;
   if (moves.length > 0) {
-    const updatedConfig = updateYamlSourceDocument(originalConfig, configPath, (current) => ({ ...current, skillset: { ...metadata, preprocess: false } }));
+    const updatedConfig = updateYamlSourceDocument(originalConfig, configPath, (current) => ({
+      ...current,
+      skillset: { ...metadata, preprocess: false },
+      ...(args.synthesizedConfig ? { claude: { ...(readRecord(current, "claude") ?? {}), opaque: moves } } : {}),
+    }));
     await prepareRepositoryMutationPath(args.rootPath, configPath);
     for (const path of moves) {
       const destination = join(args.stagingPath, "_claude", path);

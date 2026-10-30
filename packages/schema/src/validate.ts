@@ -4096,6 +4096,14 @@ function checkTargetBlock(
   code: string,
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
+  if (isSchemaRecord(value) && value.opaque !== undefined) {
+    const opaquePath = `${path}.opaque`;
+    if (code !== "schema/plugin-config/target") {
+      diagnostics.push(diagnostic(opaquePath, code, `${opaquePath} is only supported in a plugin skillset.yaml`));
+    } else if (!Array.isArray(value.opaque) || value.opaque.some((directory) => typeof directory !== "string" || !isPortableBundleDestination(directory) || /[\u0000-\u001f\u007f]/.test(directory)) || new Set(value.opaque).size !== value.opaque.length) {
+      diagnostics.push(diagnostic(opaquePath, "schema/plugin-config/opaque", `${opaquePath} must be a unique list of contained relative directory paths without traversal or control characters`));
+    }
+  }
   if (
     value !== undefined &&
     value !== true &&

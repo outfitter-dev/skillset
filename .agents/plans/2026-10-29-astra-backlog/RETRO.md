@@ -2,6 +2,8 @@
 
 ### SET-442 custom hook runtime resources — October 29
 
+- Round-one review at `4d322120` found authored Markdown behavior changing merely from a hook declaration and omitted `shared`/`subagents` move guards. Repair uses an explicit, schema-owned plugin provider `opaque` directory list, synthesized during import; existing authored configurations keep their document controls. The list validates path shape and existing contained directories, and rendering/inventory share its predicate. Added ownership, schema/runtime parity, removal/provenance and authored-configuration regressions. Initial exact full run passed 4,137 tests with only the three deferred native-size failures; repair requires fresh exact verification.
+
 - Reproduced successful import/build omitting a sibling configuration file read by a declared custom hook. Import now preserves each eligible containing resource directory under the Claude island, deduplicates overlapping moves, and keeps emitted paths. Markdown companions use the existing preprocessing opt-out, with the same predicate in rendering and source inventory.
 - Plugin-root declarations and managed component directories require explicit source configuration; collision checks happen before staging moves and destination claim. Arbitrary command dependencies outside the declared resource directories remain unproven.
 - Five regressions failed before repair; focused import/adoption/provenance proof passes 36 tests / 180 assertions. Types, fast conformance and docs pass. The provenance regression checks changed lock evidence and normal preprocessing in a similarly named neighboring directory. Independent exact-commit review and aggregate verification follow.

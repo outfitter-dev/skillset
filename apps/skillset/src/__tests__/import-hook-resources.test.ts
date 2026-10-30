@@ -32,7 +32,7 @@ for (const nested of [false, true]) {
   });
 }
 
-for (const path of ["extra.json", "skills/demo/extra.json", "agents/extra.json", "config/extra.json"]) {
+for (const path of ["extra.json", "skills/demo/extra.json", "agents/extra.json", "shared/extra.json", "subagents/extra.json", "config/extra.json"]) {
   test(`refuses unsafe hook resource directory before claim: ${path}`, async () => {
     const root = await createTestFixtureRoot("skillset-hook-resource-conflict-");
     const sourcePath = join(root, "original");
@@ -40,7 +40,7 @@ for (const path of ["extra.json", "skills/demo/extra.json", "agents/extra.json",
     await Bun.write(join(sourcePath, path), '{"hooks":{}}');
     if (path === "config/extra.json") await Bun.write(join(sourcePath, "_claude/config/keep.md"), "keep");
     let claimed = false;
-    await expect(importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude", testHooks: { beforeClaim: async () => { claimed = true; } } })).rejects.toThrow();
+    await expect(importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude", testHooks: { beforeClaim: async () => { claimed = true; } } })).rejects.toThrow(path === "config/extra.json" ? "native hook isolation would overwrite" : "native hook resource directory");
     expect(claimed).toBe(false);
     expect(await readFile(join(sourcePath, path), "utf8")).toBe('{"hooks":{}}');
   });
