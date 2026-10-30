@@ -284,6 +284,108 @@
             "normalizations": {
               "items": {
                 "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "roundTrip": {
+                          "properties": {
+                            "output": {
+                              "properties": {
+                                "pointer": {
+                                  "const": "/name"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "roundTrip"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "code": {
+                          "const": "manifest.name"
+                        },
+                        "destination": {
+                          "properties": {
+                            "pointer": {
+                              "const": "/skillset/name"
+                            }
+                          }
+                        },
+                        "dialect": {
+                          "const": "claude"
+                        },
+                        "occurrences": {
+                          "const": 1
+                        },
+                        "source": {
+                          "properties": {
+                            "path": {
+                              "const": ".claude-plugin/plugin.json"
+                            },
+                            "pointer": {
+                              "const": "/name"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "roundTrip": {
+                          "properties": {
+                            "output": {
+                              "properties": {
+                                "pointer": {
+                                  "const": "/description"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "roundTrip"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "code": {
+                          "const": "manifest.description"
+                        },
+                        "destination": {
+                          "properties": {
+                            "pointer": {
+                              "const": "/skillset/description"
+                            }
+                          }
+                        },
+                        "dialect": {
+                          "const": "claude"
+                        },
+                        "occurrences": {
+                          "const": 1
+                        },
+                        "source": {
+                          "properties": {
+                            "path": {
+                              "const": ".claude-plugin/plugin.json"
+                            },
+                            "pointer": {
+                              "const": "/description"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ],
                 "properties": {
                   "code": {
                     "enum": [
@@ -356,6 +458,66 @@
                   "providerVersion": {
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "roundTrip": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "authorityHash": {
+                        "pattern": "^sha256:[a-f0-9]{64}$",
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "fidelity": {
+                        "const": "exact"
+                      },
+                      "output": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "path": {
+                            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                            "type": "string"
+                          },
+                          "pointer": {
+                            "enum": [
+                              "/name",
+                              "/description"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "pointer"
+                        ],
+                        "type": "object"
+                      },
+                      "outputHash": {
+                        "pattern": "^sha256:[a-f0-9]{64}$",
+                        "type": "string"
+                      },
+                      "scope": {
+                        "const": "claude-manifest-identity"
+                      },
+                      "target": {
+                        "const": "claude"
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "target",
+                      "fidelity",
+                      "output",
+                      "outputHash",
+                      "authorityHash",
+                      "evidence"
+                    ],
+                    "type": "object"
                   },
                   "source": {
                     "additionalProperties": false,
@@ -759,6 +921,108 @@
             "normalizations": {
               "items": {
                 "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "roundTrip": {
+                          "properties": {
+                            "output": {
+                              "properties": {
+                                "pointer": {
+                                  "const": "/name"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "roundTrip"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "code": {
+                          "const": "manifest.name"
+                        },
+                        "destination": {
+                          "properties": {
+                            "pointer": {
+                              "const": "/skillset/name"
+                            }
+                          }
+                        },
+                        "dialect": {
+                          "const": "claude"
+                        },
+                        "occurrences": {
+                          "const": 1
+                        },
+                        "source": {
+                          "properties": {
+                            "path": {
+                              "const": ".claude-plugin/plugin.json"
+                            },
+                            "pointer": {
+                              "const": "/name"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "roundTrip": {
+                          "properties": {
+                            "output": {
+                              "properties": {
+                                "pointer": {
+                                  "const": "/description"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "roundTrip"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "code": {
+                          "const": "manifest.description"
+                        },
+                        "destination": {
+                          "properties": {
+                            "pointer": {
+                              "const": "/skillset/description"
+                            }
+                          }
+                        },
+                        "dialect": {
+                          "const": "claude"
+                        },
+                        "occurrences": {
+                          "const": 1
+                        },
+                        "source": {
+                          "properties": {
+                            "path": {
+                              "const": ".claude-plugin/plugin.json"
+                            },
+                            "pointer": {
+                              "const": "/description"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ],
                 "properties": {
                   "code": {
                     "enum": [
@@ -831,6 +1095,66 @@
                   "providerVersion": {
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "roundTrip": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "authorityHash": {
+                        "pattern": "^sha256:[a-f0-9]{64}$",
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "fidelity": {
+                        "const": "exact"
+                      },
+                      "output": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "path": {
+                            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                            "type": "string"
+                          },
+                          "pointer": {
+                            "enum": [
+                              "/name",
+                              "/description"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "pointer"
+                        ],
+                        "type": "object"
+                      },
+                      "outputHash": {
+                        "pattern": "^sha256:[a-f0-9]{64}$",
+                        "type": "string"
+                      },
+                      "scope": {
+                        "const": "claude-manifest-identity"
+                      },
+                      "target": {
+                        "const": "claude"
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "target",
+                      "fidelity",
+                      "output",
+                      "outputHash",
+                      "authorityHash",
+                      "evidence"
+                    ],
+                    "type": "object"
                   },
                   "source": {
                     "additionalProperties": false,

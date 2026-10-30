@@ -185,3 +185,26 @@ test("Capability candidate receipt evidence has runtime and generated schema par
     expect(validateAgainstSchema(invalid, reportContract.schema).length).toBeGreaterThan(0);
   }
 });
+
+test("manifest round-trip proof is constrained to the matching direct Claude field in both validators", () => {
+  const example = skillsetSchemaExamples.find((candidate) => candidate.path === "report-adoption-manifest-roundtrip.json")!.value;
+  const report = structuredClone(example);
+  const payload = report.payload as Record<string, unknown>;
+  const entries = payload.normalizations as Record<string, unknown>[];
+  const proofEntry = entries.find((entry) => entry.roundTrip !== undefined)!;
+  expect(proofEntry).toBeDefined();
+  for (const patch of [
+    { code: "manifest.name-remap" }, { dialect: "cursor" }, { occurrences: 2 },
+    { source: { path: ".codex-plugin/plugin.json", pointer: "/name" } },
+    { source: { path: ".claude-plugin/plugin.json", pointer: "/description" } },
+    { destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/description" } },
+    { roundTrip: { ...(proofEntry.roundTrip as object), target: "cursor" } },
+    { roundTrip: { ...(proofEntry.roundTrip as object), authorityHash: "unreviewed" } },
+    { roundTrip: { ...(proofEntry.roundTrip as object), evidence: [] } },
+    { roundTrip: { ...(proofEntry.roundTrip as object), output: { path: "../outside", pointer: "/name" } } },
+  ]) {
+    const invalid = { ...report, payload: { ...payload, normalizations: [{ ...proofEntry, ...patch }] } };
+    expect(validateSkillsetReport(invalid).ok).toBe(false);
+    expect(validateAgainstSchema(invalid, reportContract.schema)).not.toEqual([]);
+  }
+});

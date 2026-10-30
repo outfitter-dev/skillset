@@ -226,7 +226,7 @@ export { parseMigrationMarker, formatMigrationMarker } from "./migration-marker"
 export type { MigrationMarker } from "./migration-marker";
 
 export { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN } from "./import-normalization";
-export type { ImportNormalization, ImportNormalizationCode } from "./import-normalization";
+export type { ImportManifestRoundTrip, ImportNormalization, ImportNormalizationCode } from "./import-normalization";
 
 export { validateImportNormalizations } from "./report";
 

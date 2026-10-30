@@ -1,3 +1,4 @@
+import { captureManifestIdentityCandidates, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
 import { assessImportedFrontmatter, assessImportedHookRuntime, assessImportedNormalizations } from "@skillset/core/internal/import-capability-assessment";
 import { normalizeImportedAgentPluginPackage, agentPluginUnitObservation } from "./import-agent-plugin-units";
 import { importedListing, hasListingConflict } from "./import-plugin-listing";
@@ -171,6 +172,8 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  /** Ephemeral field fingerprints for adoption; excluded from persisted receipts. */
+  readonly manifestIdentityCandidates?: readonly ManifestIdentityCandidate[];
   readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly migrationFlags?: readonly MigrationFlag[];
@@ -392,6 +395,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       kind: options.kind, renderResults: [], name,
       normalizations: [...copied.normalizations, ...mcpImport.normalizations],
       capabilityAssessments,
+      manifestIdentityCandidates: copied.manifestIdentityCandidates,
       ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
@@ -1160,6 +1164,7 @@ async function copyImportSource(options: {
   readonly baselineVersion?: string;
   readonly files: readonly string[];
   readonly synthesizedConfig: boolean;
+  readonly manifestIdentityCandidates: readonly ManifestIdentityCandidate[];
   readonly normalizations: readonly ImportNormalization[];
   readonly warnings: readonly string[];
 }> {
@@ -1176,6 +1181,7 @@ async function copyImportSource(options: {
   const copied: string[] = [];
   let baselineVersion: string | undefined;
   let synthesizedConfig = false;
+  let manifestIdentityCandidates: readonly ManifestIdentityCandidate[] = [];
   let normalizations: readonly ImportNormalization[] = [];
   let warnings: readonly string[] = [];
   const exclude =
@@ -1212,6 +1218,7 @@ async function copyImportSource(options: {
     baselineVersion = importedConfig.baselineVersion;
     warnings = importedConfig.warnings;
     normalizations = [...normalizations, ...importedConfig.normalizations];
+    manifestIdentityCandidates = importedConfig.manifestIdentityCandidates ?? [];
     if (agentPluginImport !== undefined) {
       await rm(join(targetPath, "plugin.json"));
       normalizations = [...normalizations, agentPluginUnitObservation("agent-plugins.manifest-to-source", { path: "plugin.json", pointer: "" }, { path: options.configDestination, pointer: "" })];
@@ -1226,6 +1233,7 @@ async function copyImportSource(options: {
     ...(baselineVersion === undefined ? {} : { baselineVersion }),
     files: copied.sort(compareStrings),
     synthesizedConfig,
+    manifestIdentityCandidates,
     normalizations,
     warnings,
   };
@@ -1694,16 +1702,19 @@ async function importChildren(
   return items;
 }
 
+interface ImportedPluginConfig {
+  readonly manifestIdentityCandidates?: readonly ManifestIdentityCandidate[];
+  readonly baselineVersion?: string;
+  readonly warnings: readonly string[];
+  readonly normalizations: readonly ImportNormalization[];
+}
+
 async function writeImportedPluginConfig(
   targetPath: string,
   name: string,
   configDestination: string,
   nameSource: ImportNormalization["dialect"] | undefined
-): Promise<{
-  readonly baselineVersion?: string;
-  readonly warnings: readonly string[];
-  readonly normalizations: readonly ImportNormalization[];
-}> {
+): Promise<ImportedPluginConfig> {
   const nativeManifests = await readNativePluginManifests(targetPath);
   // `author` is source-owned, so it is stripped from provider overrides. A
   // value Skillset cannot read has no canonical form to lift, and another
@@ -1826,9 +1837,7 @@ async function writeImportedPluginConfig(
       ...providerOverrides,
     })
   );
-  return {
-    ...(version === undefined ? {} : { baselineVersion: version }),
-    normalizations: [
+  const normalizations: readonly ImportNormalization[] = [
       ...metadataNormalizations,
       ...importedListingResult.normalizations,
       ...[...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(
@@ -1846,7 +1855,11 @@ async function writeImportedPluginConfig(
       ...(manifestAuthor === undefined && codexDeveloperName !== undefined
         ? manifestNormalizationObservations("codex", [{ code: "manifest.author", source: "/interface/developerName", destination: "/skillset/author" }], configDestination)
         : []),
-    ],
+    ];
+  return {
+    ...(version === undefined ? {} : { baselineVersion: version }),
+    normalizations,
+    manifestIdentityCandidates: captureManifestIdentityCandidates(normalizations, nativeManifests.get("claude")),
     warnings: [
       ...(unreadableAuthors.length === 0
         ? []
@@ -1877,11 +1890,7 @@ async function writeImportedAgentPluginConfig(
   inspection: AgentPluginImportInspection,
   configDestination: string,
   nameSource: ImportNormalization["dialect"] | undefined
-): Promise<{
-  readonly baselineVersion?: string;
-  readonly warnings: readonly string[];
-  readonly normalizations: readonly ImportNormalization[];
-}> {
+): Promise<ImportedPluginConfig> {
   if (inspection.version !== undefined) {
     validateVersionField(
       { version: inspection.version },

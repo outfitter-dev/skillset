@@ -1,5 +1,5 @@
 import { IMPORT_CAPABILITY_CONSTRUCTS, IMPORT_CAPABILITY_ELIGIBILITIES, importCapabilityAssessmentSchema } from "./import-capability-assessment";
-import { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN, importNormalizationSchema } from "./import-normalization";
+import { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN, importNormalizationSchema, importManifestRoundTripSchema } from "./import-normalization";
 import { MIGRATION_LOCATION_PATTERN } from "./migration-state-contract";
 import {
   REPORT_EXTERNAL_FIXTURE_PHASES,
@@ -1298,11 +1298,34 @@ function checkImportNormalizations(value: unknown, path: string, diagnostics: Sk
       checkPattern(location.pointer, new RegExp(IMPORT_NORMALIZATION_POINTER_PATTERN, "u"), `${at}.${key}.pointer`, "normalization pointer", diagnostics);
     }
     if (!Array.isArray(entry.evidence) || entry.evidence.length === 0 || entry.evidence.some((item) => typeof item !== "string" || item.length === 0)) diagnostics.push(diagnostic(`${at}.evidence`, "schema/report/normalization-evidence", "evidence must be a nonempty array of nonempty strings"));
+    if (entry.roundTrip !== undefined) checkManifestRoundTrip(entry, at, diagnostics);
     if (entry.providerVersion !== undefined) checkPattern(entry.providerVersion, /[\s\S]+/u, `${at}.providerVersion`, "provider version", diagnostics);
     if (entry.observedAt !== undefined) checkPattern(entry.observedAt, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/u, `${at}.observedAt`, "observed date", diagnostics);
   }
 }
 
+
+function checkManifestRoundTrip(entry: SchemaJsonRecord, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  const at = `${path}.roundTrip`;
+  const proof = entry.roundTrip;
+  if (!checkRecord(proof, at, diagnostics)) return;
+  checkShape(proof, Object.keys(importManifestRoundTripSchema.properties as SchemaJsonRecord), importManifestRoundTripSchema.required as string[], at, diagnostics);
+  checkEnum(proof.scope, ["claude-manifest-identity"], `${at}.scope`, diagnostics);
+  checkEnum(proof.target, ["claude"], `${at}.target`, diagnostics);
+  checkEnum(proof.fidelity, ["exact"], `${at}.fidelity`, diagnostics);
+  for (const key of ["outputHash", "authorityHash"]) checkPattern(proof[key], /^sha256:[a-f0-9]{64}$/u, `${at}.${key}`, "evidence hash", diagnostics);
+  if (!Array.isArray(proof.evidence) || proof.evidence.length === 0 || proof.evidence.some((item) => typeof item !== "string" || item.length === 0)) diagnostics.push(diagnostic(`${at}.evidence`, "schema/report/normalization-evidence", "evidence must be a nonempty array of nonempty strings"));
+  if (!checkRecord(proof.output, `${at}.output`, diagnostics)) return;
+  checkShape(proof.output, ["path", "pointer"], ["path", "pointer"], `${at}.output`, diagnostics);
+  checkPattern(proof.output.path, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), `${at}.output.path`, "output path", diagnostics);
+  checkEnum(proof.output.pointer, ["/name", "/description"], `${at}.output.pointer`, diagnostics);
+  const field = proof.output.pointer === "/name" ? "name" : "description";
+  const source = entry.source as SchemaJsonRecord | undefined;
+  const destination = entry.destination as SchemaJsonRecord | undefined;
+  if (entry.code !== `manifest.${field}` || entry.dialect !== "claude" || entry.occurrences !== 1 || source?.path !== ".claude-plugin/plugin.json" || source?.pointer !== `/${field}` || destination?.pointer !== `/skillset/${field}`) {
+    diagnostics.push(diagnostic(at, "schema/report/normalization-roundtrip", "exact metadata proof requires the matching direct Claude identity observation"));
+  }
+}
 
 export function validateImportCapabilityAssessments(value: unknown, root = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
