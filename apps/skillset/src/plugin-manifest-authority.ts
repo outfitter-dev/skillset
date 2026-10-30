@@ -107,16 +107,13 @@ function asRecord(value: JsonValue | undefined): JsonRecord | undefined {
     : undefined;
 }
 
-export function firstPortablePluginMetadataValue(
+export function firstPortablePluginMetadataSource(
   manifests: Iterable<ProviderPluginManifestEntry>,
-  field: PortablePluginMetadataField
-): JsonValue | undefined {
-  if (field === "author") {
-    return resolveNativeAuthor(manifests).value;
-  }
-  for (const [, manifest] of manifests) {
+  field: Exclude<PortablePluginMetadataField, "author">
+): { readonly provider: TargetName; readonly value: JsonValue } | undefined {
+  for (const [provider, manifest] of manifests) {
     const value = manifest[field];
-    if (value !== undefined) return value;
+    if (value !== undefined) return { provider, value };
   }
   return undefined;
 }

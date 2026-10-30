@@ -99,6 +99,42 @@
           "https://code.claude.com/docs/en/plugins-reference#metadata-fields",
           "Observed author contribution; runtime fidelity is not established."
         ]
+      },
+      {
+        "code": "manifest.metadata",
+        "dialect": "claude",
+        "source": {
+          "path": ".claude-plugin/plugin.json",
+          "pointer": "/keywords"
+        },
+        "destination": {
+          "path": ".skillset/plugins/demo/skillset.yaml",
+          "pointer": "/skillset/keywords"
+        },
+        "occurrences": 1,
+        "fidelity": "unknown",
+        "evidence": [
+          "https://code.claude.com/docs/en/plugins-reference#metadata-fields",
+          "Observed selected metadata assignment; runtime fidelity is not established."
+        ]
+      },
+      {
+        "code": "manifest.listing",
+        "dialect": "claude",
+        "source": {
+          "path": ".claude-plugin/plugin.json",
+          "pointer": "/keywords"
+        },
+        "destination": {
+          "path": ".skillset/plugins/demo/skillset.yaml",
+          "pointer": "/skillset/listing/keywords"
+        },
+        "occurrences": 1,
+        "fidelity": "unknown",
+        "evidence": [
+          "https://code.claude.com/docs/en/plugins-reference#metadata-fields",
+          "Observed selected listing assignment; runtime fidelity is not established."
+        ]
       }
     ]
   }
