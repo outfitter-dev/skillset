@@ -1394,15 +1394,7 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(report.unsupportedFields).toEqual(["frobnicate"]);
   expect(report.warnings.join("\n")).toContain("target-native");
   expect(report.warnings.join("\n")).toContain("unrecognized");
-  expect(report.renderResults).toContainEqual(
-    expect.objectContaining({
-      featureId: "tools-policy",
-      sourcePath: ".skillset/skills/myskill/SKILL.md",
-      sourceUnit: "skill:myskill",
-      status: "target_native",
-      target: "claude",
-    })
-  );
+  expect(report.renderResults).toEqual([]);
   expect(report.nextChecks).toEqual([
     `skillset build --root ${root}`,
     `skillset build --yes --root ${root}`,

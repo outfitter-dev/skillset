@@ -1819,7 +1819,7 @@ function warnPortableModel(
   );
 }
 
-async function findSkillFiles(root: string): Promise<string[]> {
+export async function findSkillFiles(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   if (entries.some((entry) => entry.isFile() && entry.name === SKILL_FILE)) {
     return [join(root, SKILL_FILE)];
