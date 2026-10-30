@@ -205,12 +205,12 @@ function identifyVersionPath(
   // Rendered primary-source identity also covers grouped skills and allocated
   // project-use copies without inferring ownership from an output folder name.
   for (const plugin of graph.plugins) {
-    const skill = plugin.skills.find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
+    const skill = (plugin.discoveredSkills ?? plugin.skills).find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
     if (skill !== undefined) {
       return { scope: selectorForPluginSkill(plugin.id, skill.id), ...(target === undefined ? {} : { target }) };
     }
   }
-  const skill = graph.standaloneSkills.find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
+  const skill = (graph.discoveredSkills ?? graph.standaloneSkills).find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
   if (skill !== undefined) {
     return { scope: selectorForStandaloneSkill(skill.id), ...(target === undefined ? {} : { target }) };
   }

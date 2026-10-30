@@ -152,3 +152,54 @@ test("missing and malformed current manifests are reported", async () => {
     report.issues.find((locus) => locus.path === "plugins/alpha/plugin.json")
   ).toMatchObject({ scope: "plugin:alpha", status: "malformed" });
 });
+
+test("workspace and selected plugin drafts retain version audit authority", async () => {
+  const root = await fixture(
+    "compile:\n  targets: [claude, codex]\nplugins:\n  internal_use:\n    drafts:\n      alpha: true\n"
+  );
+  for (const path of [
+    ".skillset/skills/_drafts/review/SKILL.md",
+    ".skillset/plugins/alpha/skills/_drafts/review/SKILL.md",
+  ])
+    await Bun.write(
+      join(root, path),
+      "---\nname: review\ndescription: Draft review.\n---\nDraft body.\n"
+    );
+  await writeReleaseState(root, {
+    scopes: {
+      "skill:review": { version: "4.0.0" },
+      "plugin.alpha.skill:review": { version: "5.0.0" },
+    },
+  });
+  await buildSkillset(root);
+  const clean = await auditVersions(root);
+  for (const [scope, version] of [
+    ["skill:review", "4.0.0"],
+    ["plugin.alpha.skill:review", "5.0.0"],
+  ]) {
+    const loci = clean.loci.filter((locus) => locus.scope === scope);
+    expect(loci.length).toBeGreaterThan(0);
+    for (const locus of loci) {
+      expect(locus).toMatchObject({
+        authority: "release-state",
+        expectedVersion: version,
+        status: "in-sync",
+      });
+      expect(locus.path).toContain("draft-review");
+      await rm(join(root, locus.path));
+    }
+  }
+  const missing = await auditVersions(root);
+  expect(
+    missing.issues.some(
+      (locus) => locus.scope === "skill:review" && locus.status === "missing"
+    )
+  ).toBe(true);
+  expect(
+    missing.issues.some(
+      (locus) =>
+        locus.scope === "plugin.alpha.skill:review" &&
+        locus.status === "missing"
+    )
+  ).toBe(true);
+});
