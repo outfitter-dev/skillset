@@ -16,7 +16,9 @@
 | Distribute | `skillset distribute plan`, `skillset marketplace check\|update` |
 | Hooks | `skillset hooks print\|run\|context` |
 
-Every command that writes previews first and writes only with `--yes`. Run `skillset <command> --help` for the exact flags.
+Write authority is command-specific. `skillset build` previews without `--yes`, including in a terminal; `skillset build --yes` computes and applies the current build; it is not bound to an earlier preview. Review again if the inputs or destinations changed. `skillset dev` watches in preview mode and uses `--write` to write output; it rejects `--yes`. `skillset eval run` starts provider execution and writes run artifacts without a `--yes` gate; it is not a preview and requires authority for that execution and possible external effects. Other interactive routes can ask for confirmation. Read `skillset <command> --help` for the route's exact behavior.
+
+A successful build preview can register the workspace in Skillset's user-global XDG operational index while leaving generated output untouched. Preview-only output is not a promise of zero filesystem writes. Workspace registration does not install, trust, activate or change provider configuration.
 
 ## Repair Generated Output
 
