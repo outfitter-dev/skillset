@@ -4,14 +4,44 @@ slug: path-references-resolve-and-rename-together
 title: Source References Resolve And Rename Together
 status: accepted
 created: 2026-07-01
-updated: 2026-10-22
+updated: 2026-10-30
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [34, 9, first-class-sets, 6]
 ---
 
 # ADR-0040: Source References Resolve And Rename Together
 
-> Accepted 2026-10-22 as written. Shipped in [#382](https://github.com/outfitter-dev/skillset/pull/382) (`skillset rename`, SET-370).
+> Originally accepted 2026-10-22 as written; rename shipped in [#382](https://github.com/outfitter-dev/skillset/pull/382). The amendment below corrects the retained grammar description without changing rename transaction guarantees.
+
+## Current Grammar Amendment — 2026-10-30
+
+[ADR-0034's exact shared-reference decision](0034-exact-shared-references.md#decision), implemented by SET-556, owns the current grammar. Its implementation was already settled when this record was accepted; acceptance of this record did not restore the obsolete syntax in its original prose. This amendment makes that boundary explicit. It does not introduce another grammar, parser compatibility layer, or ADR-wide supersession.
+
+- `{{> X}}` inlines Markdown. Unscoped names resolve exactly under workspace `shared/partials/`; `{{> plugin:intro}}` uses the owning plugin's `shared/partials/intro.md`. Explicit file paths use `shared:` or `plugin:` and resolve below that exact shared root.
+- `@{{X}}` links with rendered `@path` text. Links require an explicit `shared:` or `plugin:` scope, and imply the resource copy into a skill. A separate `resources:` declaration is not required for that implied copy.
+- `root:`, bare path expansion such as `{{references/foo.md}}`, the earlier `{{@...}}` token, and unscoped link operands are retired. They are not accepted alternatives. Workspace-to-plugin cascading, recursive basename search and dotted plugin aliases are also retired.
+- Ordinary relative Markdown links and prose remain ordinary text. A skill-local file can still be a declared resource; it does not gain a local resolve-only token. When preprocessing is disabled, explicit resource declarations own copying and the preprocessing syntax is not interpreted.
+
+Current reference and rename examples:
+
+| Source reference | Resolved source | After renaming that source |
+| --- | --- | --- |
+| `{{> intro}}` | `.skillset/shared/partials/intro.md` | `{{> overview}}` when renamed to `overview.md` |
+| `{{> plugin:writing/tone}}` | Owning plugin's `shared/partials/writing/tone.md` | `{{> plugin:writing/style}}` when renamed to `style.md` |
+| `{{> shared:references/common.md}}` | `.skillset/shared/references/common.md` | `{{> shared:references/guide.md}}` when renamed to `guide.md` |
+| `@{{shared:references/common.md}}` | `.skillset/shared/references/common.md` | `@{{shared:references/guide.md}}` when renamed to `guide.md` |
+| `@{{plugin:references/common.md}}` | Owning plugin's `shared/references/common.md` | `@{{plugin:references/guide.md}}` when renamed to `guide.md` |
+
+These are source spellings, not promises that all artifact kinds share one output topology. [Resources](../reference/features/resources.md) and [Skills](../reference/features/skills.md) describe current copying and preprocessing boundaries. Source outside a plugin cannot use `plugin:` and cannot reach a sibling plugin's shared tree. Inline code and fenced examples are not live references to rewrite; plain unmarked mentions remain warnings rather than guessed edits.
+
+### Rename Guarantees Retained
+
+The accepted rename behavior remains: preview and applying confirmation are separate; schema-known reference fields and live marked references are rewritten within their owning scope; source is validated in a shadow workspace; unmanaged generated collisions and stale plans are refused; and source moves, structural rewrites, generated output, provenance and stale-output removal use one rollback-capable transaction. A failed write triggers rollback; rollback failures are reported, and a staged preimage is retained when its destination is occupied rather than overwriting that destination. Case-only renames retain internal staging. Skill identity references remain selectors, not path tokens. This amendment makes no new identity/ledger decision.
+
+The original discussion below is retained as historical design context. Its token examples, root aliases, basename lookup, resource-declaration requirements and speculative syntax options are superseded by the current grammar above. Its code line pointers describe the original implementation snapshot, not present file locations. Read its rename atomicity and scope rationale with the current reference spellings.
+
+## Historical Design Record
+
 
 ## Context
 
