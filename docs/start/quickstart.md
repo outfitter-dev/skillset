@@ -42,6 +42,8 @@ The JSON result records an empty write set. Review it, then rerun the same scaff
 skillset new skill "Review Notes" --yes
 ```
 
+The scaffold contains identity fields only. Author its description and body before building; ordinary and draft skills are still eligible for project output. An omitted skill description falls back to its display name or ID during rendering, which is not a useful trigger description.
+
 Edit `.skillset/skills/review-notes/SKILL.md` so it contains useful triggering guidance:
 
 ```markdown

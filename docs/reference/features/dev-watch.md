@@ -32,7 +32,7 @@ The [development-loop guide](../../guides/development-loop.md) owns the complete
 
 ```bash
 skillset dev --write
-skillset dev --root examples/first-author
+skillset dev --root examples/minimal
 ```
 
 `--write` uses the same repo-local build path and ownership checks as `skillset build --yes` on every clean refresh. It can create reversible backups for collisions or edited managed files. Bare `dev` does not accept `--yes`; `--write` is the explicit continuous-write choice.

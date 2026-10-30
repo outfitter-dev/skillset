@@ -28,7 +28,6 @@ import {
   NEW_SOURCE_KIND_LIST_TEXT,
   scaffoldSourceUnit,
 } from "./new-source";
-import { quoteShellArgument } from "./recovery-guidance";
 import {
   formatScaffoldFileLine,
   formatScaffoldNextStep,
@@ -320,19 +319,6 @@ function printImportReport(result: ImportReport): void {
   }
 }
 
-function newSourceChecksAtRoot(rootPath: string): readonly string[] {
-  const commands = [
-    "skillset build",
-    "skillset build --yes",
-    "skillset check",
-  ];
-  if (resolve(rootPath) === resolve(process.cwd())) {
-    return commands;
-  }
-  const rootArgument = quoteShellArgument(rootPath);
-  return commands.map((command) => `${command} --root ${rootArgument}`);
-}
-
 function printNewSourceReport(result: NewSourceReport, reason: string): void {
   for (const file of result.files) {
     console.log(formatScaffoldFileLine(file.path, file.operation));
@@ -348,8 +334,13 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
     );
   }
   if (result.write) {
-    for (const command of newSourceChecksAtRoot(result.rootPath)) {
-      console.log(formatScaffoldNextStep(command));
-    }
+    const authoring = {
+      agent: "author the description and body before building; both are required",
+      hook: "review the explicit events, action, and attachment before building",
+      plugin: "author the plugin description and README, then add its source units before building",
+      rule: "author the rule body and any path scope before building",
+      skill: "author the description and body before building; ordinary and draft skills are not build-excluded",
+    }[result.kind];
+    console.log(`  next: in ${result.rootPath}, ${authoring}`);
   }
 }

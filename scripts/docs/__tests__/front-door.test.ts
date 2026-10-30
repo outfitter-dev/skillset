@@ -142,7 +142,7 @@ test("the activation invariant links to its canonical concept page", () => {
     "docs/README.md",
     "docs/start/build-versus-activation.md",
     "docs/why-skillset.md",
-    "examples/first-author/README.md",
+    "examples/minimal/README.md",
   ].map((path) => ({
     path,
     source:
