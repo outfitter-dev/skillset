@@ -48,6 +48,8 @@ The generated [`build` reference](../cli/build.md) owns the exact flags. The [de
 | `user`    | Reserved; no build output exists today            |
 | `all`     | Every configured destination                      |
 
+A rule-owned `AGENTS.md` belongs to `project` even when its directory lies inside a plugin or skill output root. Its workspace lock records that ownership. A package asset or skill resource named `AGENTS.md` keeps its package or skill scope; the filename alone does not establish instruction ownership.
+
 Scopes are not entity or standards selectors. They cannot substitute for plugin or skill ids, enable or disable a standard profile, or change provider targets. `change status` and `change check` reject them because those commands measure source coverage rather than generated destinations.
 
 `compile.targets: []` requests no provider output. It is valid only when the selected scopes still contain at least one applicable adopted Agent standard projection; otherwise the build fails with an actionable no-projections diagnostic.

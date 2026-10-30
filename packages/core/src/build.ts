@@ -8,7 +8,7 @@ import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
 
 import { compareStrings } from "./path";
 import { targetNames } from "./targets";
-import { mapPlannedOutputPaths, stalePlannedOutputPaths } from "./output-plan";
+import { mapPlannedOutputPaths, stalePlannedOutputPaths, type PlannedRenderedFile } from "./output-plan";
 import {
   hasLockProvenanceFields,
   hasValidLockProvenance,
@@ -2449,11 +2449,11 @@ function isInsideAnyOutputRoot(path: string, outputRoots: readonly string[]): bo
 
 export function scopedRenderedFiles(
   graph: BuildGraph,
-  rendered: readonly RenderedFile[],
+  rendered: readonly PlannedRenderedFile[],
   scopes: readonly BuildScope[] | undefined
 ): readonly RenderedFile[] {
   if (scopes === undefined) return rendered;
-  return rendered.filter((file) => isPathInScopes(graph, file.path, scopes));
+  return rendered.filter((file) => scopes.includes(scopeForPath(graph, file.path, file.outputPlan?.owner)));
 }
 
 export function scopedOutputRoots(

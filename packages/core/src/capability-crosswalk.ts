@@ -373,7 +373,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/plugin-manifest-identity.ts", contentHash: "sha256:d10cb0004cb89c6c70ee5bc3e1ae91c15a52618cf9acece984bcc991195d61bd" },
   { path: "apps/skillset/src/import.ts", contentHash: "sha256:f98fc85e26d53b6890bf1729fb7df85c7eda5ada97069f5b069b31d9533739dc" },
   { path: "apps/skillset/src/adopt.ts", contentHash: "sha256:81ff375594c59fd4bdd71210b3c0d47cfe7929dd10e2423bcfe331156ff81147" },
-  { path: "packages/core/src/build.ts", contentHash: "sha256:2d49e2664c18099048b6c3d2739eb1f16f3ec691928c3c1a517c69b60f4c3cb4" },
+  { path: "packages/core/src/build.ts", contentHash: "sha256:e3800d80c11d59ce54b2ce9e5930d1dfb5bfa87101bafa45fa953cf111975d26" },
   { path: "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", contentHash: "sha256:e7be2ba62a564c10f5fd37ea4106b776d84de25695a0e740716bbccf55a8ea46" },
   { path: "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", contentHash: "sha256:1b15aefb0d36f4e8352c978e30219fff4ea6ba6c094aa41e007ede6cfc9f3f6c" },
   { path: "docs/guides/importing.md", contentHash: "sha256:517a8b64d0483df1283c5ad4ffb126a0e2a4ca0d52212b42d1ff1a41d3754bd4" },
