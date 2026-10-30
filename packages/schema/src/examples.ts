@@ -401,6 +401,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         codex: "plugins",
       },
       preprocess: false,
+      unresolved_frontmatter: ["unknown-provider-field"],
       repository: "https://github.com/example/team-skillset",
       schema: 1,
       strict: true,

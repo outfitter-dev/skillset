@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { MigrationFlag, MigrationState } from "@skillset/schema";
+import { importedFrontmatterFindings, type FrontmatterFindingSource } from "./adoption-frontmatter-findings";
 import { annotateImportedBody } from "./adoption-body-findings";
 import { nativeHookFindings, type NativeHookFindingSource } from "./adoption-native-findings";
 import { inspectMigrationMarkers } from "./migration-markers";
@@ -9,6 +10,7 @@ import { prepareRepositoryMutationPath } from "./repository-mutation";
 import { applyWorkspaceTransaction, type WorkspaceTransactionOptions } from "./workspace-transaction";
 
 export interface ImportedFindingSources {
+  readonly frontmatter?: readonly FrontmatterFindingSource[];
   readonly bodyPaths?: readonly string[];
   readonly nativeHooks?: readonly NativeHookFindingSource[];
 }
@@ -19,8 +21,12 @@ export async function recordImportedFindings(
   sources: ImportedFindingSources,
   transactionOptions: WorkspaceTransactionOptions = {}
 ): Promise<{ readonly flags: readonly MigrationFlag[]; readonly writtenPaths: readonly string[] }> {
+  const frontmatter = new Map<string, FrontmatterFindingSource[]>();
+  for (const source of sources.frontmatter ?? []) {
+    frontmatter.set(source.path, [...(frontmatter.get(source.path) ?? []), source]);
+  }
   const inputs = [
-    ...[...new Set(sources.bodyPaths ?? [])].map((path) => ({ kind: "body" as const, path })),
+    ...[...new Set([...(sources.bodyPaths ?? []), ...frontmatter.keys()])].map((path) => ({ kind: "body" as const, path })),
     ...(sources.nativeHooks ?? []).map((source) => ({ ...source, kind: "native-hooks" as const })),
   ].sort((left, right) => compareStrings(left.path, right.path));
   if (inputs.length === 0) return { flags: [], writtenPaths: [] };
@@ -44,7 +50,9 @@ export async function recordImportedFindings(
     if (inspected.diagnostics.length > 0) {
       throw new Error(`skillset: ${path}: ${inspected.diagnostics.map((item) => item.message).join("; ")}`);
     }
-    documents.push({ ...annotateImportedBody(path, content), kind: input.kind });
+    const document = annotateImportedBody(path, content);
+    const fields = frontmatter.get(path);
+    documents.push({ ...document, flags: [...document.flags, ...(fields === undefined ? [] : fields.flatMap((source) => importedFrontmatterFindings(source, document.content)))], kind: input.kind });
   }
   const flags = documents.flatMap((document) => document.flags);
   if (flags.length === 0) return { flags: [], writtenPaths: [] };

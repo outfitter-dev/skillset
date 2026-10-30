@@ -3393,6 +3393,9 @@ function checkSourceMetadata(
     "schema/source-metadata/key",
     diagnostics
   );
+  if (value.unresolved_frontmatter !== undefined) {
+    checkStringArray(value.unresolved_frontmatter, `${path}.unresolved_frontmatter`, "unresolved_frontmatter", "schema/source-metadata/unresolved-frontmatter", diagnostics, true);
+  }
   checkOptionalSourceAuthor(
     value.author,
     `${path}.author`,

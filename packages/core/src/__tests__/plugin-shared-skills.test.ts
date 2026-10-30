@@ -10,24 +10,18 @@ import { checkProviderFormatConformance } from "../provider-format-conformance";
 import { parseMarkdown } from "../yaml";
 
 describe("shared plugin skills", () => {
-  it("emits one skill and unions compatible provider-only keys", async () => {
+  it("emits one skill and unions standard metadata annotations", async () => {
     const root = await fixture(`
 claude:
   frontmatter:
-    claude-only: true
-    nested:
-      claude-only: true
-      shared:
-        list: [one, two]
-        scalar: same
+    metadata:
+      claude-note: "true"
+      shared: same
 cursor:
   frontmatter:
-    cursor-only: true
-    nested:
-      cursor-only: true
-      shared:
-        list: [one, two]
-        scalar: same
+    metadata:
+      cursor-note: "true"
+      shared: same
 `);
 
     const result = await buildSkillsetResult(root);
@@ -60,15 +54,8 @@ cursor:
       "shared skill"
     );
     expect(parsed.frontmatter).toMatchObject({
-      "claude-only": true,
-      "cursor-only": true,
-      description: "Review changes.",
-      name: "review",
-      nested: {
-        "claude-only": true,
-        "cursor-only": true,
-        shared: { list: ["one", "two"], scalar: "same" },
-      },
+      description: "Review changes.", name: "review",
+      metadata: { "claude-note": "true", "cursor-note": "true", shared: "same" },
     });
     const sharedFile = result.data.find((file) => file.path === "plugins/demo/skills/review/SKILL.md");
     if (sharedFile === undefined) throw new Error("expected shared package skill");
@@ -438,3 +425,8 @@ cursor: true
   );
   return root;
 }
+
+it("rejects union of provider-only extensions without another consumer projection", async () => {
+  const root = await fixture("claude:\n  frontmatter:\n    claude-only: true");
+  await expect(buildSkillsetResult(root)).rejects.toThrow("conflicts at claude-only");
+});

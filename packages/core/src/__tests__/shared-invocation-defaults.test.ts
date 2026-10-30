@@ -27,6 +27,11 @@ test("shared output rejects a canonical single-provider restriction against anot
 test("explicit false matches the native default, while one actual consumer may use true", async () => {
   const same = await fixture("claude:\n  frontmatter:\n    disable-model-invocation: false");
   expect((await buildSkillsetResult(same)).ok).toBe(true);
-  const single = await fixture("claude:\n  frontmatter:\n    disable-model-invocation: true", "[claude, codex]");
+  const single = await fixture("claude:\n  frontmatter:\n    disable-model-invocation: true", "[claude]");
   expect((await buildSkillsetResult(single)).ok).toBe(true);
+});
+
+ test("a Codex shared consumer cannot inherit unproven native invocation policy", async () => {
+  const root = await fixture("claude:\n  frontmatter:\n    disable-model-invocation: true", "[claude, codex]");
+  await expect(buildSkillsetResult(root)).rejects.toThrow("conflicts at disable-model-invocation");
 });
