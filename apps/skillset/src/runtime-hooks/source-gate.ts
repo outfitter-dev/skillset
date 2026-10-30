@@ -1,3 +1,7 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { readSkillsetWorkspaceConfig } from "@skillset/core";
+import { parseYamlRecord } from "@skillset/core/internal/yaml";
 import { gitReadOnlyEnv } from "../git-env";
 
 export const HOOK_RELEVANT_SOURCE_PATHS = [
@@ -23,14 +27,28 @@ export async function hasHookRelevantSourceChanges(rootPath = process.cwd()): Pr
 }
 
 export async function readHookSourceGate(rootPath = process.cwd()): Promise<HookSourceGateResult> {
-  const result = await capture(["git", "status", "--porcelain=v1", "--untracked-files=all", "--", ...HOOK_RELEVANT_SOURCE_PATHS], {
+  let paths: readonly string[] = HOOK_RELEVANT_SOURCE_PATHS;
+  const configPath = join(rootPath, "skillset.yaml");
+  try {
+    const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+    // Read the declaration, not the graph: deleted native source must still trigger checks.
+    if (readSkillsetWorkspaceConfig(config, configPath).nativeAgents === true) {
+      paths = [...paths, "AGENTS.md"];
+    }
+  } catch (error) {
+    // A missing config is covered by Git's source pathspec (including deletion).
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      return { changed: false, exitCode: 1, ok: false, paths, stdout: "" };
+    }
+  }
+  const result = await capture(["git", "status", "--porcelain=v1", "--untracked-files=all", "--", ...paths], {
     cwd: rootPath,
   });
   return {
     changed: result.exitCode === 0 && result.stdout.trim().length > 0,
     exitCode: result.exitCode,
     ok: result.exitCode === 0,
-    paths: HOOK_RELEVANT_SOURCE_PATHS,
+    paths,
     stdout: result.stdout,
   };
 }
