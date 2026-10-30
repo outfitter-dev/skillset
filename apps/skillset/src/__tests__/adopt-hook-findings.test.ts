@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFile, rm } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { readFile } from "node:fs/promises";
 import { initializeTestGitRepository } from "../../../../scripts/test-helpers/git-remote";
 import { join } from "node:path";
 import { readMigrationState, MIGRATION_STATE_PATH, hashMigrationState } from "@skillset/core/internal/migration-state";
@@ -69,23 +68,14 @@ for (const git of [false, true]) {
     await Bun.write(join(root, originPath), original);
     await Bun.write(join(root, "plugins/codex-demo/hooks/hooks.json"), original);
     if (git) await initializeTestGitRepository(root, { disposableRoot });
-    const input = git ? pathToFileURL(root).href : root;
-    const report = await adoptSkillset(input, { write: true });
-    try {
-      expect(report.surveyDiagnostics).toEqual([]);
-      expect(report.imports[0]?.candidate.plugin?.relation).toBe("equivalent");
-      const flags = (await readMigrationState(report.rootPath)).state.flags;
-      expect(flags.length).toBeGreaterThan(0);
-      expect(flags.every((flag) => flag.origin?.path === originPath)).toBe(true);
-      if (report.acquisition.kind === "git") {
-        const { ref, repo } = report.acquisition;
-        expect(flags.every((flag) => flag.evidence.some((item) => item.reference === repo))).toBe(true);
-        expect(flags.every((flag) => flag.evidence.some((item) => item.summary.includes(ref)))).toBe(true);
-      }
-      expect(await readFile(join(root, originPath), "utf8")).toBe(original);
-    } finally {
-      if (report.acquisition.kind === "git") await rm(report.rootPath, { force: true, recursive: true });
-    }
+    const report = await adoptSkillset(root, { write: true });
+    expect(report.acquisition).toEqual({ input: root, kind: "path", rootPath: root });
+    expect(report.surveyDiagnostics).toEqual([]);
+    expect(report.imports[0]?.candidate.plugin?.relation).toBe("equivalent");
+    const flags = (await readMigrationState(report.rootPath)).state.flags;
+    expect(flags.length).toBeGreaterThan(0);
+    expect(flags.every((flag) => flag.origin?.path === originPath)).toBe(true);
+    expect(await readFile(join(root, originPath), "utf8")).toBe(original);
   });
 }
 

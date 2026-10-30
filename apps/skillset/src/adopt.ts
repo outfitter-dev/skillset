@@ -29,7 +29,6 @@ import {
   SkillsetBuildBlockedError,
 } from "@skillset/core";
 import { gitSafeEnv } from "./git-env";
-import { removeTemporaryRootBestEffort } from "./temporary-root";
 import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { targetNames } from "@skillset/core/internal/config";
@@ -49,7 +48,7 @@ import {
   preparedPluginOriginPath,
   removePreparedPluginAdoptionSource,
 } from "./plugin-adoption-source";
-import type { LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import type { LintIssue, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 import type { ImportProvider } from "./source-arg-values";
 import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory, SKILL_FILE } from "@skillset/registry";
@@ -64,19 +63,11 @@ export interface AdoptOptions extends SkillsetOptions {
   readonly write?: boolean;
 }
 
-export type AdoptAcquisition =
-  | {
-      readonly input: string;
-      readonly kind: "path";
-      readonly rootPath: string;
-    }
-  | {
-      readonly input: string;
-      readonly kind: "git";
-      readonly ref: string;
-      readonly repo: string;
-      readonly rootPath: string;
-    };
+export interface AdoptAcquisition {
+  readonly input: string;
+  readonly kind: "path";
+  readonly rootPath: string;
+}
 
 /** A plugin or skill landed in `.skillset/` by one candidate import. */
 export interface AdoptImportedUnit {
@@ -195,17 +186,11 @@ export async function adoptSkillset(
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
   const basePath = options.cwd ?? process.cwd();
-  const acquired = await acquireAdoptSource(source, basePath);
-  let retained = false;
-  try {
-    const report = await adoptAcquiredSkillset(acquired, options);
-    retained = report.rootPath === acquired.rootPath;
-    return report;
-  } finally {
-    if (acquired.kind === "git" && !retained) {
-      await removeTemporaryRootBestEffort(acquired.rootPath);
-    }
-  }
+  return adoptAcquiredSkillset({
+    input: source,
+    kind: "path",
+    rootPath: resolve(basePath, source),
+  }, options);
 }
 
 /** Reuses one surveyed acquisition so an interactive plan and write cannot drift. */
@@ -213,6 +198,7 @@ export async function adoptAcquiredSkillset(
   acquired: AdoptAcquisition,
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
+  await assertLocalAdoptSource(acquired);
   const { cwd, destination, targets, write, ...buildOptions } = options;
   const basePath = cwd ?? process.cwd();
   if (destination !== undefined && write === true) {
@@ -388,7 +374,6 @@ async function adoptResolvedRoot(
     imports.push(
       await importCandidate(
         init.rootPath,
-        acquisition,
         candidate,
         survey.importCandidates,
         previewSources
@@ -553,43 +538,19 @@ function surveySkipRenderResults(
   return skips.flatMap((skip) => skip.renderResult === undefined ? [] : [skip.renderResult]);
 }
 
-async function acquireAdoptSource(source: string, cwd: string): Promise<AdoptAcquisition> {
-  const localPath = resolve(cwd, source);
-  if (await exists(localPath)) {
-    return { input: source, kind: "path", rootPath: localPath };
-  }
-
-  const clonePath = await mkdtemp(join(tmpdir(), "skillset-adopt-remote-"));
+async function assertLocalAdoptSource(acquired: AdoptAcquisition): Promise<void> {
+  const invalidSource = () => new Error(
+    `skillset: adoption requires an existing local directory: ${acquired.input}`
+  );
+  // Keep the exported acquisition entry local-only for untyped callers too.
+  if (acquired.kind !== "path") throw invalidSource();
   try {
-    await runGit(["clone", "--depth", "1", source, clonePath], cwd);
-    const ref = (await runGit(["-C", clonePath, "rev-parse", "HEAD"], cwd)).trim();
-    return { input: source, kind: "git", ref, repo: source, rootPath: clonePath };
+    if (!(await stat(acquired.rootPath)).isDirectory()) throw invalidSource();
   } catch (error) {
-    await rm(clonePath, { force: true, recursive: true });
+    if (error instanceof Error && "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")) throw invalidSource();
     throw error;
   }
-}
-
-async function runGit(args: readonly string[], cwd: string): Promise<string> {
-  const proc = Bun.spawn({
-    cmd: ["git", ...args],
-    cwd,
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    const detail = `${stdout}${stderr}`.trim();
-    throw new Error(
-      `skillset: git ${args[0] ?? "command"} failed${detail.length === 0 ? "" : `\n${detail}`}`
-    );
-  }
-  return stdout;
 }
 
 /**
@@ -598,13 +559,12 @@ async function runGit(args: readonly string[], cwd: string): Promise<string> {
  */
 async function importCandidate(
   rootPath: string,
-  acquisition: AdoptAcquisition,
   candidate: SetupImportCandidate,
   allCandidates: readonly SetupImportCandidate[],
   previewSources: string[]
 ): Promise<AdoptImportResult> {
   try {
-    const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
+    const batch = await importCandidateSources(rootPath, candidate, allCandidates);
     const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
       for (const file of importedPrimarySkillFiles(report)) {
@@ -690,7 +650,6 @@ function adoptedUnits(
 
 async function importCandidateSources(
   rootPath: string,
-  acquisition: AdoptAcquisition,
   candidate: SetupImportCandidate,
   allCandidates: readonly SetupImportCandidate[]
 ) {
@@ -709,11 +668,9 @@ async function importCandidateSources(
           : {}),
         ...(providers.length === 0 ? {} : { providers }),
         rootPath,
-        sourceOrigin: (_sourcePath, copiedFile) =>
-          sourceOriginFor(
-            acquisition,
-            preparedPluginOriginPath(prepared, candidate, copiedFile)
-          ),
+        sourceOrigin: (_sourcePath, copiedFile) => ({
+          path: preparedPluginOriginPath(prepared, candidate, copiedFile),
+        }),
         sourcePath: prepared.sourcePath,
       });
     } finally {
@@ -728,8 +685,9 @@ async function importCandidateSources(
       : {}),
     ...(providers.length === 0 ? {} : { providers }),
     rootPath,
-    sourceOrigin: (sourcePath, copiedFile) =>
-      sourceOriginFor(acquisition, relativeOriginPath(rootPath, sourcePath, copiedFile)),
+    sourceOrigin: (sourcePath, copiedFile) => ({
+      path: relativeOriginPath(rootPath, sourcePath, copiedFile),
+    }),
     sourcePath: join(rootPath, candidate.path),
   });
 }
@@ -763,12 +721,6 @@ async function providersForAdoptCandidate(
     )
   ).filter((target): target is TargetName => target !== undefined);
   return providers;
-}
-
-function sourceOriginFor(acquisition: AdoptAcquisition, path: string): SourceOrigin {
-  return acquisition.kind === "git"
-    ? { path, ref: acquisition.ref, repo: acquisition.repo }
-    : { path };
 }
 
 function relativeOriginPath(rootPath: string, sourcePath: string, copiedFile?: string): string {
@@ -864,21 +816,11 @@ export function renderAdoptReportMarkdown(
   lines.push(...renderImportNormalizations([...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])]));
   lines.push(...renderImportCapabilityAssessments(report.imports.flatMap((entry) => entry.capabilityAssessments ?? [])));
   lines.push("## Acquisition", "");
-  if (report.acquisition.kind === "git") {
-    lines.push(
-      "- source: git remote",
-      `- repo: \`${report.acquisition.repo}\``,
-      `- ref: \`${report.acquisition.ref}\``,
-      `- clone: \`${report.acquisition.rootPath}\``,
-      ""
-    );
-  } else {
-    lines.push(
-      "- source: local path",
-      `- input: \`${report.acquisition.input}\``,
-      ""
-    );
-  }
+  lines.push(
+    "- source: local path",
+    `- input: \`${report.acquisition.input}\``,
+    ""
+  );
 
   lines.push("## Setup", "");
   for (const file of report.setupFiles) {
