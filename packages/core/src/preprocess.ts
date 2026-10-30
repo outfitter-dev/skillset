@@ -521,7 +521,14 @@ function promptArgumentsVariable(
       `skillset: prompt arguments variable ${token} in ${relative(context.rootPath, context.sourcePath)} requires compile.features.promptArguments`
     );
   }
-  if (context.target === "claude") return key;
+  if (context.target === "claude") {
+    if (key.startsWith("$ARGUMENTS.")) {
+      throw new Error(
+        `skillset: named prompt argument ${token} in ${relative(context.rootPath, context.sourcePath)} has no supported Claude representation; use an explicit positional {{$ARGUMENTS[N]}} binding or author provider-native arguments instead`
+      );
+    }
+    return key;
+  }
   return `{{${key}}}`;
 }
 
