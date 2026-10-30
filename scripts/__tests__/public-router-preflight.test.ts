@@ -105,8 +105,11 @@ test("router is lean and its directly linked references are packaged", async () 
   const router = await readFile(join(SKILL, "SKILL.md"), "utf8");
   expect(router.length).toBeLessThan(6000);
   const links = [...router.matchAll(/\]\((references\/[^)]+)\)/gu)].map((match) => match[1]!);
-  expect(new Set(links).size).toBe(5);
+  expect(new Set(links).size).toBe(6);
   for (const link of new Set(links)) {
-    expect(await readFile(join(ROOT, "plugins/skillset/skills/skillset", link), "utf8")).toBe(await readFile(join(SKILL, link), "utf8"));
+    const source = link === "references/capability-design.md"
+      ? join(ROOT, ".skillset/plugins/skillset/shared", link)
+      : join(SKILL, link);
+    expect(await readFile(join(ROOT, "plugins/skillset/skills/skillset", link), "utf8")).toBe(await readFile(source, "utf8"));
   }
 });
