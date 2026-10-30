@@ -101,3 +101,47 @@ test("candidate receipt locations use decoded pointer credential redaction", asy
   expect(stored.markdown).not.toContain("private-value");
   expect(stored.markdown).toContain("[REDACTED]");
 });
+
+test("providerless hooks do not turn analysis candidates into source provenance", async () => {
+  const root = await createTestFixtureRoot("skillset-capability-hook-origin-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, "hooks/hooks.json"), '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo original"}]}]}}');
+  const report = await importSource({ rootPath: root, sourcePath, name: "demo", kind: "plugin" });
+  const rows = report.capabilityAssessments?.filter((entry) => entry.construct === "native-hook-runtime") ?? [];
+  expect(rows).toHaveLength(targetNames().length);
+  expect(rows.every((entry) => entry.sourceProvider === undefined && entry.eligibility === "unknown-source")).toBe(true);
+});
+
+test("receipt field locations are passive even when they contain HTML, Markdown and backticks", async () => {
+  const { persistImportReceipt } = await import("../operation-receipt");
+  const { readReportBundle } = await import("@skillset/core/internal/report-store");
+  const root = await createTestFixtureRoot("skillset-capability-passive-");
+  const sourcePath = join(root, "original");
+  const field = "<img src=x onerror=alert(1)> [go](https://example.invalid) ``ticks``";
+  await Bun.write(join(sourcePath, "SKILL.md"), `---\nname: demo\ndescription: Demo.\n${JSON.stringify(field)}: private-value\n---\nBody.\n`);
+  const report = await importSource({ rootPath: root, sourcePath, kind: "skill", provider: "claude" });
+  const receipt = await persistImportReceipt({ failed: false, imports: [report], rootPath: root, kind: "skill", provider: "claude" });
+  const stored = await readReportBundle(receipt.id);
+  const { renderImportCapabilityAssessments } = await import("@skillset/core/internal/import-capability-report");
+  const local = renderImportCapabilityAssessments(report.capabilityAssessments ?? []).join("\n");
+  expect(local).toContain("``` .skillset/skills/demo/SKILL.md#/claude/frontmatter/" + field.replaceAll("~", "~0").replaceAll("/", "~1") + " ```");
+  expect(stored.markdown).not.toContain("onerror");
+  expect(JSON.stringify(stored.report)).not.toContain("onerror");
+  expect(stored.markdown).toContain("[REDACTED]");
+  expect(stored.markdown).not.toContain("private-value");
+});
+
+
+test("hook provenance uses explicit origin or a sole native manifest, never a mixed fallback", async () => {
+  for (const mode of ["explicit", "sole", "mixed"] as const) {
+    const root = await createTestFixtureRoot("skillset-capability-hook-provenance-");
+    const sourcePath = join(root, "original");
+    if (mode !== "explicit") await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"demo"}');
+    if (mode === "mixed") await Bun.write(join(sourcePath, ".cursor-plugin/plugin.json"), '{"name":"demo"}');
+    await Bun.write(join(sourcePath, "hooks/hooks.json"), '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo original"}]}]}}');
+    const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", name: "demo", ...(mode === "explicit" ? { provider: "claude" as const } : {}) });
+    const rows = report.capabilityAssessments?.filter((entry) => entry.construct === "native-hook-runtime") ?? [];
+    expect(rows).toHaveLength(targetNames().length);
+    expect(rows.every((entry) => mode === "mixed" ? entry.sourceProvider === undefined && entry.eligibility === "unknown-source" : entry.sourceProvider === "claude")).toBe(true);
+  }
+});

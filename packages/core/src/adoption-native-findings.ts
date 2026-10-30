@@ -9,7 +9,10 @@ import { isJsonRecord } from "./yaml";
 
 export interface NativeHookFindingSource {
   readonly path: string;
+  /** Diagnostic comparison targets, not evidence of source ownership. */
   readonly targets: readonly TargetName[];
+  /** Explicit import origin or a sole declared native manifest; absent means unknown. */
+  readonly providers?: readonly TargetName[];
   readonly origin?: SourceOrigin;
   /** Inline event maps within the physical JSON file; omitted for a hook file. */
   readonly pointers?: readonly string[];

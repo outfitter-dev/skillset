@@ -69,8 +69,8 @@ export function capabilityFindingEvidence(assessments: readonly ImportCapability
 }
 
 
-export function assessImportedHookRuntime(source: { readonly path: string; readonly targets: readonly TargetName[]; readonly pointers?: readonly string[] }): readonly ImportCapabilityAssessment[] {
-  const providers = [...new Set(source.targets)].sort(compareStrings);
+export function assessImportedHookRuntime(source: { readonly path: string; readonly targets: readonly TargetName[]; readonly providers?: readonly TargetName[]; readonly pointers?: readonly string[] }): readonly ImportCapabilityAssessment[] {
+  const providers = [...new Set(source.providers ?? [])].sort(compareStrings);
   return (providers.length === 0 ? [undefined] : providers).flatMap((sourceProvider) =>
     [...new Set(source.pointers ?? [""])].sort(compareStrings).flatMap((pointer) => assessImportedCapability({
       construct: "native-hook-runtime", capabilityQuery: "native-hooks", ...(sourceProvider === undefined ? {} : { sourceProvider }), source: { path: source.path, pointer },

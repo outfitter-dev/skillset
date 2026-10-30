@@ -27,7 +27,7 @@ test("unknown attribution, absent capability and absent judgment remain distinct
 });
 
 test("hook runtime cannot inherit declaration-only provider semantics", () => {
-  const rows = assessImportedHookRuntime({ path: ".skillset/plugins/demo/_claude/hooks/hooks.json", targets: ["claude"], pointers: ["/hooks/0"] });
+  const rows = assessImportedHookRuntime({ path: ".skillset/plugins/demo/_claude/hooks/hooks.json", targets: ["claude"], providers: ["claude"], pointers: ["/hooks/0"] });
   expect(rows).toHaveLength(targetNames().length);
   expect(rows.find((row) => row.candidateTarget === "claude")).toMatchObject({ fidelity: "unknown", eligibility: "scope-mismatch" });
   expect(rows.find((row) => row.candidateTarget === "codex")).toMatchObject({ fidelity: "unknown", eligibility: "no-judgment" });
@@ -53,4 +53,30 @@ test("report contract rejects forged fidelity, fields, paths and evidence", () =
   for (const patch of [{ fidelity: "exact" }, { eligibility: "eligible" }, { candidateTarget: "fake" }, { sourceProvider: "fake" }, { source: { path: "../escape", pointer: "" } }, { source: { path: "SKILL.md", pointer: "/bad~escape" } }, { reasons: [] }, { evidence: [] }, { authorityHash: "stale" }, { rawValue: "secret" }]) {
     expect(validateImportCapabilityAssessments([{ ...row, ...patch }]).ok).toBe(false);
   }
+});
+
+test("candidate Markdown cannot activate schema-provided identifiers or multiline reasons", async () => {
+  const { renderImportCapabilityAssessments } = await import("../import-capability-report");
+  const row = assessImportedCapability(request)[0]!;
+  const hostile = "<img src=x> [link](https://example.invalid) ``ticks``\n\n# forged heading";
+  const markdown = renderImportCapabilityAssessments([{ ...row, capabilityId: hostile, featureId: hostile, reasons: [hostile], source: { path: row.source.path, pointer: "/" + hostile } }]).join("\n");
+  expect(markdown).not.toContain("\n\n# forged heading");
+  expect(markdown).toContain("\\n\\n# forged heading");
+  expect(markdown).toContain("```" + hostile.replaceAll("\n", "\\n") + "```");
+});
+
+
+test("global receipt field locators retain only approved public spellings and source layouts", async () => {
+  const { sanitizeImportCapabilityAssessments } = await import("../import-capability-report");
+  const row = assessImportedCapability(request)[0]!;
+  const entries = [row,
+    { ...row, source: { ...row.source, pointer: "/claude/frontmatter/private_customer_key" } },
+    { ...row, source: { ...row.source, pointer: "/private_customer_key/disable-model-invocation" } },
+    { ...row, source: { ...row.source, pointer: "/claude/frontmatter/private~1customer~0key" } },
+  ];
+  const sanitized = sanitizeImportCapabilityAssessments(entries);
+  expect(sanitized[0]).toEqual(row);
+  expect(sanitized.slice(1).every((entry) => entry.source.pointer === "/[REDACTED]")).toBe(true);
+  expect(entries[1]?.source.pointer).toContain("private_customer_key");
+  expect(sanitizeImportCapabilityAssessments(sanitized)).toEqual(sanitized);
 });

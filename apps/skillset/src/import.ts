@@ -328,11 +328,15 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       ? await scopeImportedNativeHooks({ rootPath: options.rootPath, stagingPath, files: copiedFiles, targets: nativeHookTargets, synthesizedConfig: copied.synthesizedConfig })
       : undefined;
     if (nativeHookBoundary !== undefined) copiedFiles = nativeHookBoundary.files;
+    const hookSourceProviders = importProviders(options) === undefined
+      ? declaredProviders.length === 1 ? declaredProviders : []
+      : importFrontmatterProviders(options.provider, options.providers);
     const nativeHookSources = nativeHookBoundary?.sources.map((source) => {
       const origin = options.sourceOrigin?.(sourcePath, source.originalPath);
       return {
         path: relative(options.rootPath, join(targetPath, source.path)).replaceAll("\\", "/"),
         targets: nativeHookTargets,
+        providers: hookSourceProviders,
         ...(source.pointers === undefined ? {} : { pointers: source.pointers }),
         ...(origin === undefined ? {} : { origin }),
       };

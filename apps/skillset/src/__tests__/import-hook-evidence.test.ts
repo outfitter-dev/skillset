@@ -33,7 +33,7 @@ test("hook source carries the importer's per-file provenance without reconstruct
     rootPath: root, sourcePath, kind: "plugin", provider: "claude",
     sourceOrigin: (_path, file) => file === "hooks/hooks.json" ? origin : { path: "canonical-plugin" },
   });
-  expect(report.nativeHookSources?.[0]).toEqual({ path: ".skillset/plugins/native-hooks/_claude/hooks/hooks.json", targets: ["claude"], origin });
+  expect(report.nativeHookSources?.[0]).toEqual({ path: ".skillset/plugins/native-hooks/_claude/hooks/hooks.json", targets: ["claude"], providers: ["claude"], origin });
 });
 
 test("empty hook groups retain explicit assessment targets and match ledger uncertainty", async () => {

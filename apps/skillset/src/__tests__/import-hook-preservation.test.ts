@@ -53,7 +53,7 @@ test("inline-only hooks stay in the generated Claude manifest and raw source sid
   await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude, codex, cursor]\n");
   await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), JSON.stringify({ name: "native-hooks", hooks: eventMap }));
   const imported = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
-  expect(imported.nativeHookSources).toEqual([{ path: ".skillset/plugins/native-hooks/.claude-plugin/plugin.json", targets: ["claude"], pointers: ["/hooks"] }]);
+  expect(imported.nativeHookSources).toEqual([{ path: ".skillset/plugins/native-hooks/.claude-plugin/plugin.json", targets: ["claude"], providers: ["claude"], pointers: ["/hooks"] }]);
   expect((await buildSkillsetResult(root)).ok).toBe(true);
   expect((await Bun.file(join(root, "plugins/native-hooks/.claude-plugin/plugin.json")).json()).hooks).toEqual(eventMap);
   expect(await Bun.file(join(root, "plugins/native-hooks/hooks/hooks.json")).exists()).toBe(false);
