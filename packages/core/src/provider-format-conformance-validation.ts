@@ -42,14 +42,19 @@ export type ProviderFormatConformanceIssue =
     | { readonly standardProfile?: never; readonly target: TargetName }
   );
 
-export interface ProviderFormatConformanceFile {
-  readonly content: Uint8Array;
+export interface ProviderFormatConformanceRole {
   readonly destination?: string;
   readonly featureId?: string;
-  readonly path: string;
   readonly sourcePath?: string;
   readonly standardProfile?: StandardProfileId;
   readonly target?: TargetName;
+}
+
+export interface ProviderFormatConformanceFile extends ProviderFormatConformanceRole {
+  readonly content: Uint8Array;
+  readonly path: string;
+  /** All applicable roles for shared bytes; absent for direct single-role callers. */
+  readonly roles?: readonly ProviderFormatConformanceRole[];
 }
 
 export function parseJsonRecord(
