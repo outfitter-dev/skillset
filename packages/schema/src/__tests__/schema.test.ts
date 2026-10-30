@@ -217,6 +217,7 @@ describe("@skillset/schema contracts", () => {
   it("derives maximal examples that validate against structural contracts", () => {
     const examples = deriveSkillsetExampleArtifacts();
     expect(examples.map((example) => example.path)).toEqual([
+      "docs/reference/examples/report-import-normalizations.json",
       "docs/reference/examples/migration-state.json",
       "docs/reference/examples/report.json",
       "docs/reference/examples/workspace-config.yaml",

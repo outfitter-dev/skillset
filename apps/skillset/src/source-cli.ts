@@ -1,3 +1,4 @@
+import { renderImportNormalizations } from "@skillset/core/internal/import-normalization-report";
 import { relative, resolve } from "node:path";
 
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
@@ -303,6 +304,7 @@ function printImportReport(result: ImportReport): void {
       `  unrecognized (preserved for review): ${result.unsupportedFields.join(", ")}`
     );
   }
+  for (const line of renderImportNormalizations(result.normalizations ?? [])) console.log(line);
   for (const baseline of result.baselines) {
     if (baseline.status === "create") {
       console.log(

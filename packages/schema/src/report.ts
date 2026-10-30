@@ -1,3 +1,5 @@
+import { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN, importNormalizationSchema } from "./import-normalization";
+import { MIGRATION_LOCATION_PATTERN } from "./migration-state-contract";
 import {
   REPORT_EXTERNAL_FIXTURE_PHASES,
   REPORT_KINDS,
@@ -443,9 +445,11 @@ function checkAdoptionPayload(
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
   if (!checkRecord(value, path, diagnostics)) return;
+  if (value.normalizations !== undefined) checkImportNormalizations(value.normalizations, `${path}.normalizations`, diagnostics);
   checkShape(
     value,
     [
+      "normalizations",
       "alreadyAdopted",
       "candidateIds",
       "cutover",
@@ -531,9 +535,11 @@ function checkImportPayload(
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
   if (!checkRecord(value, path, diagnostics)) return;
+  if (value.normalizations !== undefined) checkImportNormalizations(value.normalizations, `${path}.normalizations`, diagnostics);
   checkShape(
     value,
     [
+      "normalizations",
       "destinations",
       "diagnosticCodes",
       "fields",
@@ -1257,4 +1263,37 @@ function validation(
   diagnostics: readonly SkillsetSchemaDiagnostic[]
 ): SkillsetSchemaValidationResult {
   return { diagnostics, ok: diagnostics.length === 0 };
+}
+
+export function validateImportNormalizations(value: unknown, root = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  checkImportNormalizations(value, root, diagnostics);
+  return validation(diagnostics);
+}
+
+function checkImportNormalizations(value: unknown, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!Array.isArray(value)) {
+    diagnostics.push(diagnostic(path, "schema/report/normalizations", "normalizations must be an array"));
+    return;
+  }
+  const schema = importNormalizationSchema(TARGET_NAMES);
+  for (const [index, entry] of value.entries()) {
+    const at = `${path}[${index}]`;
+    if (!checkRecord(entry, at, diagnostics)) continue;
+    checkShape(entry, Object.keys(schema.properties as SchemaJsonRecord), schema.required as string[], at, diagnostics);
+    checkEnum(entry.code, IMPORT_NORMALIZATION_CODES, `${at}.code`, diagnostics);
+    checkEnum(entry.dialect, [...TARGET_NAMES, "agent-plugins"], `${at}.dialect`, diagnostics);
+    checkEnum(entry.fidelity, ["unknown"], `${at}.fidelity`, diagnostics);
+    if (!Number.isSafeInteger(entry.occurrences) || Number(entry.occurrences) < 1) diagnostics.push(diagnostic(`${at}.occurrences`, "schema/report/normalization-count", "occurrences must be a positive safe integer"));
+    for (const key of ["source", "destination"]) {
+      const location = entry[key];
+      if (!checkRecord(location, `${at}.${key}`, diagnostics)) continue;
+      checkShape(location, ["path", "pointer"], ["path", "pointer"], `${at}.${key}`, diagnostics);
+      checkPattern(location.path, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), `${at}.${key}.path`, "normalization path", diagnostics);
+      checkPattern(location.pointer, new RegExp(IMPORT_NORMALIZATION_POINTER_PATTERN, "u"), `${at}.${key}.pointer`, "normalization pointer", diagnostics);
+    }
+    if (!Array.isArray(entry.evidence) || entry.evidence.length === 0 || entry.evidence.some((item) => typeof item !== "string" || item.length === 0)) diagnostics.push(diagnostic(`${at}.evidence`, "schema/report/normalization-evidence", "evidence must be a nonempty array of nonempty strings"));
+    if (entry.providerVersion !== undefined) checkPattern(entry.providerVersion, /[\s\S]+/u, `${at}.providerVersion`, "provider version", diagnostics);
+    if (entry.observedAt !== undefined) checkPattern(entry.observedAt, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/u, `${at}.observedAt`, "observed date", diagnostics);
+  }
 }

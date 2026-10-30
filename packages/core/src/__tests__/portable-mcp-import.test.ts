@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { normalizeImportedMcpSource } from "../portable-mcp-import";
+import { normalizeImportedMcpSource as normalizeMcpImport } from "../portable-mcp-import";
+
+const normalizeImportedMcpSource = (...args: Parameters<typeof normalizeMcpImport>) => normalizeMcpImport(...args).source;
 
 test.each([
   ["${CLAUDE_PLUGIN_ROOT}/bin", "${PLUGIN_ROOT}/bin"],
@@ -74,3 +76,26 @@ test("explicit shell arguments require review without suggesting a replacement",
     }
   }
 );
+
+test("MCP observations escape JSON pointers, count exact tokens, and have stable ordering", () => {
+  const first = { mcpServers: { "a/b~c": { command: "node", args: ["${CLAUDE_PLUGIN_ROOT}/${CLAUDE_PLUGIN_ROOT}"], env: { Z: "${CLAUDE_PLUGIN_DATA}", A: "${CLAUDE_PLUGIN_ROOTED}" } } } };
+  const second = { mcpServers: { "a/b~c": { env: { A: "${CLAUDE_PLUGIN_ROOTED}", Z: "${CLAUDE_PLUGIN_DATA}" }, args: ["${CLAUDE_PLUGIN_ROOT}/${CLAUDE_PLUGIN_ROOT}"], command: "node" } } };
+  const expected = [
+    { code: "mcp.claude-root-token", sourcePointer: "/mcpServers/a~1b~0c/args/0", destinationPointer: "/mcpServers/a~1b~0c/args/0", occurrences: 2 },
+    { code: "mcp.claude-data-token", sourcePointer: "/mcpServers/a~1b~0c/env/Z", destinationPointer: "/mcpServers/a~1b~0c/env/Z", occurrences: 1 },
+  ] as const;
+  expect(normalizeMcpImport(first, "claude").changes).toEqual(expected);
+  expect(normalizeMcpImport(second, "claude").changes).toEqual(expected);
+  expect(normalizeMcpImport(first, "cursor").changes).toEqual([]);
+});
+
+test("Codex observations distinguish inferred transport from header relocation", () => {
+  const source = { mcpServers: { demo: { url: "https://private.invalid/mcp", http_headers: { "X-Private": "do-not-record" } } } };
+  const result = normalizeMcpImport(source, "codex");
+  expect(result.changes).toEqual([
+    { code: "mcp.codex-url-transport", sourcePointer: "/mcpServers/demo/url", destinationPointer: "/mcpServers/demo/type", occurrences: 1 },
+    { code: "mcp.codex-header-field", sourcePointer: "/mcpServers/demo/http_headers", destinationPointer: "/mcpServers/demo/headers", occurrences: 1 },
+  ]);
+  expect(JSON.stringify(result.changes)).not.toContain("private");
+  expect(normalizeMcpImport(result.source, "codex").changes).toEqual([]);
+});

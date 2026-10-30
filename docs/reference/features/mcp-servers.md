@@ -53,3 +53,11 @@ Locks record `kind: plugin-feature`, `feature: mcp`, origin (`conventional` or `
 ## Evidence
 
 Contract tests cover conventional discovery, every accepted source form, path containment, JSON validation, typed provider rendering, standard package emission, import rewriting, manifest wiring, lock provenance, and list/explain output. The [Feature Source Pointers](feature-source-pointers.md) page owns the shared pointer rules.
+
+## Import Evidence
+
+Import and repository adoption record MCP source conversions in `normalizations` observations. Each entry names the selected import dialect, operation, original unit-relative path, destination workspace-relative path, JSON pointers, occurrence count, and evidence references. The list distinguishes exact placeholder substitutions, transport spelling or inference, header-field relocation, source-file relocation, and JSON serialization. Unchanged canonical bytes produce no entry.
+
+The immutable import/adoption receipt retains the complete observation list; `skillset report show` displays it. Configuration values, header contents, URLs, and argument text are excluded from these observations. Provider versions and observation dates identify the pinned documentation evidence used by the adapter. The dialect identifies the parser selected for conversion, not inferred source ownership. The recorded fidelity remains `unknown`: observing a conversion does not establish cross-provider semantics or provider runtime effectiveness.
+
+Only committed imports contribute observations. If a source directory was claimed but release-baseline seeding failed, the failed partial-import receipt retains the changes already made. Staged conversions rejected before the claim are not presented as completed changes. Original provider files remain unchanged.
