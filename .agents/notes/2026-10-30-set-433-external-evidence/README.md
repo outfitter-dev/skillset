@@ -1,0 +1,18 @@
+# SET-433 retained external evidence
+
+This packet retains historical captures for compiler commits `364f7235b1bedab3a6543af4f641e95ff1c1bcb8` (before) and `8a5d5b282ade4f5aa2fa8e506fe1297890bce037` (after). It is evidence for that comparison, not a fresh capture of the branch containing this packet. No provider installation or execution is represented.
+
+Run `python3 verify.py` from any directory with Python 3.9 or newer. The verifier reads archives in memory, checks the packet's SHA-256 manifest, independently computes the 87 before / 88 after counts (83 identical, four changed, one added), compares A/B/C projection bytes and checks all 83 original/output mappings. It neither extracts files nor fetches repositories nor runs captured scripts. It ignores outer-archive AppleDouble `._*` metadata entries; the unchanged original archive retains those entries. The checks do not establish runtime equivalence, dependency closure or license compliance.
+
+- `before-capture.tar.xz`: the historical before capture, verified file-for-file and mode-for-mode against the retained original directory before inclusion; 95 regular files including reports/provenance.
+- `raw-captures.tar.xz`: the three after captures, including the seven pinned original source archives, adopted sources, raw reports and available projections. This is a lossless recompression of the retained gzip archive, not a new capture. Original gzip SHA-256: `afd4215d47ad407b72dae50b0d87cafa471027be2cf7a01c310c031f69fd9b28`; decompressed tar SHA-256 for both formats: `e74faabff9a36dd783c2b85d971aefbe6df3a57e88178c42ee88ccf3596abc6f`.
+- `semantic-changed-artifacts.md`: bounded source and discovery assessment of the four changed and one restored file.
+- `semantic-unchanged-artifacts.json` and `.md`: all 83 repeat-identical outputs compared with pinned originals, including material differences that repeatability alone hides.
+- `external-8a5d-diff.json`: original before/after per-fixture path comparison.
+- `set433-*.json`, `set433-*.log`, `set433-capture-external.ts`: retained comparison results, raw run/install logs (including the initial failed A attempt), and capture driver. The driver uses historical compiler internals and is retained as provenance, not a supported current command. Re-running it fetches/reset fixtures and writes output; it is unnecessary for offline verification.
+- `git-trees.json`: captured pinned-ref tree listings, checked against all 77 populated source Git-mode records. These listings record observed Git objects; they are not a self-verifying Git object chain.
+- `fixture-manifest.yaml`: pinned fixture input, SHA-256 `18086bcdd282790fa62ac1215d366dd1ce370312821df27e0226f9e2e6439814`.
+
+The semantic reports retain original machine paths as historical provenance. Use the included archives and relative files for review; those historical paths are not prerequisites. Source archives preserve upstream notices; they are immutable evidence, not new Skillset source or runtime dependencies.
+
+The selected Cursor output omitted the source's full license notice and a referenced MCP entrypoint. Matt Pocock's explicit 17-path declaration became a broad directory declaration with 34 emitted skills; Claude's additive default discovery means this does not prove an original runtime inventory of exactly 17. Three fixtures were blocked and emitted no selected projection. These limitations remain visible in the reports and are not waived by this packet. SET-439 owns dependency/curation follow-up; license notice preservation needs a focused implementation follow-up. No maintainer acceptance of exceptions is implied.
