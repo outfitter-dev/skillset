@@ -225,7 +225,7 @@ export { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_L
 export { parseMigrationMarker, formatMigrationMarker } from "./migration-marker";
 export type { MigrationMarker } from "./migration-marker";
 
-export { IMPORT_NORMALIZATION_CODES } from "./import-normalization";
+export { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN } from "./import-normalization";
 export type { ImportNormalization, ImportNormalizationCode } from "./import-normalization";
 
 export { validateImportNormalizations } from "./report";
