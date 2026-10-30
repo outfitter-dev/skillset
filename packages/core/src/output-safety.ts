@@ -15,11 +15,14 @@ import {
   type ParsedGeneratedLockItem,
 } from "./generated-lock";
 import {
+  GeneratedLockReadError,
   parseCurrentLockOrCorrupt,
   readCurrentGeneratedLockFromDisk,
 } from "./generated-lock-read";
 import { hasValidLockProvenance } from "./lock-provenance";
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings, PathContainmentError, resolveInside } from "./path";
+import { isMissingPathError, MISSING_PATH_ENOENT } from "./fs-existence";
+import { InputValidationError } from "./input-validation-error";
 import { prepareRepositoryMutationPath } from "./repository-mutation";
 import {
   formatGeneratedFileMode,
@@ -257,17 +260,28 @@ export async function independentlyObservedOutputBaseline(
   options: SkillsetOptions = {}
 ): Promise<boolean> {
   const configPath = join(rootPath, "skillset.yaml");
-  let config: JsonRecord = {};
+  let configText: string | undefined;
   try {
-    config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
-  } catch {
+    configText = await readFile(configPath, "utf8");
+  } catch (error) {
+    if (!isMissingPathError(error, MISSING_PATH_ENOENT)) throw error;
     // Fixed default roots remain independently observable without config.
+  }
+  let config: JsonRecord = {};
+  if (configText !== undefined) {
+    try {
+      config = parseYamlRecord(configText, configPath);
+    } catch (error) {
+      if (!(error instanceof InputValidationError)) throw error;
+      // Malformed authored config does not invalidate fixed-root evidence.
+    }
   }
 
   let workspaceCacheKey: string | undefined;
   try {
     workspaceCacheKey = readSkillsetWorkspaceConfig(config, configPath).cacheKey;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof InputValidationError)) throw error;
     // A malformed workspace stanza cannot invalidate ordinary local evidence.
   }
 
@@ -282,7 +296,8 @@ export async function independentlyObservedOutputBaseline(
       readSkillsetMetadata(config, configPath),
       options.distDir === undefined ? {} : { distDir: options.distDir }
     );
-  } catch {
+  } catch (error) {
+    if (!(error instanceof InputValidationError)) throw error;
     // Invalid output configuration falls back to fixed default roots only.
   }
 
@@ -337,8 +352,12 @@ export async function independentlyObservedOutputBaseline(
         (path) => resolveOperationalPath(pathContext, path),
         (path) => logicalOperationalPath(pathContext, path)
       )).hasBaseline;
-    } catch {
-      return false;
+    } catch (error) {
+      if (
+        error instanceof GeneratedLockReadError &&
+        (error.kind === "invalid-json" || error.kind === "schema")
+      ) return false;
+      throw error;
     }
   };
 
@@ -367,7 +386,8 @@ function addDeclaredProviderOutputRoots(
     try {
       resolveInside(rootPath, path);
       outputRoots.add(path);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof PathContainmentError)) throw error;
       // Graph validation owns invalid output-path diagnostics.
     }
   }
