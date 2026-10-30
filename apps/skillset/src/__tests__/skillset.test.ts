@@ -2573,7 +2573,7 @@ description: Runs a command with prompt arguments.
 
 Run:
 
-\`docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS.limit}}\`
+\`docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS[2]}}\`
 
 All args: {{$ARGUMENTS}}
 Literal marker: {{{ $ARGUMENTS }}}
@@ -2584,7 +2584,7 @@ Literal marker: {{{ $ARGUMENTS }}}
   await buildSkillset(root);
 
   const claudeSkill = await readFile(join(root, ".claude/skills/argument-runner/SKILL.md"), "utf8");
-  expect(claudeSkill).toContain('docs-cli search "$ARGUMENTS[0]" "$ARGUMENTS[1]" --limit $ARGUMENTS.limit');
+  expect(claudeSkill).toContain('docs-cli search "$ARGUMENTS[0]" "$ARGUMENTS[1]" --limit $ARGUMENTS[2]');
   expect(claudeSkill).toContain("All args: $ARGUMENTS");
   expect(claudeSkill).toContain("Literal marker: {{$ARGUMENTS}}");
   expect(claudeSkill).not.toContain("Before using commands");
@@ -2604,7 +2604,7 @@ codex: true
   expect(sharedSkill).toContain(
     "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments."
   );
-  expect(sharedSkill).toContain('docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS.limit}}');
+  expect(sharedSkill).toContain('docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS[2]}}');
   expect(sharedSkill).toContain("All args: {{$ARGUMENTS}}");
   expect(sharedSkill.match(/Before using commands/gu)).toHaveLength(1);
 });
