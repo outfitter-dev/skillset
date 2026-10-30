@@ -1,3 +1,4 @@
+import { assessImportedHookRuntime, capabilityFindingEvidence } from "./import-capability-assessment";
 import { createHash } from "node:crypto";
 import type { MigrationFlag } from "@skillset/schema";
 import { classifyNativeHookLiftDiagnostics, type NativeHookLiftDiagnostic } from "./adaptive-hook-native-lift";
@@ -77,6 +78,7 @@ function flagForDiagnostic(source: NativeHookFindingSource, content: string, dia
     fingerprints: { content: digest(content), context: digest(`${diagnostic.target}:${diagnostic.path}`) },
     placement: { kind: "sidecar", reason: "Provider-native JSON must remain byte-preserved." },
     evidence: [
+      ...capabilityFindingEvidence(assessImportedHookRuntime(source).filter((entry) => entry.candidateTarget === diagnostic.target)),
       ...(source.origin?.repo === undefined ? [] : [{ summary: "Original repository.", reference: source.origin.repo }]),
       ...(source.origin?.ref === undefined ? [] : [{ summary: `Original revision: ${source.origin.ref}.` }]),
       { summary: `Assessment target: ${diagnostic.target}; hook location: ${diagnostic.path}. Event/handler evidence does not verify arbitrary command semantics.`, ...(diagnostic.providerRef === undefined ? {} : { reference: diagnostic.providerRef }) },

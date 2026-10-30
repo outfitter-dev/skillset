@@ -1,3 +1,4 @@
+import { assessImportedFrontmatter, assessImportedHookRuntime, assessImportedNormalizations } from "@skillset/core/internal/import-capability-assessment";
 import { normalizeImportedAgentPluginPackage, agentPluginUnitObservation } from "./import-agent-plugin-units";
 import { importedListing, hasListingConflict } from "./import-plugin-listing";
 import { manifestIdentityObservations, manifestNormalizationObservations } from "./import-manifest-observations";
@@ -22,7 +23,7 @@ import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatter
 
 import { AGENT_SKILLS_FRONTMATTER_KEYS } from "@skillset/core/internal/render-agent-skills-standard";
 import { recordImportedFindings } from "@skillset/core/internal/adoption-findings";
-import { COMMON_FRONTMATTER_KEYS, type ImportNormalization, type MigrationFlag } from "@skillset/schema";
+import { COMMON_FRONTMATTER_KEYS, type ImportNormalization, type ImportCapabilityAssessment, type MigrationFlag } from "@skillset/schema";
 import { importedFrontmatterFindings, type FrontmatterFindingSource } from "@skillset/core/internal/adoption-frontmatter-findings";
 import { scopeImportedSkillFrontmatter } from "@skillset/core/internal/import-skill-frontmatter";
 import { scopeImportedNativeHooks, type ImportedNativeHookBoundary } from "@skillset/core/internal/import-native-hook-boundary";
@@ -170,6 +171,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly migrationFlags?: readonly MigrationFlag[];
   readonly migrationWritePaths?: readonly string[];
@@ -194,6 +196,7 @@ export interface ImportReport {
 }
 
 export interface ImportBatchReport {
+  readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly files: number;
   readonly imports: readonly ImportReport[];
@@ -254,6 +257,7 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
 
   return {
     normalizations: imports.flatMap((report) => report.normalizations ?? []),
+    capabilityAssessments: imports.flatMap((report) => report.capabilityAssessments ?? []),
     files: imports.reduce((total, report) => total + report.files, 0),
     imports,
     kind: plan.kind,
@@ -355,6 +359,20 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       canonicalSource
     );
 
+    const frontmatterSources: FrontmatterFindingSource[] = (options.kind === "skill"
+      ? [{ path: SKILL_FILE, classification }]
+      : pluginSkillFrontmatter).flatMap((skill) => {
+        const fields = [...skill.classification.targetNative, ...skill.classification.unsupported];
+        if (fields.length === 0) return [];
+        const origin = options.sourceOrigin?.(sourcePath, skill.path);
+        return [{ path: relative(options.rootPath, join(targetPath, skill.path)).replaceAll("\\", "/"), providers: scopedPolicyProviders, fields, ...(origin === undefined ? {} : { origin }) }];
+      });
+    const capabilityAssessments = [
+      ...frontmatterSources.flatMap(assessImportedFrontmatter),
+      ...(nativeHookSources ?? []).flatMap(assessImportedHookRuntime),
+      ...assessImportedNormalizations([...copied.normalizations, ...mcpImport.normalizations]),
+    ];
+
     if (mayMergeTargetNativeSkill && (await exists(targetPath))) {
       mergedOriginal = await mergeImportedProviderSkill(options.rootPath, targetPath, stagingPath);
       await rm(stagingPath, { force: true, recursive: true });
@@ -369,6 +387,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
       kind: options.kind, renderResults: [], name,
       normalizations: [...copied.normalizations, ...mcpImport.normalizations],
+      capabilityAssessments,
       ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
@@ -435,14 +454,6 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     });
 
     retainedReport = { ...retainedReport, renderResults };
-    const frontmatterSources: FrontmatterFindingSource[] = (options.kind === "skill"
-      ? [{ path: SKILL_FILE, classification }]
-      : pluginSkillFrontmatter).flatMap((skill) => {
-        const fields = [...skill.classification.targetNative, ...skill.classification.unsupported];
-        if (fields.length === 0) return [];
-        const origin = options.sourceOrigin?.(sourcePath, skill.path);
-        return [{ path: relative(options.rootPath, join(targetPath, skill.path)).replaceAll("\\", "/"), providers: scopedPolicyProviders, fields, ...(origin === undefined ? {} : { origin }) }];
-      });
     const frontmatterFindings = (await Promise.all(frontmatterSources.map(async (source) =>
       importedFrontmatterFindings(source, await readFile(join(options.rootPath, source.path), "utf8"))
     ))).flat();

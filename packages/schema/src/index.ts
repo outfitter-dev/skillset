@@ -229,3 +229,7 @@ export { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN } from
 export type { ImportNormalization, ImportNormalizationCode } from "./import-normalization";
 
 export { validateImportNormalizations } from "./report";
+
+export type { ImportCapabilityAssessment } from "./import-capability-assessment";
+export { IMPORT_CAPABILITY_CONSTRUCTS, IMPORT_CAPABILITY_ELIGIBILITIES } from "./import-capability-assessment";
+export { validateImportCapabilityAssessments } from "./report";

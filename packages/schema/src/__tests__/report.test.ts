@@ -623,3 +623,24 @@ describe("import normalization observations", () => {
     }
   }
 });
+
+
+describe("import capability candidate assessments", () => {
+  const assessment = {
+    construct: "native-skill-frontmatter", source: { path: ".skillset/skills/demo/SKILL.md", pointer: "/claude/frontmatter/allowed-tools" },
+    sourceProvider: "claude", candidateTarget: "codex", fidelity: "unknown", eligibility: "no-capability",
+    reasons: ["No capability."], evidence: ["Crosswalk"],
+  };
+  for (const kind of ["import", "adoption"] as const) {
+    const input = { ...report, kind, result: { command: kind === "import" ? "import" : "init.adopt", exitCode: 0, ok: true }, payload: kind === "import" ? importPayload : adoptionPayload };
+    it(`${kind} accepts old receipts and candidate evidence`, () => {
+      expect(validateSkillsetReport(input).ok).toBe(true);
+      expect(validateSkillsetReport({ ...input, payload: { ...input.payload, capabilityAssessments: [assessment] } }).ok).toBe(true);
+    });
+    for (const patch of [{ fidelity: "exact" }, { candidateTarget: "unknown" }, { sourceProvider: "unknown" }, { eligibility: "eligible" }, { source: { path: "../escape", pointer: "" } }, { reasons: [] }, { evidence: [] }, { rawValue: "private" }]) {
+      it(`${kind} rejects malformed assessment ${JSON.stringify(patch)}`, () => {
+        expect(validateSkillsetReport({ ...input, payload: { ...input.payload, capabilityAssessments: [{ ...assessment, ...patch }] } }).ok).toBe(false);
+      });
+    }
+  }
+});

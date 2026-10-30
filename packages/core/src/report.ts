@@ -1,3 +1,4 @@
+import { renderImportCapabilityAssessments } from "./import-capability-report";
 import { renderImportNormalizations } from "./import-normalization-report";
 import { randomUUID } from "node:crypto";
 
@@ -457,6 +458,7 @@ function cloneAdoptionPayload(
   value: SkillsetAdoptionReportPayload
 ): SkillsetAdoptionReportPayload {
   return {
+    ...(value.capabilityAssessments === undefined ? {} : { capabilityAssessments: structuredClone(value.capabilityAssessments) }),
     ...(value.normalizations === undefined ? {} : { normalizations: structuredClone(value.normalizations) }),
     ...(value.cutover === undefined ? {} : { cutover: { paths: [...value.cutover.paths], total: value.cutover.total } }),
     ...(value.guidancePaths === undefined ? {} : { guidancePaths: [...value.guidancePaths] }),
@@ -484,6 +486,7 @@ function cloneImportPayload(
   value: SkillsetImportReportPayload
 ): SkillsetImportReportPayload {
   return {
+    ...(value.capabilityAssessments === undefined ? {} : { capabilityAssessments: structuredClone(value.capabilityAssessments) }),
     ...(value.normalizations === undefined ? {} : { normalizations: structuredClone(value.normalizations) }),
     destinations: [...value.destinations],
     diagnosticCodes: [...value.diagnosticCodes],
@@ -551,6 +554,7 @@ function renderAdoptionPayload(
 ): readonly string[] {
   return [
     ...renderImportNormalizations(payload.normalizations ?? []),
+    ...renderImportCapabilityAssessments(payload.capabilityAssessments ?? []),
     "",
     "## Adoption",
     "",
@@ -598,6 +602,7 @@ function renderImportPayload(
 ): readonly string[] {
   return [
     ...renderImportNormalizations(payload.normalizations ?? []),
+    ...renderImportCapabilityAssessments(payload.capabilityAssessments ?? []),
     "",
     "## Import",
     "",

@@ -170,3 +170,18 @@ test("Normalization receipt examples have runtime and generated-schema parity", 
     expect(validateAgainstSchema(invalid, reportContract.schema)).not.toEqual([]);
   }
 });
+
+
+test("Capability candidate receipt evidence has runtime and generated schema parity", () => {
+  const example = skillsetSchemaExamples.find((candidate) => candidate.path === "report-import-normalizations.json")?.value;
+  if (example === undefined) throw new Error("missing report example");
+  expect(validateSkillsetReport(example).ok).toBe(true);
+  expect(validateAgainstSchema(example, reportContract.schema)).toEqual([]);
+  for (const patch of [{ fidelity: "exact" }, { eligibility: "eligible" }, { candidateTarget: "invented" }, { source: { path: "../escape", pointer: "" } }, { evidence: [] }, { rawValue: "private" }]) {
+    const invalid = structuredClone(example);
+    const entries = (invalid.payload as Record<string, unknown>).capabilityAssessments as Record<string, unknown>[];
+    entries[0] = { ...entries[0], ...patch };
+    expect(validateSkillsetReport(invalid).ok).toBe(false);
+    expect(validateAgainstSchema(invalid, reportContract.schema).length).toBeGreaterThan(0);
+  }
+});

@@ -1,3 +1,4 @@
+import { IMPORT_CAPABILITY_CONSTRUCTS, IMPORT_CAPABILITY_ELIGIBILITIES, importCapabilityAssessmentSchema } from "./import-capability-assessment";
 import { IMPORT_NORMALIZATION_CODES, IMPORT_NORMALIZATION_POINTER_PATTERN, importNormalizationSchema } from "./import-normalization";
 import { MIGRATION_LOCATION_PATTERN } from "./migration-state-contract";
 import {
@@ -445,10 +446,12 @@ function checkAdoptionPayload(
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
   if (!checkRecord(value, path, diagnostics)) return;
+  if (value.capabilityAssessments !== undefined) checkImportCapabilityAssessments(value.capabilityAssessments, `${path}.capabilityAssessments`, diagnostics);
   if (value.normalizations !== undefined) checkImportNormalizations(value.normalizations, `${path}.normalizations`, diagnostics);
   checkShape(
     value,
     [
+      "capabilityAssessments",
       "normalizations",
       "alreadyAdopted",
       "candidateIds",
@@ -535,10 +538,12 @@ function checkImportPayload(
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
   if (!checkRecord(value, path, diagnostics)) return;
+  if (value.capabilityAssessments !== undefined) checkImportCapabilityAssessments(value.capabilityAssessments, `${path}.capabilityAssessments`, diagnostics);
   if (value.normalizations !== undefined) checkImportNormalizations(value.normalizations, `${path}.normalizations`, diagnostics);
   checkShape(
     value,
     [
+      "capabilityAssessments",
       "normalizations",
       "destinations",
       "diagnosticCodes",
@@ -1295,5 +1300,38 @@ function checkImportNormalizations(value: unknown, path: string, diagnostics: Sk
     if (!Array.isArray(entry.evidence) || entry.evidence.length === 0 || entry.evidence.some((item) => typeof item !== "string" || item.length === 0)) diagnostics.push(diagnostic(`${at}.evidence`, "schema/report/normalization-evidence", "evidence must be a nonempty array of nonempty strings"));
     if (entry.providerVersion !== undefined) checkPattern(entry.providerVersion, /[\s\S]+/u, `${at}.providerVersion`, "provider version", diagnostics);
     if (entry.observedAt !== undefined) checkPattern(entry.observedAt, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/u, `${at}.observedAt`, "observed date", diagnostics);
+  }
+}
+
+
+export function validateImportCapabilityAssessments(value: unknown, root = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  checkImportCapabilityAssessments(value, root, diagnostics);
+  return validation(diagnostics);
+}
+
+function checkImportCapabilityAssessments(value: unknown, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!Array.isArray(value)) {
+    diagnostics.push(diagnostic(path, "schema/report/capability-assessments", "capabilityAssessments must be an array"));
+    return;
+  }
+  const schema = importCapabilityAssessmentSchema(TARGET_NAMES);
+  for (const [index, entry] of value.entries()) {
+    const at = `${path}[${index}]`;
+    if (!checkRecord(entry, at, diagnostics)) continue;
+    checkShape(entry, Object.keys(schema.properties as SchemaJsonRecord), schema.required as string[], at, diagnostics);
+    checkEnum(entry.construct, IMPORT_CAPABILITY_CONSTRUCTS, `${at}.construct`, diagnostics);
+    checkEnum(entry.eligibility, IMPORT_CAPABILITY_ELIGIBILITIES, `${at}.eligibility`, diagnostics);
+    checkEnum(entry.fidelity, ["unknown"], `${at}.fidelity`, diagnostics);
+    checkEnum(entry.candidateTarget, TARGET_NAMES, `${at}.candidateTarget`, diagnostics);
+    if (entry.sourceProvider !== undefined) checkEnum(entry.sourceProvider, [...TARGET_NAMES, "agent-plugins"], `${at}.sourceProvider`, diagnostics);
+    if (checkRecord(entry.source, `${at}.source`, diagnostics)) {
+      checkShape(entry.source, ["path", "pointer"], ["path", "pointer"], `${at}.source`, diagnostics);
+      checkPattern(entry.source.path, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), `${at}.source.path`, "capability source path", diagnostics);
+      checkPattern(entry.source.pointer, new RegExp(IMPORT_NORMALIZATION_POINTER_PATTERN, "u"), `${at}.source.pointer`, "capability source pointer", diagnostics);
+    }
+    for (const key of ["capabilityId", "featureId", "judgmentScope"]) if (entry[key] !== undefined) checkPattern(entry[key], /[\s\S]+/u, `${at}.${key}`, key, diagnostics);
+    if (entry.authorityHash !== undefined) checkPattern(entry.authorityHash, /^sha256:[a-f0-9]{64}$/u, `${at}.authorityHash`, "authority hash", diagnostics);
+    for (const key of ["reasons", "evidence"]) if (!Array.isArray(entry[key]) || entry[key].length === 0 || entry[key].some((item: unknown) => typeof item !== "string" || item.length === 0)) diagnostics.push(diagnostic(`${at}.${key}`, "schema/report/capability-evidence", `${key} must be a nonempty array of nonempty strings`));
   }
 }

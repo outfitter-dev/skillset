@@ -154,3 +154,9 @@ JSON failures preserve one finite result envelope and keep stdout machine-pure.
 
 The design and security rationale live in
 [Global Immutable Operational Reports ADR](../../adrs/0043-global-immutable-operational-reports.md).
+
+### Import capability candidates
+
+Import and adoption receipts retain `capabilityAssessments` separately from observed `normalizations`. These value-free records identify the retained source location, declared source provider when known, candidate target, matching capability/feature, authority hash, judgment scope, evidence and rejection reason. The comparison covers registered candidate targets; it does not say which targets were selected or which outputs were emitted.
+
+Native frontmatter findings and hook-runtime findings also retain these crosswalk facts in their durable evidence. Unknown attribution, an unmapped capability, an absent judgment, stale authority and a scope mismatch are distinct. A canonical invocation judgment cannot authorize an imported provider override, and a declaration pass-through judgment cannot verify an arbitrary hook command. Current imported constructs have no eligible source-to-destination judgment in this integration and retain unknown fidelity. Adding a qualified positive mapping requires a reviewed semantic scope and contract change; structural recognition or a current authority hash alone cannot promote it. Observed metadata or MCP conversion facts remain separate from destination/runtime fidelity.
