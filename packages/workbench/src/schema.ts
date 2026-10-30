@@ -588,6 +588,12 @@ function sourceContractFix(
       message: `Move provider selection to \`skillset.yaml\` as \`compile:\\n  targets: [${TARGET_LIST}]\`; keep file-level behavior in provider-specific blocks.`,
     };
   }
+  if (diagnostic.code === "schema/workspace-config/target" && diagnostic.path.startsWith("$.compile.targets[")) {
+    return {
+      kind: "suggestion",
+      message: `Remove or replace unsupported target ${JSON.stringify(value)}, keeping a non-empty list of intended providers; for example, \`compile:\\n  targets: [${TARGET_LIST}]\`.`,
+    };
+  }
   if (diagnostic.code.endsWith("/target")) {
     return { kind: "suggestion", message: `Use \`${key}: true\`, \`${key}: false\`, or \`${key}: { ... }\`.` };
   }
@@ -629,9 +635,6 @@ function sourceContractFix(
       kind: "suggestion",
       message: "Remove `workspace.cacheKey` to use the automatic XDG cache key, or set a lowercase key such as `team--repo`.",
     };
-  }
-  if (diagnostic.code === "schema/workspace-config/target" && diagnostic.path.startsWith("$.compile.targets[")) {
-    return { kind: "suggestion", message: `Remove unsupported target ${JSON.stringify(value)}; supported targets are ${TARGET_LIST}.` };
   }
   if (diagnostic.code === "schema/hook/event") {
     return { kind: "suggestion", message: "Use supported hook event names from `skillset lookup hooks --events --compat`." };
