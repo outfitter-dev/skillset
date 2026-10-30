@@ -1,3 +1,4 @@
+import { qualifyMcpDependencySources, type McpDependencySource } from "@skillset/core/internal/adoption-mcp-dependencies";
 import { manifestIdentityComparison, qualifyManifestIdentityRoundTrips, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
 import { buildSkillsetResultWithAuthority } from "@skillset/core/internal/build";
 import type { BuildGraph } from "@skillset/core/internal/types";
@@ -92,6 +93,7 @@ export interface AdoptImportResult {
   readonly migrationFlags?: readonly MigrationFlag[];
   readonly migrationWritePaths?: readonly string[];
   readonly frontmatterSources?: readonly FrontmatterFindingSource[];
+  readonly mcpDependencySources?: readonly McpDependencySource[];
   readonly nativeHookSources?: readonly NativeHookFindingSource[];
   readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
@@ -147,6 +149,7 @@ export interface AdoptReport {
   readonly marketplace?: AdoptedMarketplace;
   readonly migrationFlags?: readonly MigrationFlag[];
   readonly migrationError?: string;
+  readonly migrationErrorPhase?: "before-build" | "after-build";
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly rootPath: string;
@@ -407,6 +410,7 @@ async function adoptResolvedRoot(
   let migrationFlags: readonly MigrationFlag[] = imports.flatMap((result) => result.migrationFlags ?? []);
   let migrationWritePaths: readonly string[] = imports.flatMap((result) => result.migrationWritePaths ?? []);
   let migrationError: string | undefined;
+  let migrationErrorPhase: "before-build" | "after-build" = "before-build";
   try {
     transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
     const recordedPaths = new Set(migrationFlags.map((flag) => flag.source.path));
@@ -451,12 +455,22 @@ async function adoptResolvedRoot(
       builtFiles = build.writes.writtenPaths.length;
       buildWritePaths = build.writes.paths;
       if (projectionGraph !== undefined) {
+        try {
+          const recorded = await recordImportedFindings(init.rootPath, {
+            mcpDependencies: qualifyMcpDependencySources(imports.flatMap((entry) => entry.mcpDependencySources ?? []), projectionGraph, build),
+          });
+          migrationFlags = [...migrationFlags, ...recorded.flags];
+          migrationWritePaths = [...new Set([...migrationWritePaths, ...recorded.writtenPaths])];
+        } catch (error) {
+          migrationError = errorMessage(error);
+          migrationErrorPhase = "after-build";
+        }
         const comparison = manifestIdentityComparison();
         for (const [index, imported] of imports.entries()) {
           imports[index] = { ...imported, normalizations: qualifyManifestIdentityRoundTrips(imported.normalizations ?? [], imported.manifestIdentityCandidates ?? [], projectionGraph, build, comparison) };
         }
       }
-      try {
+      if (migrationError === undefined) try {
         const live = await diffSkillsetResult(init.rootPath, buildOptions);
         cutover.push(...live.diagnostics.flatMap((diagnostic) =>
           diagnostic.code === "unmanaged-output-collision" && diagnostic.outputPath !== undefined
@@ -500,7 +514,7 @@ async function adoptResolvedRoot(
     imports,
     lintIssues,
     migrationFlags,
-    ...(migrationError === undefined ? {} : { migrationError }),
+    ...(migrationError === undefined ? {} : { migrationError, migrationErrorPhase }),
     ...(marketplace === undefined ? {} : { marketplace }),
     renderResults,
     ok:
@@ -612,6 +626,7 @@ async function importCandidate(
       migrationFlags: batch.imports.flatMap((report) => report.migrationFlags ?? []),
       migrationWritePaths: batch.imports.flatMap((report) => report.migrationWritePaths ?? []),
       frontmatterSources: batch.imports.flatMap((report) => report.frontmatterSources ?? []),
+      mcpDependencySources: batch.imports.flatMap((report) => report.mcpDependencySources ?? []),
       nativeHookSources: batch.imports.flatMap((report) => report.nativeHookSources ?? []),
       ok: true,
       units,
@@ -637,6 +652,7 @@ async function importCandidate(
       migrationFlags: partialImports.flatMap((report) => report.migrationFlags ?? []),
       migrationWritePaths: partialImports.flatMap((report) => report.migrationWritePaths ?? []),
       frontmatterSources: partialImports.flatMap((report) => report.frontmatterSources ?? []),
+      mcpDependencySources: partialImports.flatMap((report) => report.mcpDependencySources ?? []),
       nativeHookSources: partialImports.flatMap((report) => report.nativeHookSources ?? []),
       ok: false,
       units: adoptedUnits(rootPath, candidate, partialImports),
@@ -809,6 +825,7 @@ export function renderAdoptReportMarkdown(
   report: AdoptReport,
   opts: { readonly rootPath: string }
 ): string {
+  const migrationBlockedBuild = report.migrationError !== undefined && report.migrationErrorPhase !== "after-build";
   const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error");
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
   const succeeded = report.imports.filter((result) => result.ok);
@@ -822,19 +839,19 @@ export function renderAdoptReportMarkdown(
 
   lines.push("## Summary", "");
   lines.push(`- root: \`${opts.rootPath}\``);
-  lines.push(`- result: ${report.ok ? "pass" : "fail"}`);
+  lines.push(`- result: ${report.ok ? (report.migrationFlags?.some((flag) => flag.severity === "error" && flag.state === "open") ? "completed; review required" : "pass") : "fail"}`);
   if (report.alreadyAdopted) {
     lines.push("- note: the repo already had a Skillset workspace marker; adoption proceeded against the existing source tree");
   }
   lines.push(
     `- imports: ${succeeded.length} succeeded, ${failed.length} failed`,
     `- plugin candidate diagnostics: ${report.surveyDiagnostics.filter((diagnostic) => diagnostic.severity === "error").length} error(s), ${report.surveyDiagnostics.filter((diagnostic) => diagnostic.severity === "warning").length} warning(s)`,
-    report.migrationError !== undefined
+    migrationBlockedBuild
       ? "- lint: not run; migration finding recording failed"
       : `- lint: ${lintErrors.length} error(s), ${lintWarnings.length} warning(s)`,
     blockedBeforeWrite
       ? "- build (isolated): not run; adoption blocked before source writes"
-      : report.migrationError !== undefined
+      : migrationBlockedBuild
       ? "- build (isolated): not run; migration finding recording failed"
       : report.buildError === undefined
       ? `- build (isolated): ${report.builtFiles} generated files`
@@ -933,13 +950,13 @@ export function renderAdoptReportMarkdown(
   if ((report.migrationFlags?.length ?? 0) > 0) {
     lines.push("## Review findings", "", "Review these findings before cutover; successful import and isolated build do not establish migration readiness. Full evidence is in `.skillset/adopt/state.json`.", "");
     for (const flag of report.migrationFlags ?? []) {
-      lines.push(`- ${inlineCode(flag.id)}: ${inlineCode(flag.code)}; ${flag.disposition}; ${inlineCode(flag.source.path)} (${flag.placement.kind}).`);
+      lines.push(`- ${inlineCode(flag.id)}: ${inlineCode(flag.code)}; ${flag.severity}; ${flag.disposition}; ${inlineCode(flag.source.path)} (${flag.placement.kind}). ${flag.message}`);
     }
     lines.push("");
   }
 
   lines.push("## Lint", "");
-  if (report.migrationError !== undefined) {
+  if (migrationBlockedBuild) {
     lines.push("Not run because migration finding recording failed.", "");
   } else if (report.lintIssues.length === 0) {
     lines.push("No lint issues.", "");
@@ -997,7 +1014,7 @@ export function renderAdoptReportMarkdown(
   lines.push("## Build (isolated)", "");
   if (blockedBeforeWrite) {
     lines.push("Not run. Adoption stopped before source writes because plugin candidate diagnostics must be resolved.", "");
-  } else if (report.migrationError !== undefined) {
+  } else if (migrationBlockedBuild) {
     lines.push("Not run because migration finding recording failed.", "");
   } else if (report.buildError === undefined) {
     lines.push(
