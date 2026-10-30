@@ -13,6 +13,7 @@ import type { JsonRecord } from "@skillset/core/internal/types";
 import { validateVersionField } from "@skillset/core/internal/versioning";
 import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 import {
+  type ImportNormalization,
   SOURCE_LICENSE_IDS,
   validateSkillFrontmatter,
   validateSourceMetadata,
@@ -197,20 +198,33 @@ export function agentPluginIdentityWarnings(
   ];
 }
 
+interface AgentPluginSkillConversion {
+  readonly code: ImportNormalization["code"];
+  readonly source: string;
+  readonly destination: string;
+  readonly file?: string;
+}
+
 export function agentPluginCanonicalSkillFrontmatter(
   frontmatter: JsonRecord
-): JsonRecord {
+): {
+  readonly frontmatter: JsonRecord;
+  readonly conversions: readonly AgentPluginSkillConversion[];
+} {
   const { "allowed-tools": allowedTools, license, ...canonical } = frontmatter;
-  return {
-    ...canonical,
-    ...(allowedTools === undefined
-      ? {}
-      : { allowed_tools: { agents: allowedTools } }),
-    ...(typeof license === "string" &&
-    SOURCE_LICENSE_IDS.includes(license as (typeof SOURCE_LICENSE_IDS)[number])
-      ? { skillset: { license } }
-      : {}),
-  };
+  let result: JsonRecord = canonical;
+  const conversions: AgentPluginSkillConversion[] = [];
+  if (allowedTools !== undefined) {
+    result = { ...result, allowed_tools: { agents: allowedTools } };
+    conversions.push({ code: "agent-plugins.allowed-tools", source: "/allowed-tools", destination: "/allowed_tools/agents" });
+  }
+  if (typeof license === "string" && SOURCE_LICENSE_IDS.includes(license as (typeof SOURCE_LICENSE_IDS)[number])) {
+    result = { ...result, skillset: { license } };
+    conversions.push({ code: "agent-plugins.license-metadata", source: "/license", destination: "/skillset/license" });
+  } else if (license === "LICENSE.txt") {
+    conversions.push({ code: "agent-plugins.license-file", source: "/license", destination: "", file: "LICENSE.txt" });
+  }
+  return { frontmatter: result, conversions };
 }
 
 async function validateAgentPluginPackageLayout(
@@ -486,7 +500,7 @@ async function validateAgentPluginSkill(
     }
   }
   const canonicalValidation = validateSkillFrontmatter(
-    agentPluginCanonicalSkillFrontmatter(frontmatter),
+    agentPluginCanonicalSkillFrontmatter(frontmatter).frontmatter,
     `Agent Plugins skill ${skillFile}`
   );
   if (!canonicalValidation.ok) {

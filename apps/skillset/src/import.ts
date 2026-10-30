@@ -1,3 +1,4 @@
+import { normalizeImportedAgentPluginPackage, agentPluginUnitObservation } from "./import-agent-plugin-units";
 import { importedListing, hasListingConflict } from "./import-plugin-listing";
 import { manifestIdentityObservations, manifestNormalizationObservations } from "./import-manifest-observations";
 import { recordMcpNormalizations } from "@skillset/core/internal/import-normalization-evidence";
@@ -80,7 +81,6 @@ import { CliUsageError } from "./cli-output";
 import type { ImportKind, ImportProvider } from "./source-arg-values";
 import { quoteShellArgument } from "./recovery-guidance";
 import {
-  agentPluginCanonicalSkillFrontmatter,
   agentPluginIdentityWarnings,
   agentPluginSourceMetadata,
   hasAgentPluginManifest,
@@ -1180,7 +1180,7 @@ async function copyImportSource(options: {
   }
 
   if (agentPluginImport !== undefined) {
-    await normalizeImportedAgentPluginPackage(targetPath, copied);
+    normalizations = await normalizeImportedAgentPluginPackage(targetPath, copied, dirname(options.configDestination));
   }
 
   if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
@@ -1196,9 +1196,10 @@ async function copyImportSource(options: {
           );
     baselineVersion = importedConfig.baselineVersion;
     warnings = importedConfig.warnings;
-    normalizations = importedConfig.normalizations;
+    normalizations = [...normalizations, ...importedConfig.normalizations];
     if (agentPluginImport !== undefined) {
       await rm(join(targetPath, "plugin.json"));
+      normalizations = [...normalizations, agentPluginUnitObservation("agent-plugins.manifest-to-source", { path: "plugin.json", pointer: "" }, { path: options.configDestination, pointer: "" })];
       const manifestIndex = copied.indexOf("plugin.json");
       if (manifestIndex >= 0) copied.splice(manifestIndex, 1);
     }
@@ -1213,36 +1214,6 @@ async function copyImportSource(options: {
     normalizations,
     warnings,
   };
-}
-
-async function normalizeImportedAgentPluginPackage(
-  targetPath: string,
-  copiedFiles: string[]
-): Promise<void> {
-  const licenseIndex = copiedFiles.indexOf("LICENSE");
-  if (licenseIndex !== -1) {
-    const canonicalLicense = join(targetPath, "LICENSE.txt");
-    if (await exists(canonicalLicense)) {
-      throw new Error(
-        "skillset: Agent Plugins package contains both LICENSE and LICENSE.txt; remove one before importing"
-      );
-    }
-    await rename(join(targetPath, "LICENSE"), canonicalLicense);
-    copiedFiles[licenseIndex] = "LICENSE.txt";
-  }
-
-  for (const file of copiedFiles) {
-    if (!/^skills\/[^/]+\/SKILL\.md$/u.test(file)) continue;
-    const skillPath = join(targetPath, file);
-    const source = await readFile(skillPath, "utf8");
-    await writeFile(
-      skillPath,
-      updateMarkdownSourceDocument(source, skillPath, (parts) => ({
-        ...parts,
-        frontmatter: agentPluginCanonicalSkillFrontmatter(parts.frontmatter),
-      }))
-    );
-  }
 }
 
 async function rewriteImportedPluginMcp(
