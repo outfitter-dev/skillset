@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const GUIDANCE_PATHS = [
-  ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-  "plugins/skillset/skills/use-skillset/SKILL.md",
+  ".skillset/plugins/skillset/skills/skillset/SKILL.md",
+  "plugins/skillset/skills/skillset/SKILL.md",
 ] as const;
 
 test("runtime activation guidance reserves proof claims for declared tests", async () => {

@@ -1,0 +1,73 @@
+{
+  "scope": "Manual trigger selection and one-off/adoption boundaries only, not holistic command or provider-runtime correctness.",
+  "claude": [
+    {
+      "case": 1,
+      "kind": "positive",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "process_result": "success",
+      "selected_skill": true,
+      "manual_trigger_verdict": "pass",
+      "rationale": "Selected the public skill for cross-provider reuse; distinguished compilation and installation."
+    },
+    {
+      "case": 2,
+      "kind": "positive",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "process_result": "success",
+      "selected_skill": true,
+      "manual_trigger_verdict": "pass",
+      "rationale": "Selected the public skill for generated drift; recommended preview and retaining wanted edits in source."
+    },
+    {
+      "case": 3,
+      "kind": "negative",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "process_result": "success",
+      "selected_skill": false,
+      "manual_trigger_verdict": "pass",
+      "rationale": "Answered model-selection question without selecting Skillset or recommending adoption."
+    },
+    {
+      "case": 4,
+      "kind": "negative",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "process_result": "success",
+      "selected_skill": false,
+      "manual_trigger_verdict": "pass",
+      "rationale": "Answered theme question without selecting Skillset or recommending adoption."
+    },
+    {
+      "case": 5,
+      "kind": "ambiguous",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "process_result": "success",
+      "selected_skill": false,
+      "manual_trigger_verdict": "pass",
+      "rationale": "Did not select Skillset; recommended disposable native/plain instructions."
+    },
+    {
+      "case": 6,
+      "kind": "ambiguous",
+      "provider": "claude",
+      "model": "claude-opus-5-5",
+      "process_result": "success",
+      "selected_skill": true,
+      "manual_trigger_verdict": "pass",
+      "rationale": "Selected the skill, attempted read-only inspection, and conditioned migration on reuse/provider needs."
+    }
+  ],
+  "codex": {
+    "state": "not_executed",
+    "reason": "Existing eval adapter marks plugin-owned Codex trials unavailable."
+  },
+  "cursor": {
+    "state": "not_executed",
+    "reason": "Neither cursor-agent nor agent is available on PATH."
+  }
+}
