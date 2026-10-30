@@ -1,5 +1,6 @@
 import { realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { OPENAI_MARKETPLACE_PATH_RULES } from "@skillset/registry";
 
 import {
   mergeRecords,
@@ -19,13 +20,6 @@ import type {
   SourcePlugin,
 } from "./types";
 import { isJsonRecord } from "./yaml";
-
-const REMOTE_INTERFACE_PATH_FIELDS = [
-  "composerIcon",
-  "logo",
-  "logoDark",
-  "screenshots",
-] as const;
 
 /**
  * Renders one closed OpenAI marketplace entry. The generated ChatGPT manifest
@@ -89,8 +83,8 @@ export function renderOpenAiMarketplacePlugin(args: {
     : Object.fromEntries(
         Object.entries(effectiveInterface).filter(
           ([field]) =>
-            !REMOTE_INTERFACE_PATH_FIELDS.includes(
-              field as (typeof REMOTE_INTERFACE_PATH_FIELDS)[number]
+            !OPENAI_MARKETPLACE_PATH_RULES.assetFields.includes(
+              field as (typeof OPENAI_MARKETPLACE_PATH_RULES.assetFields)[number]
             )
         )
       );

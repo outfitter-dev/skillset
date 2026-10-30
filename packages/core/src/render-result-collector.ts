@@ -33,6 +33,7 @@ import {
   type SkillsetRenderResultStatus,
   type SkillsetRenderResultPolicy,
 } from "./render-result";
+import { marketplaceAssetLossResults } from "./marketplace-asset-loss";
 import { scopeForPath } from "./output-scope";
 import { ruleScopeRenderResults } from "./render-rules";
 import { compareStrings } from "./path";
@@ -211,6 +212,7 @@ export function collectRenderResults(
     }
   }
   outcomes.push(...lockOutcomes);
+  outcomes.push(...marketplaceAssetLossResults(graph, rendered, options.includedPaths, mapOutputPath));
 
   for (const item of adaptivePluginHookOutcomes(
     graph,
