@@ -131,6 +131,7 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
 
 /** Test-only hooks that observe or substitute the import directory claim. */
 export interface ImportTestHooks {
+  readonly afterBaselineSeed?: () => Promise<void>;
   readonly beforeFindings?: () => Promise<void>;
   /** Fires after the import commits, before release baselines are seeded. */
   readonly beforeBaselineSeed?: () => Promise<void>;
@@ -296,6 +297,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   const stagingPath = await mkdtemp(join(targetParent, `.${basename(targetPath)}.tmp-`));
   let committed = false;
   let mergedOriginal: string | undefined;
+  let retainedReport: ImportReport | undefined;
 
   try {
     const copied = await copyImportSource({
@@ -373,6 +375,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
         ...copied.warnings,
       ],
     };
+    retainedReport = committedReport;
     let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
       await options.testHooks?.beforeBaselineSeed?.();
@@ -396,6 +399,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
         try {
           await prepareRepositoryMutationPath(options.rootPath, targetSkillPath);
           await writeFile(targetSkillPath, mergedOriginal);
+          retainedReport = undefined;
         } catch (restoreError) {
           throw new Error(
             `skillset: import baseline failed and restoring ${targetSkillPath} failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
@@ -406,6 +410,12 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       throw error;
     }
 
+    retainedReport = {
+      ...committedReport,
+      baselines: baselineReport.entries,
+      ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
+    };
+    await options.testHooks?.afterBaselineSeed?.();
     const renderResults = await importRenderResults({
       classification,
       copiedFiles,
@@ -419,6 +429,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       targetPath,
     });
 
+    retainedReport = { ...retainedReport, renderResults };
     const frontmatterSources: FrontmatterFindingSource[] = (options.kind === "skill"
       ? [{ path: SKILL_FILE, classification }]
       : pluginSkillFrontmatter).flatMap((skill) => {
@@ -455,6 +466,11 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     };
     if (findingError !== undefined) throw new ImportBatchError(findingError, [report]);
     return report;
+  } catch (error) {
+    if (retainedReport !== undefined && !(error instanceof ImportBatchError)) {
+      throw new ImportBatchError(errorMessage(error), [retainedReport]);
+    }
+    throw error;
   } finally {
     if (!committed) {
       await rm(stagingPath, { force: true, recursive: true });

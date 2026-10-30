@@ -129,3 +129,27 @@ test("canonical fallback observations identify the dialect without inventing pro
   expect(report.normalizations).toEqual([expect.objectContaining({ code: "mcp.json-serialization", dialect: "agent-plugins", fidelity: "unknown" })]);
   expect(report.normalizations?.[0]).not.toHaveProperty("providerVersion");
 });
+
+test("a later source-read failure retains committed observations and seeded baseline writes", async () => {
+  const { rm } = await import("node:fs/promises");
+  const root = await createTestFixtureRoot("skillset-mcp-post-baseline-failure-");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n");
+  const sourcePath = join(root, "original");
+  await fixture(sourcePath);
+  await Bun.write(join(sourcePath, "skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\ncontext: fork\n---\nBody.\n");
+  let failure: unknown;
+  try {
+    await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude", testHooks: {
+      afterBaselineSeed: async () => { await rm(join(root, ".skillset/plugins/demo/skills/demo/SKILL.md")); },
+    } });
+  } catch (error) { failure = error; }
+  expect(failure).toBeInstanceOf(ImportBatchError);
+  const reports = (failure as ImportBatchError).imports;
+  expect(reports).toHaveLength(1);
+  expect(reports[0]?.normalizations?.some((entry) => entry.code === "mcp.claude-http-transport")).toBe(true);
+  expect(reports[0]?.baselines.length).toBeGreaterThan(0);
+  expect(reports[0]?.baselinePath).toBeDefined();
+  expect(await Bun.file(reports[0]!.baselinePath!).exists()).toBe(true);
+  const receipt = await persistImportReceipt({ failed: true, imports: reports, kind: "plugin", provider: "claude", rootPath: root });
+  expect((await readReportBundle(receipt.id)).report).toHaveProperty("payload.normalizations", reports[0]?.normalizations);
+});
