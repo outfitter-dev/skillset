@@ -226,7 +226,8 @@ async function runLoadedSkillsetTest(
               rootPath,
               workspacePath,
               declaration,
-              options
+              options,
+              evaluation
             )
           : [];
     const proofReceipts =
