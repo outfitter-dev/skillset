@@ -1,3 +1,4 @@
+import { renderImportNormalizations } from "./import-normalization-report";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -433,6 +434,7 @@ function cloneAdoptionPayload(
   value: SkillsetAdoptionReportPayload
 ): SkillsetAdoptionReportPayload {
   return {
+    ...(value.normalizations === undefined ? {} : { normalizations: structuredClone(value.normalizations) }),
     ...(value.cutover === undefined ? {} : { cutover: { paths: [...value.cutover.paths], total: value.cutover.total } }),
     ...(value.guidancePaths === undefined ? {} : { guidancePaths: [...value.guidancePaths] }),
     alreadyAdopted: value.alreadyAdopted,
@@ -459,6 +461,7 @@ function cloneImportPayload(
   value: SkillsetImportReportPayload
 ): SkillsetImportReportPayload {
   return {
+    ...(value.normalizations === undefined ? {} : { normalizations: structuredClone(value.normalizations) }),
     destinations: [...value.destinations],
     diagnosticCodes: [...value.diagnosticCodes],
     fields: {
@@ -524,6 +527,7 @@ function renderAdoptionPayload(
   payload: SkillsetAdoptionReportPayload
 ): readonly string[] {
   return [
+    ...renderImportNormalizations(payload.normalizations ?? []),
     "",
     "## Adoption",
     "",
@@ -570,6 +574,7 @@ function renderImportPayload(
   payload: SkillsetImportReportPayload
 ): readonly string[] {
   return [
+    ...renderImportNormalizations(payload.normalizations ?? []),
     "",
     "## Import",
     "",

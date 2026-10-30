@@ -595,3 +595,31 @@ describe("skillset.report@1", () => {
     expect(validateSkillsetReport({ ...envelope, payload: { ...adoptionPayload, cutover } }).ok).toBe(false);
   }
 });
+
+describe("import normalization observations", () => {
+  const normalization = {
+    code: "mcp.claude-http-transport", dialect: "claude",
+    source: { path: ".mcp.json", pointer: "/mcpServers/demo/type" },
+    destination: { path: ".skillset/plugins/demo/.mcp.json", pointer: "/mcpServers/demo/type" },
+    occurrences: 1, fidelity: "unknown", evidence: ["Pinned adapter source"],
+    providerVersion: "2.1.269", observedAt: "2026-09-12",
+  };
+  for (const kind of ["import", "adoption"] as const) {
+    const input = { ...report, kind, result: { command: kind === "import" ? "import" : "init.adopt", exitCode: 0, ok: true }, payload: kind === "import" ? importPayload : adoptionPayload };
+    it(`${kind} accepts old receipts and complete normalization evidence`, () => {
+      expect(validateSkillsetReport(input).ok).toBe(true);
+      expect(validateSkillsetReport({ ...input, payload: { ...input.payload, normalizations: [normalization] } }).ok).toBe(true);
+    });
+    for (const patch of [
+      { code: "invented" }, { dialect: "unknown" }, { fidelity: "exact" }, { occurrences: 0 },
+      { source: { path: "/private/input.json", pointer: "" } },
+      { destination: { path: "../escape", pointer: "" } },
+      { source: { path: ".mcp.json", pointer: "/bad~pointer" } },
+      { evidence: [] }, { evidence: [false] }, { rawValue: "never retain" },
+    ]) {
+      it(`${kind} rejects malformed normalization: ${JSON.stringify(patch)}`, () => {
+        expect(validateSkillsetReport({ ...input, payload: { ...input.payload, normalizations: [{ ...normalization, ...patch }] } }).ok).toBe(false);
+      });
+    }
+  }
+});
