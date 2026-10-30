@@ -3,6 +3,7 @@ import type { Stats } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { compareStrings, isPathInside, resolveInside } from "./path";
+import { markdownLinkIsActive } from "./markdown-link-context";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
 import { isJsonRecord } from "./yaml";
 import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/registry";
@@ -365,7 +366,9 @@ export function rewriteResourceLinks(
     }
   }
 
-  return body.replaceAll(/(!?\[[^\]\n]*\]\()([^) \t\n]+)(\))/g, (match, open, target, close) => {
+  const isActive = markdownLinkIsActive(body);
+  return body.replaceAll(/(!?\[[^\]\n]*\]\()([^) \t\n]+)(\))/g, (match, open, target, close, offset: number) => {
+    if (!isActive(String(match), offset)) return String(match);
     const rewritten = rewriteResourceTarget(String(target), replacements, resourceMappings, label);
     return rewritten === undefined ? String(match) : `${open}${rewritten}${close}`;
   });
@@ -535,7 +538,9 @@ export function findUndeclaredResourceLinks(
     .map((resource) => ({ from: resource.from, source: resourceSourceRelativePath(resource.from) }));
   const found = new Map<string, string>();
 
+  const isActive = markdownLinkIsActive(body);
   for (const match of body.matchAll(RESOURCE_LINK_PATTERN)) {
+    if (!isActive(match[0], match.index)) continue;
     const rawTarget = match[1];
     if (rawTarget === undefined) continue;
     const hashIndex = rawTarget.indexOf("#");
@@ -578,7 +583,9 @@ const PLUGIN_ROOT_PATTERN = /\$\{?(?:CLAUDE_)?PLUGIN_ROOT\}?/;
  */
 export function findPluginRootScriptLinks(body: string): readonly string[] {
   const offenders = new Set<string>();
+  const isActive = markdownLinkIsActive(body);
   for (const match of body.matchAll(RESOURCE_LINK_PATTERN)) {
+    if (!isActive(match[0], match.index)) continue;
     const rawTarget = match[1];
     if (rawTarget === undefined) continue;
     const base = (rawTarget.split("#")[0] ?? rawTarget).trim();
