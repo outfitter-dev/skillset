@@ -82,6 +82,8 @@ Provider-specific material may remain explicit rather than being forced into a f
 
 If import refuses a path or adoption reports a conflict, follow [troubleshooting](../troubleshooting.md) before changing source by hand.
 
+When native plugin import synthesizes source configuration, a lone `LICENSE` is renamed to `LICENSE.txt` in the staged copy; the original stays unchanged, and `native.license-path` records the path conversion with unknown semantic fidelity. The authored notice then supplies plugin and inherited skill output. An existing `LICENSE.txt` needs no rename. Both filename spellings, nonregular notice files, or native license metadata combined with a notice fail before the plugin is claimed: the current canonical precedence would otherwise replace that text with a generated identifier notice. Provide explicit source configuration to choose the intended license behavior. Existing authored `skillset.yaml` remains authoritative, including its license precedence; import does not infer that arbitrary text and an SPDX identifier are equivalent.
+
 Importing changes repository source only. [Activation](../glossary.md#activation), installation, trust, and user-level provider configuration remain separate workflows.
 
 Adoption transform previews are recognition evidence. A recognized construct does not automatically declare a whole-document dialect or authorize translation of other text in the file. Explicit authored dialect settings remain source decisions.

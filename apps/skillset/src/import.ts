@@ -1,3 +1,4 @@
+import { normalizeNativePluginLicense } from "./import-native-license";
 import { incompatibleAgentSkillsMetadataKeys } from "@skillset/core/internal/agent-skills-metadata";
 import { captureManifestIdentityCandidates, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
 import { assessImportedFrontmatter, assessImportedHookRuntime, assessImportedNormalizations } from "@skillset/core/internal/import-capability-assessment";
@@ -1211,7 +1212,7 @@ async function copyImportSource(options: {
   if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
     const importedConfig =
       agentPluginImport === undefined
-        ? await writeImportedPluginConfig(targetPath, name, options.configDestination, options.nameSource)
+        ? await writeImportedPluginConfig(targetPath, name, options.configDestination, options.nameSource, { sourcePath: copyRoot, copiedFiles: copied })
         : await writeImportedAgentPluginConfig(
             targetPath,
             name,
@@ -1717,9 +1718,11 @@ async function writeImportedPluginConfig(
   targetPath: string,
   name: string,
   configDestination: string,
-  nameSource: ImportNormalization["dialect"] | undefined
+  nameSource: ImportNormalization["dialect"] | undefined,
+  input: { readonly sourcePath: string; readonly copiedFiles: string[] }
 ): Promise<ImportedPluginConfig> {
   const nativeManifests = await readNativePluginManifests(targetPath);
+  const licenseNormalizations = await normalizeNativePluginLicense({ ...input, stagingPath: targetPath, configDestination, manifests: nativeManifests });
   // `author` is source-owned, so it is stripped from provider overrides. A
   // value Skillset cannot read has no canonical form to lift, and another
   // provider's readable author would quietly stand in for it. Those providers
@@ -1842,6 +1845,7 @@ async function writeImportedPluginConfig(
     })
   );
   const normalizations: readonly ImportNormalization[] = [
+      ...licenseNormalizations,
       ...metadataNormalizations,
       ...importedListingResult.normalizations,
       ...[...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(

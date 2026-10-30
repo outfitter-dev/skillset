@@ -389,6 +389,7 @@
                 "properties": {
                   "code": {
                     "enum": [
+                      "native.license-path",
                       "agent-plugins.allowed-tools",
                       "agent-plugins.license-metadata",
                       "agent-plugins.license-file",
@@ -1031,6 +1032,7 @@
                 "properties": {
                   "code": {
                     "enum": [
+                      "native.license-path",
                       "agent-plugins.allowed-tools",
                       "agent-plugins.license-metadata",
                       "agent-plugins.license-file",
