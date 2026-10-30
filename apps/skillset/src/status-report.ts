@@ -6,6 +6,7 @@ import {
 import { EmptySourceGraphError } from "@skillset/core/internal/empty-source-graph";
 import { GeneratedLockReadError } from "@skillset/core/internal/generated-lock-read";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
+import { quoteShellArgument } from "./recovery-guidance";
 import { readPendingChangeEntries, type PendingChangeEntry } from "./change-entries";
 
 interface StatusNextAction {
@@ -21,6 +22,7 @@ export interface WorkspaceStatusReport extends Omit<DoctorReport, "featureCapabi
     readonly summary: string;
     readonly nextAction: StatusNextAction;
   };
+  readonly outputBlockers: readonly string[];
   readonly source: { readonly state: "observed" | "empty" | "inactive" | "unavailable" };
   readonly release: {
     readonly pendingEntries: number;
@@ -47,6 +49,7 @@ export async function inspectWorkspaceStatus(
   const { featureCapabilities: _registry, ok: _readiness, ...details } = observation.report;
   const state = !completed ? "inspection-failed"
     : details.lintIssues.some((issue) => issue.severity === "error") || release.diagnostics.length > 0 ||
+      (observation.outputBlockers?.length ?? 0) > 0 ||
       (!empty && details.outputState.state === "blocked")
       ? "blocked" : empty || inactive ? "no-active-source" : details.outputState.state;
   const summaries: Record<WorkspaceStatusReport["conclusion"]["state"], string> = {
@@ -58,19 +61,21 @@ export async function inspectWorkspaceStatus(
     "output-diverged": "Generated output diverged from its managed baseline.",
     blocked: "Workspace has blockers.",
   };
+  const rootArgument = ` --root ${quoteShellArgument(rootPath)}`;
   const nextAction: StatusNextAction = state === "no-active-source"
     ? { kind: "author", message: inactive ? "Promote a draft or author meaningful active source." : "Author or import meaningful source under .skillset/." }
     : state === "blocked" || state === "inspection-failed"
-      ? { kind: "diagnose", message: "Resolve the reported diagnostics before changing output.", command: "skillset check" }
+      ? { kind: "diagnose", message: "Resolve the reported diagnostics before changing output.", command: `skillset check${rootArgument}` }
       : state === "output-diverged"
-        ? { kind: "reconcile", message: "Preview reconciliation of the managed output changes.", command: "skillset reconcile" }
+        ? { kind: "reconcile", message: "Preview reconciliation of the managed output changes.", command: `skillset reconcile${rootArgument}` }
         : state === "current"
-          ? { kind: "check", message: "Run the workspace readiness check.", command: "skillset check" }
-          : { kind: "build", message: "Preview the generated output plan.", command: "skillset build" };
+          ? { kind: "check", message: "Run the workspace readiness check.", command: `skillset check${rootArgument}` }
+          : { kind: "build", message: "Preview the generated output plan.", command: `skillset build${rootArgument}` };
   return {
     completed,
     report: {
       ...details,
+      outputBlockers: observation.outputBlockers ?? [],
       conclusion: { state, ready: state === "current", summary: summaries[state], nextAction },
       source: { state: empty ? "empty" : observation.failure?.phase === "graph" ? "unavailable" : inactive ? "inactive" : "observed" },
       release,

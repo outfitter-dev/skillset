@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { buildSkillsetResult } from "../build";
-import { independentlyObservedOutputBaseline } from "../output-safety";
+import { independentlyObservedOutputBaseline, independentlyObserveOutputBaseline } from "../output-safety";
 
 const config = "compile:\n  targets: [codex]\n";
 async function fixture(): Promise<string> {
@@ -123,4 +123,15 @@ test("YAML alias resource limits are not malformed-source fallback", async () =>
   const root = await fixture();
   await writeFile(join(root, "skillset.yaml"), "a: &a [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\nb: &b [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a]\nc: [*b, *b, *b, *b, *b, *b, *b, *b, *b, *b]\n");
   await expect(independentlyObservedOutputBaseline(root)).rejects.toBeInstanceOf(ReferenceError);
+});
+
+
+test("complete baseline observation retains corrupt locks after a valid witness", async () => {
+  const root = await fixture();
+  await writeFile(join(root, ".agents/skills/skillset.lock"), "{");
+  const observed = await independentlyObserveOutputBaseline(root);
+  expect(observed.hasBaseline).toBe(true);
+  expect(observed.corruptLocks).toHaveLength(1);
+  expect(observed.corruptLocks[0]?.kind).toBe("invalid-json");
+  expect(observed.corruptLocks[0]?.logicalPath).toBe(".agents/skills/skillset.lock");
 });

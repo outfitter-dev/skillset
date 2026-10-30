@@ -492,6 +492,9 @@ function printStatusReport(
   writeLine(writer, `  release: ${report.release.pendingEntries} pending change entry/entries; ${report.release.ignoredEntries} ignored; release readiness not assessed`);
   const action = report.conclusion.nextAction;
   writeLine(writer, `  next: ${action.message}${action.command === undefined ? "" : ` (${action.command})`}`);
+  for (const blocker of report.outputBlockers) {
+    writeLine(writer, `  output diagnostic: ${blocker}`);
+  }
   for (const diagnostic of report.release.diagnostics) {
     writeLine(writer, `  release diagnostic: ${diagnostic.path}: ${diagnostic.message}`);
   }

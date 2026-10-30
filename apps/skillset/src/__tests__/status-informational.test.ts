@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { quoteShellArgument } from "../recovery-guidance";
 import { validateCliResult } from "@skillset/schema";
 import { buildSkillsetResult } from "@skillset/core";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
@@ -44,7 +45,7 @@ test("completed status observations exit zero with readiness in the conclusion",
     const envelope = JSON.parse(result.stdout);
     expect(validateCliResult(envelope).ok).toBe(true);
     expect(envelope.ok).toBe(true);
-    expect(envelope.data.conclusion).toMatchObject({ state, ready: state === "current", nextAction: { command } });
+    expect(envelope.data.conclusion).toMatchObject({ state, ready: state === "current", nextAction: { command: `${command} --root ${quoteShellArgument(root)}` } });
     expect(envelope.data).not.toHaveProperty("featureCapabilities");
     expect(envelope.data).not.toHaveProperty("ok");
     expect(envelope.data.release).toMatchObject({ pendingEntries: 0, ignoredEntries: 0 });
@@ -133,6 +134,7 @@ test("bare status does not attempt user-level provider or XDG reads", async () =
       import assert from "node:assert/strict";
       import { homedir } from "node:os";
       import { join } from "node:path";
+import { quoteShellArgument } from "../recovery-guidance";
       import { mock } from "bun:test";
       const fs = await import("node:fs/promises");
       const forbidden = [${JSON.stringify(sentinel)}, ...[".claude", ".codex", ".agents"].map(name => join(homedir(), name))];
@@ -201,4 +203,30 @@ test("output blockers take precedence over inactive source guidance", async () =
   const result = await run(root);
   expect(result.exitCode).toBe(0);
   expect(JSON.parse(result.stdout).data.conclusion).toMatchObject({ state: "blocked", nextAction: { kind: "diagnose" } });
+});
+
+
+test("empty source retains independently observed corrupt lock blockers", async () => {
+  const root = await fixture();
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  await rm(join(root, ".skillset/skills"), { recursive: true });
+  await writeFile(join(root, ".agents/skills/skillset.lock"), "{");
+  const result = await run(root);
+  expect(result.exitCode).toBe(0);
+  expect(JSON.parse(result.stdout).data).toMatchObject({ source: { state: "empty" }, conclusion: { state: "blocked", nextAction: { kind: "diagnose" } } });
+  expect(result.stdout).toContain("skillset.lock");
+  expect((await run(root, false)).stdout).toContain("output diagnostic:");
+});
+
+test("suggested commands preserve roots containing spaces and apostrophes", async () => {
+  const parent = await fixture(true);
+  const root = join(parent, "author's workspace");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n");
+  await Bun.write(join(root, source), "---\nname: demo\ndescription: Demo skill\n---\n\nBody.\n");
+  const result = await run(root);
+  const command = JSON.parse(result.stdout).data.conclusion.nextAction.command;
+  expect(command).toBe(`skillset build --root ${quoteShellArgument(root)}`);
+  const parsed = Bun.spawnSync(["sh", "-c", `set -- ${command}; printf '%s' "$4"`], { stdout: "pipe", stderr: "pipe" });
+  expect(parsed.exitCode).toBe(0);
+  expect(new TextDecoder().decode(parsed.stdout)).toBe(root);
 });
