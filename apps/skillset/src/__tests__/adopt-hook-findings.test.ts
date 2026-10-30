@@ -9,7 +9,7 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { persistAdoptionReceipt } from "../operation-receipt";
 
-const hookPath = ".skillset/plugins/native-hooks/hooks/hooks.json";
+const hookPath = ".skillset/plugins/native-hooks/_claude/hooks/hooks.json";
 
 test("adoption persists native hook runtime review as a sidecar without changing JSON", async () => {
   const root = await createTestFixtureRoot("skillset-adopt-hook-findings-");

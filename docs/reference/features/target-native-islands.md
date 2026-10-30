@@ -39,7 +39,7 @@ A provider-source file may carry source frontmatter for preprocessing, but it ma
 
 Target `projectRoot` configuration can replace the default project dotfolder. Skillset claims individual generated files, not the entire provider directory, and records them in the root lock.
 
-Known text and structured files are preprocessed and then parsed or schema-validated where their format has a contract. Unknown text and binary files copy byte-for-byte. No provider-source file may leak into another target.
+Known text and structured files are preprocessed and then parsed or schema-validated where their format has a contract. Unknown text and binary files copy byte-for-byte. No provider-source file may leak into another target. For plugin islands, `skillset.preprocess: false` in the plugin config makes non-Markdown files and the entire native `hooks/` directory opaque copies, preserving literal template-like syntax and original line endings. Hook companions are runtime resources even when named `.md`; their contents must not be interpreted as authored Skillset documents. Markdown outside `hooks/` keeps its document-level preprocessing controls and source-frontmatter stripping. The default remains preprocessing for authored structured files.
 
 Codex `.rules` files are command-execution policy and are accepted only from `.skillset/_codex/rules/**/*.rules`. Portable rule prose belongs in `.skillset/rules/**/*.md` and renders to [provider-specific rule destinations](rules.md); Codex plugin `.rules` are unsupported.
 
