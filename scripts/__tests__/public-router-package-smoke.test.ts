@@ -12,7 +12,7 @@ test.skipIf(process.env.SKILLSET_ROUTER_PACKAGE_SMOKE !== "1")("router's offered
     const workspace = join(root, "workspace");
     await mkdir(workspace);
     const skill = join(import.meta.dir, "../../plugins/skillset/skills/skillset");
-    const contract = await readFile(join(skill, "scripts/compatibility.env"), "utf8");
+    const contract = await readFile(join(skill, "assets/compatibility.env"), "utf8");
     const version = /^cli=(\d+\.\d+\.\d+)$/mu.exec(contract)?.[1];
     expect(version).toBeDefined();
     const guidance = await readFile(join(skill, "references/preflight-and-recovery.md"), "utf8");

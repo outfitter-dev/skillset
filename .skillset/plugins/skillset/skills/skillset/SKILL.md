@@ -3,8 +3,19 @@ skillset:
   preprocess: false
 title: Skillset
 resources:
+  scripts:
+    - plugin:scripts/preflight.sh
+    - plugin:scripts/preflight.ps1
+  assets:
+    - plugin:assets/compatibility.env
   references:
     - plugin:references/capability-design.md
+    - plugin:references/commands-and-checks.md
+    - plugin:references/import-and-rules.md
+    - plugin:references/preflight-and-recovery.md
+    - plugin:references/root-guidance-adoption.md
+    - plugin:references/source-authoring.md
+    - plugin:references/public-handoffs.md
 description: Manage reusable skills, agents, rules, hooks, and plugins across Claude, Codex, and Cursor with the Skillset compiler. Use for skillset.yaml or .skillset/ workspaces, creating or adopting reusable agent artifacts, cross-provider distribution, provider projections, generated drift, builds, checks, and repairs. Consider existing SKILL.md, AGENTS.md, CLAUDE.md, .claude/, .codex/, or .cursor/ artifacts when the task involves reuse or shared source. Not for generic provider configuration alone; direct provider-native authoring may be simpler for a disposable one-off.
 version: 0.1.0
 name: skillset
@@ -27,18 +38,11 @@ For an explicit user-scope request, pass `user` instead of `repo`; this records 
 
 ## Choose One Route
 
-When choosing what to author, use the [capability-design guide](references/capability-design.md) to select the smallest useful artifact, write a precise description, and assess provider boundaries. The same guide is shared with future specialists; it does not require creating a new skill or plugin.
+When choosing what to author, use the [capability-design guide](references/capability-design.md) to select the smallest useful artifact, write a precise description, and assess provider boundaries. The same guide is shared with the init specialist; it does not require creating a new skill or plugin.
 
-| Intent | Available route | Specialist ownership |
-| --- | --- | --- |
-| New workspace or existing unmanaged material | Review reuse/provider scope; preview `skillset init --root .`; read [import and rules](references/import-and-rules.md) or [root guidance adoption](references/root-guidance-adoption.md) only as needed. | `skillset-init` is planned, not bundled. |
-| Existing workspace health or drift | Start with `skillset status --root .`, `skillset check --root .`, or `skillset diff --root .`; read [commands and checks](references/commands-and-checks.md) for the relevant repair. | `skillset-maintain` and `skillset-help` are planned, not bundled. |
-| Author reusable source | Read [source authoring](references/source-authoring.md); edit canonical source and preview output. | Use this bundled reference until specialists ship. |
-| Static provider activation information | `skillset lookup activation mcp --compat codex` reports static evidence, not runtime proof. | Detailed claims and tests are in [commands and checks](references/commands-and-checks.md). |
-| User-scope distribution, temporary links, settings suggestions, or migration lifecycle | Inventory the requested material and establish the desired scope; verify the actual CLI help before proposing a command. | User sync, link/unlink, settings and migration routes are not qualified here; `skillset-agent-settings` is planned, not bundled. |
-| Generic provider settings or disposable one-off | Use the provider's native workflow if it meets the request. | No Skillset workspace needed. |
+Use the shared [ownership and handoff table](references/public-handoffs.md). Choose `skillset-init` for a new repository workspace or reviewed adoption/import, and `skillset-maintain` for build/check/drift/recovery in an established workspace. Transfer the repository path, source ownership, preflight observations, requested outcome, and authorized writes. If the runtime cannot invoke another bundled skill, read that skill's instructions and follow the same ownership boundary; do not claim a tool handoff occurred.
 
-Read only the reference needed for the selected route. Do not pretend a planned specialist is available. The shared [preflight and recovery](references/preflight-and-recovery.md) reference owns CLI recovery for every route.
+Missing CLI or machine installation stays with this router's [preflight and recovery](references/preflight-and-recovery.md). For authoring, read [source authoring](references/source-authoring.md); for import details, [import and rules](references/import-and-rules.md) and [root guidance adoption](references/root-guidance-adoption.md); for checks, [commands and checks](references/commands-and-checks.md). Design/config/eval/review/audit/publish/help/settings specialists are not bundled. Route to the table's available guidance and report unsupported work honestly.
 
 ## Preserve Authority
 

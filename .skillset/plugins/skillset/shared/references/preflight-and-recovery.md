@@ -1,6 +1,6 @@
 # Preflight and Recovery
 
-The helpers beside `scripts/compatibility.env` share one compatibility contract. Its `cli` value is an exact singleton range, currently `=0.30.0`, and its scope is `entry-preview`. Earlier and later releases are unqualified; malformed, prerelease, multiline, or failed version output is unknown. The helpers invoke only the discovered compiler's `--version` and optional platform identification. Runtime availability is observed without executing package managers. As with any PATH command, run the probe only when executing the discovered CLI is appropriate.
+The helpers read `assets/compatibility.env` and share one compatibility contract. Its `cli` value is an exact singleton range, currently `=0.30.0`, and its scope is `entry-preview`. Earlier and later releases are unqualified; malformed, prerelease, multiline, or failed version output is unknown. The helpers invoke only the discovered compiler's `--version` and optional platform identification. Runtime availability is observed without executing package managers. As with any PATH command, run the probe only when executing the discovered CLI is appropriate.
 
 ## Qualified Entry Operations
 
@@ -18,4 +18,4 @@ Present the choices that fit the user's request and existing authorization:
 
 The npm launcher requires Node 18 or later and an available platform binary; Bun is not required. If the required runtime, platform binary, network or registry access is unavailable, report that specific limitation and continue inspection or native work within scope. Never install silently or weaken workspace confirmation, provider trust, or shell execution policy to recover.
 
-The helper output is finite `key=value` observations, not a serialized workspace or approval. It distinguishes config and source-directory presence and reports conventional artifact cues. It does not validate configuration, recurse into files, infer user-level roots, contact a service, or write outputs. All routes reuse this reference and the same two platform helpers; future specialists should link here instead of duplicating recovery rules.
+The helper output is finite `key=value` observations, not a serialized workspace or approval. It distinguishes config and source-directory presence and reports conventional artifact cues. It does not validate configuration, recurse into files, infer user-level roots, contact a service, or write outputs. All routes reuse this reference and the same two platform helpers; specialists link here instead of duplicating recovery rules.

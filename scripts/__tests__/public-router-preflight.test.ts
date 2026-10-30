@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const SKILL = join(ROOT, ".skillset/plugins/skillset/skills/skillset");
+const SHARED = join(ROOT, ".skillset/plugins/skillset/shared");
 const roots: string[] = [];
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -43,8 +44,8 @@ async function fixture(version: string | null, exit = 0) {
   }
   return { root, bin, workspace };
 }
-async function probe(bin: string, workspace: string, scope = "repo", packaged = false) {
-  const skill = packaged ? join(ROOT, "plugins/skillset/skills/skillset") : SKILL;
+async function probe(bin: string, workspace: string, scope = "repo", packaged: string | false = false, isolated?: string) {
+  const skill = isolated ?? (packaged ? join(ROOT, "plugins/skillset/skills", packaged) : SHARED);
   const command = windows
     ? [join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"), "-NoProfile", "-NonInteractive", "-File", join(skill, "scripts/preflight.ps1"), "-Root", workspace, "-Scope", scope]
     : ["/bin/sh", join(skill, "scripts/preflight.sh"), workspace, scope];
@@ -64,6 +65,9 @@ describe("bundled dependency-free preflight", () => {
     test(entry.name, async () => {
       const { bin, workspace } = await fixture(entry.version, "exit" in entry ? entry.exit : 0);
       const result = await probe(bin, workspace);
+      for (const skill of ["skillset", "skillset-init", "skillset-maintain"]) {
+        expect(await probe(bin, workspace, "repo", skill)).toEqual(result);
+      }
       expect(result.cli).toBe(entry.expected);
       expect(result.compatibilityScope).toBe("entry-preview");
       expect(result.node).toBe("missing");
@@ -94,9 +98,9 @@ describe("bundled dependency-free preflight", () => {
   });
   test("generated package includes the same executable preflight and compatibility contract", async () => {
     const { bin, workspace } = await fixture("0.30.0");
-    expect(await probe(bin, workspace, "repo", true)).toEqual(await probe(bin, workspace));
-    for (const path of ["scripts/preflight.sh", "scripts/preflight.ps1", "scripts/compatibility.env"]) {
-      expect(await readFile(join(ROOT, "plugins/skillset/skills/skillset", path), "utf8")).toBe(await readFile(join(SKILL, path), "utf8"));
+    expect(await probe(bin, workspace, "repo", "skillset")).toEqual(await probe(bin, workspace));
+    for (const path of ["scripts/preflight.sh", "scripts/preflight.ps1", "assets/compatibility.env"]) {
+      expect(await readFile(join(ROOT, "plugins/skillset/skills/skillset", path), "utf8")).toBe(await readFile(join(SHARED, path), "utf8"));
     }
   });
 });
@@ -105,11 +109,29 @@ test("router is lean and its directly linked references are packaged", async () 
   const router = await readFile(join(SKILL, "SKILL.md"), "utf8");
   expect(router.length).toBeLessThan(6000);
   const links = [...router.matchAll(/\]\((references\/[^)]+)\)/gu)].map((match) => match[1]!);
-  expect(new Set(links).size).toBe(6);
+  expect(new Set(links).size).toBe(7);
   for (const link of new Set(links)) {
-    const source = link === "references/capability-design.md"
-      ? join(ROOT, ".skillset/plugins/skillset/shared", link)
-      : join(SKILL, link);
+    const source = join(SHARED, link);
     expect(await readFile(join(ROOT, "plugins/skillset/skills/skillset", link), "utf8")).toBe(await readFile(source, "utf8"));
   }
 });
+
+for (const name of ["skillset", "skillset-init", "skillset-maintain"]) {
+  test(`${name} works without sibling skills and closes relative reference links`, async () => {
+    const { root, bin, workspace } = await fixture("0.30.0");
+    const isolated = join(root, "only installed skill");
+    await cp(join(ROOT, "plugins/skillset/skills", name), isolated, { recursive: true });
+    expect(await probe(bin, workspace, "repo", false, isolated)).toMatchObject({ cli: "compatible", compatibilityScope: "entry-preview" });
+    for (const path of await readdir(isolated, { recursive: true })) {
+      if (!path.endsWith(".md")) continue;
+      const content = await readFile(join(isolated, path), "utf8");
+      for (const match of content.matchAll(/\]\(([^)#]+)(?:#[^)]*)?\)/gu)) {
+        const target = match[1]!;
+        if (/^[a-z]+:/u.test(target)) continue;
+        const linked = join(isolated, path, "..", target);
+        expect(await readFile(linked, "utf8")).not.toBeEmpty();
+      }
+    }
+    expect(await readdir(workspace)).toEqual([]);
+  });
+}
