@@ -51,8 +51,14 @@
     {
       "id": 9,
       "kind": "handoff",
-      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. Help plan initializing a repository Skillset workspace, then explain what the agent should do once initialization has completed and authored source is ready but no output baseline exists. Invoke appropriate skills as you proceed and carry the repository path, source ownership and write-authority limits into the next step. Do not execute setup or write files.",
-      "expected": "init-then-maintain-with-context"
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. Help plan initializing a repository Skillset workspace, then explain what the agent should do once initialization has completed and authored source is ready but no output baseline exists. Invoke appropriate skills as you proceed and carry the repository path, source ownership and write-authority limits into the next step. Do not execute setup or write files. The hypothetical repository path is /example/acme. Its chosen authored source is .skillset/RULES.md, with native-root mode disabled and no authored root AGENTS.md. Write authority is explanation only: no setup, build, file edits, installation or activation.",
+      "expected": "init-then-maintain-with-context",
+      "handoffFacts": {
+        "repository": "/example/acme",
+        "source": ".skillset/RULES.md",
+        "nativeRoot": false,
+        "authority": "explanation only; no writes, installation or activation"
+      }
     }
   ]
 }
