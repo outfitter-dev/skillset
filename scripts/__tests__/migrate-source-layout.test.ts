@@ -6,6 +6,35 @@ import { parseYamlRecord } from "../../packages/core/src/yaml";
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 describe("source layout migration", () => {
+  for (const [outputs, diagnostic] of [
+    ["    assets: { claude: custom/assets }", "skillset.outputs.assets"],
+    ["    skills: { cursor: custom/skills }", "skillset.outputs.skills.cursor"],
+    ["    plugins: { future: custom/plugins }", "skillset.outputs.plugins.future"],
+    ["    skills: { claude: 42 }", "skillset.outputs.skills.claude"],
+  ] as const) {
+    it(`rejects ${diagnostic} before moving source or rewriting config`, async () => {
+      const root = await createTestFixtureRoot("skillset-migrate-reject-");
+      const source = join(root, ".skillset", "skills", "demo", "SKILL.md");
+      const configPath = join(root, ".skillset", "config.yaml");
+      const config = `skillset:\n  outputs:\n${outputs}\n`;
+      await mkdir(join(root, ".skillset", "skills", "demo"), { recursive: true });
+      await writeFile(source, "authored bytes\r\n");
+      await writeFile(configPath, config);
+      const child = Bun.spawn({
+        cmd: ["bun", "./scripts/migrate-source-layout.ts", root],
+        cwd: join(import.meta.dir, "..", ".."),
+        stderr: "pipe", stdout: "pipe",
+      });
+      const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+      expect(code).toBe(1);
+      expect(stderr).toContain(diagnostic);
+      expect(await readFile(configPath, "utf8")).toBe(config);
+      expect(await readFile(source, "utf8")).toBe("authored bytes\r\n");
+      expect(await Bun.file(join(root, ".skillset", "src", "skills", "demo", "SKILL.md")).exists()).toBe(false);
+      expect(await Bun.file(join(root, ".skillset", "src", "skillset.yaml")).exists()).toBe(false);
+    });
+  }
+
   it("moves legacy output roots into workspace config instead of source manifest", async () => {
     const root = await createTestFixtureRoot("skillset-migrate-");
     await mkdir(join(root, ".skillset", "skills", "demo"), { recursive: true });
