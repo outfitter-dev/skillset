@@ -786,3 +786,10 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Deliberate support/range/dependency/source-origin rejects now use the internal input-validation type. Existing feature diagnostics retain their caught cause without reclassifying unknown causes. Path containment and remaining manifest validators remain explicit follow-up gaps; this does not complete informational status.
 - Regressions initially exposed the swallowed read failures and absent typed causes. Final focused supports suite: 30 tests, 74 assertions; fast gate including types, conformance, source coverage, and docs passes. Independent review/full immutable verification follow the commit.
 - Parent config final dec21d9b full verification: 4781 pass, 3 skip, 4 todo, 3 failures, all deferred SET-419/420 native-size limits; no receipt.
+
+### SET-467 MCP source failure boundary
+
+- Audited source parser rejects use InputValidationError; pinned schema contract and rendered-model invariants remain plain internal failures. URL.canParse distinguishes invalid input before URL construction so unexpected constructor failures propagate.
+- Source reads are outside the SyntaxError-only JSON catch. Declared cwd, command, and argument paths convert only ENOENT to missing-source validation with the original cause; other stat and realpath failures preserve identity. Successful realpath escape remains a typed input rejection.
+- Initial regression: 31 failures and 10 existing operational passes. Final focused suite: 62 tests, 211 assertions; fast gate passes. Independent review and full immutable verification follow the commit. Existing MCP diagnostic metadata remains unchanged; this prerequisite does not complete informational status.
+- Parent hook final 803afdc1 full verification: 4790 pass, 3 skip, 4 todo, 3 failures, all SET-419/420 native-size limits; no receipt.

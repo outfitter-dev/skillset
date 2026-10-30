@@ -46,6 +46,8 @@ The typed model preserves provider credential, OAuth, and unknown-field entries 
 - Validate generated MCP JSON after provider rendering.
 - Reject divergent feature and provider-source outputs to the same generated path.
 
+Permission errors, I/O failures, and unexpected parser failures retain their original causes. They are not reported as malformed JSON or missing support files. A non-directory path component is treated as a filesystem failure.
+
 ## Provenance
 
 Locks record `kind: plugin-feature`, `feature: mcp`, origin (`conventional` or `explicit`), source pointer when present, source path, generated path, hashes, validation, and target state. `skillset list` and `skillset explain` show that feature ownership.
