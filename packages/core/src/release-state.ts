@@ -6,6 +6,7 @@ import {
 } from "./atomic-file-publication";
 import { readChangeLedger, type ChangeLedgerEvent } from "./change-ledger";
 import { readString } from "./config";
+import { InputValidationError } from "./input-validation-error";
 import { compareStrings, resolveInside } from "./path";
 import { prepareRepositoryMutationPath } from "./repository-mutation";
 import { historicalRuleSelector, sourceUnitSelector } from "./source-unit-selector";
@@ -16,6 +17,13 @@ import { workspaceChangeFile } from "./workspace-state";
 import { isJsonRecord, stringifyJson } from "./yaml";
 
 const STATE_FILE = "state.json";
+
+class CorruptReleaseStateError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "CorruptReleaseStateError";
+  }
+}
 
 export async function readReleaseState(
   rootPath: string,
@@ -31,7 +39,7 @@ export async function readReleaseState(
   try {
     cached = await readCachedReleaseState(statePath);
   } catch (error) {
-    if (Object.keys(derived.scopes).length > 0) return derived;
+    if (error instanceof CorruptReleaseStateError && Object.keys(derived.scopes).length > 0) return derived;
     throw error;
   }
   return mergeReleaseStates(
@@ -41,45 +49,51 @@ export async function readReleaseState(
 }
 
 async function readCachedReleaseState(statePath: string): Promise<{ readonly cursor: string | null | undefined; readonly state: ReleaseState }> {
+  const content = await readFile(statePath, "utf8");
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await readFile(statePath, "utf8")) as unknown;
+    parsed = JSON.parse(content) as unknown;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: release state is not valid JSON: ${message}`);
+    if (!(error instanceof SyntaxError)) throw error;
+    throw new CorruptReleaseStateError(`skillset: release state is not valid JSON: ${error.message}`, { cause: error });
   }
   if (!isJsonRecord(parsed)) {
-    throw new Error("skillset: release state must be a JSON object");
+    throw new CorruptReleaseStateError("skillset: release state must be a JSON object");
   }
   if (parsed.schemaVersion !== undefined && parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) {
-    throw new Error("skillset: release state schemaVersion must be 1 or 2");
+    throw new CorruptReleaseStateError("skillset: release state schemaVersion must be 1 or 2");
   }
   const cursor = parsed.schemaVersion === 2 ? parsed.sourceMoveCursor : undefined;
   if (parsed.schemaVersion === 2 && cursor !== null && typeof cursor !== "string") {
-    throw new Error("skillset: release state sourceMoveCursor must be a string or null");
+    throw new CorruptReleaseStateError("skillset: release state sourceMoveCursor must be a string or null");
   }
   const rawScopes = parsed.scopes;
   if (!isJsonRecord(rawScopes)) {
-    throw new Error("skillset: release state requires a scopes object");
+    throw new CorruptReleaseStateError("skillset: release state requires a scopes object");
   }
 
   const scopes: Record<string, ReleaseScopeState> = {};
   for (const [scope, value] of Object.entries(rawScopes).sort(([left], [right]) => compareStrings(left, right))) {
     if (!isJsonRecord(value)) {
-      throw new Error(`skillset: release state scope ${scope} must be an object`);
+      throw new CorruptReleaseStateError(`skillset: release state scope ${scope} must be an object`);
     }
     const version = readString(value, "version");
     if (version === undefined) {
-      throw new Error(`skillset: release state scope ${scope} requires version`);
+      throw new CorruptReleaseStateError(`skillset: release state scope ${scope} requires version`);
     }
-    validateVersionField(value, `release state scope ${scope}.version`);
+    try {
+      validateVersionField(value, `release state scope ${scope}.version`);
+    } catch (error) {
+      if (!(error instanceof InputValidationError)) throw error;
+      throw new CorruptReleaseStateError(error.message, { cause: error });
+    }
     const removed = value.removed;
     if (removed !== undefined && typeof removed !== "boolean") {
-      throw new Error(`skillset: release state scope ${scope} removed must be a boolean`);
+      throw new CorruptReleaseStateError(`skillset: release state scope ${scope} removed must be a boolean`);
     }
     const sourceHash = readString(value, "sourceHash");
     if (sourceHash !== undefined && !/^sha256:[0-9a-f]{64}$/.test(sourceHash)) {
-      throw new Error(`skillset: release state scope ${scope} sourceHash must be a sha256 digest`);
+      throw new CorruptReleaseStateError(`skillset: release state scope ${scope} sourceHash must be a sha256 digest`);
     }
     const updatedAt = readString(value, "updatedAt");
     // State cached before ADR-0039 keys rules by the retired selector;
