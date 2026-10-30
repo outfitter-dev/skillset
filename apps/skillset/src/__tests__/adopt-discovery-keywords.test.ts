@@ -164,3 +164,30 @@ test("explicit canonical source remains authoritative during direct import", asy
   expect(await readFile(join(report.targetPath, "skillset.yaml"), "utf8")).toBe(explicit);
   expect(report.normalizations?.some((entry) => entry.destination.pointer === "/cursor/manifest/keywords")).toBe(false);
 });
+
+
+test.each([true, false])("mixed-provider roots decide keywords at their proven group boundary (equivalent=%s)", async (equivalent) => {
+  const root = await createTestFixtureRoot("mixed-group-keywords-");
+  for (const provider of ["claude", "codex", "cursor"]) {
+    const directory = provider === "codex" ? "plugins/standard" : "plugins/native";
+    await Bun.write(join(root, directory, `.${provider}-plugin/plugin.json`), JSON.stringify({ name: "demo", description: "Grouped.", version: "1.0.0", keywords: provider === "cursor" ? cursor : shared }));
+    const body = provider === "codex" && !equivalent ? "Different source." : "Same source.";
+    await Bun.write(join(root, directory, "skills/helper/SKILL.md"), `---\nname: helper\ndescription: Help.\n---\n\n${body}\n`);
+  }
+  const paths = ["plugins/native", "plugins/standard"];
+  const forward = await classifyPluginAdoptionCandidates(root, paths);
+  expect(await classifyPluginAdoptionCandidates(root, [...paths].reverse())).toEqual(forward);
+  const report = await adoptSkillset(root, { write: true });
+  if (equivalent) {
+    expect(forward.diagnostics).toEqual([]);
+    expect(report.ok).toBe(true);
+    const config = parseYaml(await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8"));
+    expect(config.skillset.keywords).toEqual(shared);
+    expect(config.cursor.manifest.keywords).toEqual(cursor);
+  } else {
+    expect(forward.diagnostics).toContainEqual(expect.objectContaining({ code: "plugin-metadata-conflict", paths: ["plugins/native"] }));
+    expect(forward.diagnostics).toContainEqual(expect.objectContaining({ code: "competing-plugin-sources" }));
+    expect(report.ok).toBe(false);
+    expect(report.imports).toEqual([]);
+  }
+});

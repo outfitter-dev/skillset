@@ -85,12 +85,14 @@ export async function classifyPluginAdoptionCandidates(
   for (const identity of [...byIdentity.keys()].sort(compareStrings)) {
     const matches = (byIdentity.get(identity) ?? []).sort(compareSource);
     if (matches.length === 1) {
+      diagnostics.push(...metadataDiagnosticsForSources(identity, matches));
       groups.push(groupForSources(matches, "single-source"));
       continue;
     }
 
     const evidence = equivalenceEvidence(matches);
     if (!evidence.equivalent) {
+      diagnostics.push(...matches.flatMap((source) => metadataDiagnosticsForSources(identity, [source])));
       groups.push(...matches.map((source) => groupForSources([source], "single-source")));
       const pathsForIdentity = matches.map((source) => source.path);
       const providers = providerUnion(matches);
@@ -279,17 +281,8 @@ async function inspectSource(
       )
     );
   }
-  const metadataConflicts = portablePluginMetadataConflicts(manifests);
-  if (metadataConflicts.length > 0) {
-    diagnostics.push(
-      metadataConflictDiagnostic(
-        distinctNames[0] ?? basename(sourcePath),
-        [path],
-        providers,
-        metadataConflicts
-      )
-    );
-  }
+  // Portable metadata is adjudicated after source equivalence establishes the
+  // complete logical plugin. An isolated provider root cannot supply that scope.
   const listingConflicts = nativeListingMetadataConflicts(manifests);
   if (listingConflicts.length > 0) {
     diagnostics.push(
@@ -317,6 +310,11 @@ async function inspectSource(
       providers,
     },
   };
+}
+
+function metadataDiagnosticsForSources(identity: string, sources: readonly InspectedPluginSource[]): readonly PluginAdoptionDiagnostic[] {
+  const conflicts = metadataConflictsForSources(sources);
+  return conflicts.length === 0 ? [] : [metadataConflictDiagnostic(identity, sources.map((source) => source.path), providerUnion(sources), conflicts)];
 }
 
 function metadataConflictsForSources(
