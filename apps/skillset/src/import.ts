@@ -1,4 +1,4 @@
-import { manifestIdentityObservations } from "./import-manifest-observations";
+import { manifestIdentityObservations, manifestNormalizationObservations } from "./import-manifest-observations";
 import { recordMcpNormalizations } from "@skillset/core/internal/import-normalization-evidence";
 import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -68,6 +68,7 @@ import {
 
 import {
   firstPortablePluginMetadataValue,
+  resolveNativeAuthor,
   nativeListingMetadataConflicts,
   type NativeListingMetadataConflict,
   type NativeListingMetadataField,
@@ -1756,7 +1757,8 @@ async function writeImportedPluginConfig(
       "native plugin manifest version"
     );
   }
-  const manifestAuthor = firstMetadataValue("author");
+  const resolvedAuthor = resolveNativeAuthor(nativeManifests);
+  const manifestAuthor = resolvedAuthor.value;
   const codexDeveloperName = readString(
     readRecord(nativeManifests.get("codex") ?? {}, "interface") ?? {},
     "developerName"
@@ -1836,7 +1838,8 @@ async function writeImportedPluginConfig(
   );
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
-    normalizations: [...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(
+    normalizations: [
+      ...[...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(
       provider, manifest, name, provider === nameSource,
       typeof description === "string"
         ? (provider === descriptionSource?.[0] ? "/description" : undefined)
@@ -1845,6 +1848,13 @@ async function writeImportedPluginConfig(
           : undefined,
       configDestination
     )),
+      ...resolvedAuthor.contributions.flatMap((entry) => manifestNormalizationObservations(entry.provider, [{
+        code: "manifest.author", source: entry.sourcePointer, destination: entry.destinationPointer,
+      }], configDestination)),
+      ...(manifestAuthor === undefined && codexDeveloperName !== undefined
+        ? manifestNormalizationObservations("codex", [{ code: "manifest.author", source: "/interface/developerName", destination: "/skillset/author" }], configDestination)
+        : []),
+    ],
     warnings: [
       ...(unreadableAuthors.length === 0
         ? []
@@ -1897,7 +1907,10 @@ async function writeImportedAgentPluginConfig(
       ? {}
       : { baselineVersion: inspection.version }),
     warnings: agentPluginIdentityWarnings(inspection, name),
-    normalizations: manifestIdentityObservations("agent-plugins", inspection.manifest, name, nameSource === "agent-plugins", typeof inspection.manifest.description === "string" ? "/description" : undefined, configDestination),
+    normalizations: [
+      ...manifestIdentityObservations("agent-plugins", inspection.manifest, name, nameSource === "agent-plugins", typeof inspection.manifest.description === "string" ? "/description" : undefined, configDestination),
+      ...(inspection.manifest.author === undefined ? [] : manifestNormalizationObservations("agent-plugins", [{ code: "manifest.author", source: "/author", destination: "/skillset/author" }], configDestination)),
+    ],
   };
 }
 
