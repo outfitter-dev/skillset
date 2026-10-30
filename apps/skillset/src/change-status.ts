@@ -1,3 +1,4 @@
+import { isOpaquePluginIsland } from "@skillset/core/internal/native-island-preprocess";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -401,6 +402,7 @@ async function islandUnit(
   const owner: "project" | `plugin:${string}` = island.plugin === undefined ? "project" : `plugin:${island.plugin}`;
   const id = selectorForTargetNativeIsland(island.target, owner, island.relativePath);
   const hash = createSourceHash("target-native-island");
+  if (isOpaquePluginIsland(graph, island)) hash.update("preprocess-disabled\0");
   hash.update("id\0");
   hash.update(id);
   hash.update("\0target\0");
@@ -717,7 +719,7 @@ async function islandPreprocessDependencies(
   graph: BuildGraph,
   island: BuildGraph["projectIslands"][number]
 ): Promise<readonly string[]> {
-  if (!isTextIslandFile(island.relativePath)) return [];
+  if (!isTextIslandFile(island.relativePath) || isOpaquePluginIsland(graph, island)) return [];
 
   const dependencies = new Set<string>();
   const source = await readFile(island.sourcePath, "utf8");

@@ -97,3 +97,47 @@ test("malformed hook JSON reports scoping evidence as well as parse uncertainty"
   expect(codes).toContain("import-native-hook-provider-scoped");
   expect(await readFile(join(report.targetPath, nativePath), "utf8")).toBe(original);
 });
+
+test("diagnostic selection does not make a copied dual-provider hook source Claude-owned", async () => {
+  const root = await createTestFixtureRoot("skillset-hook-shared-ownership-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude, cursor]\n");
+  for (const provider of ["claude", "cursor"]) {
+    await Bun.write(join(sourcePath, `.${provider}-plugin/plugin.json`), '{"name":"native-hooks"}');
+  }
+  const original = '{"hooks":{}}';
+  await Bun.write(join(sourcePath, "hooks/hooks.json"), original);
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
+  expect(report.nativeHookSource?.path).toBe(".skillset/plugins/native-hooks/hooks/hooks.json");
+  expect(await readFile(join(report.targetPath, "hooks/hooks.json"), "utf8")).toBe(original);
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  expect((await Bun.file(join(root, "plugins/native-hooks/.cursor-plugin/plugin.json")).json()).hooks).toBe("./.cursor-plugin/hooks.json");
+});
+
+test("imported native hook tokens remain byte-preserved instead of entering preprocessing", async () => {
+  const root = await createTestFixtureRoot("skillset-hook-literal-templates-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude, codex, cursor]\n");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"native-hooks"}');
+  const original = JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: "command", command: "echo '{{literal}} {{skillset.source_path}} {{> missing}}'" }] }] } }, null, 2).replaceAll("\n", "\r\n") + "\r\n";
+  await Bun.write(join(sourcePath, "hooks/hooks.json"), original);
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
+  expect(await readFile(join(report.targetPath, nativePath), "utf8")).toBe(original);
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  expect(await readFile(join(root, "plugins/native-hooks/hooks/hooks.json"), "utf8")).toBe(original);
+});
+
+for (const preexisting of ["preprocess-intent", "native-island"] as const) {
+  test(`import does not disable pre-existing ${preexisting}`, async () => {
+    const root = await createTestFixtureRoot("skillset-hook-existing-intent-");
+    const sourcePath = join(root, "original");
+    await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"native-hooks"}');
+    await Bun.write(join(sourcePath, "hooks/hooks.json"), '{"hooks":{}}');
+    const config = `skillset:\n  name: native-hooks\n${preexisting === "preprocess-intent" ? "  preprocess: true\n" : ""}`;
+    await Bun.write(join(sourcePath, "skillset.yaml"), config);
+    if (preexisting === "native-island") await Bun.write(join(sourcePath, "_claude/notes.txt"), "{{project.root}}\n");
+    const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
+    expect(report.nativeHookSource?.path).toBe(".skillset/plugins/native-hooks/hooks/hooks.json");
+    expect(await readFile(join(report.targetPath, "skillset.yaml"), "utf8")).toBe(config);
+  });
+}

@@ -2,6 +2,9 @@
 
 ### SET-442 Claude native hook source boundary — October 29
 
+- Hosted review at f3e6ab34 exposed two P1 gaps beyond the local rounds: assessment selection was mistaken for sole ownership, and native island preprocessing interpreted literal hook tokens during baseline seeding/rendering. Both were reproduced. The repair inspects all copied provider manifests, opts new structured native source out with existing skillset.preprocess:false, preserves authored preprocessing intent, and shares the opaque decision across rendering and inventory with provenance hash coverage. This is a justified scoped hosted-feedback repair, not a third routine review.
+- Full immutable f3e6ab34 run completed 4089 pass, 2 skip, 4 todo and only three known native-size failures across 4098 tests/369 files (301.68s). That does not prove the hosted edge cases; the repaired head requires fresh verification. The render.ts evidence pin was refreshed after inspecting the diff: invocation-policy and project/plugin agent judgments remain unchanged.
+
 - Round-one exact fe981435 review scored 4/5 with one P2: parse failure returned before scoping evidence was appended. A malformed-JSON regression reproduced the omission; scoping evidence now precedes parsing and survives either result. Related adoption proof is green and typecheck passes; final exact review and full verification follow.
 
 - A documented custom config path was explored, then rejected before commit because arbitrary scripts may read their own hooks/hooks.json. The implemented layer keeps every emitted hook directory path and byte, scopes the staged source under _claude/hooks, and makes Cursor explicitly suppress default discovery when its shared package contains only another provider's native hook source. Existing Cursor hook declarations retain precedence. Codex root output gains no hooks extension.

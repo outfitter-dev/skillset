@@ -735,7 +735,7 @@ async function importNativeHookRenderResults(args: {
       sourcePath, sourceUnit: selectorForPluginFeature(args.name, "hooks"),
       outputs: [{ kind: "imported-source", path: sourcePath }],
       diagnostics: [{ code: "import-native-hook-provider-scoped", path: sourcePath,
-        message: `Preserved the hook directory in a Claude native island; emitted config paths, command bytes and companion paths are unchanged. Evidence: ${args.nativeHookBoundary.evidence}` }],
+        message: `Preserved the hook directory in a Claude native island with structured preprocessing disabled; emitted config paths, command bytes and companion paths are unchanged. Evidence: ${args.nativeHookBoundary.evidence}` }],
     }));
   }
   let parsed: JsonValue;
