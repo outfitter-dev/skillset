@@ -154,7 +154,7 @@ test("Normalization receipt examples have runtime and generated-schema parity", 
   if (example === undefined) throw new Error("missing normalization report example");
   expect(validateSkillsetReport(example).ok).toBe(true);
   expect(validateAgainstSchema(example, reportContract.schema)).toEqual([]);
-  for (const code of ["manifest.name", "manifest.name-remap", "manifest.description"]) {
+  for (const code of ["manifest.name", "manifest.name-remap", "manifest.description", "manifest.author"]) {
     const manifest = structuredClone(example);
     const entries = (manifest.payload as Record<string, unknown>).normalizations as Record<string, unknown>[];
     entries[0] = { ...entries[0], code, source: { path: ".claude-plugin/plugin.json", pointer: "/name" }, destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/name" } };
