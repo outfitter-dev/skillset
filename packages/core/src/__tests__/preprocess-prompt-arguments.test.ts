@@ -29,7 +29,7 @@ test("portable preprocessing preserves named markers without a native support cl
   expect(await preprocessText("{{$ARGUMENTS.topic}}", base)).toBe("{{$ARGUMENTS.topic}}");
 });
 
-test("literal and disabled preprocessing bypass canonical argument lowering", async () => {
+test("literal and disabled preprocessing bypass canonical argument substitution", async () => {
   const base = { ...await context(), target: "claude" as const };
   expect(await preprocessText("{{{ $ARGUMENTS.topic }}} / $ARGUMENTS.topic / $topic", base))
     .toBe("{{$ARGUMENTS.topic}} / $ARGUMENTS.topic / $topic");
