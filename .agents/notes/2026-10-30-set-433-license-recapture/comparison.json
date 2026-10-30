@@ -1,0 +1,341 @@
+{
+  "browserbase-claude-code-plugin": {
+    "ok": true,
+    "beforeFiles": 8,
+    "afterFiles": 8,
+    "same": 8,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "1 import candidate(s): plugin:.",
+        "ok": true,
+        "stage": "init"
+      },
+      {
+        "detail": "plugin:. -> plugin browserbase (15 files)",
+        "ok": true,
+        "stage": "import"
+      },
+      {
+        "detail": "0 lint issue(s), 0 errors",
+        "ok": true,
+        "stage": "lint"
+      },
+      {
+        "detail": "wrote 14 generated files under .skillset/cache/latest/",
+        "ok": true,
+        "stage": "build"
+      },
+      {
+        "detail": "git status reports nothing outside skillset.yaml and .skillset/",
+        "ok": true,
+        "stage": "purity"
+      },
+      {
+        "detail": "1 target projection comparison(s) completed",
+        "ok": true,
+        "stage": "compare"
+      }
+    ]
+  },
+  "claude-review-loop": {
+    "ok": true,
+    "beforeFiles": 8,
+    "afterFiles": 8,
+    "same": 8,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "1 import candidate(s): plugin:plugins/review-loop",
+        "ok": true,
+        "stage": "init"
+      },
+      {
+        "detail": "plugin:plugins/review-loop -> plugin review-loop (8 files)",
+        "ok": true,
+        "stage": "import"
+      },
+      {
+        "detail": "0 lint issue(s), 0 errors",
+        "ok": true,
+        "stage": "lint"
+      },
+      {
+        "detail": "wrote 14 generated files under .skillset/cache/latest/",
+        "ok": true,
+        "stage": "build"
+      },
+      {
+        "detail": "git status reports nothing outside skillset.yaml and .skillset/",
+        "ok": true,
+        "stage": "purity"
+      },
+      {
+        "detail": "1 target projection comparison(s) completed",
+        "ok": true,
+        "stage": "compare"
+      }
+    ]
+  },
+  "compound-engineering-plugin": {
+    "ok": false,
+    "beforeFiles": 0,
+    "afterFiles": 0,
+    "same": 0,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "2 import candidate(s): plugin:plugins/coding-tutor, plugin:plugins/compound-engineering; 2 plugin candidate diagnostic(s): plugin-metadata-conflict, plugin-metadata-conflict",
+        "ok": false,
+        "stage": "init"
+      }
+    ]
+  },
+  "cursor-browser-motion-plugin": {
+    "ok": false,
+    "beforeFiles": 8,
+    "afterFiles": 0,
+    "same": 0,
+    "added": [],
+    "removed": [
+      ".cursor-plugin/mcp.json",
+      ".cursor-plugin/plugin.json",
+      "LICENSE.txt",
+      "README.md",
+      "mcp.json",
+      "plugin.json",
+      "skills/browser-motion-proof/LICENSE.txt",
+      "skills/browser-motion-proof/SKILL.md"
+    ],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "1 import candidate(s): plugin:.",
+        "ok": true,
+        "stage": "init"
+      },
+      {
+        "detail": "plugin:.: skillset: native plugin license metadata and bundled license text (LICENSE) cannot both be mapped to canonical source without replacing the notice; provide an explicit source configuration before importing",
+        "ok": false,
+        "stage": "import"
+      },
+      {
+        "detail": "0 lint issue(s), 0 errors",
+        "ok": true,
+        "stage": "lint"
+      },
+      {
+        "detail": "wrote 2 generated files under .skillset/cache/latest/",
+        "ok": true,
+        "stage": "build"
+      },
+      {
+        "detail": "git status reports nothing outside skillset.yaml and .skillset/",
+        "ok": true,
+        "stage": "purity"
+      },
+      {
+        "detail": "0 target projection comparison(s) completed",
+        "ok": true,
+        "stage": "compare"
+      }
+    ]
+  },
+  "emilkowalski-skills": {
+    "ok": false,
+    "beforeFiles": 0,
+    "afterFiles": 0,
+    "same": 0,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "1 import candidate(s): skills:skills",
+        "ok": true,
+        "stage": "init"
+      },
+      {
+        "detail": "skills:skills -> skill animate, skill animation-vocabulary, skill apple-design, skill emil-design-eng, skill find-animation-opportunities, skill improve-animations, skill pick-ui-library, skill prototype, skill review-animations (14 files)",
+        "ok": true,
+        "stage": "import"
+      },
+      {
+        "detail": "0 lint issue(s), 0 errors",
+        "ok": true,
+        "stage": "lint"
+      },
+      {
+        "detail": "skillset: .skillset/skills/pick-ui-library/SKILL.md: unresolved imported frontmatter review (adopt-4d8c28e49b92337e5e772f56332ee0f1); a recorded resolution cannot authorize a remaining or reintroduced unattributed field.",
+        "ok": false,
+        "stage": "build"
+      },
+      {
+        "detail": "git status reports nothing outside skillset.yaml and .skillset/",
+        "ok": true,
+        "stage": "purity"
+      }
+    ]
+  },
+  "last30days-skill": {
+    "ok": false,
+    "beforeFiles": 0,
+    "afterFiles": 0,
+    "same": 0,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "1 import candidate(s): plugin:.",
+        "ok": true,
+        "stage": "init"
+      },
+      {
+        "detail": "plugin:.: skillset: native plugin license metadata and bundled license text (LICENSE) cannot both be mapped to canonical source without replacing the notice; provide an explicit source configuration before importing",
+        "ok": false,
+        "stage": "import"
+      },
+      {
+        "detail": "0 lint issue(s), 0 errors",
+        "ok": true,
+        "stage": "lint"
+      },
+      {
+        "detail": "wrote 2 generated files under .skillset/cache/latest/",
+        "ok": true,
+        "stage": "build"
+      },
+      {
+        "detail": "git status reports nothing outside skillset.yaml and .skillset/",
+        "ok": true,
+        "stage": "purity"
+      },
+      {
+        "detail": "0 target projection comparison(s) completed",
+        "ok": true,
+        "stage": "compare"
+      }
+    ]
+  },
+  "mattpocock-skills": {
+    "ok": true,
+    "beforeFiles": 64,
+    "afterFiles": 99,
+    "same": 64,
+    "added": [
+      "LICENSE.txt",
+      "skills/ask-matt/LICENSE.txt",
+      "skills/codebase-design/LICENSE.txt",
+      "skills/decision-mapping/LICENSE.txt",
+      "skills/design-an-interface/LICENSE.txt",
+      "skills/diagnosing-bugs/LICENSE.txt",
+      "skills/domain-modeling/LICENSE.txt",
+      "skills/edit-article/LICENSE.txt",
+      "skills/git-guardrails-claude-code/LICENSE.txt",
+      "skills/grill-me/LICENSE.txt",
+      "skills/grill-with-docs/LICENSE.txt",
+      "skills/grilling/LICENSE.txt",
+      "skills/handoff/LICENSE.txt",
+      "skills/implement/LICENSE.txt",
+      "skills/improve-codebase-architecture/LICENSE.txt",
+      "skills/migrate-to-shoehorn/LICENSE.txt",
+      "skills/obsidian-vault/LICENSE.txt",
+      "skills/prototype/LICENSE.txt",
+      "skills/qa/LICENSE.txt",
+      "skills/request-refactor-plan/LICENSE.txt",
+      "skills/resolving-merge-conflicts/LICENSE.txt",
+      "skills/review/LICENSE.txt",
+      "skills/scaffold-exercises/LICENSE.txt",
+      "skills/setup-matt-pocock-skills/LICENSE.txt",
+      "skills/setup-pre-commit/LICENSE.txt",
+      "skills/tdd/LICENSE.txt",
+      "skills/teach/LICENSE.txt",
+      "skills/to-issues/LICENSE.txt",
+      "skills/to-prd/LICENSE.txt",
+      "skills/triage/LICENSE.txt",
+      "skills/ubiquitous-language/LICENSE.txt",
+      "skills/writing-beats/LICENSE.txt",
+      "skills/writing-fragments/LICENSE.txt",
+      "skills/writing-great-skills/LICENSE.txt",
+      "skills/writing-shape/LICENSE.txt"
+    ],
+    "removed": [],
+    "changed": [],
+    "stages": [
+      {
+        "detail": "pinned fixture acquired",
+        "ok": true,
+        "stage": "acquire"
+      },
+      {
+        "detail": "1 import candidate(s): plugin:.",
+        "ok": true,
+        "stage": "init"
+      },
+      {
+        "detail": "plugin:. -> plugin mattpocock-skills (84 files)",
+        "ok": true,
+        "stage": "import"
+      },
+      {
+        "detail": "0 lint issue(s), 0 errors",
+        "ok": true,
+        "stage": "lint"
+      },
+      {
+        "detail": "wrote 105 generated files under .skillset/cache/latest/",
+        "ok": true,
+        "stage": "build"
+      },
+      {
+        "detail": "git status reports nothing outside skillset.yaml and .skillset/",
+        "ok": true,
+        "stage": "purity"
+      },
+      {
+        "detail": "1 target projection comparison(s) completed",
+        "ok": true,
+        "stage": "compare"
+      }
+    ],
+    "licenseAddedExactSource": true,
+    "licenseSourceSha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+  }
+}

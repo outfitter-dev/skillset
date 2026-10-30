@@ -1,0 +1,30 @@
+{
+  "browserbase-claude-code-plugin": {
+    "sha256": "7c7f4a3d70083d28681ef2f04c5b61314bbefa3556194a18d557a3ee0813edcd",
+    "matchesRetainedOriginal": true
+  },
+  "claude-review-loop": {
+    "sha256": "0255814c44a37ef7f1b5de5eb7e62ecace73445031ff3659cdb7bfdc3a9ae437",
+    "matchesRetainedOriginal": true
+  },
+  "compound-engineering-plugin": {
+    "sha256": "06c555c3183712e888fce36333a09c50ee897f9f83fd234afe77ad836b2b4941",
+    "matchesRetainedOriginal": true
+  },
+  "cursor-browser-motion-plugin": {
+    "sha256": "7b6b32652812467c142c8a8bd5bf888988a7fd6d85ff755212dcc250b8c48c7b",
+    "matchesRetainedOriginal": true
+  },
+  "emilkowalski-skills": {
+    "sha256": "c4c612bc39e0f2fc6bc4c7f251de6bcf7a539afc944c3381e8f8c13a240026ec",
+    "matchesRetainedOriginal": true
+  },
+  "last30days-skill": {
+    "sha256": "eea660a5aee8dacd7146f9cbf63f2d696ebacb258252cfb6f57d10f1525509a4",
+    "matchesRetainedOriginal": true
+  },
+  "mattpocock-skills": {
+    "sha256": "ef88adc10a6eb9f3525e35f0be9e654ecb927ad8dcfdb4b1b178b78234f3f7fb",
+    "matchesRetainedOriginal": true
+  }
+}
