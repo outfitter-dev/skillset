@@ -147,7 +147,15 @@ async function checkPackageSource(
     warnOrThrow(support, context, `${support.source} has no version`);
     return;
   }
-  if (!satisfiesRange(version, support.range)) {
+  let matches: boolean;
+  try {
+    matches = satisfiesRange(version, support.range);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnOrThrow(support, context, `${support.source} version ${JSON.stringify(version)} cannot be checked: ${reason}`);
+    return;
+  }
+  if (!matches) {
     warnOrThrow(
       support,
       context,
@@ -220,8 +228,14 @@ function tildeComparator(version: Semver): Comparator {
 }
 
 function parseVersion(value: string, label: string): Semver {
-  const normalized = value.trim().replace(/[+-].*$/, "");
-  const parts = normalized.split(".");
+  const normalized = value.trim();
+  if (normalized.split("+", 1)[0]?.includes("-")) {
+    throw new Error(`${label} version ${value}: prerelease versions are not supported in v1 supports constraints`);
+  }
+  // Build metadata does not affect precedence, but invalid suffixes must not
+  // disappear before validation. The existing one-to-three-part core remains.
+  const match = normalized.match(/^(\d+(?:\.\d+){0,2})(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/);
+  const parts = match?.[1]?.split(".") ?? [];
   if (
     normalized.length === 0 ||
     parts.length < 1 ||
