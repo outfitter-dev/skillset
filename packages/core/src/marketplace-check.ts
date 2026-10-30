@@ -298,7 +298,7 @@ async function inspectKnownSource(
 }
 
 async function assertKnownRepositoryIdentity(path: string, repo: string): Promise<void> {
-  const origin = await runGit(path, ["config", "--get", "remote.origin.url"]);
+  const origin = await runGit(path, ["config", "--local", "--get", "remote.origin.url"]);
   if (origin === undefined) throw new Error("skillset: known Skillset checkout is missing an origin remote");
   if (origin !== parseRemoteRepositoryReference(repo).fetchUrl) {
     throw new Error("skillset: known Skillset checkout origin does not match the marketplace repository");
