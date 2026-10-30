@@ -220,3 +220,19 @@ describe("project agent skill references", () => {
     ).toThrow("non-blank string without surrounding whitespace");
   });
 });
+
+
+test("Claude manifest names do not rewrite other provider or explicit native skill references", () => {
+  const tools = {
+    ...plugin("tools", [skill("review")]),
+    metadata: { manifest: { name: "portable-name" } },
+    targets: targetRecord(undefined, { claude: { manifest: { name: "native-name" } } }),
+  };
+  const reviewer = agent(["plugin.tools.skill:review"]);
+  const source = graph(reviewer, [], [tools]);
+  expect(resolveProjectAgentSkills(source, reviewer, "claude")?.[0]?.rendered).toBe("native-name:review");
+  expect(resolveProjectAgentSkills(source, reviewer, "cursor")?.[0]?.rendered).toBe("tools:review");
+  expect(resolveProjectAgentSkills(source, reviewer, "codex")?.[0]?.rendered).toBe("tools:review");
+  const native = agent([], { claude: { skills: [{ native: "tools:review" }] } });
+  expect(resolveProjectAgentSkills(source, native, "claude")?.[0]?.rendered).toBe("tools:review");
+});

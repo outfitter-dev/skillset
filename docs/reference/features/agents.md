@@ -53,6 +53,8 @@ claude:
 
 Native references preserve the authored name and order but are not validated, installed, or claimed by Skillset.
 
+Managed Claude references must also be eligible for [skill preloading](https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents). Skillset rejects a reference when the skill's effective `disable-model-invocation` is true, including native frontmatter overrides; it does not change the skill's policy or silently drop the reference. Plugin references use the effective Claude manifest name and generated skill directory ID, including portable and native manifest-name overrides. A skill's display name does not replace that directory identity. These checks cover generated configuration; plugin installation, organization policy and runtime discovery remain outside the build's authority.
+
 ## Provider Output
 
 | Source | Claude | Codex | Cursor |
