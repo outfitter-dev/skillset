@@ -73,7 +73,12 @@ describe("remote repository cache", () => {
       { env: { XDG_CACHE_HOME: "/xdg/cache" }, homeDir: "/home/matt" }
     );
 
-    expect(first).toEqual(second);
+    expect(first).not.toEqual(second);
+    expect(second).toEqual(resolveRemoteRepositoryCache(
+      "github:outfitter-dev/skillset",
+      { kind: "ref", ref: "main" },
+      { env: { XDG_CACHE_HOME: "/xdg/cache" }, homeDir: "/home/matt" }
+    ));
     expect(first.path).toStartWith("/xdg/cache/skillset/remotes/");
     expect(first.cacheKey).toMatch(/^github-outfitter-dev-skillset--[0-9a-f]{24}\/ref-main--[0-9a-f]{16}$/);
     expect(pinned.path).not.toBe(first.path);
