@@ -7,7 +7,7 @@ import {
 
 export type ProviderHookEvidenceTarget = ProviderSchemaTarget;
 
-/** Verified 2026-10-29: default hooks/hooks.json is loaded alongside explicit hook declarations. */
+/** Verified 2026-10-29: .json paths, inline event maps and mixed arrays merge with default hooks/hooks.json. */
 export const CLAUDE_PLUGIN_HOOK_CONFIG_REFERENCE = "https://code.claude.com/docs/en/plugins-reference#hooks";
 
 /** Verified 2026-10-29: an explicit hooks field replaces default hooks/hooks.json discovery. */
