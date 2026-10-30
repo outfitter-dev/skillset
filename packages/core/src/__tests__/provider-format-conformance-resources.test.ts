@@ -87,3 +87,11 @@ test("does not suppress neighboring paths or explicit non-skill roles", async ()
   const files = providerFormatConformanceFiles(build.data, [...build.renderResults, explicitRole]);
   expect(files.find((file) => file.path === resource.path)?.roles).toEqual([expect.objectContaining({ featureId: "plugin-hooks" })]);
 });
+
+test("preserves source-owned lock-named resources in direct lockless calls", () => {
+  const resource: RenderedFile = {
+    path: "references/skillset.lock", sourcePath: ".skillset/skills/demo/references/skillset.lock",
+    mode: 0o644, content: encoder.encode("An opaque resource.\n"),
+  };
+  expect(providerFormatConformanceFiles([resource])).toEqual([]);
+});

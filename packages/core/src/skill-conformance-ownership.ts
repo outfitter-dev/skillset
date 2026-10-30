@@ -11,7 +11,8 @@ export function skillConformanceAncillaryPaths(
   const primarySources = new Map<string, string>();
   const ancillary = new Set<string>();
   for (const file of rendered) {
-    if (posix.basename(normalized(file.path)) !== "skillset.lock") continue;
+    // Generated locks have no source file; direct callers may supply source-owned resources.
+    if (file.sourcePath !== undefined || posix.basename(normalized(file.path)) !== "skillset.lock") continue;
     const label = `conformance ownership ${file.path}`;
     let value: unknown;
     try { value = JSON.parse(new TextDecoder().decode(file.content)); }
