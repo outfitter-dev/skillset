@@ -6,6 +6,7 @@ import type { AdaptiveHookScope, TargetName } from "./types";
 
 export type AdaptiveHookRenderSurface = "frontmatter" | "plugin";
 
+/** Structural renderability only; the historical lossless label is not command-runtime equivalence. */
 export type AdaptiveHookIntentStatus =
   | "lossless-adaptive"
   | "provider-scoped-adaptive"

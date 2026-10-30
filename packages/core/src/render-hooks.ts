@@ -1,7 +1,7 @@
 import { getProviderHookEvidence } from "@skillset/registry";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 
 import {
   resolveAdaptiveHookAttachmentsForTarget,
@@ -22,6 +22,8 @@ import { validateHookDefinition } from "./hooks";
 import { compareStrings, isPathInside } from "./path";
 import { pluginPackageComponentFile } from "./plugin-component-paths";
 import { exists, textFile } from "./render-support";
+import { defineRenderResult } from "./render-result";
+import { selectorForPluginFeature } from "./source-unit-selector";
 import { renderValidatedJson } from "./structured-output";
 import { targetDescriptor } from "./targets";
 import type {
@@ -79,12 +81,37 @@ export async function renderAdaptivePluginHookFiles(
     target,
   });
 
+  // Status is presentation metadata: retain the useful command projection,
+  // but make Cursor's weaker presentation visible at the authored source.
+  const omittedStatusSources = target === "cursor" ? [...new Set(resolved.flatMap((item) => {
+    const source = item.attachment.status !== undefined
+      ? item.attachment.sourcePath
+      : readString(item.definition.frontmatter, "status") !== undefined
+        ? item.definition.sourcePath
+        : undefined;
+    return source === undefined ? [] : [(isAbsolute(source) ? relative(graph.rootPath, source) : source).replaceAll("\\", "/")];
+  }))].sort(compareStrings) : [];
+  const renderResults = omittedStatusSources.map((sourcePath) => defineRenderResult({
+    destination: "hooks",
+    diagnostics: [{ code: "hook-status-omitted", message: "Cursor hook output omits authored status presentation text.", path: sourcePath }],
+    featureId: "adaptive-hooks",
+    outputs: [{ kind: "adaptive-hook", path: outputPath }],
+    reason: "Cursor hook output retains the command but omits authored status presentation text.",
+    sourcePath,
+    sourceUnit: selectorForPluginFeature(plugin.id, "hooks"),
+    status: "degraded",
+    target,
+  }));
+
   return [
-    textFile(
-      outputPath,
-      renderValidatedJson(normalized, `${plugin.id} ${target} adaptive hooks`),
-      relative(graph.rootPath, plugin.configPath)
-    ),
+    {
+      ...textFile(
+        outputPath,
+        renderValidatedJson(normalized, `${plugin.id} ${target} adaptive hooks`),
+        relative(graph.rootPath, plugin.configPath)
+      ),
+      ...(renderResults.length === 0 ? {} : { renderResults }),
+    },
     ...[...scriptFiles.values()].sort((left, right) =>
       compareStrings(left.path, right.path)
     ),

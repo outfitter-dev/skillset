@@ -149,6 +149,7 @@ describe("render owner boundaries", () => {
     }).sort();
 
     expect(leafEdges).toEqual([
+      "render-hooks->render-result",
       "render-hooks->render-support",
       "render-marketplaces->render-result",
       "render-marketplaces->render-support",
