@@ -1,0 +1,19 @@
+{
+  "added": [],
+  "removed": [],
+  "changed": [
+    "browserbase-claude-code-plugin/adopted/.skillset/changes/state.json",
+    "browserbase-claude-code-plugin/raw-report.json",
+    "claude-review-loop/adopted/.skillset/changes/state.json",
+    "claude-review-loop/raw-report.json",
+    "cursor-browser-motion-plugin/adopted/.skillset/changes/state.json",
+    "cursor-browser-motion-plugin/raw-report.json",
+    "emilkowalski-skills/adopted/.skillset/changes/state.json",
+    "last30days-skill/adopted/.skillset/changes/state.json",
+    "mattpocock-skills/adopted/.skillset/changes/state.json",
+    "mattpocock-skills/raw-report.json"
+  ],
+  "identical": 626,
+  "filesA": 636,
+  "filesB": 636
+}
