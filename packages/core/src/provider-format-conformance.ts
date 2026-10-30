@@ -85,7 +85,7 @@ export function formatProviderFormatConformanceReport(
   return [
     `skillset: provider format conformance failed with ${report.issues.length} ${report.issues.length === 1 ? "issue" : "issues"}`,
     ...report.issues.map((issue) =>
-      `- ${issue.outputPath} ${issue.providerRef}: ${issue.message}`
+      `- ${issue.outputPath} ${issue.code === "unclassified-skill" ? "compiler ownership" : issue.providerRef}: ${issue.message}`
     ),
   ].join("\n");
 }
@@ -97,6 +97,9 @@ export function providerFormatConformanceFiles(
   const ancillaryPaths = skillConformanceAncillaryPaths(rendered);
   const renderedByPath = new Map(rendered.map((file) => [file.path, file]));
   const selected = new Map<string, ProviderFormatConformanceFile>();
+  const nonSkillOutputs = new Set(renderResults
+    .filter((outcome) => outcome.destination !== undefined && outcome.destination !== "skill" && !isProviderFormatConformanceOutcome(outcome))
+    .flatMap((outcome) => (outcome.outputs ?? []).map((output) => output.path)));
 
   for (const outcome of renderResults) {
     if (outcome.outputs === undefined) continue;
@@ -125,7 +128,7 @@ export function providerFormatConformanceFiles(
   }
 
   for (const file of rendered) {
-    if (selected.has(file.path) || ancillaryPaths.has(file.path)) continue;
+    if (selected.has(file.path) || ancillaryPaths.has(file.path) || (isSkillMarkdownPath(file.path) && nonSkillOutputs.has(file.path))) continue;
     if (isProviderFormatConformanceFile(file)) selected.set(file.path, file);
   }
 
@@ -169,7 +172,7 @@ function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (isCodexHookPath(file.path)) return true;
   if (isCursorHookPath(file.path)) return true;
   if (isCodexAgentsMdPath(file.path)) return true;
-  if (file.path.endsWith("/SKILL.md") && skillTarget(file.path) !== undefined) return true;
+  if (isSkillMarkdownPath(file.path)) return true;
   if (isClaudeSubagentPath(file.path)) return true;
   if (isCodexSubagentPath(file.path)) return true;
   if (isCursorAgentPath(file.path)) return true;
@@ -204,7 +207,12 @@ function checkProviderFormatConformanceFile(
   if (
     isChatGptFixedComponent(file.path) &&
     file.standardProfile !== "agent-skills"
-  ) return [];
+  ) {
+    if (isSkillMarkdownPath(file.path) && file.target === undefined && file.standardProfile === undefined) {
+      return checkSkillMarkdown(file);
+    }
+    return [];
+  }
   if (isTargetPluginManifestPath(file.path, "cursor")) {
     return checkCursorPluginManifest(file);
   }
@@ -232,7 +240,7 @@ function checkProviderFormatConformanceFile(
   if (isCursorRuleFile(file)) {
     return checkCursorRule(file);
   }
-  if (file.path.endsWith("/SKILL.md")) {
+  if (isSkillMarkdownPath(file.path)) {
     return checkSkillMarkdown(file);
   }
   return [];
@@ -714,7 +722,7 @@ function checkCursorPluginManifest(
 function checkCursorMinClientVersions(
   file: ProviderFormatConformanceFile,
   value: JsonValue | undefined,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
   prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   if (value === undefined) return [];
@@ -749,7 +757,7 @@ function checkCursorMinClientVersions(
 function checkCursorVariables(
   file: ProviderFormatConformanceFile,
   value: JsonValue | undefined,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
   prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   if (value === undefined) return [];
@@ -1008,7 +1016,17 @@ function checkCursorRule(
 function checkSkillMarkdown(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
-  const target = file.target ?? skillTarget(file.path) ?? "claude";
+  const inferredTarget = file.target ?? skillTarget(file.path);
+  if (inferredTarget === undefined && file.standardProfile === undefined) {
+    return [{
+      code: "unclassified-skill",
+      message: "cannot classify skill output; supply the skill's resolved provider or standard role",
+      outputPath: file.path,
+      ...(file.sourcePath === undefined ? {} : { sourcePath: file.sourcePath }),
+    }];
+  }
+  // Standard-only findings are attributed to the standard by issue(), never to this fallback.
+  const target = inferredTarget ?? "claude";
   const providerRef =
     target === "codex" ? "codex-skill" : target === "cursor" ? "cursor-skill" : "claude-skill-frontmatter-overlay";
   const issueRef =
@@ -1067,7 +1085,7 @@ function checkAuthorObject(
   file: ProviderFormatConformanceFile,
   author: JsonRecord,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
   prefix: string,
   allowedFields: readonly string[]
 ): readonly ProviderFormatConformanceIssue[] {
@@ -1319,6 +1337,10 @@ function isCursorRulePath(path: string): boolean {
 
 function isCursorRuleFile(file: ProviderFormatConformanceFile): boolean {
   return (file.target === "cursor" && file.destination === "rule") || isCursorRulePath(file.path);
+}
+
+function isSkillMarkdownPath(path: string): boolean {
+  return path === "SKILL.md" || path.endsWith("/SKILL.md");
 }
 
 function skillTarget(path: string): TargetName | undefined {

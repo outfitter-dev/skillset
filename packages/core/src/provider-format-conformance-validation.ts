@@ -22,10 +22,11 @@ export type ProviderFormatConformanceIssueCode =
   | "invalid-shape"
   | "invalid-field-type"
   | "missing-required-field"
-  | "unknown-destination-field";
+  | "unknown-destination-field"
+  | "unclassified-skill";
 
 interface ProviderFormatConformanceIssueBase {
-  readonly code: ProviderFormatConformanceIssueCode;
+  readonly code: Exclude<ProviderFormatConformanceIssueCode, "unclassified-skill">;
   readonly message: string;
   readonly outputPath: string;
   readonly providerRef:
@@ -37,7 +38,16 @@ interface ProviderFormatConformanceIssueBase {
 }
 
 export type ProviderFormatConformanceIssue =
-  ProviderFormatConformanceIssueBase & (
+  | {
+      readonly code: "unclassified-skill";
+      readonly message: string;
+      readonly outputPath: string;
+      readonly sourcePath?: string;
+      readonly providerRef?: never;
+      readonly standardProfile?: never;
+      readonly target?: never;
+    }
+  | ProviderFormatConformanceIssueBase & (
     | { readonly standardProfile: StandardProfileId; readonly target?: never }
     | { readonly standardProfile?: never; readonly target: TargetName }
   );
@@ -60,7 +70,7 @@ export interface ProviderFormatConformanceFile extends ProviderFormatConformance
 export function parseJsonRecord(
   file: ProviderFormatConformanceFile,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"]
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>
 ): { readonly issues: readonly ProviderFormatConformanceIssue[]; readonly ok: false } | { readonly ok: true; readonly value: JsonRecord } {
   try {
     const parsed = JSON.parse(textDecoder.decode(file.content)) as unknown;
@@ -82,7 +92,7 @@ export function parseJsonRecord(
 export function parseTomlRecord(
   file: ProviderFormatConformanceFile,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"]
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>
 ): { readonly issues: readonly ProviderFormatConformanceIssue[]; readonly ok: false } | { readonly ok: true; readonly value: JsonRecord } {
   try {
     const parsed = Bun.TOML.parse(textDecoder.decode(file.content)) as unknown;
@@ -105,7 +115,7 @@ export function checkRequiredFields(
   file: ProviderFormatConformanceFile,
   value: JsonRecord,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
   requiredFields: readonly string[],
   prefix?: string
 ): readonly ProviderFormatConformanceIssue[] {
@@ -126,7 +136,7 @@ export function checkUnknownFields(
   file: ProviderFormatConformanceFile,
   value: JsonRecord,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
   allowedFields: readonly string[],
   prefix?: string
 ): readonly ProviderFormatConformanceIssue[] {
@@ -161,7 +171,7 @@ export function checkFieldTypes(
   file: ProviderFormatConformanceFile,
   value: JsonRecord,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
   fields: Readonly<Record<string, FieldType>>,
   prefix?: string
 ): readonly ProviderFormatConformanceIssue[] {
@@ -226,8 +236,8 @@ function isJsonSchemaSummary(value: unknown): value is ProviderJsonSchemaSummary
 export function issue(
   file: ProviderFormatConformanceFile,
   target: TargetName,
-  providerRef: ProviderFormatConformanceIssue["providerRef"],
-  code: ProviderFormatConformanceIssueCode,
+  providerRef: NonNullable<ProviderFormatConformanceIssue["providerRef"]>,
+  code: Exclude<ProviderFormatConformanceIssueCode, "unclassified-skill">,
   message: string
 ): ProviderFormatConformanceIssue {
   const overlay = providerSchemaManualOverlays.find((item) => item.id === providerRef);

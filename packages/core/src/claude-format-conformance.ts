@@ -155,7 +155,7 @@ function checkClaudeMarketplacePlugin(
   prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   const issues: ProviderFormatConformanceIssue[] = [];
-  const report = (code: ProviderFormatConformanceIssueCode, message: string): void => {
+  const report = (code: Exclude<ProviderFormatConformanceIssueCode, "unclassified-skill">, message: string): void => {
     issues.push(
       issue(file, "claude", "claude-marketplace-schema", code, message)
     );
@@ -414,7 +414,7 @@ function checkClaudeMarketplacePluginArrays(
   prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   const issues: ProviderFormatConformanceIssue[] = [];
-  const report = (code: ProviderFormatConformanceIssueCode, message: string): void => {
+  const report = (code: Exclude<ProviderFormatConformanceIssueCode, "unclassified-skill">, message: string): void => {
     issues.push(issue(file, "claude", "claude-marketplace-schema", code, message));
   };
   const checkItems = (

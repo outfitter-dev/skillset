@@ -1496,7 +1496,8 @@ skillset:
       ].join("\n")),
     ]);
 
-    expect(report).toEqual({ checkedFiles: 1, issues: [], ok: true });
+    expect(report).toMatchObject({ checkedFiles: 1, issues: [{ code: "unclassified-skill" }], ok: false });
+    expect(report.issues[0]).not.toHaveProperty("target");
   });
 
   it("uses render-result metadata for shared plugin and fixed skill roots", async () => {
