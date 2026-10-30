@@ -6,15 +6,20 @@ description: Traces canonical Skillset source through validation and target rend
 
 A Skillset [workspace](../glossary.md#workspace) has two authored inputs: `skillset.yaml` selects workspace behavior, and `.skillset/` contains the [canonical source](../glossary.md#canonical-source). Everything Skillset writes is derived from those inputs and explicit operational state.
 
-```text
-skillset.yaml + .skillset/
-        ↓ resolve and validate
-source graph + target support
-        ↓ render per target
-destination plan
-        ↓ explicit confirmation
-provider-native files + skillset.lock provenance
+Adopted standards establish the portable floor. Provider renderers can preserve additional native capabilities, so the floor does not limit every provider to the same feature set.
+
+```mermaid
+flowchart TD
+    A["skillset.yaml + .skillset/"] --> B["Resolve intent and validate source"]
+    B --> C["Applicable adopted standards: portable baseline"]
+    B --> D["Selected providers: native deltas or independent files"]
+    C --> E["Destination plan: share compatible files, retain distinct formats"]
+    D --> E
+    E --> F["Confirmed build: generated files and lock provenance"]
 ```
+
+A provider consumes a baseline only where its format and behavior are compatible. The planner records that relationship; it does not assume every provider reads every standard file. See the [distribution example](../../examples/distribution/README.md) for one shared plugin package with multiple native manifests.
+
 
 ## Resolve source intent
 

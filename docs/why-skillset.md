@@ -8,6 +8,12 @@ Claude, Codex, and Cursor can all consume reusable agent guidance, but they do n
 
 Skillset gives a repository one authored source tree. It derives predictable details, validates the source contract, and renders each enabled target in that provider's native shape. Authors can share a meaning when the providers genuinely share it and keep explicit provider-native configuration when they do not.
 
+## Standards provide the portable floor
+
+Applicable adopted Agent standards give source a portable baseline. Provider renderers can add native refinements or emit independent files when the provider has a different model. Standards are the floor, not the capability ceiling: authors can retain genuine provider-specific intent, while unsupported or lossy mappings remain visible in build results.
+
+One package can therefore share portable skills while carrying supported native manifest formats and extensions. The [projection chart](start/how-rendering-works.md) shows how those outputs relate; the [multi-provider distribution example](../examples/distribution/README.md) builds a concrete shared package. Neither shared packaging nor successful compilation proves that a runtime has installed or activated it.
+
 ## What Skillset optimizes for
 
 - **A smaller happy path.** Authors describe information only they know; names, destinations, and compatible metadata are derived where possible.

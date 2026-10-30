@@ -13,7 +13,7 @@ Skillset's author journey is **Start → Adopt → Work → Ship**. Follow it in
 1. [Install Skillset](installation.md) — choose the native global, Homebrew, GitHub asset, Bun, CI, local dependency, or contributor route with exact runtime requirements.
 2. [Quickstart](quickstart.md) — initialize a repository, author one skill, and verify [generated output](../glossary.md#generated-output).
 3. [First-author walkthrough](first-author.md) — inspect and modify the executable `examples/minimal` fixture.
-4. [How rendering works](how-rendering-works.md) — understand source, [targets](../glossary.md#target), [destinations](../glossary.md#destination), locks, and [drift](../glossary.md#drift).
+4. [How rendering works](how-rendering-works.md) — follow the standards-baseline and provider-output chart, then understand source, [targets](../glossary.md#target), [destinations](../glossary.md#destination), locks, and [drift](../glossary.md#drift).
 5. [Build versus activation](build-versus-activation.md) — keep repository generation separate from runtime authority.
 
 ## Adopt
@@ -31,7 +31,7 @@ Keep source and generated output current while you edit.
 
 ## Ship
 
-Shipping is a set of explicit workflows, not a side effect of build. The Ship guides cover:
+Shipping is a set of explicit workflows, not a side effect of build. Start with the [multi-provider distribution example](../../examples/distribution/README.md) to inspect one shared plugin package. The Ship guides cover:
 
 1. [Continuous integration](../guides/continuous-integration.md) — make source, generated output, and release intent reviewable in hosted checks.
 2. [Publishing](../guides/publishing.md) — release source units and choose the correct external publication boundary.
