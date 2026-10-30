@@ -184,6 +184,9 @@
                 "properties": {
                   "code": {
                     "enum": [
+                      "manifest.name",
+                      "manifest.name-remap",
+                      "manifest.description",
                       "mcp.claude-http-transport",
                       "mcp.codex-url-transport",
                       "mcp.codex-header-field",
@@ -545,6 +548,9 @@
                 "properties": {
                   "code": {
                     "enum": [
+                      "manifest.name",
+                      "manifest.name-remap",
+                      "manifest.description",
                       "mcp.claude-http-transport",
                       "mcp.codex-url-transport",
                       "mcp.codex-header-field",

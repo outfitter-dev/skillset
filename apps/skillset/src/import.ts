@@ -1,3 +1,4 @@
+import { manifestIdentityObservations } from "./import-manifest-observations";
 import { recordMcpNormalizations } from "@skillset/core/internal/import-normalization-evidence";
 import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -306,6 +307,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       rootPath: options.rootPath,
       sourcePath,
       targetPath: stagingPath,
+      configDestination: normalizeCopiedImportPath(relative(options.rootPath, join(targetPath, "skillset.yaml"))),
       ...(agentPluginImport === undefined ? {} : { agentPluginImport }),
     });
     const declaredProviders = options.kind === "plugin" ? await declaredNativePluginTargets(stagingPath) : [];
@@ -363,7 +365,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       baselines: [], copiedFiles, files: copiedFiles.length,
       inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
       kind: options.kind, renderResults: [], name,
-      normalizations: mcpImport.normalizations,
+      normalizations: [...copied.normalizations, ...mcpImport.normalizations],
       ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
@@ -1132,11 +1134,13 @@ async function copyImportSource(options: {
   readonly rootPath: string;
   readonly sourcePath: string;
   readonly targetPath: string;
+  readonly configDestination: string;
   readonly agentPluginImport?: AgentPluginImportInspection;
 }): Promise<{
   readonly baselineVersion?: string;
   readonly files: readonly string[];
   readonly synthesizedConfig: boolean;
+  readonly normalizations: readonly ImportNormalization[];
   readonly warnings: readonly string[];
 }> {
   const { agentPluginImport, kind, name, rootPath, sourcePath, targetPath } = options;
@@ -1152,6 +1156,7 @@ async function copyImportSource(options: {
   const copied: string[] = [];
   let baselineVersion: string | undefined;
   let synthesizedConfig = false;
+  let normalizations: readonly ImportNormalization[] = [];
   let warnings: readonly string[] = [];
   const exclude =
     rootPluginImport || agentPluginImport !== undefined
@@ -1176,14 +1181,16 @@ async function copyImportSource(options: {
   if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
     const importedConfig =
       agentPluginImport === undefined
-        ? await writeImportedPluginConfig(targetPath, name)
+        ? await writeImportedPluginConfig(targetPath, name, options.configDestination)
         : await writeImportedAgentPluginConfig(
             targetPath,
             name,
-            agentPluginImport
+            agentPluginImport,
+            options.configDestination
           );
     baselineVersion = importedConfig.baselineVersion;
     warnings = importedConfig.warnings;
+    normalizations = importedConfig.normalizations;
     if (agentPluginImport !== undefined) {
       await rm(join(targetPath, "plugin.json"));
       const manifestIndex = copied.indexOf("plugin.json");
@@ -1197,6 +1204,7 @@ async function copyImportSource(options: {
     ...(baselineVersion === undefined ? {} : { baselineVersion }),
     files: copied.sort(compareStrings),
     synthesizedConfig,
+    normalizations,
     warnings,
   };
 }
@@ -1696,10 +1704,12 @@ async function importChildren(
 
 async function writeImportedPluginConfig(
   targetPath: string,
-  name: string
+  name: string,
+  configDestination: string
 ): Promise<{
   readonly baselineVersion?: string;
   readonly warnings: readonly string[];
+  readonly normalizations: readonly ImportNormalization[];
 }> {
   const nativeManifests = await readNativePluginManifests(targetPath);
   // `author` is source-owned, so it is stripped from provider overrides. A
@@ -1819,6 +1829,15 @@ async function writeImportedPluginConfig(
   );
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
+    normalizations: [...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(
+      provider, manifest, name,
+      typeof description === "string"
+        ? (typeof manifest.description === "string" ? "/description" : undefined)
+        : provider === "codex"
+          ? (readString(nativeCodexInterface ?? {}, "shortDescription") !== undefined ? "/interface/shortDescription" : readString(nativeCodexInterface ?? {}, "longDescription") !== undefined ? "/interface/longDescription" : undefined)
+          : undefined,
+      configDestination
+    )),
     warnings: [
       ...(unreadableAuthors.length === 0
         ? []
@@ -1846,10 +1865,12 @@ async function writeImportedPluginConfig(
 async function writeImportedAgentPluginConfig(
   targetPath: string,
   name: string,
-  inspection: AgentPluginImportInspection
+  inspection: AgentPluginImportInspection,
+  configDestination: string
 ): Promise<{
   readonly baselineVersion?: string;
   readonly warnings: readonly string[];
+  readonly normalizations: readonly ImportNormalization[];
 }> {
   if (inspection.version !== undefined) {
     validateVersionField(
@@ -1868,6 +1889,7 @@ async function writeImportedAgentPluginConfig(
       ? {}
       : { baselineVersion: inspection.version }),
     warnings: agentPluginIdentityWarnings(inspection, name),
+    normalizations: manifestIdentityObservations("agent-plugins", inspection.manifest, name, typeof inspection.manifest.description === "string" ? "/description" : undefined, configDestination),
   };
 }
 
