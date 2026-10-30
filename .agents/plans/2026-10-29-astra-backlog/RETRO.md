@@ -1,5 +1,12 @@
 # Execution ledger
 
+### SET-442 custom hook runtime resources — October 29
+
+- Reproduced successful import/build omitting a sibling configuration file read by a declared custom hook. Import now preserves each eligible containing resource directory under the Claude island, deduplicates overlapping moves, and keeps emitted paths. Markdown companions use the existing preprocessing opt-out, with the same predicate in rendering and source inventory.
+- Plugin-root declarations and managed component directories require explicit source configuration; collision checks happen before staging moves and destination claim. Arbitrary command dependencies outside the declared resource directories remain unproven.
+- Five regressions failed before repair; focused import/adoption/provenance proof passes 36 tests / 180 assertions. Types, fast conformance and docs pass. The provenance regression checks changed lock evidence and normal preprocessing in a similarly named neighboring directory. Independent exact-commit review and aggregate verification follow.
+- Parent PR #777 is draft at 94e5ab23, independently reviewed 5/5. Final aggregate ran 4,130 pass with only the three deferred native-size failures; no passing receipt.
+
 ### SET-442 nested skill and shared invocation boundaries — October 29
 
 - Live audit reproduced nested primary skills bypassing import policy scoping and reporting. Import now uses the compiler's primary-skill discovery, including grouping directories and effective names, while nested companion examples remain resources. Plugin field summaries now include every primary skill, and unknown provider provenance no longer fabricates a Claude-native result.

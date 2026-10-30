@@ -1,6 +1,6 @@
 import { CLAUDE_PLUGIN_HOOK_CONFIG_REFERENCE, CURSOR_PLUGIN_HOOK_DISCOVERY_REFERENCE } from "@skillset/registry";
 import { lstat, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { readRecord, targetNames } from "./config";
 import { inventoryClaudeHookDeclaration, type ImportedNativeHookSource } from "./import-native-hook-declarations";
@@ -62,8 +62,16 @@ export async function scopeImportedNativeHooks(args: {
   const sources = await inventoryClaudeHookDeclaration(args.stagingPath, declaration, args.files);
   if (sources.length === 0) return unchanged;
   const filePaths = sources.filter((source) => source.pointers === undefined).map((source) => source.path);
-  const moveHooks = filePaths.some((path) => path.startsWith("hooks/"));
-  const moves = [...(moveHooks ? ["hooks"] : []), ...filePaths.filter((path) => !moveHooks || !path.startsWith("hooks/"))];
+  const directories = [...new Set(filePaths.map((path) => path.startsWith("hooks/") ? "hooks" : posix.dirname(path)))].sort(compareStrings);
+  // A declared config establishes a runtime resource directory, not ownership of
+  // the plugin root or a compiler-managed component tree.
+  for (const directory of directories) {
+    const top = directory.split("/")[0] ?? directory;
+    if (directory === "." || ["skills", "commands", "agents", "rules", "assets", "bin"].includes(top) || top.startsWith(".") || top.startsWith("_")) {
+      throw new Error(`skillset: native hook resource directory ${directory} overlaps a managed plugin surface; provide explicit source configuration. Original files are unchanged and no destination was claimed.`);
+    }
+  }
+  const moves = directories.filter((directory) => !directories.some((parent) => parent !== directory && directory.startsWith(`${parent}/`)));
   for (const path of moves) {
     for (const target of targetNames()) {
       if (await exists(join(args.stagingPath, `_${target}`, path))) throw new Error(`skillset: native hook isolation would overwrite _${target}/${path}`);
