@@ -10,6 +10,7 @@ import type { SkillsetOutputStateBlocker } from "./output-state";
 import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
+import { assertSourceHookBindingsPreserved } from "./source-hook-bindings";
 import { pathExists, toPosix, workspaceRoot } from "./source-rename-paths";
 import { SourceRenamePlanError } from "./source-rename-types";
 import { sourceLifecyclePendingAppend } from "./source-lifecycle-ledger";
@@ -126,6 +127,9 @@ export async function planSourceMutationGeneratedEffects(
       shadowRoot,
       sourceTransactionPlan(shadowRoot, sourcePlan)
     );
+    if (sourcePlan.operations.some((operation) => operation.kind === "move")) {
+      assertSourceHookBindingsPreserved(currentGraph, await loadBuildGraph(shadowRoot), sourcePlan.operations, planError);
+    }
     const shadowBuild = await buildSkillsetResult(shadowRoot);
     if (!shadowBuild.ok) {
       throw planError(
