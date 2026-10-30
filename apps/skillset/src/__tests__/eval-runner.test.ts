@@ -24,8 +24,8 @@ import {
 test("SET-387: eval run resolves standalone and flattened grouped plugin skills before runtime probes", async () => {
   const root = await fixture({
     "skillset.yaml": "skillset:\n  name: eval-runtime\ncompile:\n  targets: [claude, codex]\n  unsupportedDestination: warn\n",
-    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo eval skill.\n---\n\nUse this skill.\n",
-    ".skillset/skills/demo/evals/evals.json": JSON.stringify({
+    ".skillset/skills/(group)/different-folder/SKILL.md": "---\nname: demo\ndescription: Demo eval skill.\n---\n\nUse this skill.\n",
+    ".skillset/skills/(group)/different-folder/evals/evals.json": JSON.stringify({
       skill_name: "demo",
       evals: [{
         expected_output: "A deliberately ungraded expectation.",
@@ -35,7 +35,7 @@ test("SET-387: eval run resolves standalone and flattened grouped plugin skills 
         prompt: "Read evals/files/brief.txt.",
       }],
     }),
-    ".skillset/skills/demo/evals/files/brief.txt": "Eval brief\n",
+    ".skillset/skills/(group)/different-folder/evals/files/brief.txt": "Eval brief\n",
     ".skillset/plugins/acme/skillset.yaml": "skillset:\n  name: acme\n  title: Acme\n  summary: Eval owner fixture.\n",
     ".skillset/plugins/acme/skills/(engineering)/acme-demo/SKILL.md": "---\nname: acme-demo\ndescription: Plugin-owned eval skill.\n---\n\nUse this skill.\n",
     ".skillset/plugins/acme/skills/(engineering)/acme-demo/evals/evals.json": JSON.stringify({
@@ -539,3 +539,23 @@ function evalStatus(state: SkillsetEvalRunStatus["state"]): SkillsetEvalRunStatu
     workspacePath: ".skillset/cache/evals/runs/prior/workspace",
   };
 }
+
+
+test("eval skips a non-emitted target even when the standard skill file exists", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: disabled-eval-output\ncompile:\n  targets: [claude]\nclaude:\n  skills: false\n",
+    ".skillset/skills/(group)/folder/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\nBody.\n",
+    ".skillset/skills/(group)/folder/evals/evals.json": JSON.stringify({ skill_name: "demo", evals: [{ id: 1, prompt: "Inspect.", expected_output: "Ungraded." }] }),
+  });
+  const marker = join(root, "unexpected-run");
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const report = await runSkillsetEvals(root, { xdg, env: {
+    ...process.env,
+    SKILLSET_TEST_CLAUDE_BIN: await executable(root, "must-not-run", '#!/bin/sh\n: > "$SKILLSET_TEST_STARTED_MARKER"\n'),
+    SKILLSET_TEST_STARTED_MARKER: marker,
+  } });
+  expect(report.trials).toHaveLength(1);
+  expect(report.trials[0]).toMatchObject({ classification: "non_lowering", failureClass: "render", command: [] });
+  expect(await Bun.file(marker).exists()).toBe(false);
+  expect(await Bun.file(cachePath(root, xdg, join(report.trials[0]!.workspacePath, ".agents/skills/demo/SKILL.md"))).exists()).toBe(true);
+});
