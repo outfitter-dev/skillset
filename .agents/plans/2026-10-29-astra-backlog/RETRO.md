@@ -637,3 +637,9 @@ Selection now retains actual graph source paths, complete skill subtrees, and gr
 Grouped standalone and subagent regressions failed before repair. Nine focused selection tests now pass (52 assertions), with actual emitted skills/subagent, exact resource bytes, whole-plugin/child boundaries, no-selection and all-skills controls. Authored config is unchanged: a configured draft reference to excluded source remains a clear build error rather than inventing dependency selection. Earlier evaluation regression set passed 29 tests/123 assertions; fast gate passed. Exact review/full immutable verification follow. No provider execution.
 
 SET-785 full immutable verification completed: 4,638 pass, three deferred SET-419/SET-420 native-size failures; no receipt. Draft #824 and Linear updated.
+
+## SET-791 shared plugin version audit — 2026-10-30
+
+Removed retired layout regexes from version identity lookup. Current package/manifest helpers identify shared Claude and Codex manifests; rendered primary-source paths map skills to canonical standalone or plugin child selectors, including grouped/name-mismatched source and allocated project-use copies. Provider skill roots come from the target registry, with explicit preservation of the documented Cursor audit exclusion. Marketplace version handling is unchanged.
+
+Two new regressions failed before repair. Focused version audit and CLI release suites pass 16 tests/123 assertions, including read-only stale output, missing/malformed manifests, collision-prefixed project copies, distinct standalone/plugin release authority and Cursor boundary controls. Target topology guard passed. Exact review/full immutable verification follow.
