@@ -77,7 +77,7 @@ test("missing manifest fields do not acquire fabricated source pointers", async 
   expect(report.normalizations).toEqual([]);
 });
 
-test("all agreeing native sources are attributed in deterministic provider order", async () => {
+test("only the selected native source supplies agreeing identity fields", async () => {
   const root = await createTestFixtureRoot("skillset-manifest-multiple-");
   const sourcePath = join(root, "original");
   for (const provider of ["cursor", "claude"]) await Bun.write(join(sourcePath, `.${provider}-plugin/plugin.json`), '{"name":"demo","description":"Description."}');
@@ -86,7 +86,7 @@ test("all agreeing native sources are attributed in deterministic provider order
   const first = await importSource({ rootPath: join(root, "first"), sourcePath, kind: "plugin" });
   const second = await importSource({ rootPath: join(root, "second"), sourcePath, kind: "plugin" });
   expect(first.normalizations).toEqual(second.normalizations);
-  expect(first.normalizations?.map((entry) => [entry.dialect, entry.code])).toEqual([["claude", "manifest.name"], ["claude", "manifest.description"], ["cursor", "manifest.name"], ["cursor", "manifest.description"]]);
+  expect(first.normalizations?.map((entry) => [entry.dialect, entry.code])).toEqual([["claude", "manifest.name"], ["claude", "manifest.description"]]);
 });
 
 test("Agent Plugins manifest observations survive removal of the copied native manifest", async () => {
@@ -117,4 +117,32 @@ test("post-claim failure retains manifest observations while pre-claim conflict 
   await Bun.write(join(sourcePath, ".cursor-plugin/plugin.json"), '{"name":"demo","description":"Conflicting."}');
   await expect(importSource({ rootPath: join(root, "conflict"), sourcePath, kind: "plugin" })).rejects.toThrow("disagree on portable metadata");
   expect(await Bun.file(join(root, "conflict/.skillset/plugins/demo/skillset.yaml")).exists()).toBe(false);
+});
+
+test("explicit matching name does not claim a manifest supplied the selected ID", async () => {
+  const root = await createTestFixtureRoot("skillset-manifest-explicit-matching-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"demo"}');
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", name: "demo" });
+  expect(report.normalizations).toEqual([]);
+});
+
+test("secondary differing names are replacements, not selected name inputs", async () => {
+  const root = await createTestFixtureRoot("skillset-manifest-secondary-name-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"demo"}');
+  await Bun.write(join(sourcePath, ".cursor-plugin/plugin.json"), '{"name":"secondary","description":"Description."}');
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin" });
+  expect(report.normalizations?.map((entry) => [entry.dialect, entry.code])).toEqual([
+    ["claude", "manifest.name"], ["cursor", "manifest.name-remap"], ["cursor", "manifest.description"],
+  ]);
+});
+
+test("directory-derived identity does not claim a later manifest supplied the ID", async () => {
+  const root = await createTestFixtureRoot("skillset-manifest-directory-name-");
+  const sourcePath = join(root, "demo");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{}');
+  await Bun.write(join(sourcePath, ".cursor-plugin/plugin.json"), '{"name":"demo"}');
+  const report = await importSource({ rootPath: root, sourcePath, kind: "plugin" });
+  expect(report.normalizations).toEqual([]);
 });

@@ -281,7 +281,8 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
           ignoreSetupScaffold: await isSamePath(sourcePath, options.rootPath),
         })
       : undefined;
-  const name = await resolveImportName(sourcePath, options, agentPluginImport);
+  const identity = await resolveImportName(sourcePath, options, agentPluginImport);
+  const { name } = identity;
   const targetPath = resolveInside(
     options.rootPath,
     join(sourceRoot, options.kind === "plugin" ? PLUGINS_DIR : SKILLS_DIR, name)
@@ -307,6 +308,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       rootPath: options.rootPath,
       sourcePath,
       targetPath: stagingPath,
+      nameSource: identity.manifestSource,
       configDestination: normalizeCopiedImportPath(relative(options.rootPath, join(targetPath, "skillset.yaml"))),
       ...(agentPluginImport === undefined ? {} : { agentPluginImport }),
     });
@@ -1085,19 +1087,19 @@ async function resolveImportName(
   sourcePath: string,
   options: ImportOptions,
   agentPluginImport: AgentPluginImportInspection | undefined
-): Promise<string> {
+): Promise<{ readonly name: string; readonly manifestSource?: ImportNormalization["dialect"] }> {
   if (options.name !== undefined) {
-    return validateSlug(options.name, "import name");
+    return { name: validateSlug(options.name, "import name") };
   }
 
   if (options.kind === "skill") {
     const skillPath = await resolveSkillFile(sourcePath);
     const parts = parseMarkdown(await readFile(skillPath, "utf8"), skillPath);
     const metadata = readSkillsetMetadata(parts.frontmatter, skillPath);
-    return validateSlug(
+    return { name: validateSlug(
       readSkillsetName(metadata, readString(parts.frontmatter, "name") ?? basename(dirname(skillPath)), skillPath),
       `skillset.name in ${skillPath}`
-    );
+    ) };
   }
 
   if (agentPluginImport !== undefined) {
@@ -1106,26 +1108,27 @@ async function resolveImportName(
         `skillset: Agent Plugins manifest name ${JSON.stringify(agentPluginImport.manifestName)} is not a Skillset plugin id; pass --name <slug> to map it explicitly`
       );
     }
-    return validateSlug(
+    return { name: validateSlug(
       agentPluginImport.manifestName,
       "Agent Plugins manifest name"
-    );
+    ), manifestSource: "agent-plugins" };
   }
 
   const rootPluginImport = options.kind === "plugin" && await isSamePath(sourcePath, options.rootPath);
   const configPath = rootPluginImport ? undefined : await resolvePluginConfig(sourcePath);
   if (configPath === undefined) {
     const nativeManifest = await readNativePluginManifest(sourcePath);
-    const nativeName = readString(nativeManifest, "name");
-    return validateSlug(
-      nativeName !== undefined && isSlug(nativeName) ? nativeName : basename(sourcePath),
-      "plugin directory"
-    );
+    const nativeName = readString(nativeManifest.manifest, "name");
+    const selectedNativeName = nativeName !== undefined && isSlug(nativeName);
+    return {
+      name: validateSlug(selectedNativeName ? nativeName : basename(sourcePath), "plugin directory"),
+      ...(selectedNativeName ? { manifestSource: nativeManifest.provider } : {}),
+    };
   }
 
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   const metadata = readSkillsetMetadata(config, configPath);
-  return validateSlug(readSkillsetName(metadata, basename(sourcePath), configPath), `skillset.name in ${configPath}`);
+  return { name: validateSlug(readSkillsetName(metadata, basename(sourcePath), configPath), `skillset.name in ${configPath}`) };
 }
 
 async function copyImportSource(options: {
@@ -1135,6 +1138,7 @@ async function copyImportSource(options: {
   readonly sourcePath: string;
   readonly targetPath: string;
   readonly configDestination: string;
+  readonly nameSource: ImportNormalization["dialect"] | undefined;
   readonly agentPluginImport?: AgentPluginImportInspection;
 }): Promise<{
   readonly baselineVersion?: string;
@@ -1181,12 +1185,13 @@ async function copyImportSource(options: {
   if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
     const importedConfig =
       agentPluginImport === undefined
-        ? await writeImportedPluginConfig(targetPath, name, options.configDestination)
+        ? await writeImportedPluginConfig(targetPath, name, options.configDestination, options.nameSource)
         : await writeImportedAgentPluginConfig(
             targetPath,
             name,
             agentPluginImport,
-            options.configDestination
+            options.configDestination,
+            options.nameSource
           );
     baselineVersion = importedConfig.baselineVersion;
     warnings = importedConfig.warnings;
@@ -1705,7 +1710,8 @@ async function importChildren(
 async function writeImportedPluginConfig(
   targetPath: string,
   name: string,
-  configDestination: string
+  configDestination: string,
+  nameSource: ImportNormalization["dialect"] | undefined
 ): Promise<{
   readonly baselineVersion?: string;
   readonly warnings: readonly string[];
@@ -1764,7 +1770,8 @@ async function writeImportedPluginConfig(
   // Lift every manifest field the generated projection round-trips. The
   // discovered version is migration input for release-state seeding, not a
   // second authority in newly synthesized source.
-  const description = firstMetadataValue("description");
+  const descriptionSource = [...nativeManifests.entries()].find(([, manifest]) => manifest.description !== undefined);
+  const description = descriptionSource?.[1].description;
   const nativeCodexInterface = readRecord(
     nativeManifests.get("codex") ?? {},
     "interface"
@@ -1830,9 +1837,9 @@ async function writeImportedPluginConfig(
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
     normalizations: [...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(
-      provider, manifest, name,
+      provider, manifest, name, provider === nameSource,
       typeof description === "string"
-        ? (typeof manifest.description === "string" ? "/description" : undefined)
+        ? (provider === descriptionSource?.[0] ? "/description" : undefined)
         : provider === "codex"
           ? (readString(nativeCodexInterface ?? {}, "shortDescription") !== undefined ? "/interface/shortDescription" : readString(nativeCodexInterface ?? {}, "longDescription") !== undefined ? "/interface/longDescription" : undefined)
           : undefined,
@@ -1866,7 +1873,8 @@ async function writeImportedAgentPluginConfig(
   targetPath: string,
   name: string,
   inspection: AgentPluginImportInspection,
-  configDestination: string
+  configDestination: string,
+  nameSource: ImportNormalization["dialect"] | undefined
 ): Promise<{
   readonly baselineVersion?: string;
   readonly warnings: readonly string[];
@@ -1889,7 +1897,7 @@ async function writeImportedAgentPluginConfig(
       ? {}
       : { baselineVersion: inspection.version }),
     warnings: agentPluginIdentityWarnings(inspection, name),
-    normalizations: manifestIdentityObservations("agent-plugins", inspection.manifest, name, typeof inspection.manifest.description === "string" ? "/description" : undefined, configDestination),
+    normalizations: manifestIdentityObservations("agent-plugins", inspection.manifest, name, nameSource === "agent-plugins", typeof inspection.manifest.description === "string" ? "/description" : undefined, configDestination),
   };
 }
 
@@ -2112,14 +2120,15 @@ function removeManifestField(record: Record<string, JsonValue>, path: readonly s
   }
 }
 
-async function readNativePluginManifest(targetPath: string): Promise<JsonRecord> {
-  const candidate = await nativePluginManifestPath(targetPath);
-  if (candidate !== undefined) {
+async function readNativePluginManifest(targetPath: string): Promise<{ readonly manifest: JsonRecord; readonly provider?: TargetName }> {
+  for (const provider of targetNames()) {
+    const candidate = join(targetPath, `.${provider}-plugin`, "plugin.json");
+    if (!(await exists(candidate))) continue;
     const parsed = JSON.parse(await readFile(candidate, "utf8")) as unknown;
-    if (isJsonRecord(parsed)) return parsed;
+    if (isJsonRecord(parsed)) return { manifest: parsed, provider };
     throw new Error(`skillset: expected native plugin manifest ${candidate} to contain a JSON object`);
   }
-  return {};
+  return { manifest: {} };
 }
 
 async function readNativePluginManifests(
