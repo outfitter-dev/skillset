@@ -32,6 +32,7 @@ import {
   allSkills,
 } from "./source-rename-paths";
 import {
+  reportUnmarkedMention,
   updateMarkdownDocument,
   updateYamlDocument,
 } from "./source-rename-rewrite";
@@ -143,6 +144,15 @@ async function planAuthoredSourceRename(
   const hookIdentityRenames = hookIdentityRenameMap(graph, fromPath, toPath);
   const warnings = new Set<string>();
   const updates = new Map<string, string>();
+
+  // Native root guidance bypasses preprocessing, so marker-like text is literal.
+  // Inspect its whole body for warnings without adding it to rewrite candidates.
+  if (graph.nativeRootRuleSource !== undefined) {
+    reportUnmarkedMention(
+      { documentPath: join(rootPath, "AGENTS.md"), fromPath, graph, warnings },
+      graph.nativeRootRuleSource.sourceContent
+    );
+  }
 
   for (const documentPath of await sourceMarkdownDocuments(graph)) {
     const source = await readFile(documentPath, "utf-8");
