@@ -1,4 +1,5 @@
 import path from "node:path";
+import { incompatibleAgentSkillsMetadataKeys } from "./agent-skills-metadata";
 
 import type { StandardProfileId } from "@skillset/registry";
 import {
@@ -428,14 +429,13 @@ function addMetadata(
   label: string
 ): AgentSkillStandardIssue | undefined {
   const metadata = standardMetadata(graph, plugin, skill);
-  for (const [key, value] of Object.entries(metadata)) {
-    if (typeof value !== "string") {
-      return issue(
-        "agent-skills-metadata-string",
-        `${label}.metadata.${key}`,
-        `Agent Skills metadata value ${key} must be a string`
-      );
-    }
+  const key = incompatibleAgentSkillsMetadataKeys(metadata)[0];
+  if (key !== undefined) {
+    return issue(
+      "agent-skills-metadata-string",
+      `${label}.metadata.${key}`,
+      `Agent Skills metadata value ${key} must be a string`
+    );
   }
   if (Object.keys(metadata).length > 0) {
     frontmatter.metadata = metadata;
