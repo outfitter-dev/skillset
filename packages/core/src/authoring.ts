@@ -612,6 +612,23 @@ export async function doctorSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<DoctorReport> {
+  return (await observeDoctorSkillset(rootPath, options)).report;
+}
+
+/** Internal evidence for command completion policy; never serialize failure. */
+export interface DoctorObservation {
+  readonly report: DoctorReport;
+  readonly failure?: {
+    readonly phase: "graph" | "output";
+    readonly error: unknown;
+  };
+}
+
+/** Retain caught failures without changing the established doctor report. */
+export async function observeDoctorSkillset(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<DoctorObservation> {
   let graph: BuildGraph;
   try {
     graph = await loadBuildGraph(rootPath, options);
@@ -622,7 +639,7 @@ export async function doctorSkillset(
       rootPath,
       options
     );
-    return {
+    const report: DoctorReport = {
       buildError: errorMessage(error),
       buildDiagnostics,
       drift: { added: [], changed: [], missing: [], removed: [] },
@@ -642,12 +659,14 @@ export async function doctorSkillset(
       ),
       warnings: [],
     };
+    return { report, failure: { phase: "graph", error } };
   }
   const lint = await inspectSkillset(graph);
 
   let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
   let buildDiagnostics: readonly SkillsetDiagnostic[] = [];
   let buildError: string | undefined;
+  let failure: DoctorObservation["failure"];
   let renderResults: readonly SkillsetRenderResult[] = [];
   const outPath =
     options.isolated === true
@@ -684,6 +703,7 @@ export async function doctorSkillset(
     outputState = diff.outputState;
     renderResults = diff.renderResults;
   } catch (error) {
+    failure = { phase: "output", error };
     buildDiagnostics = diagnosticsFromError(error);
     buildError = errorMessage(error);
     renderResults = renderResultsFromError(error);
@@ -697,7 +717,7 @@ export async function doctorSkillset(
     drift.added.length > 0 || drift.changed.length > 0 || drift.missing.length > 0 || drift.removed.length > 0;
   const notable = notableRenderResults(renderResults);
 
-  return {
+  const report: DoctorReport = {
     ...(buildError === undefined ? {} : { buildError }),
     buildDiagnostics,
     drift,
@@ -715,6 +735,7 @@ export async function doctorSkillset(
     ),
     warnings: graph.warnings,
   };
+  return { report, ...(failure === undefined ? {} : { failure }) };
 }
 
 interface LockItemMatch {
