@@ -1,3 +1,6 @@
+import { manifestIdentityComparison, qualifyManifestIdentityRoundTrips, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
+import { buildSkillsetResultWithAuthority } from "@skillset/core/internal/build";
+import type { BuildGraph } from "@skillset/core/internal/types";
 import { renderImportCapabilityAssessments } from "@skillset/core/internal/import-capability-report";
 import type { ImportNormalization, ImportCapabilityAssessment } from "@skillset/schema";
 import { renderImportNormalizations } from "@skillset/core/internal/import-normalization-report";
@@ -20,7 +23,6 @@ import type { FrontmatterFindingSource } from "@skillset/core/internal/adoption-
 import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
 import type { ReleaseBaselineEntry } from "./adoption";
 import {
-  buildSkillsetResult,
   diffSkillsetResult,
   ISOLATED_OUT_ROOT,
   SkillsetBuildBlockedError,
@@ -84,6 +86,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly manifestIdentityCandidates?: readonly ManifestIdentityCandidate[];
   readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly migrationFlags?: readonly MigrationFlag[];
@@ -436,7 +439,10 @@ async function adoptResolvedRoot(
   ];
   if (buildError === undefined && migrationError === undefined) {
     try {
-      const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
+      let projectionGraph: BuildGraph | undefined;
+      const build = await buildSkillsetResultWithAuthority(init.rootPath, { ...buildOptions, isolated: true }, {}, [], {
+        afterRender: (graph) => { projectionGraph = graph; },
+      });
       renderResults = [
         ...renderResults,
         ...build.renderResults,
@@ -444,6 +450,12 @@ async function adoptResolvedRoot(
       if (!build.ok) throw new SkillsetBuildBlockedError(build);
       builtFiles = build.writes.writtenPaths.length;
       buildWritePaths = build.writes.paths;
+      if (projectionGraph !== undefined) {
+        const comparison = manifestIdentityComparison();
+        for (const [index, imported] of imports.entries()) {
+          imports[index] = { ...imported, normalizations: qualifyManifestIdentityRoundTrips(imported.normalizations ?? [], imported.manifestIdentityCandidates ?? [], projectionGraph, build, comparison) };
+        }
+      }
       try {
         const live = await diffSkillsetResult(init.rootPath, buildOptions);
         cutover.push(...live.diagnostics.flatMap((diagnostic) =>
@@ -594,6 +606,7 @@ async function importCandidate(
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
+      manifestIdentityCandidates: batch.imports.flatMap((report) => report.manifestIdentityCandidates ?? []),
       normalizations: batch.imports.flatMap((report) => report.normalizations ?? []),
       capabilityAssessments: batch.imports.flatMap((report) => report.capabilityAssessments ?? []),
       migrationFlags: batch.imports.flatMap((report) => report.migrationFlags ?? []),
@@ -618,6 +631,7 @@ async function importCandidate(
       candidate,
       detail: errorMessage(error),
       renderResults: partialImports.flatMap((report) => report.renderResults),
+      manifestIdentityCandidates: partialImports.flatMap((report) => report.manifestIdentityCandidates ?? []),
       normalizations: partialImports.flatMap((report) => report.normalizations ?? []),
       capabilityAssessments: partialImports.flatMap((report) => report.capabilityAssessments ?? []),
       migrationFlags: partialImports.flatMap((report) => report.migrationFlags ?? []),

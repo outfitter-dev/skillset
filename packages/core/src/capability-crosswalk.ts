@@ -107,6 +107,11 @@ const definitions = [
     sourceContractIds: ["hook"], standardProfileIds: [],
   },
   {
+    id: "claude-manifest-identity", title: "Direct Claude manifest identity round trip", family: "plugins",
+    aliases: [], featureIds: ["plugin-manifests"],
+    sourceContractIds: ["plugin-config", "source-metadata"], standardProfileIds: [],
+  },
+  {
     id: "plugin-manifests", title: "Plugin identity and components", family: "plugins",
     aliases: ["plugins", "plugin.json"],
     featureIds: ["plugin-manifests"],
@@ -310,6 +315,13 @@ export function assessPinnedCapabilityJudgment(
 // semantics again; never regenerate these hashes merely to restore a verdict.
 const judgments: readonly CapabilityJudgment[] = [
   {
+    capabilityId: "claude-manifest-identity", featureId: "plugin-manifests", target: "claude", fidelity: "exact",
+    implementationPaths: ["packages/core/src/import-manifest-roundtrip.ts", "packages/core/src/render-plugin-manifest.ts", "apps/skillset/src/import.ts", "apps/skillset/src/adopt.ts", "packages/core/src/build.ts", "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", "docs/guides/importing.md"],
+    scope: "Selected direct Claude manifest name and description strings retain their identity and descriptive metadata meaning through canonical configuration and the actual same-provider manifest, only when all three values are equal and no overriding route participates.",
+    limitations: ["Excludes name remaps, defaults, whitespace changes, listing or native overrides, absent or unselected output, all other fields and providers, and runtime activation or behavior."],
+    authorityHash: "sha256:19713db35fc38ff601965fb3ad88fa98e74d9e9c3cc3bf744f48c14915046a33",
+  },
+  {
     capabilityId: "skill-invocation", featureId: "skill-invocation-policy", target: "codex", fidelity: "exact",
     implementationPaths: ["packages/core/src/render-codex-skill-sidecars.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is represented directly as policy.allow_implicit_invocation in agents/openai.yaml.",
@@ -356,6 +368,15 @@ const judgments: readonly CapabilityJudgment[] = [
 
 /** Reviewed implementation content; the crosswalk regression gate rejects drift. */
 export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
+  { path: "packages/core/src/import-manifest-roundtrip.ts", contentHash: "sha256:ef066fa15c81e4702d6479f2bf7296b8836374bdc6a18a592630cb7d8dcd762f" },
+  { path: "packages/core/src/render-plugin-manifest.ts", contentHash: "sha256:197e1fe44df8e63a34d775367c23443816533b0a728bd5a7bb32c0cdb4041be9" },
+  { path: "apps/skillset/src/import.ts", contentHash: "sha256:2ac6df1cd98260488693350ee00744048bc5ad40ce278f13dee792bdf784b906" },
+  { path: "apps/skillset/src/adopt.ts", contentHash: "sha256:3229756645b4687384d48ec38029818a64281bcde84697565b289a55cb0353bc" },
+  { path: "packages/core/src/build.ts", contentHash: "sha256:f3e2e6efdef7a5713cf96a6bbeb1ffca6260c50815deaa9a7932e30eec52d31d" },
+  { path: "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", contentHash: "sha256:e7be2ba62a564c10f5fd37ea4106b776d84de25695a0e740716bbccf55a8ea46" },
+  { path: "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", contentHash: "sha256:1b15aefb0d36f4e8352c978e30219fff4ea6ba6c094aa41e007ede6cfc9f3f6c" },
+  { path: "docs/guides/importing.md", contentHash: "sha256:1337b11beb0b6cf99ed263999bb0601f0928dee9859f3fba9adadf411b9cb9b7" },
+
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
   { path: "packages/core/src/render.ts", contentHash: "sha256:42a2e310667a8b567c33fb9ef0c6fd967e439ee073339598402c43cde8b59c68" },
