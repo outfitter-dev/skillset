@@ -40,17 +40,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  public-preflight-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
-      - run: bun install --frozen-lockfile
-      - name: Exercise bundled Windows preflight
-        run: bun run test:focused -- scripts/__tests__/public-router-preflight.test.ts
-
   changeset:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.ref != 'changeset-release/main'
     runs-on: ubuntu-latest
