@@ -134,24 +134,38 @@
       "fileModes": {
         "skillset/skills/skillset/LICENSE.txt": "0644",
         "skillset/skills/skillset/SKILL.md": "0644",
-        "skillset/skills/skillset/references/root-guidance-adoption.md": "0644"
+        "skillset/skills/skillset/references/commands-and-checks.md": "0644",
+        "skillset/skills/skillset/references/import-and-rules.md": "0644",
+        "skillset/skills/skillset/references/preflight-and-recovery.md": "0644",
+        "skillset/skills/skillset/references/root-guidance-adoption.md": "0644",
+        "skillset/skills/skillset/references/source-authoring.md": "0644",
+        "skillset/skills/skillset/scripts/compatibility.env": "0644",
+        "skillset/skills/skillset/scripts/preflight.ps1": "0644",
+        "skillset/skills/skillset/scripts/preflight.sh": "0644"
       },
       "files": [
         "skillset/skills/skillset/LICENSE.txt",
         "skillset/skills/skillset/SKILL.md",
-        "skillset/skills/skillset/references/root-guidance-adoption.md"
+        "skillset/skills/skillset/references/commands-and-checks.md",
+        "skillset/skills/skillset/references/import-and-rules.md",
+        "skillset/skills/skillset/references/preflight-and-recovery.md",
+        "skillset/skills/skillset/references/root-guidance-adoption.md",
+        "skillset/skills/skillset/references/source-authoring.md",
+        "skillset/skills/skillset/scripts/compatibility.env",
+        "skillset/skills/skillset/scripts/preflight.ps1",
+        "skillset/skills/skillset/scripts/preflight.sh"
       ],
       "kind": "plugin-skill",
       "name": "skillset",
-      "outputHash": "sha256:4cb2b72d497385b132a25d2ce742964e6c5a89626056c8efe18164f69106b0a8",
+      "outputHash": "sha256:242538c94edaad01e4d5e0d6816fb5555cb299ddecd5fe759ea7605fa6c0bccd",
       "outputPath": "skillset/skills/skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:764890679d777a1505600397bd207f20498795c2c984c3c599bf4e54476902c1",
+      "provenanceHash": "sha256:2849293b733a8bd7c6919aa90fe275a00fe9f57321019e0d72b4190f28872dda",
       "role": "standard",
-      "sourceHash": "sha256:6344cb377cb058bdb349eda0ea19a7851393957f35d35c95af60a2354d326be3",
+      "sourceHash": "sha256:5994b90cda682ee3186c90f6ef3f5327dceba586af37189da9b1b6887e21020d",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
       "version": "0.1.0"
     }
@@ -395,7 +409,35 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.sh"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -435,7 +477,35 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.sh"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -476,7 +546,35 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.sh"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -511,7 +609,35 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/scripts/preflight.sh"
         }
       ],
       "schema": "skillset-render-result@2",
