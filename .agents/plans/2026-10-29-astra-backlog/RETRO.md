@@ -663,3 +663,11 @@ SET-792 final repaired c908ee3a: independent review 5/5; immutable verification 
 ## SET-793 complete provider runtime copy exclusions — 2026-10-30
 
 Deterministic projection copies now exclude provider project roots from the canonical target registry, retaining .agents and existing non-target exclusions and using the canonical shared plugin root constant. This closes stale .cursor leakage with Cursor disabled and no lock; it does not implement future package placement. The new regression failed before repair. Both projection callbacks prove all registry runtime sentinels absent, authored source/files retained and caller exclusions respected, with unchanged originals. Existing explicit source selection remains covered. Focused suite: 11 pass /48 assertions; fast gate passes. Exact review and immutable verification follow. Parent SET-543 remains partial.
+
+SET-793 published draft #828 at fbcded575c744ee73a223d26408db20063d2516f, independent review 5/5; full immutable verification running. Linear and parent SET-543 now distinguish delivered draft slices from remaining conformance/lock/future-placement acceptance. SET-793/794 use the existing Render contract and registry derivation milestone.
+
+## SET-794 fixed output root authorities — 2026-10-30
+
+Consolidated Claude rule placement in targets, Agent Skills placement in standard projections, and shared package placement under the existing plugin-output constant. Resolver registration/collision comparisons, standard topology and render/lock consumers use those owners. Source directory names remain separate; Codex project and standards roots retain their distinct semantics. No output paths, configuration, adoption policy or public API changed.
+
+The new integration fixture passed before and after this preventive refactor (after correcting its operation-result accessor). With Claude enabled and disabled, it joins graph roots, rendered files and lock items for root/nested rules, standalone standard skills and shared plugin skills; standard adoption, coalescing and authored-file preservation are checked. Focused topology/renderer/authoring suite: 100 pass /340 assertions. Fast gate, exact review and immutable verification follow. No current broken rendering behavior is claimed for the duplicate constants.

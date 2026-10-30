@@ -77,7 +77,7 @@ import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
 import { validateSupports } from "./supports";
-import { TARGET_LIST_TEXT } from "./targets";
+import { CLAUDE_RULES_OUTPUT_ROOT, TARGET_LIST_TEXT } from "./targets";
 import type {
   BuildGraph,
   JsonRecord,
@@ -105,6 +105,7 @@ import { workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
 import { readSkillsetWorkspaceConfig } from "./xdg";
 import {
+  AGENT_SKILLS_OUTPUT_ROOT,
   resolveStandardProjectionPlan,
   standardProjectionKnownManagedOutputRoots,
   standardProjectionManagedOutputRoots,
@@ -130,7 +131,6 @@ const ROOT_RULES_FILE = "RULES.md";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
-const RULES_OUTPUT_ROOT = ".claude/rules";
 const PROJECT_AGENTS_DIR = "subagents";
 const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
   claude: "_claude",
@@ -1966,7 +1966,7 @@ function configuredOutputRoots(
 ): readonly ActiveOutputRoot[] {
   return [
     ...standardProjectionKnownManagedOutputRoots(),
-    { label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT },
+    { label: "outputs.rules.claude", path: CLAUDE_RULES_OUTPUT_ROOT },
     ...targetNames().flatMap((target) => [
       { label: `outputs.plugins.${target}`, path: outputs.plugins[target] },
       { label: `outputs.skills.${target}`, path: outputs.skills[target] },
@@ -2059,13 +2059,13 @@ function activeOutputRoots(
 ): readonly ActiveOutputRoot[] {
   const roots: ActiveOutputRoot[] = standardProjectionManagedOutputRoots(standardProjections)
     .map((path) => ({
-      label: path === ".agents/skills"
+      label: path === AGENT_SKILLS_OUTPUT_ROOT
         ? "standards.agent-skills"
         : "standards.agent-plugins-1.0",
       path,
     }));
   if (rules.some((rule) => rule.targets.claude.enabled)) {
-    roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
+    roots.push({ label: "outputs.rules.claude", path: CLAUDE_RULES_OUTPUT_ROOT });
   }
   for (const target of targetNames()) {
     const enabledPlugins = plugins.filter((plugin) => plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id));
@@ -2232,7 +2232,7 @@ function isPluginBundleRootLabel(label: string): boolean {
 
 function canShareOutputRoot(left: ActiveOutputRoot, right: ActiveOutputRoot): boolean {
   const labels = new Set([left.label, right.label]);
-  if (left.path === ".agents/skills" && right.path === ".agents/skills") {
+  if (left.path === AGENT_SKILLS_OUTPUT_ROOT && right.path === AGENT_SKILLS_OUTPUT_ROOT) {
     return [...labels].every((label) =>
       label === "standards.agent-skills" || label === "outputs.skills.codex"
     );

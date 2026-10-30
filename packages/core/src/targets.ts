@@ -37,6 +37,8 @@ export const TARGET_DESCRIPTORS: Readonly<Record<TargetName, TargetDescriptor>> 
     projectRoot: ".cursor",
   },
 };
+export const CLAUDE_RULES_OUTPUT_ROOT = `${TARGET_DESCRIPTORS.claude.projectRoot}/rules`;
+
 export const TARGET_LIST_TEXT = formatList(TARGET_NAMES);
 
 export function targetNames(): readonly TargetName[] {
