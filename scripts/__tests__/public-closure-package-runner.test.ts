@@ -44,7 +44,9 @@ describe("SET-499 frozen package-runner detection", () => {
         if (PACKAGE_RUNNER.test(line)) lines.push(`${relative(repoRoot, file)}: ${line.trim()}`);
       }
     }
-    expect(lines).toEqual([...FROZEN_PACKAGE_RUNNER_LINES]);
+    const sharedLines = FROZEN_PACKAGE_RUNNER_LINES.filter((line) => line.startsWith("plugins/skillset/skills/skillset/"));
+    const expected = [...FROZEN_PACKAGE_RUNNER_LINES, ...["skillset-init", "skillset-maintain"].flatMap((name) => sharedLines.map((line) => line.replace("skills/skillset/", `skills/${name}/`)))];
+    expect(lines.sort()).toEqual(expected.sort());
   });
 
   test("a package script that routes into internals is still caught only through its alias", async () => {

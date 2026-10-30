@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "id": 1,
+      "kind": "new",
+      "prompt": "We have decided to use Skillset for this repository. There is no skillset.yaml or .skillset directory yet. Help initialize the repository; do not install anything on my machine. Explain the steps only.",
+      "expected": "skillset-init"
+    },
+    {
+      "id": 2,
+      "kind": "adopt",
+      "prompt": "We want to bring an existing collection of provider skills into a new Skillset workspace, preserving originals and reviewing collisions. Help with repository adoption and import; explain only.",
+      "expected": "skillset-init"
+    },
+    {
+      "id": 3,
+      "kind": "drift",
+      "prompt": "This repository already has skillset.yaml and .skillset source. Generated output has drift and intentional hand edits. Help inspect and repair without losing those edits. Explain only.",
+      "expected": "skillset-maintain"
+    },
+    {
+      "id": 4,
+      "kind": "baseline",
+      "prompt": "Our Skillset workspace is initialized but check says there is no generated baseline. Walk through the first build, including which commands preview and which write. Explain only.",
+      "expected": "skillset-maintain"
+    },
+    {
+      "id": 5,
+      "kind": "broad",
+      "prompt": "I want reusable agent capabilities across Claude and Codex but have not chosen the workspace or artifact shape. Help choose where to start; explain only.",
+      "expected": "skillset"
+    },
+    {
+      "id": 6,
+      "kind": "machine",
+      "prompt": "I need the Skillset CLI installed on my machine before working on any repository. Explain recovery choices only; do not install.",
+      "expected": "skillset"
+    },
+    {
+      "id": 7,
+      "kind": "negative",
+      "prompt": "How can I change my editor color theme?",
+      "expected": "none"
+    },
+    {
+      "id": 8,
+      "kind": "ambiguous",
+      "prompt": "I need one disposable Claude-only instruction for a throwaway experiment. Would Skillset be necessary?",
+      "expected": "none-or-router"
+    },
+    {
+      "id": 9,
+      "kind": "handoff",
+      "prompt": "First invoke the Skillset init specialist to explain setting up a new repository. Then invoke the maintenance specialist to explain the first build and checks after setup. Use both skills, but do not write files or execute setup.",
+      "expected": "init-then-maintain"
+    }
+  ]
+}

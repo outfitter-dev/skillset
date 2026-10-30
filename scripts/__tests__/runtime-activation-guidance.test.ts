@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const GUIDANCE_PATHS = [
-  ".skillset/plugins/skillset/skills/skillset/references/source-authoring.md",
+  ".skillset/plugins/skillset/shared/references/source-authoring.md",
   "plugins/skillset/skills/skillset/references/source-authoring.md",
 ] as const;
 

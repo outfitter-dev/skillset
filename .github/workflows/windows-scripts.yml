@@ -16,8 +16,9 @@ on:
       - package.json
       - bun.lock
       - scripts/**
-      - .skillset/plugins/skillset/skills/skillset/**
-      - plugins/skillset/skills/skillset/**
+      - .skillset/plugins/skillset/skills/**
+      - .skillset/plugins/skillset/shared/**
+      - plugins/skillset/skills/**
       - packages/**
       - apps/skillset/src/**
 

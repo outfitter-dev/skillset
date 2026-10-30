@@ -10,7 +10,7 @@ qualified=
 compatibility_scope=
 while IFS='=' read -r key value; do
   case "$key" in cli) qualified=$value ;; scope) compatibility_scope=$value ;; esac
-done < "$script_dir/compatibility.env" || exit 2
+done < "$script_dir/../assets/compatibility.env" || exit 2
 [ -n "$qualified" ] && [ "$compatibility_scope" = entry-preview ] || exit 2
 cli=missing
 version=unknown
