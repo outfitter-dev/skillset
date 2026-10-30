@@ -1,4 +1,5 @@
 import YAML from "yaml";
+import { InputValidationError } from "./input-validation-error";
 
 import type { JsonRecord, JsonValue, MarkdownParts } from "./types";
 
@@ -11,11 +12,12 @@ export function parseYamlRecord(content: string, label: string): JsonRecord {
   try {
     parsed = YAML.parse(content) as unknown;
   } catch (error) {
-    throw yamlSyntaxError(error, label);
+    if (!(error instanceof YAML.YAMLParseError)) throw error;
+    throw new InputValidationError(`skillset: ${label} is not valid YAML: ${error.message}`, { cause: error });
   }
   if (parsed === null) return {};
   if (!isJsonRecord(parsed)) {
-    throw new Error(`skillset: expected ${label} to contain a YAML object`);
+    throw new InputValidationError(`skillset: expected ${label} to contain a YAML object`);
   }
   return parsed;
 }
@@ -30,7 +32,7 @@ export function parseMarkdown(content: string, label: string): MarkdownParts {
 
   const closingIndex = lines.findIndex((line, index) => index > 0 && line === "---");
   if (closingIndex === -1) {
-    throw new Error(`skillset: frontmatter in ${label} starts with --- but never closes`);
+    throw new InputValidationError(`skillset: frontmatter in ${label} starts with --- but never closes`);
   }
 
   const frontmatter = parseYamlRecord(lines.slice(1, closingIndex).join("\n"), label);
@@ -81,12 +83,4 @@ function sortValue(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(sortValue);
   if (isJsonRecord(value)) return sortRecord(value);
   return value;
-}
-
-function yamlSyntaxError(error: unknown, label: string): Error {
-  const cause = error instanceof Error ? error : undefined;
-  const detail = cause?.message ?? String(error);
-  return new Error(`skillset: ${label} is not valid YAML: ${detail}`, {
-    ...(cause === undefined ? {} : { cause }),
-  });
 }

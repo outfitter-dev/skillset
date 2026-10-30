@@ -4,6 +4,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 
 import { isWorkspaceId, WORKSPACE_KEYS } from "@skillset/schema";
 
+import { InputValidationError } from "./input-validation-error";
 import { readRecord } from "./config";
 import type { JsonRecord, SkillsetWorkspaceConfig } from "./types";
 
@@ -54,18 +55,18 @@ export function readSkillsetWorkspaceConfig(record: JsonRecord, label: string): 
   if (workspace === undefined) return {};
   for (const key of Object.keys(workspace)) {
     if (!(WORKSPACE_KEYS as readonly string[]).includes(key)) {
-      throw new Error(`skillset: unsupported workspace key ${key} in ${label}.workspace`);
+      throw new InputValidationError(`skillset: unsupported workspace key ${key} in ${label}.workspace`);
     }
   }
 
   if (workspace.nativeAgents !== undefined && workspace.nativeAgents !== true) {
-    throw new Error(`skillset: ${label}.workspace.nativeAgents must be true when present`);
+    throw new InputValidationError(`skillset: ${label}.workspace.nativeAgents must be true when present`);
   }
   const nativeAgents = workspace.nativeAgents === true ? { nativeAgents: true as const } : {};
   const cacheKey = workspace.cacheKey;
   if (cacheKey === undefined) return nativeAgents;
   if (typeof cacheKey !== "string" || cacheKey.trim() !== cacheKey || cacheKey.length === 0) {
-    throw new Error(`skillset: expected ${label}.workspace.cacheKey to be a lowercase repo cache key`);
+    throw new InputValidationError(`skillset: expected ${label}.workspace.cacheKey to be a lowercase repo cache key`);
   }
   return { ...nativeAgents, cacheKey: validateRepoCacheKey(cacheKey, `${label}.workspace.cacheKey`) };
 }
@@ -123,7 +124,7 @@ function slugPart(value: string, label: string): string {
 function validateRepoCacheKey(value: string, label: string): string {
   const trimmed = value.trim();
   if (!isWorkspaceId(trimmed)) {
-    throw new Error(`skillset: expected ${label} to be a lowercase repo cache key`);
+    throw new InputValidationError(`skillset: expected ${label} to be a lowercase repo cache key`);
   }
   return trimmed;
 }

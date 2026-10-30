@@ -1,5 +1,6 @@
 import { createSemverRegExp } from "@skillset/schema";
 
+import { InputValidationError } from "./input-validation-error";
 const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const semverPattern = createSemverRegExp();
 
@@ -16,14 +17,14 @@ export interface ParsedRemoteRepositoryReference {
 
 export function parseRemoteRepositoryReference(value: string): ParsedRemoteRepositoryReference {
   const repository = value.trim();
-  if (repository.length === 0) throw new Error("skillset: remote repository reference must be non-empty");
+  if (repository.length === 0) throw new InputValidationError("skillset: remote repository reference must be non-empty");
 
   const github = repository.match(/^github:([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/u);
   if (github !== null) {
     const owner = github[1];
     const repo = github[2];
     if (owner === undefined || repo === undefined) {
-      throw new Error(`skillset: unsupported remote repository reference ${repository}`);
+      throw new InputValidationError(`skillset: unsupported remote repository reference ${repository}`);
     }
     return {
       canonical: `github:${owner.toLowerCase()}/${repo.toLowerCase()}`,
@@ -40,7 +41,7 @@ export function parseRemoteRepositoryReference(value: string): ParsedRemoteRepos
     const rawPath = scp[3];
     const path = rawPath?.replace(/^\/+|\.git$/gu, "");
     if (user === undefined || host === undefined || path === undefined || path.length === 0 || path.includes("..")) {
-      throw new Error(`skillset: unsupported remote repository reference ${repository}`);
+      throw new InputValidationError(`skillset: unsupported remote repository reference ${repository}`);
     }
     return {
       canonical: canonicalRemote(host, path, user, "ssh", rawPath?.startsWith("/") === true),
@@ -52,29 +53,28 @@ export function parseRemoteRepositoryReference(value: string): ParsedRemoteRepos
 }
 
 function parseRepositoryUrl(repository: string): ParsedRemoteRepositoryReference {
-  let url: URL;
-  try {
-    url = new URL(repository);
-  } catch {
-    throw new Error(`skillset: unsupported remote repository reference ${repository}`);
+  if (!URL.canParse(repository)) {
+    throw new InputValidationError(`skillset: unsupported remote repository reference ${repository}`);
   }
+  const url = new URL(repository);
   if (url.protocol !== "https:" && url.protocol !== "ssh:") {
-    throw new Error(`skillset: unsupported remote repository protocol ${url.protocol.replace(/:$/u, "")}`);
+    throw new InputValidationError(`skillset: unsupported remote repository protocol ${url.protocol.replace(/:$/u, "")}`);
   }
   if (url.password.length > 0 || (url.protocol === "https:" && url.username.length > 0)) {
-    throw new Error("skillset: remote repository references must not contain credentials");
+    throw new InputValidationError("skillset: remote repository references must not contain credentials");
   }
   if (url.search.length > 0 || url.hash.length > 0) {
-    throw new Error("skillset: remote repository references must not contain query or fragment data");
+    throw new InputValidationError("skillset: remote repository references must not contain query or fragment data");
   }
   let path: string;
   try {
     path = decodeURIComponent(url.pathname).replace(/^\/+|\.git$/gu, "");
-  } catch {
-    throw new Error(`skillset: unsupported remote repository reference ${repository}`);
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+    throw new InputValidationError(`skillset: unsupported remote repository reference ${repository}`, { cause: error });
   }
   if (url.hostname.length === 0 || path.length === 0 || path.includes("..")) {
-    throw new Error(`skillset: unsupported remote repository reference ${repository}`);
+    throw new InputValidationError(`skillset: unsupported remote repository reference ${repository}`);
   }
   return {
     canonical: canonicalRemote(
@@ -89,13 +89,13 @@ function parseRepositoryUrl(repository: string): ParsedRemoteRepositoryReference
 
 export function validateRemoteRepositoryRevision(revision: RemoteRepositoryRevision): void {
   if (revision.kind === "sha" && !FULL_SHA_PATTERN.test(revision.sha)) {
-    throw new Error("skillset: remote repository sha must be a full lowercase 40-character commit");
+    throw new InputValidationError("skillset: remote repository sha must be a full lowercase 40-character commit");
   }
   if (revision.kind === "version" && !semverPattern.test(revision.version)) {
-    throw new Error("skillset: remote repository version must be a semantic version");
+    throw new InputValidationError("skillset: remote repository version must be a semantic version");
   }
   if (revision.kind === "ref" && !isSafeRemoteRepositoryRef(revision.ref)) {
-    throw new Error(`skillset: unsupported remote repository ref ${revision.ref}`);
+    throw new InputValidationError(`skillset: unsupported remote repository ref ${revision.ref}`);
   }
 }
 
