@@ -30,7 +30,7 @@ import { renderValidatedMarkdown } from "./structured-output";
 import { planAgentInstructionProjections } from "./render-standard-instructions";
 import { rebaseRuleLinks } from "./rule-links";
 import { selectorForRule } from "./source-unit-selector";
-import { targetDescriptor, targetNames } from "./targets";
+import { CLAUDE_RULES_OUTPUT_ROOT, targetDescriptor, targetNames } from "./targets";
 import type {
   AppliedTransform,
   BuildGraph,
@@ -43,8 +43,6 @@ import type {
 } from "./types";
 import { rootVersion } from "./versioning";
 import { stringifyJson } from "./yaml";
-
-const CLAUDE_RULES_OUTPUT_ROOT = ".claude/rules";
 
 /**
  * Claude reads project instructions from either placement and concatenates
