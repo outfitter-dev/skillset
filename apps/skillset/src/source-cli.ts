@@ -268,6 +268,7 @@ function importWritePaths(
   return [
     ...new Set(
       imports.flatMap((entry) => [
+        ...(entry.migrationWritePaths ?? []),
         workspaceRelativePath(rootPath, entry.targetPath),
         ...(entry.baselinePath === undefined
           ? []
@@ -299,7 +300,7 @@ function printImportReport(result: ImportReport): void {
   }
   if (result.unsupportedFields.length > 0) {
     console.log(
-      `  unsupported (kept verbatim): ${result.unsupportedFields.join(", ")}`
+      `  unrecognized (preserved for review): ${result.unsupportedFields.join(", ")}`
     );
   }
   for (const baseline of result.baselines) {

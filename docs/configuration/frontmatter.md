@@ -47,3 +47,11 @@ Licensing follows the same local-first model. A scope can declare `skillset.lice
 - Use the relevant [feature reference](../reference/features/README.md) for target rendering and diagnostics.
 
 Scaffold new source with [`skillset new`](../reference/cli/new.md), then validate it with [`skillset check`](../reference/cli/check.md).
+
+## Review Imported Fields
+
+An explicit provider origin scopes imported native and unrecognized fields under that provider's `frontmatter` block. This preserves source attribution; it does not prove cross-provider equivalence. Shared plugin output rejects a field that another selected provider's own projection does not reproduce.
+
+When source provenance cannot establish an owner, import preserves the original top-level keys and values and adds `skillset.unresolved_frontmatter`, a nonempty list of keys requiring a decision. These sources cannot render, including with `compile.unsupportedDestination: warn` or `force`. Import records sidecar review findings in `.skillset/adopt/state.json`; repository adoption combines them with body findings. Direct-import JSON also exposes the field observations and ledger writes.
+
+Resolve the field's meaning and source boundary before removing the source marker. An unresolved ledger decision continues to block projection after marker removal, and accepting uncertainty alone does not establish destination support. Review state and source boundaries are separate: neither deletion of metadata nor a successful import is proof of a faithful migration. If recording findings fails after source import, the preserved source retains its rendering block and the command reports a partial import.

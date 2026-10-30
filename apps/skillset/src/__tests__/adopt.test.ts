@@ -552,7 +552,7 @@ test("SET-522: root Cursor policy cannot change another shared consumer default"
   expect(await Bun.file(join(root, "plugins/cursor-native/skills/helper/SKILL.md")).exists()).toBe(false);
 });
 
-test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to Codex", async () => {
+test("SET-522: mixed Claude and Cursor plugin invocation policy cannot be shared with an unproven Codex consumer", async () => {
   const manifest = JSON.stringify({ name: "mixed-native", version: "1.0.0" });
   const root = await fixture({
     ".claude-plugin/plugin.json": manifest,
@@ -566,7 +566,8 @@ test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to
     write: true,
   });
 
-  expect(report.ok).toBe(true);
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("conflicts at disable-model-invocation");
   const source = parseMarkdown(
     await readFile(
       join(root, ".skillset/plugins/mixed-native/skills/helper/SKILL.md"),
@@ -599,20 +600,9 @@ test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to
     expect.objectContaining({ target: "codex" })
   );
 
-  await rm(join(root, ".claude-plugin"), { recursive: true });
-  await rm(join(root, ".cursor-plugin"), { recursive: true });
-  await rm(join(root, "skills"), { recursive: true });
-  await buildSkillset(root);
-  const outputFrontmatter = async () => {
-    const path = join(root, "plugins/mixed-native/skills/helper/SKILL.md");
-    return parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
-  };
-  expect((await outputFrontmatter())["disable-model-invocation"]).toBe(true);
-  expect(
-    await Bun.file(
-      join(root, "plugins/mixed-native/skills/helper/agents/openai.yaml")
-    ).exists()
-  ).toBe(false);
+  // Source scoping is insufficient: all consumers read the same physical file.
+  // A missing Codex policy projection cannot establish safe native inheritance.
+  expect(await Bun.file(join(root, "plugins/mixed-native/skills/helper/SKILL.md")).exists()).toBe(false);
 });
 
 test("SET-522: Cursor explicit-only skill adoption stays scoped to Cursor", async () => {

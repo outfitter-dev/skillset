@@ -13,6 +13,7 @@ import {
 import type { MigrationFlag } from "@skillset/schema";
 import { recognizeAdoptionBody } from "@skillset/core/internal/adoption-body-findings";
 import { recordImportedFindings } from "@skillset/core/internal/adoption-findings";
+import type { FrontmatterFindingSource } from "@skillset/core/internal/adoption-frontmatter-findings";
 import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
 import type { ReleaseBaselineEntry } from "./adoption";
 import {
@@ -80,6 +81,9 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly migrationFlags?: readonly MigrationFlag[];
+  readonly migrationWritePaths?: readonly string[];
+  readonly frontmatterSources?: readonly FrontmatterFindingSource[];
   readonly nativeHookSources?: readonly NativeHookFindingSource[];
   readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
@@ -392,14 +396,19 @@ async function adoptResolvedRoot(
   // Recognition is report evidence, not authority to enable a document dialect.
   let transformPreviews: readonly TransformPreview[] = [];
 
-  let migrationFlags: readonly MigrationFlag[] = [];
-  let migrationWritePaths: readonly string[] = [];
+  let migrationFlags: readonly MigrationFlag[] = imports.flatMap((result) => result.migrationFlags ?? []);
+  let migrationWritePaths: readonly string[] = imports.flatMap((result) => result.migrationWritePaths ?? []);
   let migrationError: string | undefined;
   try {
     transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
-    const recorded = await recordImportedFindings(init.rootPath, { bodyPaths: previewSources, nativeHooks: imports.flatMap((result) => result.nativeHookSources ?? []) });
-    migrationFlags = recorded.flags;
-    migrationWritePaths = recorded.writtenPaths;
+    const recordedPaths = new Set(migrationFlags.map((flag) => flag.source.path));
+    const recorded = await recordImportedFindings(init.rootPath, {
+      bodyPaths: previewSources.filter((path) => !recordedPaths.has(path)),
+      frontmatter: imports.flatMap((result) => result.frontmatterSources ?? []).filter((source) => !recordedPaths.has(source.path)),
+      nativeHooks: imports.flatMap((result) => result.nativeHookSources ?? []),
+    });
+    migrationFlags = [...migrationFlags, ...recorded.flags];
+    migrationWritePaths = [...new Set([...migrationWritePaths, ...recorded.writtenPaths])];
   } catch (error) {
     migrationError = errorMessage(error);
   }
@@ -580,6 +589,9 @@ async function importCandidate(
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
+      migrationFlags: batch.imports.flatMap((report) => report.migrationFlags ?? []),
+      migrationWritePaths: batch.imports.flatMap((report) => report.migrationWritePaths ?? []),
+      frontmatterSources: batch.imports.flatMap((report) => report.frontmatterSources ?? []),
       nativeHookSources: batch.imports.flatMap((report) => report.nativeHookSources ?? []),
       ok: true,
       units,
@@ -599,6 +611,9 @@ async function importCandidate(
       candidate,
       detail: errorMessage(error),
       renderResults: partialImports.flatMap((report) => report.renderResults),
+      migrationFlags: partialImports.flatMap((report) => report.migrationFlags ?? []),
+      migrationWritePaths: partialImports.flatMap((report) => report.migrationWritePaths ?? []),
+      frontmatterSources: partialImports.flatMap((report) => report.frontmatterSources ?? []),
       nativeHookSources: partialImports.flatMap((report) => report.nativeHookSources ?? []),
       ok: false,
       units: adoptedUnits(rootPath, candidate, partialImports),

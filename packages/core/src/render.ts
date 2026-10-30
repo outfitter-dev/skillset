@@ -1,3 +1,4 @@
+import { assertResolvedSkillFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
 import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
@@ -208,6 +209,7 @@ export async function renderBuildGraph(
   graph: BuildGraph,
   destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly RenderedFile[]> {
+  await assertResolvedSkillFrontmatter(graph);
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
@@ -345,6 +347,7 @@ export async function renderBuildGraph(
 export async function renderStandardProjectionBuildGraph(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
+  await assertResolvedSkillFrontmatter(graph);
   const lockRoots = new Map<string, LockRoot>();
   const rendered = await renderStandardProjectionArtifacts(graph, lockRoots);
   return [...planRenderedFiles(rendered)]
@@ -955,6 +958,25 @@ function mergePluginSkillRenderings(
   const standardFrontmatter = standardRendering === undefined
     ? undefined
     : parseMarkdown(standardRendering.markdown.content, skill.sourcePath).frontmatter;
+
+  // A shared artifact cannot union an attributed native value into a consumer
+  // whose own projection omitted it. Standard metadata remains the baseline;
+  // this check concerns the selected provider consumers of the shared file.
+  const providerRenderings = renderings.filter((rendering) => targetNames().some((target) => target === rendering.provider));
+  for (const target of targetNames()) {
+    if (!providerRenderings.some((rendering) => rendering.provider === target)) continue;
+    const native = readRecord(skill.targets[target].options, "frontmatter") ?? {};
+    for (const field of Object.keys(native)) {
+      const owner = providerRenderings.find((rendering) => rendering.provider === target)!;
+      const expected = parseMarkdown(owner.markdown.content, skill.sourcePath).frontmatter[field];
+      for (const consumer of providerRenderings) {
+        const actual = parseMarkdown(consumer.markdown.content, skill.sourcePath).frontmatter[field];
+        if (!isDeepStrictEqual(actual, expected)) {
+          throwPluginSkillProviderIncompatible(graph, plugin, skill, target, field);
+        }
+      }
+    }
+  }
 
   let sharedInvocationPolicy: JsonValue | undefined;
   for (const rendering of renderings) {

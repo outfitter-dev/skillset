@@ -312,28 +312,28 @@ const judgments: readonly CapabilityJudgment[] = [
     implementationPaths: ["packages/core/src/render-codex-skill-sidecars.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is represented directly as policy.allow_implicit_invocation in agents/openai.yaml.",
     limitations: ["Scope is invocation eligibility only, not model compliance or user invocation. Explicit provider overrides are outside this judgment.", "Implementation proof: packages/core/src/__tests__/skill-invocation-policy.test.ts; render-codex-skill-sidecars.ts."],
-    authorityHash: "sha256:08761531e4055f49a30a3ce71feaf6bca6e0053875d8b45f51b8a14820600053",
+    authorityHash: "sha256:86162871ff9d4e0de5c9cddf498cdeb564cd5adb90018a8e60eb809a4f1bb4d7",
   },
   {
     capabilityId: "skill-invocation", featureId: "skill-invocation-policy", target: "claude", fidelity: "equivalent",
     implementationPaths: ["packages/core/src/render.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is inverted into disable-model-invocation; false eligibility becomes true disablement and vice versa.",
     limitations: ["Scope is invocation eligibility only; this does not disable explicit user invocation or prove runtime enforcement. Explicit provider overrides are outside this judgment.", "Implementation proof: packages/core/src/__tests__/skill-invocation-policy.test.ts; render.ts."],
-    authorityHash: "sha256:a4dbf3bc1fdb9edcb6b7898f506f33d4e84d1c72f981297197ae91841513e99a",
+    authorityHash: "sha256:8ef90765af35eee69eabc5d166e12f82afe0b6b72859a2e7d7cd2bb41b523bce",
   },
   {
     capabilityId: "project-agents", featureId: "project-agents", target: "codex", fidelity: "partial",
     implementationPaths: ["packages/core/src/render.ts", "packages/core/src/project-agent-skills.ts", "packages/core/src/__tests__/project-agent-skills.test.ts", "apps/skillset/src/__tests__/skillset.test.ts", "docs/reference/features/agents.md"],
     scope: "Project-agent name, description and instructions receive native TOML fields; shared skill-loading intent is only an instruction preface.",
     limitations: ["The skills preface is advisory, not target-enforced skill metadata. Provider-only fields require explicit provider configuration.", "Implementation proof: apps/skillset/src/__tests__/skillset.test.ts and docs/reference/features/agents.md."],
-    authorityHash: "sha256:f073265215fd4121b8b81f29d404d0c2c84a7e8e505d62a19fd9626793d195e7",
+    authorityHash: "sha256:e0334f3d7d50f07395dcf19d04261e1d9e62dc4eb7785eb1688d9327f9e1c241",
   },
   {
     capabilityId: "project-rules", featureId: "project-instructions", target: "codex", fidelity: "synthesized",
     implementationPaths: ["packages/core/src/render-rules.ts", "packages/core/src/render-standard-instructions.ts", "packages/core/src/__tests__/render-standard-instructions.test.ts", "packages/core/src/__tests__/native-root-rules.test.ts", "docs/reference/features/rules.md"],
     scope: "Generated rules with literal directory scope and no paths narrowing are combined in deterministic source-path order into the directory AGENTS.md.",
     limitations: ["This judgment excludes paths narrowing, which is degraded, and wildcard scopes, which are unsupported. Native root AGENTS.md is read in place and is outside this synthesis judgment. Native context limits and AGENTS.override.md shadowing still apply.", "Implementation proof: packages/core/src/__tests__/render-standard-instructions.test.ts and docs/reference/features/rules.md."],
-    authorityHash: "sha256:c56e6c7af4040c2feba0ccf7a8d5b6e29260881b2423c0d62364d58f10531ea5",
+    authorityHash: "sha256:1c7c37291996f44896222e680259fe9f9fcb196735d529d18d65fee97c42bba4",
   },
   {
     capabilityId: "native-hooks", featureId: "plugin-hooks", target: "claude", fidelity: "provider-only",
@@ -347,7 +347,7 @@ const judgments: readonly CapabilityJudgment[] = [
     implementationPaths: ["packages/core/src/render.ts", "apps/skillset/src/__tests__/skillset.test.ts", "docs/reference/features/agents.md"],
     scope: "The pinned Codex plugin contract has no plugin agents component; Skillset cannot faithfully emit plugin-packaged agents there.",
     limitations: ["This is a plugin-packaging limitation. It does not mean Codex project agents are unavailable.", "Implementation proof: feature plugin-agents unsupportedDestinations and docs/reference/features/agents.md."],
-    authorityHash: "sha256:78f30502a8a737d1cff7dee0be04d26cd0265b26b066fff98ce8a7ecfebea5f1",
+    authorityHash: "sha256:89cf22a19c3f2ce9990b2015738328565695b9d935b79004797448ff34b49542",
   },
 ];
 
@@ -356,7 +356,7 @@ const judgments: readonly CapabilityJudgment[] = [
 export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
-  { path: "packages/core/src/render.ts", contentHash: "sha256:e15eef7ac0d286aff381eab6e618ea99d3b22435d44159eaa06c2302819fbc1d" },
+  { path: "packages/core/src/render.ts", contentHash: "sha256:615f5d1f53b59983d9b030548d82d5f2ec9bcf60c102ef2434b3e33f34287c2e" },
   { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:a3de6ef0d5e691ec12f53d5f7d66965b38c25d54e79ace39c500e7c3072f7715" },
   { path: "packages/core/src/__tests__/skill-invocation-policy.test.ts", contentHash: "sha256:c1efd8f659af4b136d97994960cf3512ba40164bb9cde5e47f8be06ae7af7d41" },
   { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:61ec143b8422d29aa96334d1ece03d4d12c7d874087a95f2762595644980a281" },
