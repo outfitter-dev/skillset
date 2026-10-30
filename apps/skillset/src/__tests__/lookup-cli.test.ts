@@ -393,6 +393,8 @@ test("SET-130: lookup skill tools exposes the realization matrix", async () => {
   expect(text.stdout).toContain("[claude] read grant: transformed via skill-frontmatter emits: allowed-tools: Read");
   expect(text.stdout).toContain("[codex] write constrain: settings-required via agent-definition (not rendered)");
   expect(text.stdout).toContain("[cursor] mcp: unsupported via none (not rendered)");
+  expect(text.stdout).toContain("[claude] mcp grant: unsupported via none (not rendered)");
+  expect(text.stdout).toContain("global false only; per-server maps are rejected");
 
   expect(json.exitCode).toBe(0);
   const report = readResultData(json.stdout) as {

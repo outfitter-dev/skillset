@@ -1009,6 +1009,11 @@
           "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
         },
         {
+          "context": "- [ADR-0018](../0018-render-results.md): rendering and evidence reporting boundaries.",
+          "from": "0049",
+          "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
+        },
+        {
           "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
           "from": "render-results",
           "fromPath": "docs/development/features/render-results.md"
@@ -1105,7 +1110,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": [],
+      "amended_by": ["49"],
       "amends": [],
       "created": "2026-07-02",
       "depends_on": ["0", "1", "2", "5", "18"],
@@ -1114,6 +1119,11 @@
           "context": "- [Portable Skill Tools Policy](0020-portable-skill-tools-policy.md) - `tools` source shape and registry-backed realization model.",
           "from": "0021",
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
+        },
+        {
+          "context": "[ADR-0020's MCP examples](../0020-portable-skill-tools-policy.md#mcp) interpolate literal portable server names into Claude tool rules. That does not establish the identity of the intended server. Cla",
+          "from": "0049",
+          "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
         }
       ],
       "number": "0020",
@@ -1371,6 +1381,11 @@
           "context": "Installing a companion integration does not build a workspace, trust a plugin, activate a runtime, or edit provider settings ([ADR-0027](0027-runtime-activation-readiness-is-observational.md)). Plugin",
           "from": "0044",
           "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
+        },
+        {
+          "context": "- [ADR-0027](../0027-runtime-activation-readiness-is-observational.md): runtime evidence remains observational and separate from builds.",
+          "from": "0049",
+          "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
         },
         {
           "context": "See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
@@ -2065,7 +2080,18 @@
       "amends": ["22", "24"],
       "created": "2026-10-29",
       "depends_on": ["0", "9", "18", "22", "23", "24", "33", "43", "47"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "[ADR-0048](../adrs/0048-adoption-is-a-reviewable-migration.md) separates mutable workspace review state from immutable operation reports. The shared `skillset.migration-state@1` contract lives in `@sk",
+          "from": "migration-state",
+          "fromPath": "docs/development/migration-state.md"
+        },
+        {
+          "context": "A direct Claude manifest `name` or `description` can receive an exact metadata round-trip qualification in the adoption receipt. This requires a current, narrowly scoped capability judgment and identi",
+          "from": "importing",
+          "fromPath": "docs/guides/importing.md"
+        }
+      ],
       "number": "0048",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0048-adoption-is-a-reviewable-migration.md",
@@ -2074,6 +2100,27 @@
       "superseded_by": null,
       "title": "Adoption Is a Reviewable Migration",
       "updated": "2026-10-29"
+    },
+    {
+      "amended_by": [],
+      "amends": ["20"],
+      "created": "2026-10-30",
+      "depends_on": ["0", "18", "20", "21", "27"],
+      "inbound": [
+        {
+          "context": "Skillset rejects retired `tool_intent`, unknown portable keys, native `allow` or `deny` at the wrong level, target-local duplicate `tools` blocks, and a native allow rule that contradicts an effective",
+          "from": "tools-policy",
+          "fromPath": "docs/reference/features/tools-policy.md"
+        }
+      ],
+      "number": "0049",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md",
+      "slug": "claude-per-server-mcp-policy-requires-bound-identity",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Claude Per-Server MCP Policy Requires Bound Identity",
+      "updated": "2026-10-30"
     }
   ],
   "version": 1

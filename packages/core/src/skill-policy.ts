@@ -395,7 +395,7 @@ export function lowerClaudeToolAspect(
       lowerShellRules(allow, deny, value, label);
       break;
     case "mcp":
-      lowerMcpRules(allow, deny, value, label);
+      lowerMcpRules(deny, value, label);
       break;
   }
   return { allow, deny };
@@ -439,7 +439,7 @@ function lowerShellRules(allow: string[], deny: string[], value: JsonValue, labe
   }
 }
 
-function lowerMcpRules(allow: string[], deny: string[], value: JsonValue, label: string): void {
+function lowerMcpRules(deny: string[], value: JsonValue, label: string): void {
   if (value === false) {
     deny.push("mcp__*");
     return;
@@ -447,19 +447,10 @@ function lowerMcpRules(allow: string[], deny: string[], value: JsonValue, label:
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label} to be false or normalized MCP server entries`);
   }
-  for (const [server, rawServerValue] of Object.entries(value)) {
-    if (rawServerValue === true) {
-      allow.push(`mcp__${server}`);
-      continue;
-    }
-    if (rawServerValue === false) {
-      deny.push(`mcp__${server}`);
-      continue;
-    }
-    const tools = normalizeStringList(rawServerValue, `${label}.${server}`);
-    for (const tool of tools) {
-      allow.push(`mcp__${server}__${readNonEmptyString(tool, `${label}.${server}`)}`);
-    }
+  if (Object.keys(value).length > 0) {
+    throw new Error(
+      `skillset: ${label} cannot render portable per-server MCP policy for Claude: literal server names do not establish native server identity, scope, or collision-safe matching; author explicit tools.claude.allow/deny rules using verified native tool names, or select another target`
+    );
   }
 }
 
