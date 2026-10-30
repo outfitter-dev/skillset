@@ -99,3 +99,28 @@ test("native source kind and managed ownership conflicts are input errors", asyn
   expect(owned).toBeInstanceOf(InputValidationError);
   expect(owned.message).toContain("still claimed by skillset.lock");
 });
+
+test("native source disappearing after discovery remains an operational failure", async () => {
+  const root = await fixture({ "AGENTS.md": "Native guidance" }, true);
+  const child = Bun.spawnSync([process.execPath, "--eval", `
+    import assert from "node:assert/strict";
+    import { mock } from "bun:test";
+    const fs = await import("node:fs/promises");
+    const readFile = fs.readFile;
+    let removed = false;
+    mock.module("node:fs/promises", () => ({ ...fs, readFile: async (path, ...args) => {
+      const content = await readFile(path, ...args);
+      if (!removed && path === ${JSON.stringify(join(root, "AGENTS.md"))}) {
+        removed = true;
+        await fs.rm(path);
+      }
+      return content;
+    }}));
+    const { loadBuildGraph } = await import("./packages/core/src/resolver.ts");
+    const { InputValidationError } = await import("./packages/core/src/input-validation-error.ts");
+    await assert.rejects(loadBuildGraph(${JSON.stringify(root)}), error => error.code === "ENOENT" && !(error instanceof InputValidationError));
+    assert.equal(removed, true);
+  `], { cwd: fileURLToPath(new URL("../../../../", import.meta.url)), stdout: "pipe", stderr: "pipe" });
+  expect(new TextDecoder().decode(child.stderr)).toBe("");
+  expect(child.exitCode).toBe(0);
+});

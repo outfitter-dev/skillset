@@ -775,14 +775,13 @@ async function loadRules(
     throw new InputValidationError("skillset: native AGENTS.md and RULES.md are mutually exclusive; keep one front-page source");
   }
   const rootRulesPath = nativeAgents ? join(rootPath, "AGENTS.md") : canonicalFrontPage;
-  if (nativeAgents && !(await exists(rootRulesPath))) {
-    throw new InputValidationError("skillset: workspace.nativeAgents requires authored root AGENTS.md");
-  }
   if (nativeAgents && canonicalFiles.some((path) => dirname(path) === canonicalPath)) {
     throw new InputValidationError("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
   }
   if (nativeAgents) externalInputPaths.add(rootRulesPath);
-  const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
+  // Native guidance was already observed by resolveNativeRootRuleSource. Read
+  // it again below so disappearance remains an operational error, not absence.
+  const rootRulesFiles = nativeAgents || await exists(rootRulesPath) ? [rootRulesPath] : [];
   if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
     return { rules: [], rulesDir: join(sourceRootDir, RULES_DIR) };
   }
