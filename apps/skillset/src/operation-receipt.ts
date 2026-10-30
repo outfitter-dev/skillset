@@ -81,6 +81,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
   const diagnosticCodes = new Set<string>(
     report.surveyDiagnostics.map((diagnostic) => diagnostic.code)
   );
+  if ((report.marketplace?.warnings.length ?? 0) > 0) diagnosticCodes.add("adopt.marketplace-warning");
   if (failedImports > 0) diagnosticCodes.add("adopt.import-failed");
   if (lintErrors > 0) diagnosticCodes.add("adopt.lint-failed");
   if (report.buildError !== undefined)

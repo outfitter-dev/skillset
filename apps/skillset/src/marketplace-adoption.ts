@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import { getProviderSchemaSnapshot } from "@skillset/registry";
 import { validateImportNormalizations, type ImportNormalization } from "@skillset/schema";
@@ -44,16 +45,17 @@ export async function adoptExistingMarketplace(
     return unadopted([], `${CLAUDE_MARKETPLACE_PATH} is not a JSON object with a name; the next build replaces it with a catalog named after the workspace`);
   }
 
-  const entries = catalogPluginEntries(catalog);
+  const { entries, ignoredIndices } = catalogPluginEntries(catalog);
+  const warnings = ignoredIndices.length === 0 ? [] : [`${CLAUDE_MARKETPLACE_PATH} ignored plugin entries without a string name at ${ignoredIndices.map((index) => `/plugins/${index}`).join(", ")}; inspect the original catalog before cutover.`];
   const adopted = new Set(adoptedPlugins);
   const plugins = entries.filter(({ name }) => adopted.has(name) && PLUGIN_ID.test(name));
   const skippedPlugins = entries.filter((entry) => !plugins.includes(entry)).map((entry) => entry.name);
   const name = typeof catalog.name === "string" ? catalog.name : "";
   if (!CATALOG_NAME.test(name)) {
-    return unadopted(skippedPlugins, `${CLAUDE_MARKETPLACE_PATH} name "${name}" is not a valid marketplace id; declare the catalog under marketplaces: by hand before the next build renames it`);
+    return unadopted(skippedPlugins, `${CLAUDE_MARKETPLACE_PATH} name "${name}" is not a valid marketplace id; declare the catalog under marketplaces: by hand before the next build renames it`, warnings);
   }
   if (plugins.length === 0) {
-    return unadopted(skippedPlugins, `${CLAUDE_MARKETPLACE_PATH} lists no adopted plugin; the next build replaces catalog ${name} with one named after the workspace`);
+    return unadopted(skippedPlugins, `${CLAUDE_MARKETPLACE_PATH} lists no adopted plugin; the next build replaces catalog ${name} with one named after the workspace`, warnings);
   }
 
   const configPath = join(rootPath, "skillset.yaml");
@@ -73,6 +75,7 @@ export async function adoptExistingMarketplace(
     const destination = `/marketplaces/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
     const description = descriptionOf(catalog);
     const owner = withOwner(isJsonRecord(config.skillset) ? config.skillset : {}, catalog.owner);
+    if (owner.warning !== undefined) warnings.push(owner.warning);
     fields.push(
       { code: "marketplace.name", source: "/name", destination },
       { code: "marketplace.target", source: "", destination: `${destination}/targets` },
@@ -94,7 +97,7 @@ export async function adoptExistingMarketplace(
     };
   });
   if (undeclaredReason !== undefined) {
-    return unadopted(skippedPlugins, undeclaredReason);
+    return unadopted(skippedPlugins, undeclaredReason, warnings);
   }
   const normalizations = marketplaceObservations(fields);
   await writeFile(configPath, next);
@@ -103,9 +106,9 @@ export async function adoptExistingMarketplace(
     normalizations,
     path: CLAUDE_MARKETPLACE_PATH,
     skippedPlugins,
-    warnings: skippedPlugins.length === 0
+    warnings: [...warnings, ...(skippedPlugins.length === 0
       ? []
-      : [`marketplace ${name} entries not imported as Skillset plugins: ${skippedPlugins.join(", ")}`],
+      : [`marketplace ${name} entries not imported as Skillset plugins: ${skippedPlugins.join(", ")}`])],
   };
 }
 
@@ -124,11 +127,18 @@ async function readCatalog(path: string): Promise<JsonRecord | "invalid" | undef
   }
 }
 
-function catalogPluginEntries(catalog: JsonRecord): readonly { readonly name: string; readonly index: number }[] {
+function catalogPluginEntries(catalog: JsonRecord): {
+  readonly entries: readonly { readonly name: string; readonly index: number }[];
+  readonly ignoredIndices: readonly number[];
+} {
   const plugins = Array.isArray(catalog.plugins) ? catalog.plugins : [];
-  return plugins.flatMap((entry, index) =>
-    isJsonRecord(entry) && typeof entry.name === "string" ? [{ name: entry.name, index }] : []
-  );
+  const entries: { name: string; index: number }[] = [];
+  const ignoredIndices: number[] = [];
+  for (const [index, entry] of plugins.entries()) {
+    if (isJsonRecord(entry) && typeof entry.name === "string") entries.push({ name: entry.name, index });
+    else ignoredIndices.push(index);
+  }
+  return { entries, ignoredIndices };
 }
 
 function descriptionOf(catalog: JsonRecord): { readonly value: string; readonly pointer: string } | undefined {
@@ -142,14 +152,19 @@ function descriptionOf(catalog: JsonRecord): { readonly value: string; readonly 
 /**
  * The build renders the catalog owner from `skillset.owner`, falling back to
  * `skillset.author`. Ordinary attribution belongs in `author`, so adoption only
- * writes `owner` when the catalog names a publisher distinct from the author.
+ * writes `owner` whenever the catalog attribution differs from the author.
  */
-function withOwner(metadata: JsonRecord, owner: JsonRecord[string]): { readonly metadata: JsonRecord; readonly destination?: string } {
+function withOwner(metadata: JsonRecord, owner: JsonRecord[string]): { readonly metadata: JsonRecord; readonly destination?: string; readonly warning?: string } {
   if (!isJsonRecord(owner) || typeof owner.name !== "string") return { metadata };
-  if (metadata.owner !== undefined) return { metadata };
+  if (metadata.owner !== undefined) return {
+    metadata,
+    ...(isDeepStrictEqual(metadata.owner, owner) ? {} : {
+      warning: `Existing skillset.owner differs from ${CLAUDE_MARKETPLACE_PATH} owner; the explicit workspace owner was retained and the native catalog owner was not imported.`,
+    }),
+  };
   const author = isJsonRecord(metadata.author) ? metadata.author : undefined;
   if (author === undefined) return { metadata: { ...metadata, author: owner }, destination: "/skillset/author" };
-  return author.name === owner.name ? { metadata } : { metadata: { ...metadata, owner }, destination: "/skillset/owner" };
+  return isDeepStrictEqual(author, owner) ? { metadata } : { metadata: { ...metadata, owner }, destination: "/skillset/owner" };
 }
 
 function targetsClaude(catalog: JsonRecord[string]): boolean {
@@ -157,8 +172,8 @@ function targetsClaude(catalog: JsonRecord[string]): boolean {
     (!Array.isArray(catalog.targets) || catalog.targets.includes("claude"));
 }
 
-function unadopted(skippedPlugins: readonly string[], warning: string): AdoptedMarketplace {
-  return { path: CLAUDE_MARKETPLACE_PATH, skippedPlugins, warnings: [warning] };
+function unadopted(skippedPlugins: readonly string[], warning: string, additionalWarnings: readonly string[] = []): AdoptedMarketplace {
+  return { path: CLAUDE_MARKETPLACE_PATH, skippedPlugins, warnings: [...additionalWarnings, warning] };
 }
 
 
