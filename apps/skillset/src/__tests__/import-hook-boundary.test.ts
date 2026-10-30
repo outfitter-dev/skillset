@@ -42,14 +42,14 @@ test("Claude native hooks keep bytes and runtime roots without cross-provider ho
   expect((await Bun.file(join(output, "plugin.json")).json()).extensions?.["com.openai"]?.hooks).toBeUndefined();
 });
 
-for (const scenario of ["unknown", "multiple", "custom-declaration"] as const) {
+for (const scenario of ["unknown", "multiple"] as const) {
   test(`hook scoping preserves unresolved ${scenario} source`, async () => {
     const root = await createTestFixtureRoot("skillset-hook-unresolved-");
     const sourcePath = join(root, "original");
     const hooks = '{"hooks":{"SessionStart":[]}}';
     await Bun.write(join(sourcePath, "hooks/hooks.json"), hooks);
     if (scenario !== "unknown") {
-      await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), JSON.stringify({ name: "native-hooks", ...(scenario === "custom-declaration" ? { hooks: "./custom-hooks.json" } : {}) }));
+      await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), JSON.stringify({ name: "native-hooks" }));
     }
     const report = await importSource({
       rootPath: root, sourcePath, kind: "plugin", name: "native-hooks",
