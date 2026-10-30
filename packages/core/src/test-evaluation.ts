@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import {
@@ -31,6 +31,7 @@ import type { SkillsetRenderResult } from "./render-result";
 import { renderedSkillPaths, type RenderedSkillEvidence } from "./rendered-skill-paths";
 import { resolveRenderedSkillCopies } from "./project-use";
 import { selectorForStandaloneSkill, selectorForPluginSkill } from "./source-unit-selector";
+import { applySourceSelection } from "./test-source-selection";
 import { targetDescriptor } from "./targets";
 import {
   type SkillsetActivationExpectation,
@@ -485,75 +486,6 @@ async function copyTestSource(
   });
 }
 
-async function applySourceSelection(
-  graph: BuildGraph,
-  stagingWorkspacePath: string,
-  selection: SkillsetTestSelection
-): Promise<void> {
-  if (!selection.filterSource) return;
-
-  const sourceRootPath = resolveInside(stagingWorkspacePath, graph.sourceRoot);
-  await pruneSelectedChildren(
-    join(sourceRootPath, "agents"),
-    selection.agents.map((agent) => agent.filename)
-  );
-  await pruneSelectedChildren(
-    join(sourceRootPath, "skills"),
-    selection.primarySkills
-  );
-
-  const selectedPluginIds = new Set([
-    ...selection.plugins,
-    ...selection.pluginSkills.map((skill) => skill.pluginId),
-  ]);
-  const pluginSkillsByPlugin = new Map<string, string[]>();
-  for (const skill of selection.pluginSkills) {
-    const skills = pluginSkillsByPlugin.get(skill.pluginId) ?? [];
-    skills.push(skill.skillId);
-    pluginSkillsByPlugin.set(skill.pluginId, skills);
-  }
-
-  const pluginsPath = join(sourceRootPath, "plugins");
-  await pruneSelectedChildren(pluginsPath, [...selectedPluginIds]);
-  for (const [pluginId, skillIds] of pluginSkillsByPlugin) {
-    if (selection.plugins.includes(pluginId)) continue;
-    await prunePluginToSelectedSkills(join(pluginsPath, pluginId), skillIds);
-  }
-
-  await removeIfExists(join(sourceRootPath, "rules"));
-  await removeIfExists(join(sourceRootPath, "_claude"));
-  await removeIfExists(join(sourceRootPath, "_codex"));
-}
-
-async function prunePluginToSelectedSkills(
-  pluginPath: string,
-  skillIds: readonly string[]
-): Promise<void> {
-  await pruneSelectedChildren(join(pluginPath, "skills"), skillIds);
-  if (!(await pathExists(pluginPath))) return;
-  const keep = new Set(["config.yaml", "shared", "skillset.yaml", "skills"]);
-  for (const entry of await readdir(pluginPath, { withFileTypes: true })) {
-    if (keep.has(entry.name)) continue;
-    await rm(join(pluginPath, entry.name), { force: true, recursive: true });
-  }
-}
-
-async function pruneSelectedChildren(
-  directory: string,
-  keepNames: readonly string[]
-): Promise<void> {
-  if (!(await pathExists(directory))) return;
-  const keep = new Set(keepNames);
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (keep.has(entry.name)) continue;
-    await rm(join(directory, entry.name), { force: true, recursive: true });
-  }
-}
-
-async function removeIfExists(path: string): Promise<void> {
-  await rm(path, { force: true, recursive: true });
-}
-
 async function copyWorkspaceManagedFiles(
   rootPath: string,
   stagingWorkspacePath: string,
@@ -647,11 +579,6 @@ export async function stageSkillsetTestWorkspace(
 ): Promise<void> {
   const workspaceLockPath = resolveInside(rootPath, "skillset.lock");
   await copyTestSource(graph, stagingWorkspacePath);
-  await applySourceSelection(
-    graph,
-    stagingWorkspacePath,
-    declaration.selection
-  );
   await copyIfExists(
     workspaceLockPath,
     join(stagingWorkspacePath, "skillset.lock")
@@ -661,6 +588,11 @@ export async function stageSkillsetTestWorkspace(
     stagingWorkspacePath,
     workspaceLockPath,
     graph.sourceDir
+  );
+  await applySourceSelection(
+    graph,
+    stagingWorkspacePath,
+    declaration.selection
   );
 }
 
