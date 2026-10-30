@@ -36,12 +36,14 @@ test("SET-522: lowers canonical invocation policy across provider skill surfaces
     ".skillset/plugins/policy/skills/absent/SKILL.md": skill("absent"),
     ".skillset/plugins/policy/skills/cursor-only/SKILL.md": skill(
       "cursor-only",
-      `implicit_invocation:
+      `claude: false
+implicit_invocation:
   cursor: false`
     ),
     ".skillset/plugins/policy/skills/native-only/SKILL.md": skill(
       "native-only",
-      `cursor:
+      `claude: false
+cursor:
   frontmatter:
     disable-model-invocation: true`
     ),
