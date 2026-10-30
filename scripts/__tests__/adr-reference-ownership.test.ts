@@ -211,3 +211,15 @@ test("a symlinked docs root cannot authorize writes outside the repository", asy
     `${oldName}\n`
   );
 });
+
+test("astral characters inside generated blocks cannot shift authored replacement offsets", async () => {
+  const root = await fixture();
+  const generated = `<!-- skillset:generated:start refs -->\n😀🧭🚀 Generated drafts/${oldName}\n<!-- skillset:generated:end refs -->\n`;
+  const authored = `After generated content: drafts/${oldName}#decision.\n`;
+  const path = join(root, "docs/unicode.md");
+  await Bun.write(path, generated + authored);
+  await helper(root, "rewrite");
+  expect(await readFile(path, "utf8")).toBe(
+    generated + authored.replace(`drafts/${oldName}`, newName)
+  );
+});

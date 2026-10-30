@@ -435,9 +435,10 @@ function maskHtmlComments(source: string): string {
 }
 
 function maskRange(source: string, start: number, end: number): string {
+  // Match UTF-16 code units so later string offsets remain unchanged.
   return `${source.slice(0, start)}${source
     .slice(start, end)
-    .replace(/[^\n]/gu, " ")}${source.slice(end)}`;
+    .replace(/[^\n]/g, " ")}${source.slice(end)}`;
 }
 
 function findClosingBracket(source: string, start: number): number {
