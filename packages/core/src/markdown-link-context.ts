@@ -34,26 +34,28 @@ function indentedCodeRanges(body: string): readonly MarkdownRange[] {
 
 /** Protect literal contexts while retaining the existing narrow inline-link grammar. */
 export function markdownLinkIsActive(body: string): (match: string, offset: number) => boolean {
-  const code = markdownCodeLiteralRanges(body);
+  let visible = body;
+  let code = markdownCodeLiteralRanges(visible);
   const comments: MarkdownRange[] = [];
+  const maskComment = (start: number, end: number): void => {
+    comments.push([start, end]);
+    visible = visible.slice(0, start) + visible.slice(start, end).replace(/[^\n]/g, " ") + visible.slice(end);
+    code = markdownCodeLiteralRanges(visible);
+  };
   let commentStart: number | undefined;
   for (const match of body.matchAll(/<!--|-->/g)) {
     if (commentStart !== undefined) {
       if (match[0] === "-->") {
-        comments.push([commentStart, match.index + match[0].length]);
+        // Earlier comment backticks cannot hide a later comment opener.
+        maskComment(commentStart, match.index + match[0].length);
         commentStart = undefined;
       }
     } else if (match[0] === "<!--" && !inside(code, match.index) && !escaped(body, match.index)) {
       commentStart = match.index;
     }
   }
-  if (commentStart !== undefined) comments.push([commentStart, body.length]);
-  // Backticks inside HTML comments cannot open spans over following prose.
-  let visible = body;
-  for (const [start, end] of comments) {
-    visible = visible.slice(0, start) + visible.slice(start, end).replace(/[^\n]/g, " ") + visible.slice(end);
-  }
-  const literals = [...markdownCodeLiteralRanges(visible), ...comments];
+  if (commentStart !== undefined) maskComment(commentStart, body.length);
+  const literals = [...code, ...comments];
   return (match, offset) => {
     const opening = offset + (match.startsWith("!") ? 1 : 0);
     const closing = offset + match.indexOf("](");

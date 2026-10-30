@@ -17,6 +17,7 @@ const literalCases: readonly [string, (value: string) => string][] = [
   ["indented code", (value) => `Example:\n\n    ${value}`],
   ["HTML comment", (value) => `<!--\n${value}\n-->`],
   ["unclosed HTML comment", (value) => `<!-- ${value}`],
+  ["comment backticks before another comment", (value) => `prose <!-- ` + "`" + ` --> text <!-- ${value} --> ` + "`"],
   ["escaped opening bracket", (value) => `\\${value}`],
   ["escaped closing bracket", (value) => value.replace("](", "\\](")],
 ];
