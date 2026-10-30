@@ -1,0 +1,9 @@
+# Public router qualification
+
+SET-466 evidence on 2026-10-30. The parent is `07005d59c8b7f2b1e569b01db37e89a3a64ebc08`; this layer introduces the scripts and tests. `package-smoke.log` retains the real opt-in test invoking exactly the package commands offered in generated recovery guidance, with a fresh disposable npm/XDG cache and workspace. Both commands exited zero, the package reported 0.30.0, and the workspace remained empty. No global installation or provider execution occurred.
+
+Reproduce with `SKILLSET_ROUTER_PACKAGE_SMOKE=1 bun run test:focused -- scripts/__tests__/public-router-package-smoke.test.ts`. It intentionally downloads/executes the published package and stays outside default offline gates. The ordinary preflight fixture matrix runs without any language runtimes on the child PATH and exercises POSIX locally and PowerShell on Windows CI. Windows is not locally verified; hosted CI evidence is required.
+
+`route-qualification.md` records the supporting narrow published CLI probes; its temporary raw paths describe research provenance, not durable attached raw evidence. The exact recovery test log is retained here. Qualification is only for entry-preview routes, not all current reference workflows, provider semantics, model handoffs, or the unshipped specialist skills. SET-457's Codex/Cursor trigger gaps remain separate.
+
+The initial hosted Windows job failed before tests because its default TEMP was under HOME (job 124091841692, run 41064378777). The suite now uses the established Windows scripts workflow's runner.temp sandbox environment. The initial layer-scoped Changeset check correctly rejected an npm release record for a plugin-only change; the repair removes it. CI's default release-state change baseline also required additional historical evidence beyond the trunk baseline; a supported refresh appends it. These repairs do not establish a Windows pass until the hosted suite actually runs.

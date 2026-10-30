@@ -1,0 +1,24 @@
+# SET-466 published CLI route qualification
+
+Exact source head `07005d59c8b7f2b1e569b01db37e89a3a64ebc08`; released `skillset@0.30.0` executed from `/private/tmp/set466-npm-cache` using `npm exec --offline --yes --cache … --package=skillset@0.30.0 -- skillset ...`. Owner's earlier network-backed exact-pin `--version` returned `0.30.0` and supplied `/private/tmp/set466-npm-probe/{version,help,init-help}.txt`. My isolated follow-up uses fresh disposable workspaces and redirected XDG cache/state/config; raw commands, stdout/stderr, exit and file hashes in `/private/tmp/set466-route-probe/{results,valid-results}.json`. No provider runtime, globally installed package or applying command executed. Probe compares regular-file paths and contents; it does not independently attest directory/mode metadata or npm/XDG cache writes.
+
+## Observed narrow operations
+
+| Operation / context | Result | Truthful router statement |
+| --- | --- | --- |
+| `init --root .`, empty directory, no `--yes` | Exit 0, lists planned root config and `.skillset` files; workspace file snapshot unchanged. Released init help explicitly says `--yes` confirms mutation. | Can preview a new workspace; plan is not an applied initialization, and general side-effect-free behavior is established only for this fixture. |
+| `status --root .`, no config | Exit 1, reports `ENOENT` for `skillset.yaml`; source file snapshot unchanged. | Recommend init preview first when no workspace exists; do not interpret failed status as a clean workspace. |
+| `status --root .`, minimal valid workspace with one unbuilt skill | Exit 1, reports four added projected files/drift, unchanged source. | Use for current workspace health; nonzero can reflect unbuilt drift. Do not represent an ordinary check as a provider activation. |
+| `check --root .`, same unbuilt workspace | Exit 1, `no output baseline — run skillset build --yes`; unchanged source. | Use for source/output checking; report missing baseline without running the recommended write. A clean workspace success was not exercised. |
+| `check --only outputs --root .`, same | Exit 1, reports missing generated paths; unchanged source. | Explicit output-freshness check, no claim it is green or a substitute for all checks. |
+| `diff --root .`, same | Exit 0, lists four pending generated files and suggests `build --yes`; unchanged source. | Preview pending output, with a separate user decision before write. |
+| `lookup activation mcp --compat codex` | Exit 0; reports static Codex MCP inspector and `unverified`, not execution proof. | Static evidence lookup only; no provider activation. |
+| `lookup capability skill-invocation --compat claude,codex` | Exit 2, expected a different lookup subject. | 0.30.0 does not support this newer capability crosswalk route; do not offer it under the audited 0.30 subset. |
+
+The no-source workspace also showed `status`, `check`, `diff` fail with `no source plugins, skills, rules, project agents, or provider source found`; fail output is honest, not equivalent to unsupported command. Root help includes the guide's top-level command families; a focused help/preview subset is not proof every subcommand, flag or semantic behavior in the current 41 KB guide exists at 0.30.0. Existing public description does not command `lookup capability`, so its absence is a qualification constraint on the proposed router, not a demonstrated broken current-guide command.
+
+## Proposed compatible route contract
+
+Declare an **operation-scoped, exact `0.30.0` qualification** for only the four classes above—new-workspace init preview, existing-workspace status/check/diff, and static activation lookup. Treat missing baseline, source invalidity and drift as actionable outcomes, not failures of compatibility; distinguish an executable launch failure from a command reporting invalid workspace. State that status/check clean outcomes and deeper semantic parity were not tested in this probe. Do not imply the entire comprehensive reference manual is compatible solely from the version check; deeper operations require their own command-specific verification/version evidence or guidance stating support is unknown. New current-only crosswalk lookup remains unavailable on 0.30.0. An exact accepted version is a singleton range, not a claim later or earlier versions are supported. User-selected exact npm invocation can obtain the tested package; the automatic preflight only inspects availability and must not run npm.
+
+For implementation verification add repeatable fixture tests, including a clean valid generated workspace control established without altering the user's tree, and platform-specific preflight parity. Such deterministic tests do not replace the issue's real exact-pinned npm execution test or SET-457's separate cross-provider trigger evaluations.
