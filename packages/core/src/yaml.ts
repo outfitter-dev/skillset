@@ -8,13 +8,25 @@ export function isJsonRecord(value: unknown): value is JsonRecord {
 }
 
 export function parseYamlRecord(content: string, label: string): JsonRecord {
-  let parsed: unknown;
-  try {
-    parsed = YAML.parse(content) as unknown;
-  } catch (error) {
-    if (!(error instanceof YAML.YAMLParseError)) throw error;
-    throw new InputValidationError(`skillset: ${label} is not valid YAML: ${error.message}`, { cause: error });
+  const document = YAML.parseDocument(content);
+  for (const warning of document.warnings) process.emitWarning(warning);
+  const parseError = document.errors[0];
+  if (parseError !== undefined) {
+    if (!(parseError instanceof YAML.YAMLParseError)) throw parseError;
+    throw invalidYaml(parseError, label);
   }
+  // Alias conversion also throws ReferenceError for internal invariants. Prove
+  // this source error from the parsed document instead of trusting that class.
+  YAML.visit(document, {
+    Alias(_key, alias) {
+      if (alias.resolve(document) === undefined) {
+        throw invalidYaml(new ReferenceError(
+          `Unresolved alias (the anchor must be set before the alias): ${alias.source}`
+        ), label);
+      }
+    },
+  });
+  const parsed: unknown = document.toJS();
   if (parsed === null) return {};
   if (!isJsonRecord(parsed)) {
     throw new InputValidationError(`skillset: expected ${label} to contain a YAML object`);
@@ -83,4 +95,8 @@ function sortValue(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(sortValue);
   if (isJsonRecord(value)) return sortRecord(value);
   return value;
+}
+
+function invalidYaml(cause: Error, label: string): InputValidationError {
+  return new InputValidationError(`skillset: ${label} is not valid YAML: ${cause.message}`, { cause });
 }

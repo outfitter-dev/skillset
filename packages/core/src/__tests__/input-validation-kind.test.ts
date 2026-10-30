@@ -189,7 +189,7 @@ test("unexpected YAML library exceptions preserve identity", () => {
     import YAML from "yaml";
     import { parseYamlRecord } from "./packages/core/src/yaml.ts";
     for (const original of [new TypeError("internal YAML error"), new RangeError("parser overflow"), "unknown fault"]) {
-      YAML.parse = () => { throw original; };
+      YAML.parseDocument = () => { throw original; };
       assert.throws(() => parseYamlRecord("key: value", "skillset.yaml"), error => error === original);
     }`);
 });
@@ -230,4 +230,34 @@ test("invalid URI encoding retains the recognized parser cause", () => {
   );
   expect(error.name).toBe("InputValidationError");
   expect(error.cause).toBeInstanceOf(URIError);
+});
+
+
+test.each(["a: *missing", "a: *later\nb: &later value"])("unresolved alias is explicit invalid YAML: %s", content => {
+  for (const action of [() => parseYamlRecord(content, "skillset.yaml"), () => parseMarkdown(`---\n${content}\n---\nBody`, "SKILL.md")]) {
+    const error = caught(action);
+    expect(error.name).toBe("InputValidationError");
+    expect(error.message).toContain("is not valid YAML: Unresolved alias");
+    expect(error.cause).toBeInstanceOf(ReferenceError);
+  }
+});
+
+test("resolved aliases retain the library's object identity", () => {
+  const value = parseYamlRecord("a: &first { name: demo }\nb: *first", "skillset.yaml");
+  expect(value.a).toBe(value.b);
+  expect(value.a).toEqual({ name: "demo" });
+});
+
+test("unexpected document conversion faults remain internal", () => {
+  probe(`import assert from "node:assert/strict";
+    import YAML from "yaml";
+    import { parseYamlRecord } from "./packages/core/src/yaml.ts";
+    const parseDocument = YAML.parseDocument;
+    const original = new ReferenceError("internal anchor invariant");
+    YAML.parseDocument = (...args) => {
+      const document = parseDocument(...args);
+      document.toJS = () => { throw original; };
+      return document;
+    };
+    assert.throws(() => parseYamlRecord("a: &first value\\nb: *first", "skillset.yaml"), error => error === original);`);
 });
