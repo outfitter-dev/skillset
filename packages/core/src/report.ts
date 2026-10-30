@@ -2,6 +2,7 @@ import { renderImportNormalizations } from "./import-normalization-report";
 import { randomUUID } from "node:crypto";
 
 import {
+  IMPORT_NORMALIZATION_POINTER_PATTERN,
   REPORT_KINDS,
   REPORT_SCHEMA_VERSION,
   type SkillsetAdoptionReport,
@@ -23,6 +24,7 @@ import {
 } from "@skillset/schema";
 
 const REDACTED = "[REDACTED]";
+const POINTER_PATTERN = new RegExp(IMPORT_NORMALIZATION_POINTER_PATTERN);
 const CREDENTIAL_PATTERNS = [
   /\b(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]{16,}\b/g,
   /\b(?:npm_[A-Za-z0-9]{16,}|sk-[A-Za-z0-9_-]{16,})\b/g,
@@ -394,6 +396,27 @@ export function containsSensitiveReportContent(
   value: string,
   sentinels: readonly string[] = []
 ): boolean {
+  if (containsSensitiveText(value, sentinels)) return true;
+  // The final serialized scan must also inspect pointer semantics: ~1/~0 can
+  // hide a credential's word boundary or an explicitly supplied sentinel.
+  try {
+    return containsSensitivePointers(JSON.parse(value), sentinels);
+  } catch {
+    return false;
+  }
+}
+
+function containsSensitivePointers(value: unknown, sentinels: readonly string[]): boolean {
+  if (Array.isArray(value)) return value.some((item) => containsSensitivePointers(item, sentinels));
+  if (typeof value !== "object" || value === null) return false;
+  return Object.entries(value).some(([key, item]) =>
+    key === "pointer" && typeof item === "string" && POINTER_PATTERN.test(item)
+      ? pointerSegments(item).some((segment) => containsSensitiveText(segment, sentinels))
+      : containsSensitivePointers(item, sentinels)
+  );
+}
+
+function containsSensitiveText(value: string, sentinels: readonly string[]): boolean {
   if (
     sentinels.some(
       (sentinel) => sentinel.length > 0 && value.includes(sentinel)
@@ -690,6 +713,11 @@ function scrubString(value: unknown, sentinels: readonly string[]): string {
   return scrubbed;
 }
 
+/** Keep segment boundaries intact while reversing RFC 6901 escaping. */
+function pointerSegments(value: string): readonly string[] {
+  return value.split("/").map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
+}
+
 function scrubUnknown(value: unknown, sentinels: readonly string[]): unknown {
   if (typeof value === "string") return scrubString(value, sentinels);
   if (Array.isArray(value)) {
@@ -699,7 +727,9 @@ function scrubUnknown(value: unknown, sentinels: readonly string[]): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
-      scrubUnknown(item, sentinels),
+      key === "pointer" && typeof item === "string" && POINTER_PATTERN.test(item)
+        ? scrubString(pointerSegments(item).map((segment) => scrubString(segment, sentinels).replaceAll("~", "~0").replaceAll("/", "~1")).join("/"), sentinels)
+        : scrubUnknown(item, sentinels),
     ])
   );
 }
