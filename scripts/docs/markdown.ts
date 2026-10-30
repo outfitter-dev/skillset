@@ -186,6 +186,25 @@ export function extractGeneratedMarkers(
   }));
 }
 
+/** Mask only generated blocks, preserving offsets and all authored examples. */
+export function maskGeneratedMarkdown(source: string): string {
+  const markers = extractGeneratedMarkerLocations(source);
+  const issues = validateGeneratedMarkers(markers);
+  if (issues.length > 0) {
+    throw new Error(`Invalid generated Markdown markers: ${issues.map(issue => `${issue.kind} at line ${issue.line}`).join(", ")}`);
+  }
+  let visible = source;
+  let start: number | undefined;
+  for (const marker of markers) {
+    if (marker.kind === "start") start = marker.start;
+    if (marker.kind === "end" && start !== undefined) {
+      visible = maskRange(visible, start, marker.end);
+      start = undefined;
+    }
+  }
+  return visible;
+}
+
 /**
  * Preserve reader-visible authored Markdown while masking examples, raw HTML,
  * comments, and generated block contents without changing source positions.
