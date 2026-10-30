@@ -9,6 +9,11 @@
           "type": "boolean"
         },
         {
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "type": "object"
         }
       ]
@@ -37,6 +42,15 @@
                 "path"
               ],
               "type": "object"
+            },
+            "opaque": {
+              "items": {
+                "description": "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+                "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
             },
             "skills": {
               "anyOf": [
@@ -89,6 +103,15 @@
             ]
           },
           "properties": {
+            "opaque": {
+              "items": {
+                "description": "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+                "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
             "skills": {
               "anyOf": [
                 {
@@ -140,6 +163,15 @@
             ]
           },
           "properties": {
+            "opaque": {
+              "items": {
+                "description": "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+                "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
             "skills": {
               "anyOf": [
                 {
@@ -336,6 +368,11 @@
           "type": "boolean"
         },
         {
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "type": "object"
         }
       ]

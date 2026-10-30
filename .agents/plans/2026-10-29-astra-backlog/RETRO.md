@@ -1,5 +1,16 @@
 # Execution ledger
 
+### SET-442 custom hook runtime resources — October 29
+
+- Final implementation `54dce00a` passed independent round two at 5/5. Its immutable full run had 4,148 pass and eight failures: three deferred size failures and five stale capability authority assertions after the schema change. Reviewed the descriptor delta: the new plugin-only opacity field and rejection outside plugin config do not change invocation mapping, agent fields/preface, rule synthesis, or Codex plugin-agent unavailability. Refreshed only those five authority hashes, retaining judgment scopes/limitations and implementation pins; related semantic/lookup proof passes 86 tests / 440 assertions. A narrow evidence revalidation and fresh exact verification follow; the original failing run remains preserved.
+
+- Round-one review at `4d322120` found authored Markdown behavior changing merely from a hook declaration and omitted `shared`/`subagents` move guards. Repair uses an explicit, schema-owned plugin provider `opaque` directory list, synthesized during import; existing authored configurations keep their document controls. The list validates path shape and existing contained directories, and rendering/inventory share its predicate. Added ownership, schema/runtime parity, removal/provenance and authored-configuration regressions. Initial exact full run passed 4,137 tests with only the three deferred native-size failures; repair requires fresh exact verification.
+
+- Reproduced successful import/build omitting a sibling configuration file read by a declared custom hook. Import now preserves each eligible containing resource directory under the Claude island, deduplicates overlapping moves, and keeps emitted paths. Markdown companions use the existing preprocessing opt-out, with the same predicate in rendering and source inventory.
+- Plugin-root declarations and managed component directories require explicit source configuration; collision checks happen before staging moves and destination claim. Arbitrary command dependencies outside the declared resource directories remain unproven.
+- Five regressions failed before repair; focused import/adoption/provenance proof passes 36 tests / 180 assertions. Types, fast conformance and docs pass. The provenance regression checks changed lock evidence and normal preprocessing in a similarly named neighboring directory. Independent exact-commit review and aggregate verification follow.
+- Parent PR #777 is draft at 94e5ab23, independently reviewed 5/5. Final aggregate ran 4,130 pass with only the three deferred native-size failures; no passing receipt.
+
 ### SET-442 nested skill and shared invocation boundaries — October 29
 
 - Live audit reproduced nested primary skills bypassing import policy scoping and reporting. Import now uses the compiler's primary-skill discovery, including grouping directories and effective names, while nested companion examples remain resources. Plugin field summaries now include every primary skill, and unknown provider provenance no longer fabricates a Claude-native result.

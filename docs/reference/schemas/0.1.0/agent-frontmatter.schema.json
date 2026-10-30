@@ -10,6 +10,11 @@
         },
         {
           "additionalProperties": true,
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "properties": {
             "skills": {
               "items": {
@@ -47,6 +52,11 @@
         },
         {
           "additionalProperties": true,
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "properties": {
             "skills": {
               "items": {
@@ -84,6 +94,11 @@
         },
         {
           "additionalProperties": true,
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "properties": {
             "skills": {
               "items": {

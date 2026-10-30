@@ -1,3 +1,4 @@
+import { validateOpaqueIslandDirectories } from "./native-island-preprocess";
 import { createMigrationSourceReader, type MigrationSourceReader, type MigrationMarkdownParts } from "./migration-source";
 import { MIGRATION_STATE_PATH, readMigrationState } from "./migration-state";
 import { resolveNativeRootRuleSource } from "./native-root-rules";
@@ -559,7 +560,9 @@ async function loadProjectIslands(
     for (const plugin of plugins) {
       const pluginPath = join(pluginsPath, plugin.id);
       for (const target of targetNames()) {
-        islands.push(...(await loadTargetIsland(rootPath, join(pluginPath, PROVIDER_SOURCE_DIRS[target]), target, plugin.id)));
+        const islandPath = join(pluginPath, PROVIDER_SOURCE_DIRS[target]);
+        await validateOpaqueIslandDirectories(rootPath, islandPath, plugin, target);
+        islands.push(...(await loadTargetIsland(rootPath, islandPath, target, plugin.id)));
       }
     }
   }

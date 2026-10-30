@@ -41,6 +41,17 @@ Target `projectRoot` configuration can replace the default project dotfolder. Sk
 
 Known text and structured files are preprocessed and then parsed or schema-validated where their format has a contract. Unknown text and binary files copy byte-for-byte. No provider-source file may leak into another target. For plugin islands, `skillset.preprocess: false` in the plugin config makes non-Markdown files and the entire native `hooks/` directory opaque copies, preserving literal template-like syntax and original line endings. Hook companions are runtime resources even when named `.md`; their contents must not be interpreted as authored Skillset documents. Markdown outside `hooks/` keeps its document-level preprocessing controls and source-frontmatter stripping. The default remains preprocessing for authored structured files.
 
+For other plugin runtime resource directories, declare an explicit `opaque` list in the owning provider block of the plugin's `skillset.yaml`:
+
+```yaml
+claude:
+  opaque: [config]
+```
+
+This copies every file under `_claude/config/` byte-for-byte, including Markdown frontmatter, line endings, and template text. Paths name existing directories relative to that provider island; use forward slashes without leading/trailing slashes, traversal, or glob expansion. Root paths, duplicate entries, files, missing directories, and symlink escapes are rejected. The setting is plugin-only and applies only to the selected provider's island. It does not change the output path or bypass collision checks. Removing the entry restores normal processing and changes provenance accordingly.
+
+A native hook manifest path alone does not change authored Markdown behavior. [Import](../../guides/importing.md) records `claude.opaque` when it preserves custom hook resource directories, so the byte-copy decision remains explicit in source configuration.
+
 Codex `.rules` files are command-execution policy and are accepted only from `.skillset/_codex/rules/**/*.rules`. Portable rule prose belongs in `.skillset/rules/**/*.md` and renders to [provider-specific rule destinations](rules.md); Codex plugin `.rules` are unsupported.
 
 | Portable source | Claude | Codex | Cursor |
