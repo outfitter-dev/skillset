@@ -772,3 +772,10 @@ Independent audit identified four config catch sites and the registry/runtime ex
 
 
 SET-467 config review repair: unresolved/forward YAML aliases are ordinary invalid input but the pinned library throws ReferenceError, a class it also uses for an internal anchor invariant. Parse the document once, preserve declared syntax errors and warnings, and prove an unresolved alias through Alias.resolve before conversion. Valid aliases preserve reference identity; unexpected document conversion errors propagate. Explicit alias validation creates its ReferenceError cause at that boundary. Library resource-limit failures remain non-successful conversion failures rather than being classified by message text. The repaired five-suite set passed 77 tests / 244 assertions and the fast/type/docs gate passed.
+
+
+## SET-467 prerequisite: adaptive-hook source failures
+
+Adaptive-hook JSON reads now occur outside the syntax catch; only SyntaxError produces adaptive-hook-invalid-json. Hook script stat only translates ENOENT/ENOTDIR to adaptive-hook-script-missing; EACCES/EIO/ELOOP and internal faults propagate unchanged. Feature diagnostics accept an optional Error cause without changing diagnostic code, feature or logical path. Existing missing-path and non-file behavior remain distinct. The broader manifest/MCP generic wrappers remain a separate task; this layer does not make every feature diagnostic trustworthy for informational status.
+
+Seven regression cases failed on the parent, with two valid controls passing. Final hook-source/attachments/bindings checks: 47 tests / 102 assertions across three files; fast/type/docs gate passed. Fault injection is subprocess-isolated. Hook script contents are never executed in the new tests.
