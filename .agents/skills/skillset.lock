@@ -149,14 +149,14 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-dev-testing",
-      "outputHash": "sha256:4a60a83c9065a24c02f2557cb342427c743d2b10d82eb77550a4e6f44e888a6d",
+      "outputHash": "sha256:b2b03b1f2dad2b194ed46224eebb57c6ca6a90d4dad0bcdd2c47f644bc5a6ac7",
       "outputPath": "skillset-dev-testing/SKILL.md",
       "owner": {
         "standardProfile": "agent-skills"
       },
-      "provenanceHash": "sha256:6d84ee33d0fdceb89b575d14d94e1a356e5f79aa9081ea6080952b1acc8c14a2",
+      "provenanceHash": "sha256:55cbea51133d90f38c31730959bcc75953cc56cbcd9a6f2cc97e8dff2eb952a7",
       "role": "standard",
-      "sourceHash": "sha256:408a11d38afa9b5d7fec0a09de8941264358143be35eabe036067cf0f303e960",
+      "sourceHash": "sha256:beecfb9163c763ebf4f1d594f00346f8d98b67ee9d392be1e584e1f6d6e8d9c5",
       "sourcePath": ".skillset/skills/skillset-dev-testing/SKILL.md",
       "version": "0.1.0"
     },

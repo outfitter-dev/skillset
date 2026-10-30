@@ -4,6 +4,23 @@
 
 `fixtures/` is never scanned as this repo's own Skillset source.
 
+## Absolute acceptance claims
+
+When a new or changed acceptance claim says **exact**, **complete**, **required**, **blocked**, **corrupt**, **idempotent**, or **Bun-free**, include at least one counterexample test that fails if the nearby wrong state is accepted. Choose a plausible regression in the behavior being changed and make the assertion distinguish it from the promised result. A passing happy-path fixture alone cannot support an absolute claim.
+
+For an exact file inventory, compare the complete set so an extra file fails. For a corrupt executable, keep the file present with invalid contents; deleting it proves only the missing-file case. For idempotence, repeat the operation and compare the promised state. For Bun-free execution, exercise the child process with Bun unavailable rather than inferring independence from package metadata.
+
+Use this checklist when designing tests and reviewing their evidence:
+
+- What extra input could be incorrectly accepted?
+- What required input could be missing?
+- What wrong identity could masquerade as the right one?
+- What partial or recovery state differs structurally from the happy path, such as an existing release with zero assets?
+- Does the fixture prove the named state, or only a neighboring failure?
+- Does an executable documentation example compile or run against the real public API?
+
+Prefer the smallest fixture and assertion that distinguish the counterexample. Record the relevant negative case with the verification evidence; do not introduce a new test framework or cover hypothetical states unrelated to the change. This is a forward-looking convention: apply it to new claims and when the affected tests are next touched, without retrofitting the entire suite.
+
 ## Three tiers of fixture
 
 Tests build fake repos at three tiers. Pick the lighter one unless a case earns the heavier one.

@@ -16,6 +16,10 @@ version: 0.1.0
 
 Read [references/fixture-strategy.md](references/fixture-strategy.md) before adding a checked-in or Git-backed fixture, changing test sandbox behavior, or choosing a conformance lane.
 
+## Challenge Absolute Claims
+
+Apply the counterexample convention and review checklist in `fixtures/README.md#absolute-acceptance-claims` when acceptance says exact, complete, required, blocked, corrupt, idempotent, or Bun-free. Include a test that fails if the nearby wrong state is accepted, and verify that the fixture represents the named state. Compile or execute runnable examples against the real public API. Apply this to new claims and when the affected tests are next touched; do not retrofit unrelated tests.
+
 ## Protect The Sandbox
 
 - Build Git-backed fixtures only with `scripts/test-helpers/git-remote.ts` under a proven disposable root.

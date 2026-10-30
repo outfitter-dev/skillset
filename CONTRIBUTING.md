@@ -23,7 +23,7 @@ under a restrictive shell umask.
 - Follow `AGENTS.md` and the nearest project documentation.
 - Follow the [documentation system](docs/development/documentation-system.md) when changing repository documentation or generated reference.
 - Keep changes small, reversible, and tied to one purpose.
-- Add focused tests for new behavior.
+- Add focused tests for new behavior, including [counterexamples for absolute acceptance claims](fixtures/README.md#absolute-acceptance-claims).
 - Edit `.skillset/` or `skillset.yaml` when changing self-hosted source; run `bun run skillset:build` and inspect the generated diff.
 - Do not hand-edit generated skills, plugins, or provider output as source truth.
 - Record the change (below) before you push.
@@ -63,6 +63,10 @@ Do not open a public issue for a suspected vulnerability. Follow the private rep
 Use a Conventional Commit-style title. Explain the context, what changed, how you verified it, and any risks or rollout notes. Keep the pull request in draft until CI is green, and resolve every review thread before marking it ready.
 
 Use plain git for a single branch. For stacked work, use [`gh stack`](https://github.com/github/gh-stack) (`gh extension install github/gh-stack`). Update a branch by restacking it onto trunk: `git rebase` for a single branch, or `gh stack rebase` for a stack. `gh stack rebase` rewrites every branch in the stack and `gh stack sync` also force-pushes them all and updates their PRs, so run either only on a stack you own entirely, and `sync` only when you mean to push. Do not merge trunk into a branch: on a branch that ran `skillset release apply`, `bun run change-stream:guard` rejects the result.
+
+### Review acceptance evidence
+
+Apply the [absolute-claim checklist](fixtures/README.md#absolute-acceptance-claims) to new or changed promises of exactness, completeness, required inputs, blocked states, corruption handling, idempotence, or Bun-free execution. Identify the nearby wrong state and the test that would fail if it slipped through. Check that executable examples use the real public API. This convention applies when the affected behavior or tests are next touched; it does not require a retrospective rewrite of existing tests.
 
 ### Review transform recognition and output together
 
