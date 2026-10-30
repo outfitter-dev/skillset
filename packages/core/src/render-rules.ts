@@ -165,14 +165,16 @@ async function renderClaudeProjectInstructions(
   return [file];
 }
 
+// Build eligibility and rendering must agree on actual instruction destinations.
+export function planRuleInstructionProjections(graph: BuildGraph) {
+  return planAgentInstructionProjections(graph, codexRuleDestinations);
+}
+
 async function renderAgentInstructionFiles(
   graph: BuildGraph,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
-  const projections = await planAgentInstructionProjections(
-    graph,
-    codexRuleDestinations
-  );
+  const projections = await planRuleInstructionProjections(graph);
   const rendered: LogicalRenderedFile[] = [];
   const lockItems = new Map<
     string,
