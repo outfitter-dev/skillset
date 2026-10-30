@@ -917,6 +917,7 @@ async function renderPluginSharedSkillFiles(
     graph,
     kind: "plugin-skill",
     license: skillLicense,
+    outputAnchorPath: targetSkillFile,
     outputRoot: "plugins",
     plugin,
     preprocessDependencies: skillPreprocessDependencies(
@@ -1659,6 +1660,7 @@ async function renderStandaloneSkill(
       graph,
       kind: "standalone-skill",
       license: skillLicense,
+      outputAnchorPath: targetSkillFile,
       outputRoot,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
       resources: skillMarkdown.resources,
@@ -1828,6 +1830,7 @@ async function renderProjectSkillCopy(
     graph,
     kind: plugin === undefined ? "standalone-skill" : "plugin-skill",
     license: skillLicense,
+    outputAnchorPath: join(targetSkillDir, SKILL_FILE),
     outputRoot,
     ...(plugin === undefined ? {} : { plugin }),
     preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
@@ -2786,6 +2789,7 @@ async function lockItemForSkill(args: {
   readonly graph: BuildGraph;
   readonly kind: LockItem["kind"];
   readonly license: ResolvedLicense | undefined;
+  readonly outputAnchorPath: string;
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
@@ -2797,6 +2801,10 @@ async function lockItemForSkill(args: {
   const files = args.files
     .map((file) => normalizeManagedRelativePath(relative(args.outputRoot, file.path)))
     .sort();
+  const outputPath = normalizeManagedRelativePath(relative(args.outputRoot, args.outputAnchorPath));
+  if (!files.includes(outputPath)) {
+    throw new Error(`Skill lock anchor ${args.outputAnchorPath} is absent from rendered files for ${args.skill.sourcePath}`);
+  }
 
   return {
     fileModes: renderedFileModes(args.outputRoot, args.files),
@@ -2804,7 +2812,7 @@ async function lockItemForSkill(args: {
     kind: args.kind,
     name: args.skill.id,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
+    outputPath,
     ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
     role: "bundle",
     sourceHash: await hashSkillSource(
