@@ -4157,9 +4157,7 @@ tools:
   shell:
     - git status
     - bun run *
-  mcp:
-    linear:
-      - issues.*
+  mcp: false
   claude:
     allow:
       - AskUserQuestion
@@ -4182,7 +4180,7 @@ Tools body.
   expect(claudeSkill).toContain("Edit");
   expect(claudeSkill).toContain("Bash(git status)");
   expect(claudeSkill).toContain("Bash(bun run *)");
-  expect(claudeSkill).toContain("mcp__linear__issues.*");
+  expect(claudeSkill).toContain("mcp__*");
   expect(claudeSkill).toContain("AskUserQuestion");
 });
 

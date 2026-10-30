@@ -42,13 +42,13 @@ tools:
 | Portable `tools` | transformed `allowed-tools` / `disallowed-tools` rules | `.skillset.tools.yaml` metadata | `.skillset.tools.yaml` metadata |
 | Native allow/deny overlay | native Claude rule strings | target-native metadata | target-native metadata |
 
-Claude MCP rules use native globs such as `mcp__github__get_*`; Skillset does not emit regex-style MCP rules. Codex and Cursor sidecars preserve reviewable intent but do not mutate runtime trust, settings, managed policy, or user-level configuration.
+Claude renders global `mcp: false` as `disallowed-tools: mcp__*`. Nonempty portable per-server maps are rejected: literal server names do not establish native identity, plugin scope, or collision-safe matching. Empty maps emit nothing. Explicit `tools.claude.allow` / `deny` rules remain provider-native intent; verify their native names and matching scope before authoring them. Codex and Cursor sidecars preserve reviewable intent but do not mutate runtime trust, settings, managed policy, or user-level configuration.
 
 The realization registry classifies each provider/aspect as `native`, `transformed`, `derived`, `approximate`, `advisory`, `metadata-only`, `settings-required`, or `unsupported`. [`skillset lookup skill tools`](../cli/lookup.md) shows the matrix; [`skillset explain`](../cli/explain.md) shows the deciding layer, emitted rule, tier, and residual-risk diagnostic for one [source unit](../../glossary.md#source-unit).
 
 ## Errors and Caveats
 
-Skillset rejects retired `tool_intent`, unknown portable keys, native `allow` or `deny` at the wrong level, target-local duplicate `tools` blocks, and a native allow rule that contradicts an effective portable denial. Wildcard MCP server names are not portable.
+Skillset rejects retired `tool_intent`, unknown portable keys, native `allow` or `deny` at the wrong level, target-local duplicate `tools` blocks, and a native allow rule that contradicts an effective portable denial. Wildcard MCP server names are not portable. Claude per-server rejection applies after provider overrides and cannot be bypassed with `warn`, `skip`, or `force`. An empty provider map does not erase inherited entries. See [ADR-0049](../../adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md) for the compatibility change and evidence.
 
 Codex `sandbox_mode = "read-only"` and Cursor agent `readonly: true` require settings outside a skill; per-skill Codex and Cursor policy therefore remains metadata-only today. Generated prose, scripts, shims, and sidecars explain or preserve intent but do not become enforcement by assertion.
 
