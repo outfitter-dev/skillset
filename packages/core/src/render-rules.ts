@@ -574,7 +574,7 @@ export function ruleScopeRenderResults(
     ...(rule.targets.codex.enabled ? [{ target: "codex" as const }] : []),
   ];
   for (const rule of graph.rules) {
-    if (rule.rootFrontPage) continue;
+    if (rule.rootFrontPage && graph.root.workspace.nativeAgents === true) continue;
     const sourcePath = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
     const sourceUnit = selectorForRule(rule.id);
     if (hasWildcardScope(rule)) {
