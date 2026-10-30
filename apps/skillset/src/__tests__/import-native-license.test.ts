@@ -143,3 +143,18 @@ for (const license of [undefined, "MIT"]) {
     expect(await readFile(join(root, ".cursor-plugin/plugin.json"), "utf8")).toBe(manifest);
   });
 }
+
+test("license path evidence stays unknown while direct Claude identity retains its narrow proof", async () => {
+  const root = await createTestFixtureRoot("skillset-license-identity-proof-");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n");
+  await Bun.write(join(root, ".claude-plugin/plugin.json"), JSON.stringify({ name: "demo", description: "Demo" }));
+  await Bun.write(join(root, "LICENSE"), notice);
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(true);
+  const entries = report.imports.flatMap((entry) => entry.normalizations ?? []);
+  expect(entries.filter((entry) => entry.code === "native.license-path")).toEqual([expect.objectContaining({ fidelity: "unknown", source: { path: "LICENSE", pointer: "" } })]);
+  expect(entries.find((entry) => entry.code === "native.license-path")?.roundTrip).toBeUndefined();
+  for (const code of ["manifest.name", "manifest.description"]) {
+    expect(entries.find((entry) => entry.code === code)?.roundTrip).toMatchObject({ fidelity: "exact", scope: "claude-manifest-identity" });
+  }
+});
