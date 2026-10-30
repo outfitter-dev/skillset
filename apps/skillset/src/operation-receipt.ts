@@ -126,7 +126,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
     phases: {
       build: phase(
         report.builtFiles,
-        blockedBeforeWrite || report.migrationError !== undefined
+        blockedBeforeWrite || (report.migrationError !== undefined && report.migrationErrorPhase !== "after-build")
           ? "not-run"
           : report.buildError === undefined
             ? "passed"
@@ -144,7 +144,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
       ),
       lint: phase(
         report.lintIssues.length,
-        blockedBeforeWrite || report.migrationError !== undefined ? "not-run" : lintErrors === 0 ? "passed" : "failed"
+        blockedBeforeWrite || (report.migrationError !== undefined && report.migrationErrorPhase !== "after-build") ? "not-run" : lintErrors === 0 ? "passed" : "failed"
       ),
       setup: phase(
         report.setupFiles.length,
