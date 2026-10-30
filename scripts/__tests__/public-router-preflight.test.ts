@@ -48,7 +48,12 @@ async function probe(bin: string, workspace: string, scope = "repo", packaged = 
   const command = windows
     ? [join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"), "-NoProfile", "-NonInteractive", "-File", join(skill, "scripts/preflight.ps1"), "-Root", workspace, "-Scope", scope]
     : ["/bin/sh", join(skill, "scripts/preflight.sh"), workspace, scope];
-  const proc = Bun.spawn(command, { env: { ...process.env, PATH: bin }, stdout: "pipe", stderr: "pipe" });
+  // Windows treats Path and PATH as one key; remove inherited spellings before
+  // adding the fixture path so the sandbox's pinned Bun cannot shadow our stubs.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => key.toUpperCase() !== "PATH")
+  );
+  const proc = Bun.spawn(command, { env: { ...env, PATH: bin }, stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   expect({ code, stderr }).toEqual({ code: 0, stderr: "" });
   return Object.fromEntries(stdout.trim().split(/\r?\n/u).map((line) => line.split("=")));
