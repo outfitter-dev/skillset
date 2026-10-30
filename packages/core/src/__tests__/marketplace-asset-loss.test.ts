@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
-import { buildSkillsetResult, diffSkillsetResult, verifySkillsetResult } from "../build";
+import { buildSkillsetResult, buildSkillsetResultWithAuthority, diffSkillsetResult, verifySkillsetResult } from "../build";
 import { explainPath } from "../authoring";
 import { collectRenderResults } from "../render-result-collector";
 import { renderBuildGraph } from "../render";
@@ -143,3 +143,18 @@ test("matches the selected target when another provider reuses the entry id", as
   expect(result.ok).toBe(true);
   expect(result.renderResults.some((item) => item.status === "lossy")).toBe(false);
 });
+
+for (const initiallyPresent of [true, false]) {
+  test(`loss evidence retains the rendered legacy interface snapshot (${initiallyPresent})`, async () => {
+    const root = await fixture("warn", "");
+    await Bun.write(join(root, ".skillset/plugins/remote/skillset.yaml"), "skillset:\n  name: remote\n");
+    await Bun.write(join(root, ".skillset/plugins/remote/assets/legacy.svg"), "legacy");
+    const legacyPath = join(root, ".skillset/plugins/remote/.codex-plugin/plugin.json");
+    const legacy = (present: boolean) => JSON.stringify({ interface: present ? { logo: "./assets/legacy.svg" } : {} });
+    await Bun.write(legacyPath, legacy(initiallyPresent));
+    const result = await buildSkillsetResultWithAuthority(root, {}, {}, [], { afterRender: async () => {
+      await Bun.write(legacyPath, legacy(!initiallyPresent));
+    } });
+    expect(result.renderResults.some((item) => item.diagnostics?.some((diagnostic) => diagnostic.code === code))).toBe(initiallyPresent);
+  });
+}

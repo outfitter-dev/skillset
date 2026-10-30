@@ -33,7 +33,6 @@ import {
   type SkillsetRenderResultStatus,
   type SkillsetRenderResultPolicy,
 } from "./render-result";
-import { marketplaceAssetLossResults } from "./marketplace-asset-loss";
 import { scopeForPath } from "./output-scope";
 import { ruleScopeRenderResults } from "./render-rules";
 import { compareStrings } from "./path";
@@ -212,7 +211,22 @@ export function collectRenderResults(
     }
   }
   outcomes.push(...lockOutcomes);
-  outcomes.push(...marketplaceAssetLossResults(graph, rendered, options.includedPaths, mapOutputPath));
+  for (const file of rendered) {
+    for (const result of file.renderResults ?? []) {
+      const included = options.includedPaths.has(file.path);
+      const { diagnostics, outputs, ...facts } = result;
+      outcomes.push(defineRenderResult(included ? {
+        ...facts,
+        ...(diagnostics === undefined ? {} : { diagnostics }),
+        ...(outputs === undefined ? {} : { outputs: outputs.map((output) => ({ ...output, path: mapOutputPath(output.path) })) }),
+      } : {
+        ...facts,
+        policy: "scope:excluded",
+        reason: `${result.destination ?? "output"} excluded by build scope`,
+        status: "intentionally_skipped",
+      }));
+    }
+  }
 
   for (const item of adaptivePluginHookOutcomes(
     graph,

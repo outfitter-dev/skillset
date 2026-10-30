@@ -8,6 +8,8 @@ import {
   readString,
   readStringArray,
 } from "./config";
+import { marketplaceAssetLossResults } from "./marketplace-asset-loss";
+import type { SkillsetRenderResult } from "./render-result";
 import type { ResolvedLicense } from "./licenses";
 import { isPathInside } from "./path";
 import { pluginBundleRoot } from "./plugin-output";
@@ -31,7 +33,7 @@ export function renderOpenAiMarketplacePlugin(args: {
   readonly graph: BuildGraph;
   readonly license: ResolvedLicense | undefined;
   readonly plugin: SourcePlugin | undefined;
-}): JsonRecord {
+}): { readonly entry: JsonRecord; readonly renderResults: readonly SkillsetRenderResult[] } {
   const options =
     readRecord(args.entry as unknown as JsonRecord, "codex") ?? {};
   const source = openAiMarketplaceSource(
@@ -99,7 +101,7 @@ export function renderOpenAiMarketplacePlugin(args: {
 
   const policy = readRecord(options, "policy") ?? {};
   const products = readStringArray(policy, "products");
-  return stripUndefined({
+  const entry = stripUndefined({
     name: args.entry.id,
     source,
     policy: {
@@ -127,6 +129,10 @@ export function renderOpenAiMarketplacePlugin(args: {
     homepage,
     interface: listingInterface,
   });
+  return {
+    entry,
+    renderResults: local ? [] : marketplaceAssetLossResults({ ...args, effectiveInterface, listingInterface }),
+  };
 }
 
 function openAiMarketplaceSource(

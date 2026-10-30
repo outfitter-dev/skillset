@@ -17,6 +17,7 @@ import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { hasValidLockProvenance } from "./lock-provenance";
 import { marketplaceRequestedRefPolicy } from "./marketplace-ref-policy";
 import { renderOpenAiMarketplacePlugin } from "./openai-marketplace";
+import type { SkillsetRenderResult } from "./render-result";
 import { compareStrings } from "./path";
 import {
   claudeMarketplacePath,
@@ -53,6 +54,7 @@ export async function renderChatGptMarketplace(
   const selected = selectChatGptMarketplaceCatalog(graph);
   const rootLicense = await resolveRootLicense(graph);
   const plugins: JsonRecord[] = [];
+  const renderResults: SkillsetRenderResult[] = [];
   const entries =
     selected === undefined
       ? defaultChatGptSourcePlugins(graph).map(
@@ -98,14 +100,14 @@ export async function renderChatGptMarketplace(
       plugin === undefined
         ? undefined
         : await resolvePluginLicense(graph, plugin, rootLicense);
-    plugins.push(
-      renderOpenAiMarketplacePlugin({
-        entry,
-        graph,
-        license: pluginLicense,
-        plugin,
-      })
-    );
+    const projection = renderOpenAiMarketplacePlugin({
+      entry,
+      graph,
+      license: pluginLicense,
+      plugin,
+    });
+    plugins.push(projection.entry);
+    renderResults.push(...projection.renderResults);
   }
   if (plugins.length === 0) return [];
 
@@ -120,17 +122,20 @@ export async function renderChatGptMarketplace(
     readString(graph.root.metadata, "name") ??
     catalogName;
   return [
-    textFile(
-      chatGptMarketplacePath(),
-      renderValidatedJson(
-        {
-          name: catalogName,
-          interface: { displayName },
-          plugins,
-        },
-        "ChatGPT marketplace"
-      )
-    ),
+    {
+      ...textFile(
+        chatGptMarketplacePath(),
+        renderValidatedJson(
+          {
+            name: catalogName,
+            interface: { displayName },
+            plugins,
+          },
+          "ChatGPT marketplace"
+        )
+      ),
+      ...(renderResults.length === 0 ? {} : { renderResults }),
+    },
   ];
 }
 
