@@ -198,6 +198,7 @@ export interface CapabilityComparison {
   readonly fidelity: CapabilityFidelity;
   readonly semanticScope?: string;
   readonly authorityHash: string;
+  readonly evidenceStatus: "current" | "stale" | "missing";
   readonly implementationEvidence: readonly { readonly path: string; readonly contentHash: string }[];
   readonly limitations: readonly string[];
   readonly evidence: readonly (SkillsetFeatureEvidence & { readonly id: string })[];
@@ -245,6 +246,7 @@ export function compareCapability(
         },
         fidelity: assessment.fidelity,
         authorityHash,
+        evidenceStatus: judgment === undefined ? "missing" : judgment.authorityHash === authorityHash ? "current" : "stale",
         implementationEvidence: judgment === undefined ? [] : CAPABILITY_IMPLEMENTATION_EVIDENCE.filter(({ path }) => judgment.implementationPaths.includes(path)),
         ...(judgment === undefined ? {} : { semanticScope: judgment.scope }),
         limitations: [...assessment.reasons, ...(judgment?.limitations ?? []), ...(support.reason === undefined ? [] : [support.reason]),

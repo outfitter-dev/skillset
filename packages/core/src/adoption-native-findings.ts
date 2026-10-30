@@ -1,3 +1,4 @@
+import { assessImportedHookRuntime, capabilityFindingEvidence } from "./import-capability-assessment";
 import { createHash } from "node:crypto";
 import type { MigrationFlag } from "@skillset/schema";
 import { classifyNativeHookLiftDiagnostics, type NativeHookLiftDiagnostic } from "./adaptive-hook-native-lift";
@@ -8,7 +9,10 @@ import { isJsonRecord } from "./yaml";
 
 export interface NativeHookFindingSource {
   readonly path: string;
+  /** Diagnostic comparison targets, not evidence of source ownership. */
   readonly targets: readonly TargetName[];
+  /** Explicit import origin or a sole declared native manifest; absent means unknown. */
+  readonly providers?: readonly TargetName[];
   readonly origin?: SourceOrigin;
   /** Inline event maps within the physical JSON file; omitted for a hook file. */
   readonly pointers?: readonly string[];
@@ -77,6 +81,7 @@ function flagForDiagnostic(source: NativeHookFindingSource, content: string, dia
     fingerprints: { content: digest(content), context: digest(`${diagnostic.target}:${diagnostic.path}`) },
     placement: { kind: "sidecar", reason: "Provider-native JSON must remain byte-preserved." },
     evidence: [
+      ...capabilityFindingEvidence(assessImportedHookRuntime(source).filter((entry) => entry.candidateTarget === diagnostic.target)),
       ...(source.origin?.repo === undefined ? [] : [{ summary: "Original repository.", reference: source.origin.repo }]),
       ...(source.origin?.ref === undefined ? [] : [{ summary: `Original revision: ${source.origin.ref}.` }]),
       { summary: `Assessment target: ${diagnostic.target}; hook location: ${diagnostic.path}. Event/handler evidence does not verify arbitrary command semantics.`, ...(diagnostic.providerRef === undefined ? {} : { reference: diagnostic.providerRef }) },

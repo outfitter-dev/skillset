@@ -1,4 +1,5 @@
-import type { ImportNormalization } from "@skillset/schema";
+import { renderImportCapabilityAssessments } from "@skillset/core/internal/import-capability-report";
+import type { ImportNormalization, ImportCapabilityAssessment } from "@skillset/schema";
 import { renderImportNormalizations } from "@skillset/core/internal/import-normalization-report";
 import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -83,6 +84,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly migrationFlags?: readonly MigrationFlag[];
   readonly migrationWritePaths?: readonly string[];
@@ -593,6 +595,7 @@ async function importCandidate(
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
       normalizations: batch.imports.flatMap((report) => report.normalizations ?? []),
+      capabilityAssessments: batch.imports.flatMap((report) => report.capabilityAssessments ?? []),
       migrationFlags: batch.imports.flatMap((report) => report.migrationFlags ?? []),
       migrationWritePaths: batch.imports.flatMap((report) => report.migrationWritePaths ?? []),
       frontmatterSources: batch.imports.flatMap((report) => report.frontmatterSources ?? []),
@@ -616,6 +619,7 @@ async function importCandidate(
       detail: errorMessage(error),
       renderResults: partialImports.flatMap((report) => report.renderResults),
       normalizations: partialImports.flatMap((report) => report.normalizations ?? []),
+      capabilityAssessments: partialImports.flatMap((report) => report.capabilityAssessments ?? []),
       migrationFlags: partialImports.flatMap((report) => report.migrationFlags ?? []),
       migrationWritePaths: partialImports.flatMap((report) => report.migrationWritePaths ?? []),
       frontmatterSources: partialImports.flatMap((report) => report.frontmatterSources ?? []),
@@ -827,6 +831,7 @@ export function renderAdoptReportMarkdown(
   );
 
   lines.push(...renderImportNormalizations(report.imports.flatMap((entry) => entry.normalizations ?? [])));
+  lines.push(...renderImportCapabilityAssessments(report.imports.flatMap((entry) => entry.capabilityAssessments ?? [])));
   lines.push("## Acquisition", "");
   if (report.acquisition.kind === "git") {
     lines.push(

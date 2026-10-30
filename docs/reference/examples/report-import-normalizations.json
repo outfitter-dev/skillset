@@ -42,6 +42,25 @@
       "skipped": 0,
       "unsupported": 0
     },
+    "capabilityAssessments": [
+      {
+        "construct": "native-skill-frontmatter",
+        "source": {
+          "path": ".skillset/skills/demo/SKILL.md",
+          "pointer": "/claude/frontmatter/allowed-tools"
+        },
+        "sourceProvider": "claude",
+        "candidateTarget": "codex",
+        "fidelity": "unknown",
+        "eligibility": "no-capability",
+        "reasons": [
+          "No matching semantic capability judgment."
+        ],
+        "evidence": [
+          "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
+        ]
+      }
+    ],
     "normalizations": [
       {
         "code": "mcp.claude-http-transport",

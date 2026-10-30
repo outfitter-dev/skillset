@@ -1,3 +1,4 @@
+import { importCapabilityAssessmentSchema } from "./import-capability-assessment";
 import { importNormalizationSchema } from "./import-normalization";
 import { migrationStateSchema } from "./migration-state-contract";
 export { MIGRATION_STATE_SCHEMA_VERSION, MIGRATION_FLAG_STATES, MIGRATION_FLAG_SEVERITIES, MIGRATION_FLAG_DISPOSITIONS, MIGRATION_MARKER_LABELS } from "./migration-state-contract";
@@ -2085,6 +2086,7 @@ function reportListCountsSchema(keys: readonly string[]): SchemaJsonRecord {
 function reportAdoptionPayloadSchema(): SchemaJsonRecord {
   return requiredObjectSchema(
     {
+      capabilityAssessments: arraySchema(importCapabilityAssessmentSchema(TARGET_NAMES)),
       normalizations: arraySchema(importNormalizationSchema(TARGET_NAMES)),
       alreadyAdopted: { type: "boolean" },
       candidateIds: reportIdListSchema(),
@@ -2128,6 +2130,7 @@ function reportAdoptionPayloadSchema(): SchemaJsonRecord {
 function reportImportPayloadSchema(): SchemaJsonRecord {
   return requiredObjectSchema(
     {
+      capabilityAssessments: arraySchema(importCapabilityAssessmentSchema(TARGET_NAMES)),
       normalizations: arraySchema(importNormalizationSchema(TARGET_NAMES)),
       destinations: reportIdListSchema(),
       diagnosticCodes: reportCodeListSchema(),
