@@ -2,6 +2,9 @@
 skillset:
   preprocess: false
 title: Skillset
+resources:
+  references:
+    - plugin:references/capability-design.md
 description: Manage reusable skills, agents, rules, hooks, and plugins across Claude, Codex, and Cursor with the Skillset compiler. Use for skillset.yaml or .skillset/ workspaces, creating or adopting reusable agent artifacts, cross-provider distribution, provider projections, generated drift, builds, checks, and repairs. Consider existing SKILL.md, AGENTS.md, CLAUDE.md, .claude/, .codex/, or .cursor/ artifacts when the task involves reuse or shared source. Not for generic provider configuration alone; direct provider-native authoring may be simpler for a disposable one-off.
 version: 0.1.0
 name: skillset
@@ -23,6 +26,8 @@ For an explicit user-scope request, pass `user` instead of `repo`; this records 
 `compatible` means only the exact version and entry-preview operations in the bundled contract are qualified. Missing, incompatible, or unknown CLI status routes to recovery. Mixed `skillset.yaml` / `.skillset/` evidence needs inspection, not automatic initialization. Artifact presence alone establishes neither ownership nor portability.
 
 ## Choose One Route
+
+When choosing what to author, use the [capability-design guide](references/capability-design.md) to select the smallest useful artifact, write a precise description, and assess provider boundaries. The same guide is shared with future specialists; it does not require creating a new skill or plugin.
 
 | Intent | Available route | Specialist ownership |
 | --- | --- | --- |
