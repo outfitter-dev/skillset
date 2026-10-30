@@ -19,6 +19,8 @@ import {
   type NormalizedTreeComparison,
   type NormalizedOutputTreeOptions,
 } from "./normalized-output-tree";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import { targetDescriptor, targetNames } from "./targets";
 import { loadBuildGraph } from "./resolver";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { stringifyJson } from "./yaml";
@@ -26,13 +28,12 @@ import { stringifyJson } from "./yaml";
 const DEFAULT_SOURCE_PATHS = ["."] as const;
 const DEFAULT_COPY_EXCLUDED_PATHS = [
   ".agents",
-  ".claude",
-  ".codex",
+  ...targetNames().map((target) => targetDescriptor(target).projectRoot),
   ".git",
   ".skillset/cache",
   ".skillset/snapshots",
   "node_modules",
-  "plugins",
+  DEFAULT_PLUGIN_OUTPUT_ROOT,
 ] as const;
 
 const textEncoder = new TextEncoder();
