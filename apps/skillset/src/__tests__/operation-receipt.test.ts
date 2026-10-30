@@ -40,7 +40,7 @@ test("SET-445: direct import stores one globally addressable receipt", async () 
   expect(imported).toMatchObject({ exitCode: 0, stderr: "" });
   const result = cliResult(imported.stdout);
   const receipt = receiptFrom(result);
-  expect(result.data.writes).toEqual([".skillset/skills/one"]);
+  expect(result.data.writes).toEqual([".skillset/adopt/state.json", ".skillset/skills/one"]);
   expect(result.data.writes).not.toContain(receipt.path);
   expect(await addedReportIds(fixture)).toEqual([receipt.id]);
 
@@ -95,7 +95,7 @@ test("SET-445: partial import failure retains bounded completion truth", async (
     result: { command: "import", exitCode: 1, ok: false },
   });
   expectNoSentinels(shown.data.report);
-  expect(result.data.writes).toEqual([".skillset/skills/a"]);
+  expect(result.data.writes).toEqual([".skillset/adopt/state.json", ".skillset/skills/a"]);
   expect(await addedReportIds(fixture)).toEqual([receipt.id]);
 });
 

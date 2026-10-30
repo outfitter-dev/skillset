@@ -138,3 +138,92 @@ test("a declared native plugin manifest supplies source attribution without gues
   expect(imported.claude).toHaveProperty("frontmatter.context", "fork");
   expect(imported).not.toHaveProperty("skillset.unresolved_frontmatter");
 });
+
+for (const field of ["implicit_invocation", "tools", "allowed_tools"]) {
+  test(`unattributed ${field} does not silently become canonical Skillset intent`, async () => {
+    const root = await createTestFixtureRoot("skillset-import-canonical-collision-");
+    const sourcePath = join(root, "original");
+    const value = field === "implicit_invocation" ? "false" : field === "tools" ? "readonly" : "[Read]";
+    await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude, cursor]\n");
+    await Bun.write(join(sourcePath, "SKILL.md"), `---\nname: bounded\ndescription: Ambiguous field.\n${field}: ${value}\n---\nBody.\n`);
+    const report = await importSource({ rootPath: root, sourcePath, kind: "skill" });
+    expect(report.migrationFlags?.some((flag) => flag.code === "adopt.unattributed-frontmatter")).toBe(true);
+    await expect(buildSkillsetResult(root)).rejects.toThrow("unresolved imported frontmatter");
+  });
+}
+
+for (const scope of ["workspace", "plugin", "rule", "agent"]) {
+  test(`unresolved source metadata blocks ${scope} projection`, async () => {
+    const root = await createTestFixtureRoot("skillset-unresolved-source-scope-");
+    await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n" + (scope === "workspace" ? "skillset:\n  unresolved_frontmatter: [extra]\n" : ""));
+    await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\nBody.\n");
+    const metadata = "skillset:\n  unresolved_frontmatter: [extra]\n";
+    if (scope === "plugin") {
+      await Bun.write(join(root, ".skillset/plugins/demo/skillset.yaml"), metadata);
+      await Bun.write(join(root, ".skillset/plugins/demo/skills/example/SKILL.md"), "---\nname: example\ndescription: Example.\n---\nBody.\n");
+    }
+    if (scope === "rule") await Bun.write(join(root, ".skillset/rules/review.md"), `---\n${metadata}---\nReview code.\n`);
+    if (scope === "agent") await Bun.write(join(root, ".skillset/subagents/reviewer.md"), `---\nname: reviewer\ndescription: Reviews code.\n${metadata}---\nReview code.\n`);
+    await expect(buildSkillsetResult(root)).rejects.toThrow("unresolved imported frontmatter");
+  });
+}
+
+test("a resolved decision cannot authorize a changed or reintroduced unattributed field", async () => {
+  const { readMigrationState } = await import("@skillset/core/internal/migration-state");
+  const { updateMarkdownSourceDocument } = await import("@skillset/core/internal/source-document");
+  const root = await createTestFixtureRoot("skillset-resolved-field-drift-");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, "SKILL.md"), "---\nname: bounded\ndescription: Unknown field.\nextra: before\n---\nBody.\n");
+  const report = await importSource({ rootPath: root, sourcePath, kind: "skill" });
+  const { state } = await readMigrationState(root);
+  await Bun.write(join(root, ".skillset/adopt/state.json"), JSON.stringify({ ...state, flags: state.flags.map((flag) => ({ ...flag, state: "resolved", resolution: { reason: "Moved to explicit Claude ownership.", at: "2026-10-30T00:00:00.000Z" } })) }));
+  const path = join(report.targetPath, "SKILL.md");
+  const original = await readFile(path, "utf8");
+  await Bun.write(path, updateMarkdownSourceDocument(original, path, (parts) => {
+    const { extra, ...frontmatter } = parts.frontmatter;
+    return { ...parts, frontmatter: { ...frontmatter, skillset: {}, claude: { frontmatter: { extra: extra! } } } };
+  }));
+  await buildSkillsetResult(root);
+  for (const value of ["after", "before"]) {
+    await Bun.write(path, updateMarkdownSourceDocument(original, path, (parts) => ({ ...parts, frontmatter: { ...parts.frontmatter, extra: value, skillset: {} } })));
+    await expect(buildSkillsetResult(root)).rejects.toThrow("unresolved imported frontmatter");
+  }
+});
+
+test("scoping native fields preserves an explicitly disabled provider", async () => {
+  const root = await createTestFixtureRoot("skillset-import-disabled-provider-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(sourcePath, "SKILL.md"), "---\nname: bounded\ndescription: Disabled source.\nclaude: false\ncontext: fork\n---\nBody.\n");
+  const report = await importSource({ rootPath: root, sourcePath, kind: "skill", provider: "claude" });
+  const imported = parseMarkdown(await readFile(join(report.targetPath, "SKILL.md"), "utf8"), "imported").frontmatter;
+  expect(imported.claude).toMatchObject({ enabled: false, frontmatter: { context: "fork" } });
+});
+
+for (const boundary of ["skillset: scalar", "claude: scalar", "claude:\n  frontmatter: scalar"]) {
+  test(`import never overwrites a scalar boundary: ${boundary}`, async () => {
+    const root = await createTestFixtureRoot("skillset-import-boundary-collision-");
+    const sourcePath = join(root, "original");
+    const source = `---\nname: bounded\ndescription: Collision.\n${boundary}\ncontext: fork\n---\nBody.\n`;
+    await Bun.write(join(sourcePath, "SKILL.md"), source);
+    await expect(importSource({ rootPath: root, sourcePath, kind: "skill", ...(boundary.startsWith("claude") ? { provider: "claude" as const } : {}), sourceOrigin: () => ({ path: "original/SKILL.md" }) })).rejects.toThrow();
+    expect(await Bun.file(join(root, ".skillset/skills/bounded/SKILL.md")).exists()).toBe(false);
+    expect(await readFile(join(sourcePath, "SKILL.md"), "utf8")).toBe(source);
+  });
+}
+
+test("unknown field names remain data when scoped into native frontmatter", async () => {
+  const root = await createTestFixtureRoot("skillset-import-data-keys-");
+  const sourcePath = join(root, "original");
+  const source = "---\nname: bounded\ndescription: Data keys.\nconstructor: authored\n__proto__:\n  unknown: data\n---\nBody.\n";
+  await Bun.write(join(sourcePath, "SKILL.md"), source);
+  const report = await importSource({ rootPath: root, sourcePath, kind: "skill", provider: "claude" });
+  const imported = parseMarkdown(await readFile(join(report.targetPath, "SKILL.md"), "utf8"), "imported").frontmatter;
+  expect(imported.claude).toMatchObject({ frontmatter: { constructor: "authored" } });
+  const target = imported.claude as { frontmatter: Record<string, unknown> };
+  expect(Object.hasOwn(target.frontmatter, "__proto__")).toBe(true);
+  expect(target.frontmatter.__proto__).toEqual({ unknown: "data" });
+  expect(Object.hasOwn(imported, "constructor")).toBe(false);
+  expect(Object.hasOwn(imported, "__proto__")).toBe(false);
+  expect(await readFile(join(sourcePath, "SKILL.md"), "utf8")).toBe(source);
+});

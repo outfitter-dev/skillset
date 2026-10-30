@@ -112,11 +112,11 @@ function reconcileRecord(
   next: JsonRecord
 ): void {
   for (const key of Object.keys(current)) {
-    if (!(key in next)) document.deleteIn([...path, key]);
+    if (!Object.hasOwn(next, key)) document.deleteIn([...path, key]);
   }
   for (const [key, nextValue] of Object.entries(next)) {
     if (nextValue === undefined) continue;
-    reconcileValue(document, [...path, key], current[key], nextValue);
+    reconcileValue(document, [...path, key], Object.hasOwn(current, key) ? current[key] : undefined, nextValue);
   }
 }
 
@@ -171,7 +171,7 @@ function jsonValuesEqual(left: JsonValue | undefined, right: JsonValue | undefin
     const leftKeys = Object.keys(left).filter((key) => left[key] !== undefined);
     const rightKeys = Object.keys(right).filter((key) => right[key] !== undefined);
     return leftKeys.length === rightKeys.length &&
-      leftKeys.every((key) => key in right && jsonValuesEqual(left[key], right[key]));
+      leftKeys.every((key) => Object.hasOwn(right, key) && jsonValuesEqual(left[key], right[key]));
   }
   return false;
 }

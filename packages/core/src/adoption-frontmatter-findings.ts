@@ -35,7 +35,7 @@ export function importedFrontmatterFindings(source: FrontmatterFindingSource, co
           : `Review ${provider}.frontmatter.${field}: preserved by source attribution; cross-provider meaning is not established.`,
         source: { path: source.path },
         ...(source.origin === undefined ? {} : { origin: { path: source.origin.path } }),
-        fingerprints: { content: digest(JSON.stringify(value)), context: digest(JSON.stringify([provider ?? "unknown", field])) },
+        fingerprints: { content: digest(JSON.stringify(value)), context: importedFrontmatterContext(provider, field) },
         placement: { kind: "sidecar", reason: "Frontmatter cannot contain inline migration locators." },
         evidence: [
           { summary: `Capability fidelity: ${fidelity.fidelity}. ${fidelity.reasons.join(" ")}` },
@@ -52,4 +52,9 @@ export function importedFrontmatterFindings(source: FrontmatterFindingSource, co
 
 function digest(value: string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+/** Stable field ownership identity; shared with revalidation of resolved findings. */
+export function importedFrontmatterContext(provider: TargetName | undefined, field: string): string {
+  return digest(JSON.stringify([provider ?? "unknown", field]));
 }

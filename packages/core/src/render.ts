@@ -1,4 +1,4 @@
-import { assertResolvedSkillFrontmatter } from "./unresolved-frontmatter";
+import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
 import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
@@ -94,7 +94,7 @@ import type {
 } from "./types";
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { parseMarkdown, stringifyJson } from "./yaml";
+import { isJsonRecord, parseMarkdown, stringifyJson } from "./yaml";
 import { listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
@@ -209,7 +209,7 @@ export async function renderBuildGraph(
   graph: BuildGraph,
   destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly RenderedFile[]> {
-  await assertResolvedSkillFrontmatter(graph);
+  await assertResolvedSourceFrontmatter(graph);
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
@@ -347,7 +347,7 @@ export async function renderBuildGraph(
 export async function renderStandardProjectionBuildGraph(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
-  await assertResolvedSkillFrontmatter(graph);
+  await assertResolvedSourceFrontmatter(graph);
   const lockRoots = new Map<string, LockRoot>();
   const rendered = await renderStandardProjectionArtifacts(graph, lockRoots);
   return [...planRenderedFiles(rendered)]
@@ -959,25 +959,6 @@ function mergePluginSkillRenderings(
     ? undefined
     : parseMarkdown(standardRendering.markdown.content, skill.sourcePath).frontmatter;
 
-  // A shared artifact cannot union an attributed native value into a consumer
-  // whose own projection omitted it. Standard metadata remains the baseline;
-  // this check concerns the selected provider consumers of the shared file.
-  const providerRenderings = renderings.filter((rendering) => targetNames().some((target) => target === rendering.provider));
-  for (const target of targetNames()) {
-    if (!providerRenderings.some((rendering) => rendering.provider === target)) continue;
-    const native = readRecord(skill.targets[target].options, "frontmatter") ?? {};
-    for (const field of Object.keys(native)) {
-      const owner = providerRenderings.find((rendering) => rendering.provider === target)!;
-      const expected = parseMarkdown(owner.markdown.content, skill.sourcePath).frontmatter[field];
-      for (const consumer of providerRenderings) {
-        const actual = parseMarkdown(consumer.markdown.content, skill.sourcePath).frontmatter[field];
-        if (!isDeepStrictEqual(actual, expected)) {
-          throwPluginSkillProviderIncompatible(graph, plugin, skill, target, field);
-        }
-      }
-    }
-  }
-
   let sharedInvocationPolicy: JsonValue | undefined;
   for (const rendering of renderings) {
     const parsed = parseMarkdown(
@@ -1051,6 +1032,37 @@ function mergePluginSkillRenderings(
       resources.set(resource.targetPath, resource);
     }
     transforms.push(...rendering.markdown.transforms);
+  }
+
+  // A shared artifact cannot union an attributed native value into a consumer
+  // whose own projection omitted it. Standard metadata remains the baseline;
+  // this check concerns the selected provider consumers of the shared file.
+  const providerRenderings = renderings.filter((rendering) => targetNames().some((target) => target === rendering.provider));
+  for (const target of targetNames()) {
+    if (!providerRenderings.some((rendering) => rendering.provider === target)) continue;
+    const native = readRecord(skill.targets[target].options, "frontmatter") ?? {};
+    for (const field of Object.keys(native)) {
+      // Agent Skills metadata is an extensible annotation map, not native runtime policy.
+      if (field === "metadata") {
+        const portableMetadata = providerRenderings.every((rendering) => {
+          const metadata = parseMarkdown(rendering.markdown.content, skill.sourcePath).frontmatter.metadata;
+          return metadata === undefined || (isJsonRecord(metadata) && Object.values(metadata).every((value) => typeof value === "string"));
+        });
+        if (portableMetadata) continue;
+        throwPluginSkillProviderIncompatible(graph, plugin, skill, target, field);
+      }
+      const owner = providerRenderings.find((rendering) => rendering.provider === target)!;
+      const expected = parseMarkdown(owner.markdown.content, skill.sourcePath).frontmatter[field];
+      for (const consumer of providerRenderings) {
+        const actual = parseMarkdown(consumer.markdown.content, skill.sourcePath).frontmatter[field];
+        const nativeInvocationDefault = field === "disable-model-invocation" &&
+          listProviderSkillFrontmatterFields(target).includes(field) &&
+          listProviderSkillFrontmatterFields(consumer.provider as TargetName).includes(field);
+        if (!isDeepStrictEqual(nativeInvocationDefault && actual === undefined ? false : actual, nativeInvocationDefault && expected === undefined ? false : expected)) {
+          throwPluginSkillProviderIncompatible(graph, plugin, skill, target, field);
+        }
+      }
+    }
   }
 
   return {

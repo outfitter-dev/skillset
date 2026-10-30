@@ -16,6 +16,7 @@ import {
 } from "@skillset/core/internal/directory-rename-no-replace";
 import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
+import { AGENT_SKILLS_FRONTMATTER_KEYS } from "@skillset/core/internal/render-agent-skills-standard";
 import { recordImportedFindings } from "@skillset/core/internal/adoption-findings";
 import { COMMON_FRONTMATTER_KEYS, type MigrationFlag } from "@skillset/schema";
 import { importedFrontmatterFindings, type FrontmatterFindingSource } from "@skillset/core/internal/adoption-frontmatter-findings";
@@ -102,24 +103,11 @@ type SingularImportKind = "plugin" | "skill";
  * reported as inferred source fields; absent ones are classified further.
  */
 const RECOGNIZED_SOURCE_KEYS: ReadonlySet<string> = new Set([
-  "agents",
-  "allowed_tools",
-  "claude",
-  "codex",
-  "cursor",
-  "description",
-  "compatibility",
-  "license",
-  "metadata",
-  "id",
-  "implicit_invocation",
-  "name",
-  "resources",
+  ...AGENT_SKILLS_FRONTMATTER_KEYS.filter((field) => field !== "allowed-tools"),
+  // These are explicit typed source/provider boundaries, including origin
+  // metadata stamped by import; bare Skillset vocabulary needs provenance.
   "skillset",
-  "summary",
-  "title",
-  "tools",
-  "version",
+  ...targetNames(),
 ]);
 
 /**
@@ -343,13 +331,14 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
     }
+    const canonicalSource = providers?.includes("skillset") === true || agentPluginImport !== undefined;
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
-    const classification = classifyFrontmatter(frontmatter, providers?.includes("skillset"));
+    const classification = classifyFrontmatter(frontmatter, canonicalSource);
     const scopedPolicyProviders = importedInvocationScopeProviders(providers);
     const pluginSkillFrontmatter = await readImportedPluginSkillFrontmatter(
       stagingPath,
       options.kind,
-      providers?.includes("skillset")
+      canonicalSource
     );
     await scopeImportedSkillPolicyFrontmatter(
       stagingPath,
@@ -357,7 +346,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       scopedPolicyProviders,
       frontmatter,
       pluginSkillFrontmatter,
-      providers?.includes("skillset")
+      canonicalSource
     );
 
     if (mayMergeTargetNativeSkill && (await exists(targetPath))) {
@@ -431,8 +420,10 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     let persisted: { readonly flags: readonly MigrationFlag[]; readonly writtenPaths: readonly string[] } = { flags: [], writtenPaths: [] };
     let findingError: string | undefined;
     try {
-      await options.testHooks?.beforeFindings?.();
-      persisted = await recordImportedFindings(options.rootPath, { frontmatter: unresolvedSources });
+      if (unresolvedSources.length > 0) {
+        await options.testHooks?.beforeFindings?.();
+        persisted = await recordImportedFindings(options.rootPath, { frontmatter: unresolvedSources });
+      }
     } catch (error) {
       findingError = `skillset: imported source is preserved with unresolved frontmatter, but recording review findings failed: ${errorMessage(error)}`;
     }
@@ -1416,6 +1407,9 @@ async function writeMarkdownSourceOrigin(path: string, origin: SourceOrigin): Pr
 }
 
 function withSkillsetOrigin(record: JsonRecord, origin: SourceOrigin): JsonRecord {
+  if (record.skillset !== undefined && !isJsonRecord(record.skillset)) {
+    throw new Error("skillset: cannot stamp source origin over non-object skillset metadata");
+  }
   const existing = isJsonRecord(record.skillset) ? record.skillset : {};
   return {
     ...record,
