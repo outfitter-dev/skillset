@@ -32,7 +32,7 @@ export class OnDiskJsonError extends Error {
   readonly failure: OnDiskJsonFailure;
 
   constructor(failure: OnDiskJsonFailure) {
-    super(formatOnDiskJsonFailure(failure));
+    super(formatOnDiskJsonFailure(failure), { cause: failure.cause });
     this.name = "OnDiskJsonError";
     this.failure = failure;
   }
@@ -64,6 +64,7 @@ export async function readOnDiskJson(
   try {
     return { kind: "present", value: JSON.parse(text) as unknown };
   } catch (cause) {
+    if (!(cause instanceof SyntaxError)) throw cause;
     throw new OnDiskJsonError({
       cause,
       kind: "invalid-json",

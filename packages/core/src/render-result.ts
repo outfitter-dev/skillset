@@ -132,6 +132,14 @@ export function defineRenderResult(
   return outcome;
 }
 
+/** Deliberate validation failure; unexpected parser faults retain their identity. */
+export class RenderResultValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RenderResultValidationError";
+  }
+}
+
 /**
  * Read persisted Render Results across the generated-state migration window.
  * Writers always emit the current schema; legacy input is validated before its
@@ -139,11 +147,13 @@ export function defineRenderResult(
  */
 export function parseRenderResult(value: unknown): SkillsetRenderResult {
   if (!isJsonRecord(value)) {
-    throw new Error("skillset: render result must be an object");
+    throw new RenderResultValidationError(
+      "skillset: render result must be an object"
+    );
   }
   if (value.schema === LEGACY_RENDER_RESULT_SCHEMA) {
     if (value.standardProfile !== undefined) {
-      throw new Error(
+      throw new RenderResultValidationError(
         "skillset: legacy render result cannot name a standardProfile"
       );
     }
@@ -198,10 +208,12 @@ export function assertRenderResult(
   outcome: unknown
 ): asserts outcome is SkillsetRenderResult {
   if (!isJsonRecord(outcome)) {
-    throw new Error("skillset: render result must be an object");
+    throw new RenderResultValidationError(
+      "skillset: render result must be an object"
+    );
   }
   if (outcome.schema !== RENDER_RESULT_SCHEMA) {
-    throw new Error(
+    throw new RenderResultValidationError(
       `skillset: unsupported render result schema ${String(outcome.schema)}`
     );
   }
@@ -209,19 +221,25 @@ export function assertRenderResult(
     typeof outcome.sourceUnit !== "string" ||
     outcome.sourceUnit.trim().length === 0
   ) {
-    throw new Error("skillset: render result sourceUnit is required");
+    throw new RenderResultValidationError(
+      "skillset: render result sourceUnit is required"
+    );
   }
   if (
     typeof outcome.featureId !== "string" ||
     outcome.featureId.trim().length === 0
   ) {
-    throw new Error("skillset: render result featureId is required");
+    throw new RenderResultValidationError(
+      "skillset: render result featureId is required"
+    );
   }
   if (
     outcome.target !== undefined &&
     (typeof outcome.target !== "string" || !isTargetName(outcome.target))
   ) {
-    throw new Error("skillset: render result target must be a provider target");
+    throw new RenderResultValidationError(
+      "skillset: render result target must be a provider target"
+    );
   }
   if (
     outcome.standardProfile !== undefined &&
@@ -230,12 +248,12 @@ export function assertRenderResult(
         outcome.standardProfile
       ))
   ) {
-    throw new Error(
+    throw new RenderResultValidationError(
       "skillset: render result standardProfile must be a standard profile id"
     );
   }
   if (outcome.standardProfile !== undefined && outcome.target !== undefined) {
-    throw new Error(
+    throw new RenderResultValidationError(
       "skillset: render result cannot name both a provider target and a standardProfile"
     );
   }
@@ -243,14 +261,16 @@ export function assertRenderResult(
     outcome.sourcePath !== undefined &&
     typeof outcome.sourcePath !== "string"
   ) {
-    throw new Error("skillset: render result sourcePath must be a string");
+    throw new RenderResultValidationError(
+      "skillset: render result sourcePath must be a string"
+    );
   }
   if (
     outcome.destination !== undefined &&
     (typeof outcome.destination !== "string" ||
       outcome.destination.trim().length === 0)
   ) {
-    throw new Error(
+    throw new RenderResultValidationError(
       "skillset: render result destination must be non-empty when present"
     );
   }
@@ -258,12 +278,14 @@ export function assertRenderResult(
     typeof outcome.status !== "string" ||
     !new Set<string>(RENDER_RESULT_STATUS_VALUES).has(outcome.status)
   ) {
-    throw new Error(
+    throw new RenderResultValidationError(
       `skillset: unknown render result status ${String(outcome.status)}`
     );
   }
   if (outcome.reason !== undefined && typeof outcome.reason !== "string") {
-    throw new Error("skillset: render result reason must be a string");
+    throw new RenderResultValidationError(
+      "skillset: render result reason must be a string"
+    );
   }
   if (
     outcome.policy !== undefined &&
@@ -272,7 +294,7 @@ export function assertRenderResult(
         outcome.policy as SkillsetRenderResultPolicy
       ))
   ) {
-    throw new Error(
+    throw new RenderResultValidationError(
       `skillset: unknown render result policy ${String(outcome.policy)}`
     );
   }
@@ -283,19 +305,21 @@ export function assertRenderResult(
       outcome.status === "unsupported") &&
     typeof outcome.reason !== "string"
   ) {
-    throw new Error(
+    throw new RenderResultValidationError(
       `skillset: render result ${outcome.status} status requires a reason`
     );
   }
   if (outcome.outputs !== undefined && !Array.isArray(outcome.outputs)) {
-    throw new Error("skillset: render result outputs must be an array");
+    throw new RenderResultValidationError(
+      "skillset: render result outputs must be an array"
+    );
   }
   if (
     outcome.outputRoot !== undefined &&
     (typeof outcome.outputRoot !== "string" ||
       outcome.outputRoot.trim().length === 0)
   ) {
-    throw new Error(
+    throw new RenderResultValidationError(
       "skillset: render result outputRoot must be non-empty when present"
     );
   }
@@ -305,17 +329,23 @@ export function assertRenderResult(
       typeof output.path !== "string" ||
       output.path.trim().length === 0
     ) {
-      throw new Error("skillset: render result output path is required");
+      throw new RenderResultValidationError(
+        "skillset: render result output path is required"
+      );
     }
     if (output.kind !== undefined && typeof output.kind !== "string") {
-      throw new Error("skillset: render result output kind must be a string");
+      throw new RenderResultValidationError(
+        "skillset: render result output kind must be a string"
+      );
     }
   }
   if (
     outcome.diagnostics !== undefined &&
     !Array.isArray(outcome.diagnostics)
   ) {
-    throw new Error("skillset: render result diagnostics must be an array");
+    throw new RenderResultValidationError(
+      "skillset: render result diagnostics must be an array"
+    );
   }
   for (const diagnostic of outcome.diagnostics ?? []) {
     if (
@@ -323,24 +353,28 @@ export function assertRenderResult(
       typeof diagnostic.code !== "string" ||
       diagnostic.code.trim().length === 0
     ) {
-      throw new Error("skillset: render result diagnostic code is required");
+      throw new RenderResultValidationError(
+        "skillset: render result diagnostic code is required"
+      );
     }
     if (
       diagnostic.message !== undefined &&
       typeof diagnostic.message !== "string"
     ) {
-      throw new Error(
+      throw new RenderResultValidationError(
         "skillset: render result diagnostic message must be a string"
       );
     }
     if (diagnostic.path !== undefined && typeof diagnostic.path !== "string") {
-      throw new Error(
+      throw new RenderResultValidationError(
         "skillset: render result diagnostic path must be a string"
       );
     }
   }
   if (outcome.evidence !== undefined && !Array.isArray(outcome.evidence)) {
-    throw new Error("skillset: render result evidence must be an array");
+    throw new RenderResultValidationError(
+      "skillset: render result evidence must be an array"
+    );
   }
   for (const evidence of outcome.evidence ?? []) {
     if (
@@ -348,19 +382,25 @@ export function assertRenderResult(
       typeof evidence.kind !== "string" ||
       evidence.kind.trim().length === 0
     ) {
-      throw new Error("skillset: render result evidence kind is required");
+      throw new RenderResultValidationError(
+        "skillset: render result evidence kind is required"
+      );
     }
     if (typeof evidence.ref !== "string" || evidence.ref.trim().length === 0) {
-      throw new Error("skillset: render result evidence ref is required");
+      throw new RenderResultValidationError(
+        "skillset: render result evidence ref is required"
+      );
     }
     if (evidence.note !== undefined && typeof evidence.note !== "string") {
-      throw new Error("skillset: render result evidence note must be a string");
+      throw new RenderResultValidationError(
+        "skillset: render result evidence note must be a string"
+      );
     }
     if (
       evidence.verifiedAt !== undefined &&
       typeof evidence.verifiedAt !== "string"
     ) {
-      throw new Error(
+      throw new RenderResultValidationError(
         "skillset: render result evidence verifiedAt must be a string"
       );
     }
@@ -368,7 +408,7 @@ export function assertRenderResult(
       evidence.kind === "external-docs" &&
       evidence.verifiedAt === undefined
     ) {
-      throw new Error(
+      throw new RenderResultValidationError(
         "skillset: render result external docs evidence requires verifiedAt"
       );
     }

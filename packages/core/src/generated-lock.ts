@@ -6,7 +6,11 @@ import {
 } from "@skillset/registry";
 
 import { hasValidLockProvenance, usesPerEntryProvenance } from "./lock-provenance";
-import { parseRenderResult, type SkillsetRenderResult } from "./render-result";
+import {
+  parseRenderResult,
+  RenderResultValidationError,
+  type SkillsetRenderResult,
+} from "./render-result";
 import { isTargetName } from "./targets";
 import type {
   CompileBuildMode,
@@ -172,10 +176,11 @@ export function parseGeneratedLock(
     try {
       return parseRenderResult(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      if (!(error instanceof RenderResultValidationError)) throw error;
       throw invalidLock(
         label,
-        `renderResults[${index}] is invalid: ${message}`
+        `renderResults[${index}] is invalid: ${error.message}`,
+        error
       );
     }
   });
@@ -819,6 +824,17 @@ function optionalString(
   return requiredString(value, label, field);
 }
 
-function invalidLock(label: string, detail: string): Error {
-  return new Error(`skillset: ${label} ${detail}`);
+/** Invalid persisted lock data, distinct from an unexpected parser failure. */
+export class GeneratedLockValidationError extends Error {
+  constructor(message: string, cause?: unknown) {
+    super(message, { cause });
+    this.name = "GeneratedLockValidationError";
+  }
+}
+
+function invalidLock(label: string, detail: string, cause?: unknown): Error {
+  return new GeneratedLockValidationError(
+    `skillset: ${label} ${detail}`,
+    cause
+  );
 }
