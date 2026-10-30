@@ -37,4 +37,4 @@ Read only the reference needed for the selected route. Do not pretend a planned 
 
 ## Preserve Authority
 
-Preview before writes. Inspect diagnostics and preserve unmanaged originals. Source edits belong under `.skillset/` or in `skillset.yaml`; use explicit reconciliation for destination edits. Build does not install, enable, trust, or activate provider output. Missing CLI, drift, and a generated plan do not authorize those actions or a package installation.
+Preview before writes. Inspect diagnostics and preserve unmanaged originals. Inspect ownership before editing root guidance. Source edits normally belong under `.skillset/` or in `skillset.yaml`; in native-root mode, edit the authored root `AGENTS.md` directly and do not create a conflicting `.skillset/RULES.md`. Use explicit reconciliation for edits to managed destinations. Build does not install, enable, trust, or activate provider output. Missing CLI, drift, and a generated plan do not authorize those actions or a package installation.

@@ -157,15 +157,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset",
-      "outputHash": "sha256:242538c94edaad01e4d5e0d6816fb5555cb299ddecd5fe759ea7605fa6c0bccd",
+      "outputHash": "sha256:a974a9d13dcf6f6b8172797fa93696c84dd981feb7f472a48d7f346713ae6e90",
       "outputPath": "skillset/skills/skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:2849293b733a8bd7c6919aa90fe275a00fe9f57321019e0d72b4190f28872dda",
+      "provenanceHash": "sha256:88d373c51d859257bdb03c930f365f7b2e891ba5641b3149be4c7ec3cf0a41e7",
       "role": "standard",
-      "sourceHash": "sha256:5994b90cda682ee3186c90f6ef3f5327dceba586af37189da9b1b6887e21020d",
+      "sourceHash": "sha256:57181ca5a9e3774823ee5eca8d584e807bf5bf1cf0adc3970c199b359679b548",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
       "version": "0.1.0"
     }
