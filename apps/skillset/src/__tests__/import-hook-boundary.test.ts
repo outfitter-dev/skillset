@@ -141,3 +141,21 @@ for (const preexisting of ["preprocess-intent", "native-island"] as const) {
     expect(await readFile(join(report.targetPath, "skillset.yaml"), "utf8")).toBe(config);
   });
 }
+
+test("native Markdown hook companions remain opaque runtime data", async () => {
+  const root = await createTestFixtureRoot("skillset-hook-markdown-resource-");
+  const sourcePath = join(root, "original");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n");
+  await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"native-hooks"}');
+  const command = 'cat "$CLAUDE_PLUGIN_ROOT/hooks/message.md"';
+  await Bun.write(join(sourcePath, "hooks/hooks.json"), JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: "command", command }] }] } }));
+  const original = "---\r\nskillset:\r\n  preprocess: true\r\n---\r\nHello {{skillset.source_path}}.\r\n";
+  await Bun.write(join(sourcePath, "hooks/message.md"), original);
+  await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  const output = join(root, "plugins/native-hooks");
+  expect(await readFile(join(output, "hooks/message.md"), "utf8")).toBe(original);
+  const child = Bun.spawn(["sh", "-c", command], { env: { ...process.env, CLAUDE_PLUGIN_ROOT: output }, stdout: "pipe", stderr: "pipe" });
+  expect(await new Response(child.stdout).text()).toBe(original);
+  expect(await child.exited).toBe(0);
+});

@@ -2,6 +2,8 @@
 
 ### SET-442 Claude native hook source boundary — October 29
 
+- Exceptional repair review found a remaining P1: Markdown hook companions were still treated as documents. A shell-read regression reproduced changed frontmatter, line endings and template text. The explicit opt-out now preserves the entire hook runtime directory, including Markdown, while Markdown outside hooks keeps existing document controls. This closes the same byte-preservation contract rather than narrowing eligibility.
+
 - Hosted review at f3e6ab34 exposed two P1 gaps beyond the local rounds: assessment selection was mistaken for sole ownership, and native island preprocessing interpreted literal hook tokens during baseline seeding/rendering. Both were reproduced. The repair inspects all copied provider manifests, opts new structured native source out with existing skillset.preprocess:false, preserves authored preprocessing intent, and shares the opaque decision across rendering and inventory with provenance hash coverage. This is a justified scoped hosted-feedback repair, not a third routine review.
 - Full immutable f3e6ab34 run completed 4089 pass, 2 skip, 4 todo and only three known native-size failures across 4098 tests/369 files (301.68s). That does not prove the hosted edge cases; the repaired head requires fresh verification. The render.ts evidence pin was refreshed after inspecting the diff: invocation-policy and project/plugin agent judgments remain unchanged.
 
