@@ -109,7 +109,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
       ? { cutover: { paths: cutover.items, total: cutover.total } }
       : {}),
     guidancePaths: report.surveySkips.filter((skip) => skip.surface === "guided-root-guidance").map((skip) => skip.path),
-    normalizations: report.imports.flatMap((entry) => entry.normalizations ?? []),
+    normalizations: [...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])],
     capabilityAssessments: report.imports.flatMap((entry) => entry.capabilityAssessments ?? []),
     alreadyAdopted: report.alreadyAdopted,
     candidateIds: candidateIds.items,
