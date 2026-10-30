@@ -46,6 +46,8 @@ Registry support is a static capability claim; a [render result](render-results.
 
 Feature ids may appear in locks, structured diagnostics, operation reports, `status`, `explain`, and conformance fixtures. They do not belong in ordinary provider artifacts unless a target contract explicitly requires them.
 
+The internal output conformance report counts distinct file paths. Shared files retain every applicable render-result role and validate each role independently; outcome order does not select a winning provider. Identical diagnostics are deduplicated, while distinct provider or standard findings remain attributable. Direct single-role inputs remain supported. Shared plugin skills retain the compatible frontmatter envelope; these structural checks do not establish provider recognition or runtime behavior.
+
 ## Changing the Registry
 
 When adding or changing an entry:
