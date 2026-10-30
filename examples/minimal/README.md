@@ -1,4 +1,4 @@
-# First Author Skillset Example
+# Minimal Skillset Example
 
 This is a tiny canonical-layout Skillset source repo. It is meant to be cloned,
 copied, or used in place from the Skillset checkout when you want to see the
@@ -18,18 +18,18 @@ From the Skillset repo root, these commands only read the example, so they
 are safe to run in place:
 
 ```bash
-bun ./apps/skillset/src/cli.ts check --root examples/first-author
-bun ./apps/skillset/src/cli.ts check --only outputs --root examples/first-author
-bun ./apps/skillset/src/cli.ts build --root examples/first-author
-bun ./apps/skillset/src/cli.ts dev --root examples/first-author
+bun ./apps/skillset/src/cli.ts check --root examples/minimal
+bun ./apps/skillset/src/cli.ts check --only outputs --root examples/minimal
+bun ./apps/skillset/src/cli.ts build --root examples/minimal
+bun ./apps/skillset/src/cli.ts dev --root examples/minimal
 ```
 
 `build` without `--yes` only previews. To write output, work in a disposable
 copy so the canonical example stays unchanged:
 
 ```bash
-work="$(mktemp -d)/first-author"
-cp -R examples/first-author "$work"
+work="$(mktemp -d)/minimal"
+cp -R examples/minimal "$work"
 bun ./apps/skillset/src/cli.ts build --root "$work" --yes
 bun ./apps/skillset/src/cli.ts check --only outputs --root "$work"
 ```
