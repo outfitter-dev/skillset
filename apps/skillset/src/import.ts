@@ -1829,6 +1829,11 @@ function importedManifestOverride(
   canonicalManifestDescription: string,
   keepUnreadableAuthor: boolean
 ): JsonRecord {
+  // Component fields are regenerated below. Additional hook declarations
+  // cannot be discarded until import inventories their files and inline maps.
+  if (provider === "claude" && manifest.hooks !== undefined && manifest.hooks !== "./hooks/hooks.json") {
+    throw new Error("skillset: additional Claude hook declarations require explicit source configuration; automatic import cannot preserve them yet. Original files are unchanged and no destination was claimed.");
+  }
   const override: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(manifest)) {
     if (!SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS.has(key) && value !== undefined) {
