@@ -18,6 +18,12 @@ ChatGPT is the OpenAI product term for the generated bundle and catalog family. 
 
 Use the [marketplace guide](../../guides/marketplaces.md) for the complete task flow. A [distribution](distributions.md) instead plans where already-built files could be delivered, and is not a catalog or publication command.
 
+## Adoption Evidence
+
+Repository adoption can declare an existing Claude marketplace in root `skillset.yaml`. Its normalization observations record the selected catalog name, description source, actual owner or author assignment, derived Claude target selection, and each selected plugin entry with its original array index. The target selector is derived from the Claude catalog location; the evidence does not invent an authored `targets` field. Ignored fields and catalogs that were not declared produce no assignment observations.
+
+The adoption report and immutable receipt retain these value-free observations after the configuration write, even if the later isolated build fails. Source/destination pointers and provider evidence describe what was assigned; runtime fidelity remains unknown. Existing skipped-entry warnings still apply. These observations do not prove that all curated membership, plugin source descriptors, or runtime dependencies were preserved.
+
 ## Declare a Catalog
 
 Marketplace source is a root `skillset.yaml` field:
