@@ -2,6 +2,7 @@ import Parser from "tree-sitter";
 import Bash from "tree-sitter-bash";
 
 import { commandName } from "./shell-operands";
+import { literalHereStringInputs, STDIN_INTERPRETERS } from "./shell-herestrings";
 import { readShellSegments } from "./shell-tokens";
 import { unwrapShellCommand } from "./shell-wrappers";
 
@@ -19,7 +20,8 @@ export type NestedShellCommandKind =
 export type ShellSyntaxIssueKind =
   | "missing-syntax"
   | "parse-error"
-  | "unsupported-dialect";
+  | "unsupported-dialect"
+  | "unsupported-herestring";
 
 export interface ShellSourcePosition {
   /** Zero-based UTF-8 byte column, matching Tree-sitter's native contract. */
@@ -61,21 +63,6 @@ export interface ShellNestingAnalysis {
   readonly syntaxIssues: readonly ShellSyntaxIssue[];
 }
 
-// Only commands known to execute stdin make the whole body shell-like guidance.
-// Other unquoted bodies still expose substitutions expanded by the outer shell.
-const HEREDOC_INTERPRETERS = new Set([
-  "bash",
-  "bun",
-  "dash",
-  "ksh",
-  "node",
-  "perl",
-  "python",
-  "python3",
-  "ruby",
-  "sh",
-  "zsh",
-]);
 
 let bashParser: Parser | undefined;
 
@@ -137,14 +124,14 @@ function readsHeredocAsSourcedFile(tokens: readonly string[]): boolean {
 
 function executesHeredocInput(tokens: readonly string[]): boolean {
   return (
-    HEREDOC_INTERPRETERS.has(commandName(tokens[0])) ||
+    STDIN_INTERPRETERS.has(commandName(tokens[0])) ||
     readsHeredocAsSourcedFile(tokens)
   );
 }
 
 function executesProcessInput(tokens: readonly string[]): boolean {
   const name = commandName(tokens[0]);
-  return HEREDOC_INTERPRETERS.has(name) || [".", "source"].includes(name);
+  return STDIN_INTERPRETERS.has(name) || [".", "source"].includes(name);
 }
 
 function processSubstitutionTokens(node: Parser.SyntaxNode): readonly string[] {
@@ -165,7 +152,7 @@ function teesInputToInterpreter(node: Parser.SyntaxNode): boolean {
     (child) =>
       child.type === "process_substitution" &&
       child.text.startsWith(">(") &&
-      HEREDOC_INTERPRETERS.has(commandName(processSubstitutionTokens(child)[0]))
+      STDIN_INTERPRETERS.has(commandName(processSubstitutionTokens(child)[0]))
   );
 }
 
@@ -243,7 +230,7 @@ function isExecutedHeredocBody(node: Parser.SyntaxNode): boolean {
       if (
         (insideCommandSubstitution &&
           (commandName(tokens[0]) === "eval" ||
-            HEREDOC_INTERPRETERS.has(commandName(tokens[0])))) ||
+            STDIN_INTERPRETERS.has(commandName(tokens[0])))) ||
         (insideProcessInput && executesProcessInput(tokens))
       )
         return true;
@@ -380,7 +367,8 @@ function hasSubstitutionAncestor(node: Parser.SyntaxNode): boolean {
 }
 
 function relevantSyntaxNode(node: Parser.SyntaxNode): boolean {
-  return hasSubstitutionAncestor(node) || /\$\(|[<>]\(|`/u.test(node.text);
+  return hasSubstitutionAncestor(node) || /\$\(|[<>]\(|`/u.test(node.text) ||
+    (node.parent?.text.includes("<<<") ?? false);
 }
 
 function syntaxIssues(
@@ -442,6 +430,24 @@ export function analyzeShellNesting(
     };
   });
   const issues = [...syntaxIssues(root, source)];
+  const hereStrings = literalHereStringInputs(root);
+  const hereStringCommands: NestedShellCommand[] = [];
+  for (const input of hereStrings.payloads) {
+    const analysis = analyzeShellNesting(input.text, input.dialect);
+    const remap = (range: ShellSourceRange): ShellSourceRange =>
+      remapRange(range, input.text, input.boundaryMap, input.startIndex, source);
+    hereStringCommands.push({
+      command: analysis.directCommand,
+      kind: "command",
+      source: sourceRange(source, input.startIndex, input.endIndex),
+    }, ...analysis.nestedCommands.map((nested) => ({ ...nested, source: remap(nested.source) })));
+    issues.push(...analysis.syntaxIssues.map((issue) => ({ ...issue, source: remap(issue.source) })));
+  }
+  issues.push(...hereStrings.issues.map((issue) => ({
+    kind: "unsupported-herestring" as const,
+    message: issue.message,
+    source: sourceRange(source, issue.startIndex, issue.endIndex),
+  })));
   const patternCommands: NestedShellCommand[] = [];
   for (const node of patternBodies) {
     const analysis = analyzeShellNesting(node.text, dialect);
@@ -507,6 +513,7 @@ export function analyzeShellNesting(
   const nestedCommands = [
     ...entries.map(({ nested }) => nested),
     ...patternCommands,
+    ...hereStringCommands,
     ...heredocBodies.flatMap((node) => {
       const commands: NestedShellCommand[] = [];
       if (isExecutedHeredocBody(node))
