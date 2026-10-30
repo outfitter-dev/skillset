@@ -559,3 +559,9 @@ The original six-project outcome reconciliation and full live open inventory are
 SET-470 round-one review at `7ba0c7b`: 4/5, two P2 trial-design findings. The prompts now explicitly describe hypothetical repositories and forbid inspecting empty trial directories; the transition case no longer names the destination specialist and requires context transfer. They test scenario routing, not real setup execution. The first immutable gate stopped before tests on a copied retired word in the inventory note; corrected to current vocabulary. No model run occurred.
 
 SET-470 round two at `fe740d`: 4/5; hypothetical-fixture concern resolved. Added concrete synthetic repository/source/authority facts to the handoff scenario as requested. Two routine rounds exhausted; no third routine review. The bounded text repair is owner-checked; actual provider acceptance and final settlement review remain open.
+
+## SET-790 current grammar amendment — 2026-10-30
+
+Owned next layer above SET-470. Live issue explicitly says this is settled SET-556 grammar, not an open decision. ADR-0040 now leads with ADR-0034's current inline/link syntax, exact shared/plugin scopes, implied copies, retired forms and source rename examples; the original discussion remains visibly historical. Existing rename atomicity and scope guarantees are retained. No parser, schema, compatibility or product behavior change. Docs gate and ADR helper pass; 74 existing grammar/rename tests pass (174 assertions). Independent review and aggregate verification pending.
+
+Pickup audit also found SET-746's identity decision in comments, but its latest owner note reserves Core identity elsewhere; no implementation started. SET-705 still requires a generator-version policy decision. Neither was silently treated as eligible based on status alone.
