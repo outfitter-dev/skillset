@@ -227,3 +227,27 @@ test("unknown field names remain data when scoped into native frontmatter", asyn
   expect(Object.hasOwn(imported, "__proto__")).toBe(false);
   expect(await readFile(join(sourcePath, "SKILL.md"), "utf8")).toBe(source);
 });
+
+for (const kind of ["skill", "plugin"] as const) {
+  test(`prototype-named fields survive ${kind} import through emitted output`, async () => {
+    const root = await createTestFixtureRoot("skillset-import-output-data-keys-");
+    const sourcePath = join(root, "original");
+    await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n");
+    const source = "---\nname: bounded\ndescription: Data keys.\nconstructor: authored\n__proto__:\n  unknown: data\nmetadata:\n  __proto__: annotation\n  constructor: annotation\n---\nBody.\n";
+    if (kind === "plugin") await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), '{"name":"bounded-plugin"}');
+    const input = join(sourcePath, kind === "skill" ? "SKILL.md" : "skills/bounded/SKILL.md");
+    await Bun.write(input, source);
+    await importSource({ rootPath: root, sourcePath, kind, provider: "claude" });
+    await buildSkillsetResult(root);
+    const output = join(root, kind === "skill" ? ".claude/skills/bounded/SKILL.md" : "plugins/bounded-plugin/skills/bounded/SKILL.md");
+    const fields = parseMarkdown(await readFile(output, "utf8"), output).frontmatter;
+    expect(Object.hasOwn(fields, "__proto__")).toBe(true);
+    expect(fields.__proto__).toEqual({ unknown: "data" });
+    expect(Object.getOwnPropertyDescriptor(fields, "constructor")?.value).toBe("authored");
+    const metadata = fields.metadata as Record<string, unknown>;
+    expect(Object.hasOwn(metadata, "__proto__")).toBe(true);
+    expect(metadata.__proto__).toBe("annotation");
+    expect(Object.getOwnPropertyDescriptor(metadata, "constructor")?.value).toBe("annotation");
+    expect(await readFile(input, "utf8")).toBe(source);
+  });
+}

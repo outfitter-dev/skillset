@@ -1000,9 +1000,9 @@ function mergePluginSkillRenderings(
     body = normalizedBody;
     for (const key of Object.keys(parsed.frontmatter).sort(compareStrings)) {
       const value = parsed.frontmatter[key];
-      const existing = frontmatter[key];
+      const existing = Object.hasOwn(frontmatter, key) ? frontmatter[key] : undefined;
       if (value !== undefined) {
-        frontmatter[key] = existing === undefined
+        const mergedValue = existing === undefined
           ? value
           : mergePluginSkillFrontmatterValue(
               graph,
@@ -1013,6 +1013,7 @@ function mergePluginSkillRenderings(
               existing,
               value
             );
+        Object.defineProperty(frontmatter, key, { value: mergedValue, enumerable: true, writable: true, configurable: true });
       }
     }
     for (const dependency of rendering.markdown.preprocessDependencies) {
@@ -1093,9 +1094,9 @@ function mergePluginSkillFrontmatterValue(
     const merged: Record<string, JsonValue | undefined> = { ...existing };
     for (const key of Object.keys(incoming).sort(compareStrings)) {
       const incomingValue = incoming[key];
-      const existingValue = merged[key];
+      const existingValue = Object.hasOwn(merged, key) ? merged[key] : undefined;
       if (incomingValue === undefined) continue;
-      merged[key] = existingValue === undefined
+      const mergedValue = existingValue === undefined
         ? incomingValue
         : mergePluginSkillFrontmatterValue(
             graph,
@@ -1106,6 +1107,7 @@ function mergePluginSkillFrontmatterValue(
             existingValue,
             incomingValue
           );
+      Object.defineProperty(merged, key, { value: mergedValue, enumerable: true, writable: true, configurable: true });
     }
     return merged;
   }
@@ -2195,7 +2197,9 @@ function renderSkillMetadata(
 
   const rendered: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {
-    if (key !== "metadata" && value !== undefined) rendered[key] = value;
+    if (key !== "metadata" && value !== undefined) {
+      Object.defineProperty(rendered, key, { value, enumerable: true, writable: true, configurable: true });
+    }
   }
 
   const metadata: Record<string, JsonValue> = {};
@@ -2204,7 +2208,7 @@ function renderSkillMetadata(
       !RETIRED_RENDERED_SKILL_METADATA_KEYS.some((retired) => retired === key) &&
       value !== undefined
     ) {
-      metadata[key] = value;
+      Object.defineProperty(metadata, key, { value, enumerable: true, writable: true, configurable: true });
     }
   }
   metadata.version = version;
