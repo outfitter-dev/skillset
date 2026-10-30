@@ -19,7 +19,7 @@ export interface SkillsetExampleArtifact {
 
 export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
   {
-    description: "Import receipt retaining value-free MCP and manifest normalization observations.",
+    description: "Import receipt retaining value-free MCP, manifest and Agent Plugins normalization observations.",
     format: "json", id: "report", path: "report-import-normalizations.json",
     value: {
       createdAt: "2026-10-30T00:00:00.000Z", id: "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5",
@@ -36,6 +36,12 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           destination: { path: ".skillset/plugins/demo/.mcp.json", pointer: "/mcpServers/demo/type" },
           occurrences: 1, fidelity: "unknown", providerVersion: "2.1.269", observedAt: "2026-09-12",
           evidence: ["https://code.claude.com/docs/en/mcp", "Observed source conversion; runtime fidelity is not established."],
+        }, {
+          code: "agent-plugins.allowed-tools", dialect: "agent-plugins",
+          source: { path: "skills/review/SKILL.md", pointer: "/allowed-tools" },
+          destination: { path: ".skillset/plugins/demo/skills/review/SKILL.md", pointer: "/allowed_tools/agents" },
+          occurrences: 1, fidelity: "unknown",
+          evidence: ["https://agentskills.io/specification", "Observed source conversion; tool enforcement is not established."],
         }, {
           code: "manifest.name", dialect: "claude",
           source: { path: ".claude-plugin/plugin.json", pointer: "/name" },
