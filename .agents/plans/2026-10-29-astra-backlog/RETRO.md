@@ -779,3 +779,10 @@ SET-467 config review repair: unresolved/forward YAML aliases are ordinary inval
 Adaptive-hook JSON reads now occur outside the syntax catch; only SyntaxError produces adaptive-hook-invalid-json. Hook script stat only translates ENOENT/ENOTDIR to adaptive-hook-script-missing; EACCES/EIO/ELOOP and internal faults propagate unchanged. Feature diagnostics accept an optional Error cause without changing diagnostic code, feature or logical path. Existing missing-path and non-file behavior remain distinct. The broader manifest/MCP generic wrappers remain a separate task; this layer does not make every feature diagnostic trustworthy for informational status.
 
 Seven regression cases failed on the parent, with two valid controls passing. Final hook-source/attachments/bindings checks: 47 tests / 102 assertions across three files; fast/type/docs gate passed. Fault injection is subprocess-isolated. Hook script contents are never executed in the new tests.
+
+### SET-467 package-support failure boundary
+
+- Split package reads from JSON parsing: only ENOENT missing files and malformed JSON follow the established mismatch policy. EACCES, EIO, ELOOP, ENOTDIR, and unexpected failures propagate; default warn cannot suppress them.
+- Deliberate support/range/dependency/source-origin rejects now use the internal input-validation type. Existing feature diagnostics retain their caught cause without reclassifying unknown causes. Path containment and remaining manifest validators remain explicit follow-up gaps; this does not complete informational status.
+- Regressions initially exposed the swallowed read failures and absent typed causes. Final focused supports suite: 30 tests, 74 assertions; fast gate including types, conformance, source coverage, and docs passes. Independent review/full immutable verification follow the commit.
+- Parent config final dec21d9b full verification: 4781 pass, 3 skip, 4 todo, 3 failures, all deferred SET-419/420 native-size limits; no receipt.

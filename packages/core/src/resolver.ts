@@ -5,6 +5,7 @@ import { resolveNativeRootRuleSource } from "./native-root-rules";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, posix, relative } from "node:path";
 
+import { InputValidationError } from "./input-validation-error";
 import { EmptySourceGraphError } from "./empty-source-graph";
 import { normalizeGeneratedFileMode } from "./generated-file-mode";
 
@@ -471,6 +472,7 @@ function featureDiagnosticError(
 ): SkillsetFeatureDiagnosticError {
   if (error instanceof SkillsetFeatureDiagnosticError) return error;
   return new SkillsetFeatureDiagnosticError({
+    cause: error,
     code: args.code,
     featureId: args.featureId,
     message: error instanceof Error ? error.message : String(error),
@@ -1889,16 +1891,16 @@ function readSourceOrigin(metadata: JsonRecord, label: string): SourceOrigin | u
   const raw = metadata.origin;
   if (raw === undefined) return undefined;
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label}.skillset.origin to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.skillset.origin to be an object`);
   }
   const path = readString(raw, "path");
   if (path === undefined) {
-    throw new Error(`skillset: expected ${label}.skillset.origin.path`);
+    throw new InputValidationError(`skillset: expected ${label}.skillset.origin.path`);
   }
   const repo = readString(raw, "repo");
   const ref = readString(raw, "ref");
   if ((repo === undefined) !== (ref === undefined)) {
-    throw new Error(`skillset: ${label}.skillset.origin must set repo and ref together`);
+    throw new InputValidationError(`skillset: ${label}.skillset.origin must set repo and ref together`);
   }
   return {
     path,

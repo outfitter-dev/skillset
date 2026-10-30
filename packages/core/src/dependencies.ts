@@ -1,6 +1,7 @@
 import { relative } from "node:path";
 
 import { readRecord, readString } from "./config";
+import { InputValidationError } from "./input-validation-error";
 import { compareStrings } from "./path";
 import { validateSemverRange } from "./supports";
 import type { BuildGraph, JsonRecord, JsonValue, SourcePlugin, SourcePluginDependency, TargetName } from "./types";
@@ -13,17 +14,17 @@ export function readPluginDependencies(
 ): readonly SourcePluginDependency[] {
   if (value === undefined) return [];
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label}.dependencies to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.dependencies to be an object`);
   }
   for (const key of Object.keys(value)) {
     if (key !== "plugins") {
-      throw new Error(`skillset: unsupported ${label}.dependencies key ${key}; v1 supports plugins`);
+      throw new InputValidationError(`skillset: unsupported ${label}.dependencies key ${key}; v1 supports plugins`);
     }
   }
   const plugins = value.plugins;
   if (plugins === undefined) return [];
   if (!Array.isArray(plugins)) {
-    throw new Error(`skillset: expected ${label}.dependencies.plugins to be an array`);
+    throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins to be an array`);
   }
   return plugins.map((item) => readPluginDependency(item, label));
 }
@@ -52,10 +53,10 @@ export function validatePluginDependencyGraph(plugins: readonly SourcePlugin[]):
     for (const dependency of dependencies) {
       if (dependency.kind !== "internal") continue;
       if (dependency.name === plugin.id) {
-        throw new Error(`skillset: plugin ${plugin.id} must not depend on itself`);
+        throw new InputValidationError(`skillset: plugin ${plugin.id} must not depend on itself`);
       }
       if (!ids.has(dependency.name)) {
-        throw new Error(`skillset: plugin ${plugin.id} depends on unknown plugin ${dependency.name}`);
+        throw new InputValidationError(`skillset: plugin ${plugin.id} depends on unknown plugin ${dependency.name}`);
       }
     }
   }
@@ -117,11 +118,11 @@ export function renderCodexDependencyNotice(
 function readPluginDependency(value: JsonValue, label: string): SourcePluginDependency {
   if (typeof value === "string") {
     if (!value.startsWith("plugin:")) {
-      throw new Error(`skillset: expected ${label}.dependencies.plugins string to use plugin:<id>`);
+      throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins string to use plugin:<id>`);
     }
     const name = value.slice("plugin:".length).trim();
     if (name.length === 0) {
-      throw new Error(`skillset: expected ${label}.dependencies.plugins string to include a plugin id`);
+      throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins string to include a plugin id`);
     }
     return {
       kind: "internal",
@@ -131,25 +132,25 @@ function readPluginDependency(value: JsonValue, label: string): SourcePluginDepe
     };
   }
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label}.dependencies.plugins entries to be strings or objects`);
+    throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins entries to be strings or objects`);
   }
   for (const key of Object.keys(value)) {
     if (!["marketplace", "name", "plugin", "range", "unversioned"].includes(key)) {
-      throw new Error(`skillset: unsupported ${label}.dependencies.plugins entry key ${key}`);
+      throw new InputValidationError(`skillset: unsupported ${label}.dependencies.plugins entry key ${key}`);
     }
   }
 
   const plugin = readString(value, "plugin");
   const name = readString(value, "name");
   if (plugin !== undefined && name !== undefined) {
-    throw new Error(`skillset: ${label}.dependencies.plugins entry must use plugin or name, not both`);
+    throw new InputValidationError(`skillset: ${label}.dependencies.plugins entry must use plugin or name, not both`);
   }
   if (plugin !== undefined) {
     if (plugin.trim().length === 0) {
-      throw new Error(`skillset: expected ${label}.dependencies.plugins entry plugin to include a plugin id`);
+      throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins entry plugin to include a plugin id`);
     }
     if (readString(value, "range") !== undefined || readString(value, "marketplace") !== undefined || value.unversioned !== undefined) {
-      throw new Error(`skillset: ${label}.dependencies.plugins internal entry ${plugin} must not include range, marketplace, or unversioned`);
+      throw new InputValidationError(`skillset: ${label}.dependencies.plugins internal entry ${plugin} must not include range, marketplace, or unversioned`);
     }
     return {
       kind: "internal",
@@ -159,22 +160,22 @@ function readPluginDependency(value: JsonValue, label: string): SourcePluginDepe
     };
   }
   if (name === undefined) {
-    throw new Error(`skillset: expected ${label}.dependencies.plugins entry to include plugin or name`);
+    throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins entry to include plugin or name`);
   }
   if (name.trim().length === 0) {
-    throw new Error(`skillset: expected ${label}.dependencies.plugins entry name to include a plugin name`);
+    throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins entry name to include a plugin name`);
   }
 
   const range = readString(value, "range");
   const unversioned = value.unversioned === true;
   if (range !== undefined && unversioned) {
-    throw new Error(`skillset: external plugin dependency ${name} in ${label} must not combine range with unversioned: true`);
+    throw new InputValidationError(`skillset: external plugin dependency ${name} in ${label} must not combine range with unversioned: true`);
   }
   if (value.unversioned !== undefined && typeof value.unversioned !== "boolean") {
-    throw new Error(`skillset: expected ${label}.dependencies.plugins entry ${name}.unversioned to be boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.dependencies.plugins entry ${name}.unversioned to be boolean`);
   }
   if (range === undefined && !unversioned) {
-    throw new Error(`skillset: external plugin dependency ${name} in ${label} requires range or unversioned: true`);
+    throw new InputValidationError(`skillset: external plugin dependency ${name} in ${label} requires range or unversioned: true`);
   }
   if (range !== undefined) validateSemverRange(range, `${label} dependency ${name}`);
   const marketplace = readString(value, "marketplace");

@@ -46,7 +46,7 @@ Support constraints remain provenance and diagnostics rather than provider-enfor
 
 ## Errors and Caveats
 
-Skillset rejects malformed compact entries, invalid ranges, invalid package names or repository source paths, and mismatches configured with `onMismatch: error`. Checks and status warn for the default mismatch policy.
+Skillset rejects malformed compact entries, invalid ranges, invalid package names or repository source paths, and mismatches configured with `onMismatch: error`. Checks and status warn for the default mismatch policy. Missing package files and malformed package JSON also follow `onMismatch`. Permission errors, other filesystem failures (including a non-directory path component), and unexpected internal failures remain errors under either policy.
 
 A supports-only edit is source-significant but is not inherently severity-bearing: the default suggested release bump is `none`, or `patch` when the change alters rendered user-facing metadata. Use [dependencies](dependencies.md) when another plugin is required for operation.
 
