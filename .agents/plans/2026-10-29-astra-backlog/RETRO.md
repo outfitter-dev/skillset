@@ -567,3 +567,9 @@ Owned next layer above SET-470. Live issue explicitly says this is settled SET-5
 Pickup audit also found SET-746's identity decision in comments, but its latest owner note reserves Core identity elsewhere; no implementation started. SET-705 still requires a generator-version policy decision. Neither was silently treated as eligible based on status alone.
 
 SET-790 round-one review at `5313158c`: 4/5. Corrected the amendment's unconditional recovery sentence: failed writes trigger rollback, rollback failures are reported, and occupied destinations preserve staged preimages. This describes existing failure handling; no transaction change.
+
+## SET-788 command-specific authority — 2026-10-30
+
+The shared public commands reference and build-scopes/output-safety pages now distinguish build preview (`--yes` applies, no interactive build confirmation), dev preview versus `--write`, direct eval execution/run artifacts and successful-preview registration in the user-global XDG workspace index. No CLI flag, prompt, execution policy or runtime behavior changed. Existing route implementations and known-index tests are the authority. Generated all three public copies and refreshed supported source evidence. Docs pass; 35 build/dev/eval/known-workspace tests pass (156 assertions), using fake providers rather than real model execution. Independent review/aggregate gate pending.
+
+SET-470 final immutable run at `260a429e`: 4595 pass, 3 skip, 4 todo, 3 fail; all three failures are the deferred native-size policy. No receipt. External Claude trial approval remains unanswered and trials unexecuted. SET-790 current-head review at `976e5b95` is 5/5, no findings; full run active.

@@ -36,9 +36,9 @@ skillset build
 skillset build --yes
 ```
 
-An unconfirmed build writes nothing. Unmanaged output collisions block an ordinary build; warnings describe the required recovery decision, not permission to overwrite. An existing unmanaged root `AGENTS.md` is the [native source exception](../source/rules.md#native-root-guidance): a successful build records native mode and never writes that file. Authorized replacements of managed target-side edits prepare recovery snapshots before writing. `compile.build: updated` changes missing, changed, or stale managed files; `all` selects every configured generated file. Neither deletes unmanaged neighbors.
+A build without `--yes` previews and writes no generated output, even in an interactive terminal. A successful preview can still register the workspace in Skillset's user-global XDG operational index; this is not provider configuration or activation. Unmanaged output collisions block an ordinary build; warnings describe the required recovery decision, not permission to overwrite. An existing unmanaged root `AGENTS.md` is the [native source exception](../source/rules.md#native-root-guidance): a successful build records native mode and never writes that file. Authorized replacements of managed target-side edits prepare recovery snapshots before writing. `compile.build: updated` changes missing, changed, or stale managed files; `all` selects every configured generated file. Neither deletes unmanaged neighbors.
 
-`--isolated` applies the same rules inside the logical `.skillset/cache/latest/` mirror without touching live output roots. The generated [`build`](../cli/build.md), [`diff`](../cli/diff.md), and [`restore`](../cli/restore.md) pages own exact syntax.
+[Build scopes](build-scopes.md#errors-and-recovery) distinguishes generated-output authority from operational state and from the separate `dev --write` and `eval run` routes. `--isolated` applies the same rules inside the logical `.skillset/cache/latest/` mirror without touching live output roots. The generated [`build`](../cli/build.md), [`diff`](../cli/diff.md), and [`restore`](../cli/restore.md) pages own exact syntax.
 
 ## Choose the Recovery Path
 

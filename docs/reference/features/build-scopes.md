@@ -27,7 +27,7 @@ compile:
 
 `updated` is the default and selects missing, changed, or stale managed output. `all` selects every configured generated file. `--updated` and `--all` override the manifest for one command and cannot be combined.
 
-`skillset build` is plan-first. It writes only after interactive confirmation or `--yes`:
+`skillset build` is plan-first: without `--yes` it previews, including in an interactive terminal. Rerun with `--yes` to write generated output:
 
 ```bash
 skillset build
@@ -60,9 +60,9 @@ Writes, [drift](../../glossary.md#drift) checks, stale-file removal, collision b
 
 ## Read the Result
 
-| Command | Result | Writes |
+| Command | Result | Generated-output writes |
 | --- | --- | --- |
-| `skillset build` | Planned additions, changes, missing files, and removals | Only after confirmation or `--yes` |
+| `skillset build` | Planned additions, changes, missing files, and removals | No generated-output writes; `--yes` applies |
 | `skillset diff` | Content and state differences | Never |
 | `skillset list` | Lock-backed generated inventory | Never |
 | `skillset explain <path>` | Source, destination, provenance, and [render-result](../../glossary.md#render-result) facts | Never |
@@ -81,7 +81,9 @@ Missing managed output appears separately from newly [generated output](../../gl
 | Missing managed file | Diff and output check report the missing path | Preview and confirm a build |
 | Unmanaged collision or edited output | Confirmed build creates a recovery snapshot before replacement | Follow [Output Safety](output-safety.md) |
 
-Dry-run commands never write generated files, locks, [target](../../glossary.md#target) configuration, or user-level settings.
+A build preview does not write generated files, locks, [target](../../glossary.md#target) configuration, or provider user-level settings. A successful preview can register the workspace in Skillset's user-global XDG operational index; preview-only output does not mean the process makes no filesystem writes.
+
+Write authority is command-specific. [`dev`](../cli/dev.md) watches in preview mode by default and uses `--write`, not `--yes`, for generated-output writes. [`eval run`](../cli/eval.md#skillset-eval-run) starts execution directly: it stages a disposable workspace, invokes available provider adapters and records run artifacts without a `--yes` gate. Choose it only with authority for provider execution and its possible external effects; it is not an output-preview command. Inspect each command's help rather than transferring build's confirmation rule to other routes.
 
 ## Provenance
 
