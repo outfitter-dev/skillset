@@ -145,7 +145,7 @@ Read-only snapshot, local owner head bdbaee43fd96951721d667ececd2cea6807cce27. I
 
 ### Adoption and migration
 
-- [SET-442](https://linear.app/outfitter/issue/SET-442/preserve-ambiguous-adoption-input-and-emit-migration-flags-instead-of) — Todo; Preserve ambiguous adoption input and emit migration flags instead of broad lowering (2. Migration flags and workspace state)
+- [SET-442](https://linear.app/outfitter/issue/SET-442/preserve-ambiguous-adoption-input-and-emit-migration-flags-instead-of) — Todo; Preserve ambiguous adoption input and emit migration flags instead of broad transforms (2. Migration flags and workspace state)
 - [SET-436](https://linear.app/outfitter/issue/SET-436/emit-safe-inline-adoption-flags-and-exclude-them-from-semantic) — Todo; Emit safe inline adoption flags and exclude them from semantic rendering (2. Migration flags and workspace state)
 - [SET-446](https://linear.app/outfitter/issue/SET-446/define-the-migration-flag-schema-workspace-ledger-and-stable-anchor) — Todo; Define the migration flag schema, workspace ledger, and stable anchor identity (2. Migration flags and workspace state)
 - [SET-777](https://linear.app/outfitter/issue/SET-777/qualify-claude-mcp-placeholder-import-semantics-for-unbraced-variables) — In Review; Qualify Claude MCP placeholder import semantics for unbraced variables and cwd

@@ -1,6 +1,6 @@
 # Public specialist trigger trials — SET-470
 
-The retained cases distinguish router, repository init/adoption, and maintenance; include unrelated and disposable requests; and request an explicit init-to-maintain handoff. Expectations are authored criteria, not execution results. The explicit handoff case tests following a requested sequence, not spontaneous routing.
+The retained cases distinguish router, repository init/adoption, and maintenance; include unrelated and disposable requests; and include a setup-to-first-build transition without naming the destination specialist. Expectations are authored criteria, not execution results. All prompts explicitly describe hypothetical repositories and prohibit inspecting the intentionally empty trial directory. These are description-selection and scenario-handoff trials, not end-to-end repository execution. For the transition case, inspect actual skill invocations and whether repository path, source ownership and write limits survive; a prose mention alone is not a passing handoff.
 
 No trials have executed. Automatic approval review rejected the proposed Claude run because the generated plugin would be sent to an external model with potential charges. Owner approval is pending for nine read-only isolated cases capped at $1 each. No provider selection, trigger, handoff or Windows success is claimed. Codex plugin eval and Cursor runtime acceptance also remain open.
 
