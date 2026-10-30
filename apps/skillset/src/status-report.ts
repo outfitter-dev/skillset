@@ -4,6 +4,7 @@ import {
   type DoctorReport,
 } from "@skillset/core/internal/authoring";
 import { EmptySourceGraphError } from "@skillset/core/internal/empty-source-graph";
+import { independentlyObserveOutputBaseline } from "@skillset/core/internal/output-safety";
 import { GeneratedLockReadError } from "@skillset/core/internal/generated-lock-read";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import { quoteShellArgument } from "./recovery-guidance";
@@ -44,12 +45,17 @@ export async function inspectWorkspaceStatus(
     diagnostics: entries.flatMap((entry) => entry.schemaDiagnostics),
   };
   const empty = observation.failure?.phase === "graph" && observation.failure.error instanceof EmptySourceGraphError;
+  // An empty graph does not inspect outputs; collect its independent blockers
+  // here without broadening the public doctor's baseline-recovery contract.
+  const outputBlockers = empty
+    ? (await independentlyObserveOutputBaseline(rootPath, options)).corruptLocks.map((error) => error.message)
+    : [];
   const inactive = observation.hasActiveSource === false;
   const completed = isCompletedObservation(observation);
   const { featureCapabilities: _registry, ok: _readiness, ...details } = observation.report;
   const state = !completed ? "inspection-failed"
     : details.lintIssues.some((issue) => issue.severity === "error") || release.diagnostics.length > 0 ||
-      (observation.outputBlockers?.length ?? 0) > 0 ||
+      outputBlockers.length > 0 ||
       (!empty && details.outputState.state === "blocked")
       ? "blocked" : empty || inactive ? "no-active-source" : details.outputState.state;
   const summaries: Record<WorkspaceStatusReport["conclusion"]["state"], string> = {
@@ -75,7 +81,7 @@ export async function inspectWorkspaceStatus(
     completed,
     report: {
       ...details,
-      outputBlockers: observation.outputBlockers ?? [],
+      outputBlockers,
       conclusion: { state, ready: state === "current", summary: summaries[state], nextAction },
       source: { state: empty ? "empty" : observation.failure?.phase === "graph" ? "unavailable" : inactive ? "inactive" : "observed" },
       release,

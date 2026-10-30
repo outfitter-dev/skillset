@@ -35,7 +35,6 @@ import {
 } from "./operational-cache";
 import {
   independentlyObservedOutputBaseline,
-  independentlyObserveOutputBaseline,
   readManagedOutputState,
 } from "./output-safety";
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
@@ -621,7 +620,6 @@ export interface DoctorObservation {
   readonly report: DoctorReport;
   /** Present only after graph discovery; excludes standalone draft skills. */
   readonly hasActiveSource?: boolean;
-  readonly outputBlockers?: readonly string[];
   readonly failure?: {
     readonly phase: "graph" | "output";
     readonly error: unknown;
@@ -639,8 +637,10 @@ export async function observeDoctorSkillset(
   } catch (error) {
     const buildDiagnostics = diagnosticsFromError(error);
     const renderResults = renderResultsFromError(error);
-    const baseline = await independentlyObserveOutputBaseline(rootPath, options);
-    const outputBlockers = baseline.corruptLocks.map(errorMessage);
+    const hasBaseline = await independentlyObservedOutputBaseline(
+      rootPath,
+      options
+    );
     const report: DoctorReport = {
       buildError: errorMessage(error),
       buildDiagnostics,
@@ -650,7 +650,7 @@ export async function observeDoctorSkillset(
       renderResults,
       notableRenderResults: notableRenderResults(renderResults),
       ok: false,
-      outputState: classifySkillsetOutputFailure(error, baseline.hasBaseline),
+      outputState: classifySkillsetOutputFailure(error, hasBaseline),
       projectUse: [],
       standardProfiles: standardProfileStatuses(
         {
@@ -661,7 +661,7 @@ export async function observeDoctorSkillset(
       ),
       warnings: [],
     };
-    return { report, outputBlockers, failure: { phase: "graph", error } };
+    return { report, failure: { phase: "graph", error } };
   }
   const lint = await inspectSkillset(graph);
 
