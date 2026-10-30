@@ -5,7 +5,8 @@ import type { MigrationFlag } from "@skillset/schema";
 import { ISOLATED_OUT_ROOT, type SkillsetBuildResult } from "./build";
 import { createInitialMigrationFlag } from "./migration-state-reconcile";
 import { resolveInside } from "./path";
-import { pluginBundleRoot } from "./plugin-output";
+import { isOutputSelected } from "./config";
+import { pluginBundleRoot, pluginManifestPath } from "./plugin-output";
 import type { BuildGraph, JsonValue, SourceOrigin } from "./types";
 import { isJsonRecord } from "./yaml";
 
@@ -75,7 +76,9 @@ export function qualifyMcpDependencySources(
   const emittedPaths = build.data.map((file) => file.path);
   return sources.flatMap((source) => {
     const plugin = graph.plugins.find((item) => resolve(graph.rootPath, item.configPath) === resolve(graph.rootPath, source.configPath));
-    if (plugin === undefined || !plugin.targets.cursor.enabled) return [];
+    if (plugin === undefined || !plugin.targets.cursor.enabled || !isOutputSelected(graph.root.outputs.targetOutputs.cursor.plugins, plugin.id)) return [];
+    const manifestPath = `${ISOLATED_OUT_ROOT}/${pluginManifestPath(graph.root.outputs.plugins.cursor, "cursor", plugin)}`;
+    if (!emittedPaths.includes(manifestPath)) return [];
     const outputRoot = `${ISOLATED_OUT_ROOT}/${pluginBundleRoot(graph.root.outputs.plugins.cursor, "cursor", plugin)}`;
     return [{ ...source, outputRoot, emittedPaths }];
   });
@@ -92,8 +95,8 @@ export function mcpDependencyFindings(source: McpDependencyFindingSource, conten
       severity: omitted ? "error" : "warning",
       disposition: omitted ? "lossy-unsupported" : "ambiguous",
       message: omitted
-        ? `Original local candidate ${candidate.path} exists but is absent from the selected generated package; relative runtime base requires review.`
-        : "Node MCP declaration has no verified original local script candidate in the supported literal-path scope; review runtime dependencies manually.",
+        ? `Original local candidate ${candidate.path} exists but is absent from the selected generated package; relative runtime base requires review. Preserve the file at the required packaged path or explicitly revise the command and package layout, then verify that arrangement.`
+        : "Node MCP declaration has no verified original local script candidate in the supported literal-path scope; review runtime dependencies manually and explicitly declare the intended script path and runtime base before relying on the package.",
       source: { path: source.path },
       ...(source.origin === undefined ? {} : { origin: { path: source.origin.path } }),
       fingerprints: { content: digest(content), context: digest(candidate.pointer) },

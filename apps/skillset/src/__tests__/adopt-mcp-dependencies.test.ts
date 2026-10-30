@@ -29,6 +29,7 @@ test("adoption records an original local MCP candidate omitted from the actual p
   expect(flag?.source.path).toBe(".skillset/plugins/demo/.mcp.json");
   expect(flag?.origin?.path).toBe(".mcp.json");
   expect(flag?.message).toContain("runtime base requires review");
+  expect(flag?.message).toContain("Preserve the file at the required packaged path");
   expect((await readMigrationState(root)).state.flags).toContainEqual(flag!);
   expect(await readFile(join(root, ".mcp.json"), "utf8")).toBe(declaration);
   expect(await readFile(join(root, ".skillset/plugins/demo/server/dist/index.js"), "utf8")).toBe("console.log('fixture');\n");
@@ -120,4 +121,15 @@ test("unselected Cursor projection cannot claim an omitted Cursor dependency", a
   const { root } = await fixture();
   const report = await adoptSkillset(root, { write: true, targets: ["claude"] });
   expect(report.migrationFlags?.filter((flag) => flag.code.startsWith("adopt.mcp-"))).toEqual([]);
+});
+
+
+test.each(["false", "[another-plugin]"])("Cursor plugin output selection %s cannot claim an omitted dependency", async (selection) => {
+  const { root } = await fixture();
+  await Bun.write(join(root, "skillset.yaml"), `skillset:\n  name: demo\n  license: none\ncursor:\n  plugins: ${selection}\n`);
+  const report = await adoptSkillset(root, { write: true, targets: ["cursor"] });
+  expect(report.ok).toBe(true);
+  expect(report.migrationFlags?.filter((flag) => flag.code.startsWith("adopt.mcp-"))).toEqual([]);
+  const output = resolveOperationalPath(createOperationalPathContext(root), `${ISOLATED_OUT_ROOT}/plugins/demo/.cursor-plugin/plugin.json`);
+  expect(await Bun.file(output).exists()).toBe(false);
 });

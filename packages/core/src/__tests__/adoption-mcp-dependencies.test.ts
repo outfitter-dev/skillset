@@ -65,3 +65,13 @@ test("stale capture and concurrent JSON edits cannot create an authoritative led
   expect(await Bun.file(join(root, MIGRATION_STATE_PATH)).exists()).toBe(false);
   expect(await readFile(join(root, path), "utf8")).toBe(`${content}\n`);
 });
+
+test("selected Cursor without an emitted native manifest provides no omission proof", async () => {
+  const { root, source } = await capture({ command: "node", args: ["server/start.js"] }, ["server/start.js"]);
+  const graph = {
+    rootPath: root,
+    root: { outputs: { plugins: { cursor: "plugins" }, targetOutputs: { cursor: { plugins: true } } } },
+    plugins: [{ id: "demo", configPath: source.configPath, targets: { cursor: { enabled: true } } }],
+  } as unknown as BuildGraph;
+  expect(qualifyMcpDependencySources([source], graph, { ok: true, data: [] })).toEqual([]);
+});
