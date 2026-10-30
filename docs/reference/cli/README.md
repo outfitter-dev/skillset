@@ -33,7 +33,7 @@ These pages are generated from the same typed presentation and flag contracts us
 - [`skillset list`](./list.md) — List authored units and their generated outputs.
 - [`skillset lookup`](./lookup.md) — Look up schema, provider facts, and scoped capability fidelity.
 - [`skillset report`](./report.md) — Inspect immutable operational reports.
-- [`skillset status`](./status.md) — Summarize workspace health and generated drift.
+- [`skillset status`](./status.md) — Inspect workspace readiness; completed observations exit zero even when output has diverged.
 - [`skillset test`](./test.md) — Run declared or ad hoc provider runtime tests.
 
 ## Changes

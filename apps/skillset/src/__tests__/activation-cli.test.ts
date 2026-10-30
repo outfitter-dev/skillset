@@ -139,7 +139,7 @@ test("SET-392: status activation is opt-in, bounded, and exit-code neutral", asy
           readonly summary: string;
         };
       };
-      readonly ok: boolean;
+      readonly conclusion: { readonly ready: boolean };
     };
     readonly exitCode: number;
   };
@@ -151,7 +151,7 @@ test("SET-392: status activation is opt-in, bounded, and exit-code neutral", asy
   ]);
   expect(signals).toHaveLength(3);
   expect(signals.every((signal) => signal instanceof AbortSignal)).toBe(true);
-  expect(result.data.ok).toBe(true);
+  expect(result.data.conclusion.ready).toBe(true);
   expect(result.data.activation.readiness.summary).toBe("ready_unverified");
   expect(result.data.activation.inspections).toHaveLength(2);
   expect(result.data.activation.inspections).toEqual(
@@ -979,12 +979,12 @@ test("SET-392: expected provider transport failures remain advisory", async () =
       readonly activation: {
         readonly inspections: readonly { readonly outcome: string }[];
       };
-      readonly ok: boolean;
+      readonly conclusion: { readonly ready: boolean };
     };
     readonly exitCode: number;
   };
 
-  expect(result.data.ok).toBe(true);
+  expect(result.data.conclusion.ready).toBe(true);
   expect(
     result.data.activation.inspections.every(
       ({ outcome }) => outcome === "skipped" || outcome === "unavailable"

@@ -618,6 +618,8 @@ export async function doctorSkillset(
 /** Internal evidence for command completion policy; never serialize failure. */
 export interface DoctorObservation {
   readonly report: DoctorReport;
+  /** Present only after graph discovery; excludes standalone draft skills. */
+  readonly hasActiveSource?: boolean;
   readonly failure?: {
     readonly phase: "graph" | "output";
     readonly error: unknown;
@@ -735,7 +737,10 @@ export async function observeDoctorSkillset(
     ),
     warnings: graph.warnings,
   };
-  return { report, ...(failure === undefined ? {} : { failure }) };
+  const hasActiveSource = graph.standaloneSkills.length > 0 || graph.plugins.length > 0 ||
+    graph.rules.length > 0 || graph.projectAgents.length > 0 || graph.projectIslands.length > 0 ||
+    Object.keys(graph.root.marketplaces).length > 0;
+  return { report, hasActiveSource, ...(failure === undefined ? {} : { failure }) };
 }
 
 interface LockItemMatch {

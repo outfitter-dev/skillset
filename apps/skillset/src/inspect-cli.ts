@@ -5,7 +5,6 @@ import type {
 } from "@skillset/core";
 import { targetNames } from "@skillset/core";
 import {
-  doctorSkillset,
   explainPath,
   listFeatureCapabilities,
   listGeneratedEntries,
@@ -32,6 +31,7 @@ import {
   type InteractiveSession,
 } from "./interactive-session";
 import { runLookupCommand } from "./lookup-cli";
+import { inspectWorkspaceStatus, type WorkspaceStatusReport } from "./status-report";
 import {
   lookupRequestNeedsPrompts,
   resolveInteractiveLookup,
@@ -427,16 +427,17 @@ export async function runStatusCommand(
   { activation, jsonOutput, options, rootPath }: StatusCommandRequest,
   context: ActivationCommandContext = {}
 ): Promise<void> {
-  // doctorSkillset carries source warnings in the structured report; the CLI
-  // renders them below instead of relying on core operations to print.
   return runFiniteCommand({
     execute: async () => {
-      const report = await doctorSkillset(rootPath, options);
-      if (!activation || report.buildError !== undefined) return report;
+      const observation = await inspectWorkspaceStatus(rootPath, options);
+      const { report } = observation;
+      if (!activation || report.buildError !== undefined) return observation;
       return {
-        ...report,
-        activation: await withActivationSignal(context, (signal) =>
-          inspectWorkspaceActivation({
+        ...observation,
+        report: {
+          ...report,
+          activation: await withActivationSignal(context, (signal) =>
+            inspectWorkspaceActivation({
             options,
             renderResults: report.renderResults,
             rootPath,
@@ -445,18 +446,19 @@ export async function runStatusCommand(
             ...(context.runCommand === undefined
               ? {}
               : { runCommand: context.runCommand }),
-          })
-        ),
+            })
+          ),
+        },
       };
     },
-    exitCode: (report) => (report.ok ? 0 : 1),
-    json: (report) => ({
+    exitCode: ({ completed }) => (completed ? 0 : 1),
+    json: ({ report }) => ({
       command: "status",
       data: report,
       kind: "diagnostics",
     }),
     jsonOutput,
-    renderHuman: printStatusReport,
+    renderHuman: ({ report }, writer) => printStatusReport(report, writer),
   });
 }
 
@@ -477,13 +479,22 @@ function outputDriftPaths(drift: {
 }
 
 function printStatusReport(
-  report: Awaited<ReturnType<typeof doctorSkillset>> & {
+  report: WorkspaceStatusReport & {
     readonly activation?: Awaited<
       ReturnType<typeof inspectWorkspaceActivation>
     >;
   },
   writer: FiniteCommandWriter
 ): void {
+  writeLine(writer, `skillset: ${report.conclusion.summary}`);
+  writeLine(writer, `  source: ${report.source.state}${report.source.state === "observed" ? `; ${report.lintIssues.length} lint finding(s)` : ""}`);
+  writeLine(writer, `  output: ${report.outputState.state.replaceAll("-", " ")}; baseline ${report.outputState.hasBaseline ? "observed" : "not observed"}`);
+  writeLine(writer, `  release: ${report.release.pendingEntries} pending change entry/entries; ${report.release.ignoredEntries} ignored; release readiness not assessed`);
+  const action = report.conclusion.nextAction;
+  writeLine(writer, `  next: ${action.message}${action.command === undefined ? "" : ` (${action.command})`}`);
+  for (const diagnostic of report.release.diagnostics) {
+    writeLine(writer, `  release diagnostic: ${diagnostic.path}: ${diagnostic.message}`);
+  }
   writeLine(
     writer,
     `  standards: ${formatStandardProfileSummary(report.standardProfiles)}`
@@ -539,48 +550,11 @@ function printStatusReport(
   if (driftCount > 0) {
     writeLine(
       writer,
-      `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed${report.outputState.state === "blocked" ? " (resolve output blockers before building)" : " (run skillset build --yes)"}`
-    );
-  }
-  writeLine(
-    writer,
-    `  features: ${report.featureCapabilities.total} registry entries; status ${formatCountSummary(report.featureCapabilities.byFeatureStatus)}`
-  );
-  for (const target of targetNames()) {
-    writeLine(
-      writer,
-      `  feature support: ${target} ${formatCountSummary(report.featureCapabilities.byTargetSupport[target])}`
+      `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed`
     );
   }
   for (const outcome of report.notableRenderResults) {
     printRenderResult(outcome, writer);
-  }
-  if (report.ok) {
-    if (report.notableRenderResults.length === 0) {
-      writeLine(writer, "skillset: status found no problems");
-    } else {
-      writeLine(
-        writer,
-        `skillset: status found ${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
-      );
-    }
-  } else {
-    const problems: string[] = [];
-    if (report.lintIssues.length > 0) {
-      problems.push(`${report.lintIssues.length} lint issue(s)`);
-    }
-    if (driftCount > 0) {
-      problems.push("generated-output drift");
-    }
-    if (report.buildError !== undefined) {
-      problems.push("a build error");
-    }
-    if (report.notableRenderResults.length > 0) {
-      problems.push(
-        `${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
-      );
-    }
-    writeLine(writer, `skillset: status found ${problems.join(" and ")}`);
   }
   if (report.activation !== undefined) {
     printActivationInspection(report.activation, writer);
@@ -634,12 +608,6 @@ function formatFeatureSupport(
   return `${support.status}${reason}${note}`;
 }
 
-function formatCountSummary(counts: Readonly<Record<string, number>>): string {
-  return Object.entries(counts)
-    .toSorted(([left], [right]) => left.localeCompare(right))
-    .map(([key, count]) => `${key} ${count}`)
-    .join(", ");
-}
 
 function printRenderResult(
   outcome: {
