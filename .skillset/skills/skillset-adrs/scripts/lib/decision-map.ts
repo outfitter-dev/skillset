@@ -1,10 +1,7 @@
 /* oxlint-disable max-statements, no-negated-condition -- decision map assembly from multiple sources */
 
 import {
-  existsSync,
   mkdirSync,
-  readdirSync,
-  readFileSync,
   writeFileSync,
 } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -17,6 +14,7 @@ import {
   ROOT,
 } from './paths.ts';
 import type { AdrFile } from './frontmatter.ts';
+import { referenceText, type ReferenceDocument } from './reference-inventory.ts';
 import { buildAmendedBy, validateAmendments } from './amendments.ts';
 import {
   listNumberedAdrs,
@@ -52,41 +50,11 @@ export interface DecisionMap {
   entries: DecisionMapEntry[];
 }
 
-/** List non-ADR markdown files that may reference ADR filenames. */
-const listDocFiles = (): { path: string; filename: string }[] => {
-  const files: { path: string; filename: string }[] = [];
-
-  const docsDir = join(ROOT, 'docs');
-  const visitDocs = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (path === ADR_DIR) {
-          continue;
-        }
-        visitDocs(path);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        files.push({ filename: entry.name, path });
-      }
-    }
-  };
-  visitDocs(docsDir);
-
-  // AGENTS.md at repo root
-  const agentsPath = join(ROOT, 'AGENTS.md');
-  if (existsSync(agentsPath)) {
-    files.push({ filename: 'AGENTS.md', path: agentsPath });
-  }
-
-  return files;
-};
-
 /** Scan all ADR files and non-ADR docs for references to a given filename. */
 export const findInboundRefs = (
   targetFilename: string,
-  allFiles: AdrFile[]
+  allFiles: AdrFile[],
+  documents: readonly ReferenceDocument[]
 ): InboundRef[] => {
   const refs: InboundRef[] = [];
 
@@ -95,7 +63,7 @@ export const findInboundRefs = (
     if (file.filename === targetFilename) {
       continue;
     }
-    const content = readFileSync(file.path, 'utf8');
+    const content = referenceText(file.path);
     for (const line of content.split('\n')) {
       if (line.includes(targetFilename)) {
         const fromSlug = file.filename
@@ -115,8 +83,8 @@ export const findInboundRefs = (
   }
 
   // Scan non-ADR docs
-  for (const doc of listDocFiles()) {
-    const content = readFileSync(doc.path, 'utf8');
+  for (const doc of documents) {
+    const content = referenceText(doc.path);
     for (const line of content.split('\n')) {
       if (line.includes(targetFilename)) {
         const relPath = doc.path.startsWith(ROOT)
@@ -156,7 +124,8 @@ const monthFromFilename = (filename: string): string | null => {
 
 const buildNumberedEntries = (
   allFiles: AdrFile[],
-  amendedBy: Map<number, string[]>
+  amendedBy: Map<number, string[]>,
+  documents: readonly ReferenceDocument[]
 ): DecisionMapEntry[] =>
   listNumberedAdrs().map((adr): DecisionMapEntry => {
     const num = parseAdrNumber(adr.filename);
@@ -166,7 +135,7 @@ const buildNumberedEntries = (
       amends: adr.frontmatter.amends ?? [],
       created: String(adr.frontmatter.created ?? ''),
       depends_on: (adr.frontmatter.depends_on as string[]) ?? [],
-      inbound: findInboundRefs(adr.filename, allFiles),
+      inbound: findInboundRefs(adr.filename, allFiles, documents),
       number: num !== null ? padNumber(num) : null,
       owners: (adr.frontmatter.owners as string[]) ?? [],
       path: `docs/adrs/${adr.filename}`,
@@ -178,7 +147,7 @@ const buildNumberedEntries = (
     };
   });
 
-const buildDraftEntries = (allFiles: AdrFile[]): DecisionMapEntry[] =>
+const buildDraftEntries = (allFiles: AdrFile[], documents: readonly ReferenceDocument[]): DecisionMapEntry[] =>
   listDrafts().map((adr): DecisionMapEntry => {
     const slug = adr.filename.replace(/^\d+-/, '').replace(/\.md$/, '');
     const created = String(
@@ -189,7 +158,7 @@ const buildDraftEntries = (allFiles: AdrFile[]): DecisionMapEntry[] =>
       amends: adr.frontmatter.amends ?? [],
       created,
       depends_on: (adr.frontmatter.depends_on as string[]) ?? [],
-      inbound: findInboundRefs(adr.filename, allFiles),
+      inbound: findInboundRefs(adr.filename, allFiles, documents),
       number: null,
       owners: (adr.frontmatter.owners as string[]) ?? [],
       path: `docs/adrs/drafts/${adr.filename}`,
@@ -390,7 +359,7 @@ const writeJson = (path: string, data: unknown): void => {
  * - docs/adrs/drafts/decision-map.json (drafts only — changes with drafts)
  * - docs/adrs/drafts/README.md (generated index)
  */
-export const writeDecisionMap = (): void => {
+export const writeDecisionMap = (documents: readonly ReferenceDocument[]): void => {
   const numbered = listNumberedAdrs();
   const drafts = listDrafts();
   const allFiles = [...numbered, ...drafts];
@@ -404,9 +373,10 @@ export const writeDecisionMap = (): void => {
   }
   const numberedEntries = buildNumberedEntries(
     allFiles,
-    buildAmendedBy(numbered)
+    buildAmendedBy(numbered),
+    documents
   );
-  const draftEntries = buildDraftEntries(allFiles);
+  const draftEntries = buildDraftEntries(allFiles, documents);
 
   // Accepted ADR map (stable — only changes when ADRs are promoted/modified)
   const acceptedMap: DecisionMap = { entries: numberedEntries, version: 1 };
