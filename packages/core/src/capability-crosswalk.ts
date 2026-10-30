@@ -386,7 +386,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:55e9dd9ee368a1153e2cf9262f98ea3cee428884e884ab680efd443e64d69085" },
   { path: "packages/core/src/__tests__/project-agent-skills.test.ts", contentHash: "sha256:38865be157c31c3be4de6b3a12a027946cf0e9d6847faed38e24dcc50c4c6105" },
   { path: "apps/skillset/src/__tests__/skillset.test.ts", contentHash: "sha256:98db4ceaabaa00aa6cbcf63a6e1224d526186d2fee6f0e05fe52d5ad9d855ac2" },
-  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:0d96c31d9dad2492b05629a59094b70ad7d9bb1d3263c1986c1a2ab4561a0ff6" },
+  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:f7270b0d05ddd22db3802fcbcd8a084ed33895eb4e3ab75170b14cb253ab78cd" },
   { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:608f1171d11ce31c910871a2027a2d6909a3a1106e750d5057eea46eebae33c2" },
   { path: "packages/core/src/__tests__/render-standard-instructions.test.ts", contentHash: "sha256:ea2548155b937c075f2d7b5aaf105866ff36a92bee277cba3d812fd94a8297f2" },
   { path: "packages/core/src/hooks.ts", contentHash: "sha256:8659ebcef8468a700f3240075b2f6128fd21cccd2364379734e7057239d75d70" },
