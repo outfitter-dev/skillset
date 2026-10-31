@@ -1,3 +1,4 @@
+import { checkCodexLegacyInterface } from "./codex-legacy-interface-conformance";
 import {
   CURSOR_MARKETPLACE_METADATA_FIELD_TYPES,
   CURSOR_VARIABLES_REQUIRED_FIELDS,
@@ -544,7 +545,6 @@ function checkCodexPluginManifest(
     description: "string",
     homepage: "string",
     hooks: "string",
-    interface: "object",
     keywords: "string-array",
     license: "string",
     mcpServers: "string",
@@ -559,11 +559,7 @@ function checkCodexPluginManifest(
       ...checkAuthorObject(file, parsed.value.author, "codex", "codex-plugin-manifest-overlay", "author", ["email", "name", "url"])
     );
   }
-  if (isJsonRecord(parsed.value.interface)) {
-    issues.push(
-      ...checkUnknownFields(file, parsed.value.interface, "codex", "codex-plugin-manifest-overlay", format.interfaceFields, "interface")
-    );
-  }
+  issues.push(...checkCodexLegacyInterface(file, parsed.value.interface));
   return issues;
 }
 

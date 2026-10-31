@@ -73,3 +73,6 @@ With `compile.session_start_hook: on` (or eligible `auto`), Skillset composes on
 Implemented provider claims are backed by checked-in destination-format snapshots, the immutable released OpenAI marketplace-parser pin, current official package documentation, schema snapshots or manual overlays, and rendering tests. The generated table reports registry status; it does not make an app, plugin, or agent trusted by a Codex runtime.
 
 Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
+
+
+Legacy `.codex-plugin/plugin.json` interface conformance follows the pinned Codex 0.147 loader's member types: optional strings allow null, capabilities and screenshots require string arrays, and default prompts retain the loader's tolerant parsing. Both supported URL spellings are recognized, but using both aliases for one field is rejected. This is offline parse-shape evidence; the loader may still normalize or discard values. Duplicate identical JSON keys are not detected because the conformance reader uses `JSON.parse`; distinct alias conflicts remain visible. These legacy rules do not relax the modern OpenAI extension contract.

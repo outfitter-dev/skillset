@@ -361,7 +361,7 @@ const judgments: readonly CapabilityJudgment[] = [
     implementationPaths: ["packages/core/src/render.ts", "apps/skillset/src/__tests__/skillset.test.ts", "docs/reference/features/agents.md"],
     scope: "The pinned Codex plugin contract has no plugin agents component; Skillset cannot faithfully emit plugin-packaged agents there.",
     limitations: ["This is a plugin-packaging limitation. It does not mean Codex project agents are unavailable.", "Implementation proof: feature plugin-agents unsupportedDestinations and docs/reference/features/agents.md."],
-    authorityHash: "sha256:89cf22a19c3f2ce9990b2015738328565695b9d935b79004797448ff34b49542",
+    authorityHash: "sha256:56a39e726a744c09d57819b308eb8c8d9451bd24524f5e2f1930f1fb458e19b9",
   },
 ];
 

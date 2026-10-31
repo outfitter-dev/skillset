@@ -1,3 +1,5 @@
+import { CODEX_LEGACY_INTERFACE_FIELDS } from "./codex-legacy-interface";
+export * from "./codex-legacy-interface";
 export * from "./claude-marketplace-evidence";
 export * from "./claude-marketplace-inventories";
 export * from "./generated-edit-hook-evidence";
@@ -254,22 +256,7 @@ const snapshots = [
         { defaultPath: "bin/", kind: "bin", manifestField: null, status: "unsupported" },
       ],
       manifest: {
-        interfaceFields: [
-          "brandColor",
-          "capabilities",
-          "category",
-          "composerIcon",
-          "defaultPrompt",
-          "developerName",
-          "displayName",
-          "logo",
-          "longDescription",
-          "privacyPolicyURL",
-          "screenshots",
-          "shortDescription",
-          "termsOfServiceURL",
-          "websiteURL",
-        ],
+        interfaceFields: CODEX_LEGACY_INTERFACE_FIELDS,
         authorFields: ["name", "email", "url"],
         path: ".codex-plugin/plugin.json",
         requiredFields: ["name"],
@@ -296,7 +283,7 @@ const snapshots = [
     },
     id: "codex-plugin",
     provenance: {
-      contentHash: "sha256:a3f71fd04caea6157453b0cec7a6e6ff1e3ec51ac88a0c96409b9cee8737370b",
+      contentHash: "sha256:8df656641fdc93cff21a2395c7b893e0dc5287c571dc014ab96808e4e55bea89",
       fetchedAt: "2026-08-14T00:00:00-04:00",
       sources: [
         {
