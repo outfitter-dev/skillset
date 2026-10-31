@@ -10,8 +10,12 @@ import {
 } from "node:path";
 
 import { isMissingPathError, MISSING_PATH_ENOENT } from "./fs-existence";
-import { isPathInside, resolveInside } from "./path";
+import { InputValidationError } from "./input-validation-error";
+import { isPathInside, PathContainmentError, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, TargetName } from "./types";
+
+// Only deliberate rejections produced here receive source-error context.
+class PreprocessInputError extends InputValidationError {}
 
 export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
@@ -307,7 +311,7 @@ function unsupportedReferenceSyntax(
   token: string,
   context: PreprocessContext
 ): Error {
-  return new Error(
+  return new PreprocessInputError(
     `skillset: unsupported reference syntax ${token} in ${relative(context.rootPath, context.sourcePath)}; use {{> X}} to inline or @{{X}} to link`
   );
 }
@@ -344,10 +348,11 @@ async function renderPathReference(
       throw new PreprocessCallbackFailure(error);
     }
   } catch (error) {
-    if (error instanceof PreprocessCallbackFailure) throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `skillset: failed to resolve path reference ${specifier} in ${source}: ${message}`
+    if (!(error instanceof PreprocessInputError)) throw error;
+    const message = error.message;
+    throw new PreprocessInputError(
+      `skillset: failed to resolve path reference ${specifier} in ${source}: ${message}`,
+      { cause: error }
     );
   }
 }
@@ -400,9 +405,9 @@ async function readPartial(
       partialStack: [...(context.partialStack ?? []), canonical],
     });
   } catch (error) {
-    if (error instanceof PreprocessCallbackFailure) throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: failed to read partial ${specifier} in ${source}: ${message}`);
+    if (!(error instanceof PreprocessInputError)) throw error;
+    const message = error.message;
+    throw new PreprocessInputError(`skillset: failed to read partial ${specifier} in ${source}: ${message}`, { cause: error });
   }
 }
 
@@ -416,7 +421,7 @@ async function assertCanonicalPartialContainment(
   let sharedRoot = join(context.rootPath, context.sourceRoot, "shared");
   if (scheme === "plugin") {
     if (context.pluginPath === undefined) {
-      throw new Error(`skillset: partial ${specifier} requires a plugin-bound source`);
+      throw new PreprocessInputError(`skillset: partial ${specifier} requires a plugin-bound source`);
     }
     sharedRoot = join(context.pluginPath, "shared");
   }
@@ -430,19 +435,19 @@ async function assertCanonicalPartialContainment(
     realpath(partialRoot),
     realpath(resolved),
   ]);
+  const outsideMessage = `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} resolves outside its partial root`;
+  if (
+    canonicalSharedRoot !== join(ownerRoot, "shared") ||
+    (kind === "named" && canonicalRoot !== join(canonicalSharedRoot, "partials"))
+  ) {
+    throw new PreprocessInputError(outsideMessage);
+  }
   try {
     if (scheme === "plugin") resolveInside(sourceRoot, ownerRoot);
-    if (canonicalSharedRoot !== join(ownerRoot, "shared")) {
-      throw new Error("shared root crosses its source owner");
-    }
-    if (kind === "named" && canonicalRoot !== join(canonicalSharedRoot, "partials")) {
-      throw new Error("partial root crosses its shared scope");
-    }
     resolveInside(canonicalRoot, canonical);
-  } catch {
-    throw new Error(
-      `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} resolves outside its partial root`
-    );
+  } catch (error) {
+    if (!(error instanceof PathContainmentError)) throw error;
+    throw new PreprocessInputError(outsideMessage, { cause: error });
   }
   return canonical;
 }
@@ -454,7 +459,7 @@ function missingScopedPathReference(
 ): Error {
   const [scheme] = splitSpecifier(specifier);
   const scope = scheme === "plugin" ? "plugin" : "workspace";
-  return new Error(
+  return new PreprocessInputError(
     `skillset: ${scope} path reference ${specifier} in ${relative(context.rootPath, context.sourcePath)} was not found at ${normalizePath(relative(context.rootPath, resolved))}`
   );
 }
@@ -493,7 +498,7 @@ async function resolveVariable(
     const field = key.slice("this.".length);
     const value = readPathValue(context.frontmatter, field);
     if (value === undefined) {
-      throw new Error(
+      throw new PreprocessInputError(
         `skillset: missing this.${field} reference in ${relative(context.rootPath, context.sourcePath)}`
       );
     }
@@ -531,7 +536,7 @@ function unknownPreprocessVariable(
   token: string,
   context: PreprocessContext
 ): Error {
-  return new Error(
+  return new PreprocessInputError(
     `skillset: unknown preprocess variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
   );
 }
@@ -542,18 +547,18 @@ function promptArgumentsVariable(
   context: PreprocessContext
 ): string {
   if (!isPromptArgumentsVariable(key)) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: invalid prompt arguments variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
     );
   }
   if (context.promptArguments === false) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: prompt arguments variable ${token} in ${relative(context.rootPath, context.sourcePath)} requires compile.features.promptArguments`
     );
   }
   if (context.target === "claude") {
     if (key.startsWith("$ARGUMENTS.")) {
-      throw new Error(
+      throw new PreprocessInputError(
         `skillset: named prompt argument ${token} in ${relative(context.rootPath, context.sourcePath)} has no supported Claude representation; use an explicit positional {{$ARGUMENTS[N]}} binding or author provider-native arguments instead`
       );
     }
@@ -603,9 +608,12 @@ function stringifyPreprocessValue(
       return renderJsonValue(json, JSON.stringify(value, null, 2), renderContext);
     }
     return json;
-  } catch {
+  } catch (error) {
+    // Programmatic values may throw from getters or toJSON; this is not proof
+    // of malformed source, even when JSON.stringify throws a TypeError.
     throw new Error(
-      `skillset: cannot stringify ${key} reference in ${relative(context.rootPath, context.sourcePath)}`
+      `skillset: cannot stringify ${key} reference in ${relative(context.rootPath, context.sourcePath)}`,
+      { cause: error }
     );
   }
 }
@@ -677,13 +685,13 @@ function parseParentTreeDepth(
     depth === undefined ||
     depth.length === 0
   ) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: parent.tree in ${relative(context.rootPath, context.sourcePath)} supports only depth:<0-8>`
     );
   }
   const rawDepth = Number(depth);
   if (!Number.isInteger(rawDepth) || rawDepth < 0 || rawDepth > 8) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: parent.tree depth in ${relative(context.rootPath, context.sourcePath)} must be between 0 and 8`
     );
   }
@@ -783,7 +791,7 @@ function resolvePartial(specifier: string, context: PreprocessContext): string {
   const [scheme, path] = splitSpecifier(specifier);
   validatePartialPath(path, specifier, context);
   if (scheme === "root") {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: ${specifier} in ${relative(context.rootPath, context.sourcePath)} uses retired root: reference syntax; use shared:${path}`
     );
   }
@@ -799,7 +807,7 @@ function resolvePartial(specifier: string, context: PreprocessContext): string {
   }
   if (scheme === "plugin") {
     if (context.pluginPath === undefined) {
-      throw new Error(
+      throw new PreprocessInputError(
         `skillset: ${specifier} partial in ${relative(context.rootPath, context.sourcePath)} requires a plugin-bound source`
       );
     }
@@ -831,7 +839,7 @@ async function resolveNamedPartial(
   if (pluginScoped) {
     const pluginPath = context.pluginPath;
     if (pluginPath === undefined) {
-      throw new Error(
+      throw new PreprocessInputError(
         `skillset: plugin named partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} requires a plugin-bound source`
       );
     }
@@ -844,7 +852,7 @@ async function resolveNamedPartial(
   }
   const resolved = resolveInsideScoped(root, `${name}.md`, specifier, context);
   if (!(await isFile(resolved))) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: ${scope} named partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} was not found at ${normalizePath(relative(context.rootPath, resolved))}`
     );
   }
@@ -862,7 +870,7 @@ function assertNoPartialCycle(
   const cycle = [...stack.slice(stack.indexOf(resolved)), resolved]
     .map((path) => normalizePath(relative(context.rootPath, path)))
     .join(" -> ");
-  throw new Error(
+  throw new PreprocessInputError(
     `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} creates a cycle: ${cycle}`
   );
 }
@@ -1126,7 +1134,7 @@ function resolveInsideScoped(
   const resolvedRoot = resolve(root);
   const resolved = resolve(resolvedRoot, candidate);
   if (!isPathInside(resolvedRoot, resolved)) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} must stay inside its partial root`
     );
   }
@@ -1140,11 +1148,11 @@ function validatePartialPath(
 ): void {
   const source = relative(context.rootPath, context.sourcePath);
   if (path.length === 0 || isAbsolute(path)) {
-    throw new Error(`skillset: partial ${specifier} in ${source} must be a relative path`);
+    throw new PreprocessInputError(`skillset: partial ${specifier} in ${source} must be a relative path`);
   }
   for (const segment of path.replaceAll("\\", "/").split("/")) {
     if (segment === "" || segment === "." || segment === "..") {
-      throw new Error(
+      throw new PreprocessInputError(
         `skillset: partial ${specifier} in ${source} must not contain empty, dot, or parent segments`
       );
     }
@@ -1158,7 +1166,7 @@ function validateNamedPartialSpecifier(
 ): void {
   const source = relative(context.rootPath, context.sourcePath);
   if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/u.test(name)) {
-    throw new Error(
+    throw new PreprocessInputError(
       `skillset: named partial ${specifier} in ${source} must use slash-separated name segments`
     );
   }
