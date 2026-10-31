@@ -127,6 +127,14 @@ export const CURSOR_VARIABLES_REQUIRED_FIELDS = ["type"] as const;
 /** The `const` the pinned Cursor `variables` schema pins `type` to. */
 export const CURSOR_VARIABLES_TYPE = "object";
 
+/**
+ * `properties.metadata.properties` in the pinned Cursor marketplace schema
+ * (2a8044425c7bddf429c3bdedf3ab61e791d34d65). Metadata permits additional
+ * properties; its sole known member is an optional, unrestricted string.
+ */
+export const CURSOR_MARKETPLACE_METADATA_FIELD_TYPES = { description: "string" } as const;
+
+
 const FETCHED_AT = "2026-06-23T09:51:15-04:00";
 
 const schemaSnapshots = [
