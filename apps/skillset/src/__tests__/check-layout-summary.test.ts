@@ -84,3 +84,24 @@ async function formattingFixture(): Promise<string> {
   );
   return root;
 }
+
+test("check reports trailing whitespace inside code as a target-side edit", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "compile:\n  targets: [claude]\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\n```js\nconst value = 1;\n```\n",
+  });
+  await commitFixture(root);
+  await buildSkillset(root);
+  const path = join(root, SKILL);
+  const edited = (await readFile(path, "utf8")).replace("const value = 1;", "const value = 1; ");
+  await writeFile(path, edited);
+  const report = await ciSkillset(root);
+  expect(report.ok).toBe(false);
+  expect(report.layoutOnlyDriftPaths ?? []).toEqual([]);
+  expect(report.outputEditedPaths).toContain(SKILL);
+  const result = await runSkillsetCli("check", "--root", root);
+  expect(result.exitCode).toBe(1);
+  expect(result.stdout).toContain(`target-side generated edit ${SKILL}`);
+  expect(result.stdout).not.toContain("differ only in layout");
+  expect(await readFile(path, "utf8")).toBe(edited);
+});

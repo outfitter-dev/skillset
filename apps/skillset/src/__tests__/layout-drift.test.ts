@@ -67,3 +67,27 @@ test("keeps Markdown drift that changes words, markers, structure, frontmatter, 
 test("never treats other file types as layout-only", () => {
   expect(isLayoutOnlyDifference("scripts/run.sh", "echo hi\n", "echo  hi\n")).toBe(false);
 });
+
+for (const fence of ["```", "~~~"]) {
+  test(`preserves raw whitespace inside ${fence} verbatim regions`, () => {
+    for (const [before, after] of [["", " "], ["  ", "   "], ["", "\t"]]) {
+      const expected = `${fence}js\nconst value = 1;${before}\n${fence}\n`;
+      const actual = `${fence}js\nconst value = 1;${after}\n${fence}\n`;
+      expect(isLayoutOnlyDifference("SKILL.md", expected, actual)).toBe(false);
+    }
+    expect(isLayoutOnlyDifference("SKILL.md", `${fence}\n\n${fence}\n`, `${fence}\n \n${fence}\n`)).toBe(false);
+    expect(isLayoutOnlyDifference("SKILL.md", `${fence}\nbody\n${fence}\n`, `${fence}\nbody\n${fence} \n`)).toBe(false);
+    expect(isLayoutOnlyDifference("SKILL.md", `${fence}\nunterminated`, `${fence}\nunterminated `)).toBe(false);
+  });
+}
+
+test("compares frontmatter raw while preserving prose and newline layout rules", () => {
+  for (const [expected, actual] of [
+    ["---\nname: demo\n---\n", "---\nname: demo \n---\n"],
+    ["---\ndescription: |\n  body  \n---\n", "---\ndescription: |\n  body   \n---\n"],
+    ["---\nname: demo\n---\n", "--- \nname: demo\n---\n"],
+    ["````md\n```\nliteral\n```\n````\n", "````md\n```\nliteral \n```\n````\n"],
+  ]) expect(isLayoutOnlyDifference("SKILL.md", expected!, actual!)).toBe(false);
+  expect(isLayoutOnlyDifference("SKILL.md", "Prose line  \nnext\n", "Prose line   \nnext\n")).toBe(true);
+  expect(isLayoutOnlyDifference("SKILL.md", SKILL, SKILL.replaceAll("\n", "\r\n"))).toBe(true);
+});
