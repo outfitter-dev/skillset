@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { describe, expect, test } from "bun:test";
+import { withWorkspaceReadBoundary } from "../workspace-read-boundary";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
 
 import {
@@ -237,4 +238,15 @@ describe("project SessionStart hook rendering", () => {
     await expect(renderProjectSessionStartHooks(input as never)).rejects.toThrow("still contains the former SessionStart command");
     expect(await readFile(join(root, ".claude/settings.local.json"), "utf8")).toBe(legacy);
   });
+});
+
+
+test("bounded inspections retain explicit hook choices and empty placements", async () => {
+  const root = await createTestFixtureRoot("skillset-bounded-hooks-");
+  expect(await withWorkspaceReadBoundary(root, () => renderProjectSessionStartHooks(graph(root, "on")))).toHaveLength(2);
+  expect(await withWorkspaceReadBoundary(root, () => renderProjectSessionStartHooks(graph(root, "off")))).toEqual([]);
+  const disabled = graph(root, "auto") as { root: { targets: Record<string, { enabled: boolean }> } };
+  disabled.root.targets.claude!.enabled = false;
+  disabled.root.targets.codex!.enabled = false;
+  expect(await withWorkspaceReadBoundary(root, () => renderProjectSessionStartHooks(disabled as never))).toEqual([]);
 });

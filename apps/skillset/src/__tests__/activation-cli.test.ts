@@ -1109,6 +1109,7 @@ Beta.
 skillset:
   name: activation-cli
 compile:
+  session_start_hook: off
   targets: ${targets}
   unsupportedDestination: warn
 `,
@@ -1129,6 +1130,7 @@ async function emptyActivationFixture(): Promise<string> {
     `skillset:
   name: activation-empty
 compile:
+  session_start_hook: off
   targets: [codex]
 `
   );

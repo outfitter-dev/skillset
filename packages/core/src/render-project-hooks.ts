@@ -8,6 +8,7 @@ import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@ski
 
 import { liveRenderDestination, type RenderDestination } from "./build-destination";
 import { gitSafeEnv } from "./git-env";
+import { hasWorkspaceReadBoundary, WorkspaceReadBoundaryError } from "./workspace-read-boundary";
 import { readString } from "./config";
 import type { ParsedGeneratedLockItem } from "./generated-lock";
 import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
@@ -343,6 +344,13 @@ async function assertNoLegacyClaudeSessionStart(rootPath: string, projectRoot: s
 }
 
 async function outputRootIsIgnored(graph: BuildGraph, path: string): Promise<boolean> {
+  // Git can follow global excludes and config includes outside the workspace.
+  // Preserve an unknown output observation instead of inventing a render choice.
+  if (hasWorkspaceReadBoundary()) {
+    throw new WorkspaceReadBoundaryError(
+      "cannot observe output: automatic session hook placement requires Git ignore evidence outside the workspace read boundary"
+    );
+  }
   try {
     await execFile("git", ["check-ignore", "-q", "--no-index", "--", `${path.replace(/\/$/, "")}/`], {
       cwd: graph.rootPath,
