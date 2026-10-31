@@ -30,7 +30,7 @@ describe("documentation reference artifacts", () => {
         (count, command) => count + command.routes.length,
         0
       )
-    ).toBe(51);
+    ).toBe(52);
     expect(model.support.targets).toHaveLength(3);
     expect(model.support.features).toHaveLength(41);
     expect(first).toHaveLength(30);
