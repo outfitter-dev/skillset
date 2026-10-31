@@ -16,12 +16,12 @@ const source = CLAUDE_MARKETPLACE_PARSER_EVIDENCE;
 const lane = getProviderValidationLane("claude-product");
 
 describe("SET-488 immutable static parser qualification", () => {
-  test("qualifies only the thirty-seven inspected predicate groups, without claiming runtime acceptance", () => {
+  test("qualifies only the thirty-nine inspected predicate groups, without claiming runtime acceptance", () => {
     expect(() => assertClaudeMarketplaceParserEvidence(source)).not.toThrow();
     expect(source.authority).toBe("static-parser-inspection");
     expect(inspectClaudeMarketplaceParserPin(source, lane).status).toBe("pin-matched");
     const parserRules = CLAUDE_MARKETPLACE_EVIDENCE.rules.filter((rule) => rule.parser !== undefined);
-    expect(parserRules.map(({ id }) => id).sort()).toEqual(["marketplace.channels.shape", "marketplace.commands.object", "marketplace.commands.source", "marketplace.components.array_types", "marketplace.components.mcp_reference", "marketplace.components.paths", "marketplace.components.simple_paths", "marketplace.dependencies.object_extra_fields", "marketplace.entry.name.pattern", "marketplace.entry.name.unique", "marketplace.experimental", "marketplace.experimental.children", "marketplace.experimental.syntax", "marketplace.headers.helper_strict", "marketplace.headers.restricted", "marketplace.headers.shape", "marketplace.headers.source_digest", "marketplace.hooks.definition", "marketplace.hooks.events", "marketplace.lsp.fields", "marketplace.lsp.references", "marketplace.lsp.required", "marketplace.lsp.values", "marketplace.mcp.oauth.fields", "marketplace.mcp.oauth.values", "marketplace.mcp.records", "marketplace.mcp.variants", "marketplace.metadata.closed", "marketplace.monitors.closed_when", "marketplace.monitors.references", "marketplace.monitors.required", "marketplace.monitors.unique", "marketplace.renames.values", "marketplace.source.archive.digest", "marketplace.source.command.limits", "marketplace.userconfig.closed", "marketplace.userconfig.types"]);
+    expect(parserRules.map(({ id }) => id).sort()).toEqual(["marketplace.binaries.input", "marketplace.channels.shape", "marketplace.commands.object", "marketplace.commands.source", "marketplace.components.array_types", "marketplace.components.mcp_reference", "marketplace.components.paths", "marketplace.components.simple_paths", "marketplace.dependencies.object_extra_fields", "marketplace.entry.closed", "marketplace.entry.name.pattern", "marketplace.entry.name.unique", "marketplace.experimental", "marketplace.experimental.children", "marketplace.experimental.syntax", "marketplace.headers.helper_strict", "marketplace.headers.restricted", "marketplace.headers.shape", "marketplace.headers.source_digest", "marketplace.hooks.definition", "marketplace.hooks.events", "marketplace.lsp.fields", "marketplace.lsp.references", "marketplace.lsp.required", "marketplace.lsp.values", "marketplace.mcp.oauth.fields", "marketplace.mcp.oauth.values", "marketplace.mcp.records", "marketplace.mcp.variants", "marketplace.metadata.closed", "marketplace.monitors.closed_when", "marketplace.monitors.references", "marketplace.monitors.required", "marketplace.monitors.unique", "marketplace.renames.values", "marketplace.source.archive.digest", "marketplace.source.command.limits", "marketplace.userconfig.closed", "marketplace.userconfig.types"]);
     expect(parserRules.every(({ schema }) => schema.length === 0)).toBe(true);
   });
   test("keeps strict warnings distinct from schema predicates", () => {
@@ -77,7 +77,7 @@ describe("SET-488 immutable static parser qualification", () => {
       rules: CLAUDE_MARKETPLACE_EVIDENCE.rules.filter((rule) => rule.parser !== undefined || rule.id === "marketplace.source.archive.url") };
     const matched = inspectClaudeMarketplaceEvidence(evidence, body);
     expect(matched.status).toBe("matched");
-    expect(matched.parserRuleIds).toHaveLength(37);
+    expect(matched.parserRuleIds).toHaveLength(39);
     expect(matched.unresolvedRuleIds).toEqual(["marketplace.source.archive.url"]);
     expect(matched.parserReview?.status).toBe("pin-matched");
     const changed = inspectClaudeMarketplaceEvidence(evidence, body, { ...lane, version: "changed" });
@@ -96,4 +96,12 @@ test("standalone preflight references qualified windows without becoming a marke
   expect(preflight.stage).toBe("validator-error");
   for (const id of preflight.windows) expect(source.windows.some(window => window.id === id)).toBe(true);
   expect(preflight.claim).toContain("not provider execution");
+});
+
+test("marketplace allowed keys equal the inspected 35-key H$t composition", async () => {
+  const { CLAUDE_PLUGIN_FIELD_TYPES, CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_UNTYPED_FIELDS } = await import("../claude-marketplace-inventories");
+  const keys = [...Object.keys(CLAUDE_PLUGIN_FIELD_TYPES), ...Object.keys(CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES), ...CLAUDE_MARKETPLACE_UNTYPED_FIELDS, "name", "source"];
+  expect(keys.sort()).toEqual(["$schema", "agents", "author", "binaries", "category", "channels", "commands", "defaultEnabled", "dependencies", "description", "displayName", "experimental", "headers", "headersHelper", "homepage", "hooks", "keywords", "license", "lspServers", "mcpServers", "metadata", "monitors", "name", "outputStyles", "relevance", "repository", "settings", "skills", "source", "strict", "tags", "themes", "userConfig", "version", "workflows"]);
+  expect(source.predicates["binary-input"].stage).toBe("schema-predicate");
+  expect(source.predicates["entry-key-inventory"].stage).toBe("strict-warning");
 });

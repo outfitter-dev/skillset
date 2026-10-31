@@ -766,7 +766,7 @@ describe("provider format conformance", () => {
       {
         code: "unknown-destination-field",
         message:
-          "unknown destination field plugins[0].unknown; allowed fields are $schema, agents, author, category, channels, commands, defaultEnabled, dependencies, description, displayName, experimental, headers, headersHelper, homepage, hooks, keywords, license, lspServers, mcpServers, metadata, monitors, name, outputStyles, relevance, repository, settings, skills, source, strict, tags, themes, userConfig, version, workflows",
+          "unknown destination field plugins[0].unknown; allowed fields are $schema, agents, author, binaries, category, channels, commands, defaultEnabled, dependencies, description, displayName, experimental, headers, headersHelper, homepage, hooks, keywords, license, lspServers, mcpServers, metadata, monitors, name, outputStyles, relevance, repository, settings, skills, source, strict, tags, themes, userConfig, version, workflows",
       },
     ]);
   });

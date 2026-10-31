@@ -40,7 +40,7 @@ This record preserves current offline validation behavior. Several stricter pred
 
 The duplicate-name rule records the pinned validator's post-parse exact-name comparison and error path. Core reports each later duplicate against its first occurrence; the provider code reports every member of the duplicate group. This is offline conformance evidence, with no provider execution claim.
 
-The metadata closed-key record matches `pluginRoot`, `version` and `description` on the pinned strict-warning path. The rename record qualifies only optional object member values of string or null on the validator error path; the base loader catches invalid renames, and extra chain/target checks remain separate. Plugin-entry closed-key authority remains unresolved: the pinned provider recognizes `binaries`, which Core currently omits. These records do not change compiler behavior.
+The metadata closed-key record matches `pluginRoot`, `version` and `description` on the pinned strict-warning path. The rename record qualifies only optional object member values of string or null on the validator error path; the base loader catches invalid renames, and extra chain/target checks remain separate. The 35-key plugin-entry inventory now matches the inspected parser composition, including `binaries`. Unknown keys follow a strict-warning path; key parity does not establish value or runtime parity.
 
 ### Marketplace archive headers
 
@@ -50,6 +50,4 @@ source restrictions, explicit `strict: false` for an active helper, digest prese
 under strict validation, and restricted routing/identity header names. The pinned
 2.1.269 static evidence distinguishes schema predicates, errors and strict warnings;
 Core reports the warnings as diagnostics. No helper runs during these checks.
-Standalone plugin manifests do not gain these fields. Marketplace `binaries`
-filtering and normalization remain unqualified (SET-801), so the complete entry-key
-inventory still has unresolved authority.
+Standalone plugin manifests do not gain these fields. Marketplace `binaries` uses an unknown-valued input schema followed by filtering: invalid entries disappear, member extras are stripped, and only the first 64 valid entries survive parsing. Core recognizes the field without modifying input or promising normalization fidelity. The inspected inline marketplace validator does not apply the standalone binary warning loop; standalone support and installation behavior remain separate.

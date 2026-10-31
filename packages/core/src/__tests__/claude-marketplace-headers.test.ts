@@ -62,11 +62,10 @@ describe("SET-801 marketplace archive headers", () => {
   test("does not import separate runtime header syntax filtering", () => {
     expect(check({ headers: { "space key": "line\nvalue" } }).ok).toBe(true);
   });
-  test("keeps standalone manifests and unqualified binaries outside this slice", () => {
+  test("keeps archive header fields out of standalone manifests", () => {
     for (const key of ["headers", "headersHelper"]) {
       const manifest = { path: ".claude-plugin/plugin.json", content: new TextEncoder().encode(JSON.stringify({ name: "demo", [key]: key === "headers" ? {} : "" })) };
       expect(checkProviderFormatConformance([manifest]).issues.some(({ code }) => code === "unknown-destination-field")).toBe(true);
     }
-    expect(check({ binaries: {} }).issues.some(({ code }) => code === "unknown-destination-field")).toBe(true);
   });
 });
