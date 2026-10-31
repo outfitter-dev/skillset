@@ -213,7 +213,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   },
   {
     id: "marketplace.components.paths", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths"],
-    predicate: "Residual hooks/lspServers/monitors string paths use ./ and .json; experimental themes use ./",
+    predicate: "Residual hooks/monitors string paths use ./ and .json; experimental themes use ./",
     qualification: "Map per-field per-alternative patterns individually; no blanket pointer for exact entire list.",
     schema: [],
   },
@@ -225,7 +225,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   },
   {
     id: "marketplace.components.array_types", owners: ["checkClaudeMarketplacePluginArrays"],
-    predicate: "hooks/lspServers arrays string or object; monitors arrays object. MCP forms are owned by their separate pinned validator",
+    predicate: "hooks arrays string or object; monitors arrays object. MCP forms are owned by their separate pinned validator",
     qualification: "Pin union structure must be compared separately to each Core condition.",
     schema: [],
   },
@@ -332,21 +332,27 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.lsp.required", owners: ["checkClaudeLspMapVariants"],
+    id: "marketplace.lsp.references", parser: "lsp-references", owners: ["checkClaudeLspServers"],
+    predicate: "LSP references are relative JSON paths, server maps, or arrays of either",
+    qualification: "Pinned 2.1.269 shared parser input only; no filesystem or runtime claim.",
+    schema: [],
+  },
+  {
+    id: "marketplace.lsp.required", parser: "lsp-required", owners: ["checkClaudeLspConfig"],
     predicate: "LSP config object requires command and extensionToLanguage",
-    qualification: "Nested exact pointers and object-variant applicability not yet established.",
+    qualification: "Pinned 2.1.269 shared tut/Qe input predicates only; no provider execution claim.",
     schema: [],
   },
   {
-    id: "marketplace.lsp.fields", owners: ["checkClaudeLspMapVariants"],
+    id: "marketplace.lsp.fields", parser: "lsp-fields", owners: ["checkClaudeLspConfig"],
     predicate: "Typed LSP field inventory, closed keys and transport socket/stdio",
-    qualification: "Need per-field schema pointers and transport evidence.",
+    qualification: "Pinned 2.1.269 shared tut/Qe input predicates only; no provider execution claim.",
     schema: [],
   },
   {
-    id: "marketplace.lsp.values", owners: ["checkClaudeLspMapVariants", "checkStringRecordValues"],
-    predicate: "LSP env and language map values strings; extensions at least two characters, language/args nonempty; timeout positive integer, maxRestarts nonnegative integer",
-    qualification: "Exact bounds unresolved.",
+    id: "marketplace.lsp.values", parser: "lsp-values", owners: ["checkClaudeLspConfig", "checkStringRecordValues"],
+    predicate: "LSP command nonempty and spaces allowed only after leading slash; extension map nonempty with dotted keys at least two characters; language/args nonempty, env strings; timeout positive integer, maxRestarts nonnegative integer",
+    qualification: "Pinned 2.1.269 shared tut/Qe input predicates only; no provider execution claim.",
     schema: [],
   },
   {
