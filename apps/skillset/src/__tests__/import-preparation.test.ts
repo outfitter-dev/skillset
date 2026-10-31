@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { prepareImportSource } from "../import";
@@ -78,3 +78,25 @@ test("plugin preparation retains logical paths while isolating native hooks", as
     await prepared.dispose();
   }
 });
+
+for (const component of [".skillset/skills/demo", ".skillset/skills", ".skillset/skills/demo/SKILL.md"]) {
+  test(`prepared merge refuses symlink ${component} before reading its contents`, async () => {
+    const { root, sourcePath } = await fixture();
+    const outside = await createTestFixtureRoot("skillset-import-outside-");
+    const prepared = await prepareImportSource({ rootPath: root, sourcePath, kind: "skill", mergeTargetNativeSkill: true });
+    try {
+      const link = join(root, component);
+      const parent = component.slice(0, component.lastIndexOf("/"));
+      await mkdir(join(root, parent), { recursive: true });
+      await mkdir(join(outside, "demo"));
+      const malformed = "---\nname: [unclosed\n---\n";
+      await writeFile(join(outside, "SKILL.md"), malformed);
+      await writeFile(join(outside, "demo/SKILL.md"), malformed);
+      await symlink(component.endsWith("SKILL.md") ? join(outside, "SKILL.md") : outside, link);
+      await expect(prepared.commit()).rejects.toThrow("symbolic link");
+      expect(await readFile(join(outside, "SKILL.md"), "utf8")).toBe(malformed);
+    } finally {
+      await prepared.dispose();
+    }
+  });
+}

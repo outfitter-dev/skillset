@@ -995,6 +995,7 @@ async function mergeImportedProviderSkill(
   targetPath: string,
   stagingPath: string
 ): Promise<string> {
+  await prepareRepositoryMutationPath(rootPath, join(targetPath, SKILL_FILE), { createParents: false });
   await assertMatchingImportedSkillResources(targetPath, stagingPath);
   const targetSkillPath = join(targetPath, SKILL_FILE);
   const stagedSkillPath = join(stagingPath, SKILL_FILE);
