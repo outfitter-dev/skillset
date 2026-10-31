@@ -34,6 +34,7 @@ import {
   type ProviderFormatConformanceRole,
 } from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
+import { skillConformanceAncillaryPaths } from "./skill-conformance-ownership";
 import { pluginComponentPath } from "./plugin-component-paths";
 import { AGENT_SKILLS_FRONTMATTER_KEYS } from "./render-agent-skills-standard";
 import type { SkillsetRenderResult } from "./render-result";
@@ -93,6 +94,7 @@ export function providerFormatConformanceFiles(
   rendered: readonly RenderedFile[],
   renderResults: readonly SkillsetRenderResult[] = []
 ): readonly ProviderFormatConformanceFile[] {
+  const ancillaryPaths = skillConformanceAncillaryPaths(rendered);
   const renderedByPath = new Map(rendered.map((file) => [file.path, file]));
   const selected = new Map<string, ProviderFormatConformanceFile>();
 
@@ -102,6 +104,7 @@ export function providerFormatConformanceFiles(
     for (const output of outcome.outputs) {
       const file = renderedByPath.get(output.path);
       if (file === undefined) continue;
+      if ((outcome.featureId === "standalone-skills" || outcome.featureId === "plugin-skills") && ancillaryPaths.has(file.path)) continue;
       const sourcePath = outcome.sourcePath ?? file.sourcePath;
       const role: ProviderFormatConformanceRole = {
         ...(outcome.destination === undefined ? {} : { destination: outcome.destination }),
@@ -122,7 +125,7 @@ export function providerFormatConformanceFiles(
   }
 
   for (const file of rendered) {
-    if (selected.has(file.path)) continue;
+    if (selected.has(file.path) || ancillaryPaths.has(file.path)) continue;
     if (isProviderFormatConformanceFile(file)) selected.set(file.path, file);
   }
 

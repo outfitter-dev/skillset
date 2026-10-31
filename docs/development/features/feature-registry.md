@@ -48,6 +48,8 @@ Feature ids may appear in locks, structured diagnostics, operation reports, `sta
 
 The internal output conformance report counts distinct file paths. Shared files retain every applicable render-result role and validate each role independently; outcome order does not select a winning provider. Identical diagnostics are deduplicated, while distinct provider or standard findings remain attributable. Direct single-role inputs remain supported. Shared plugin skills retain the compatible frontmatter envelope; these structural checks do not establish provider recognition or runtime behavior.
 
+When conformance receives current generated locks, it uses their primary skill anchors and matching rendered source identity to exclude copied resources from skill validation. Lock paths are resolved beside the supplied lock, including isolated output prefixes. Malformed or inconsistent supplied ownership fails extraction explicitly; missing primary files cannot be substituted by resources. Auxiliary-only Codex entries are not primary skill entries. Callers without locks retain the legacy path-based behavior; this does not establish exhaustive classification of unknown outputs.
+
 ## Changing the Registry
 
 When adding or changing an entry:
