@@ -4228,6 +4228,19 @@
       "additionalProperties": false,
       "properties": {
         "changes": {
+          "additionalProperties": true,
+          "properties": {
+            "reason": {
+              "additionalProperties": true,
+              "properties": {
+                "minLength": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            }
+          },
           "type": "object"
         },
         "claude": {

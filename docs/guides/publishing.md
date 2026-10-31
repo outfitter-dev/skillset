@@ -30,7 +30,7 @@ If a changed source unit has no pending record, create one with the scope and re
 skillset change add --scope skill:review-notes --bump patch --reason "Explain what readers of the review-notes skill will notice."
 ```
 
-A reason must be at least 40 characters by default; `change add` accepts a shorter one, but `release plan` then fails with `change-reason-too-short`. Workspaces can change the minimum with `changes.reason.minLength` in `skillset.yaml`.
+A reason must be at least 40 characters by default; `change add` accepts a shorter one, but `release plan` then fails with `change-reason-too-short`. Workspaces can change the minimum with `changes.reason.minLength` in `skillset.yaml`. When present, it must be a positive integer; malformed values are rejected rather than falling back to 40.
 
 To revise an existing record, use the reference returned by `change add` or run `skillset change list` to find it, then replace the example `@abcdef`:
 

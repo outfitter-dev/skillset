@@ -635,8 +635,10 @@ function validateConfigContext(
       diagnostics
     );
   }
-  if (context.supportsWorkspace)
+  if (context.supportsWorkspace) {
     checkWorkspace(value.workspace, `${path}.workspace`, diagnostics);
+    checkWorkspaceChanges(value.changes, `${path}.changes`, diagnostics);
+  }
   if (context.supportsSourceMetadata)
     checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
@@ -3323,6 +3325,23 @@ function isSupportedRemoteRepository(value: string): boolean {
     return path.length > 0 && !path.includes("..");
   } catch {
     return false;
+  }
+}
+
+/** Validate known policy fields without deciding the separate unknown-key policy. */
+function checkWorkspaceChanges(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  const code = "schema/workspace-config/changes";
+  checkOptionalObject(value, path, code, diagnostics);
+  if (!isSchemaRecord(value)) return;
+  checkOptionalObject(value.reason, `${path}.reason`, code, diagnostics);
+  if (!isSchemaRecord(value.reason)) return;
+  const minimum = value.reason.minLength;
+  if (minimum !== undefined && (typeof minimum !== "number" || !Number.isInteger(minimum) || minimum < 1)) {
+    diagnostics.push(diagnostic(`${path}.reason.minLength`, code, `${path}.reason.minLength must be a positive integer`));
   }
 }
 
