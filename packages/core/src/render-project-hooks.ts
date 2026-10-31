@@ -1,6 +1,7 @@
+import { readFile, stat } from "./workspace-fs";
 import { execFile as execFileCallback } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+
 import { isDeepStrictEqual, promisify } from "node:util";
 import { join, posix, relative } from "node:path";
 import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";

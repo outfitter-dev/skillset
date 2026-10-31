@@ -1,5 +1,6 @@
+import { lstat, readdir, readFile, realpath, stat } from "./workspace-fs";
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, rmdir, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative } from "node:path";

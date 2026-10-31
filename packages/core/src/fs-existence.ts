@@ -1,5 +1,4 @@
-import { access, lstat, readFile, stat } from "node:fs/promises";
-
+import { access, lstat, readFile, stat } from "./workspace-fs";
 /**
  * Absence codes a caller may treat as "not present".
  *

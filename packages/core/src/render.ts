@@ -1,7 +1,6 @@
+import { readFileSync, statSync, readdir, readFile, stat } from "./workspace-fs";
 import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
-import { readFileSync, statSync } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";

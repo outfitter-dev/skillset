@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile } from "./workspace-fs";
 import path from "node:path";
 
 import { mergeRecords } from "./config";

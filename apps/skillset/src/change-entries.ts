@@ -1,4 +1,5 @@
-import { readFile, rm, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "@skillset/core/internal/workspace-fs";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
@@ -255,7 +256,10 @@ export async function readPendingChangeEntries(
   const pendingPath = resolveInside(rootPath, changesDir);
   if (!(await exists(pendingPath))) return [];
 
-  const files = await Array.fromAsync(new Bun.Glob("*.md").scan({ cwd: pendingPath, onlyFiles: true }));
+  // Enumerate without following links, matching the former flat Glob defaults.
+  const files = (await readdir(pendingPath, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && !entry.name.startsWith(".") && entry.name.endsWith(".md"))
+    .map((entry) => entry.name);
   const ledger = await readPendingLedgerFacts(rootPath, options);
   const entries: PendingChangeEntry[] = [];
   for (const file of files.sort(compareStrings)) {

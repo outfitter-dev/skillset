@@ -1,4 +1,5 @@
-import { chmod, stat } from "node:fs/promises";
+import { stat } from "./workspace-fs";
+import { chmod } from "node:fs/promises";
 
 import type { GeneratedFileMode, RenderedFile } from "./types";
 

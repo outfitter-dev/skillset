@@ -1,5 +1,6 @@
+import { lstat, readdir, realpath } from "./workspace-fs";
 import { createHash } from "node:crypto";
-import { lstat, readdir, realpath } from "node:fs/promises";
+
 import path from "node:path";
 
 import { listStandardProfileSchemaSnapshots } from "@skillset/registry";

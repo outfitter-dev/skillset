@@ -1,3 +1,4 @@
+import { withWorkspaceReadBoundary } from "@skillset/core/internal/workspace-read-boundary";
 import {
   observeDoctorSkillset,
   type DoctorObservation,
@@ -34,6 +35,13 @@ export interface WorkspaceStatusReport extends Omit<DoctorReport, "featureCapabi
 
 /** Command completion is separate from the workspace readiness conclusion. */
 export async function inspectWorkspaceStatus(
+  rootPath: string,
+  options: SkillsetOptions
+): Promise<{ readonly completed: boolean; readonly report: WorkspaceStatusReport }> {
+  return withWorkspaceReadBoundary(rootPath, () => inspectScopedWorkspaceStatus(rootPath, options));
+}
+
+async function inspectScopedWorkspaceStatus(
   rootPath: string,
   options: SkillsetOptions
 ): Promise<{ readonly completed: boolean; readonly report: WorkspaceStatusReport }> {

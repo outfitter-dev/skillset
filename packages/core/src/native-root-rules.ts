@@ -1,4 +1,4 @@
-import { lstat, readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile } from "./workspace-fs";
 import { join } from "node:path";
 
 import { InputValidationError } from "./input-validation-error";

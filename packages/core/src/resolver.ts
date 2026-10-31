@@ -2,7 +2,7 @@ import { validateOpaqueIslandDirectories } from "./native-island-preprocess";
 import { createMigrationSourceReader, type MigrationSourceReader, type MigrationMarkdownParts } from "./migration-source";
 import { MIGRATION_STATE_PATH, readMigrationState } from "./migration-state";
 import { resolveNativeRootRuleSource } from "./native-root-rules";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "./workspace-fs";
 import { basename, dirname, join, posix, relative } from "node:path";
 
 import { InputValidationError } from "./input-validation-error";

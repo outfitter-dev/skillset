@@ -1,6 +1,5 @@
+import { readFileSync, readFile } from "./workspace-fs";
 import { getProviderHookEvidence } from "@skillset/registry";
-import { readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 
 import {

@@ -1,5 +1,6 @@
+import { readFile } from "./workspace-fs";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+
 import { MIGRATION_STATE_SCHEMA_VERSION, validateMigrationState, type MigrationState } from "@skillset/schema";
 import { readOnDiskJson } from "./on-disk-json";
 import { compareStrings } from "./path";

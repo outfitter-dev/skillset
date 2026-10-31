@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { stat } from "./workspace-fs";
 import { assertRealPathInside, isPathInside, logicalDiagnosticPath, resolveInside } from "./path";
 import { readStringArray } from "./config";
 import type { BuildGraph, SourceIslandFile, SourcePlugin, TargetName } from "./types";

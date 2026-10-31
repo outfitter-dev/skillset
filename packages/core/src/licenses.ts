@@ -1,5 +1,6 @@
+import { lstat, open, realpath } from "./workspace-fs";
 import { constants } from "node:fs";
-import { lstat, open, realpath } from "node:fs/promises";
+
 import { join, relative } from "node:path";
 
 import { SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE } from "@skillset/schema";

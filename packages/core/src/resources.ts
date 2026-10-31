@@ -1,4 +1,4 @@
-import { realpath, stat } from "node:fs/promises";
+import { realpath, stat } from "./workspace-fs";
 import type { Stats } from "node:fs";
 import { dirname, join } from "node:path";
 
