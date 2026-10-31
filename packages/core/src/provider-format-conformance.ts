@@ -1,3 +1,4 @@
+import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkCodexLegacyInterface } from "./codex-legacy-interface-conformance";
 import {
@@ -518,6 +519,12 @@ function checkClaudePluginManifest(
   }
   if (isJsonRecord(parsed.value.commands)) {
     issues.push(...checkClaudeCommandMap(file, parsed.value.commands, "commands", "claude-plugin-manifest-schema"));
+  }
+  if (isJsonRecord(parsed.value.userConfig)) {
+    issues.push(...checkClaudeUserConfig(file, parsed.value.userConfig, "userConfig", "claude-plugin-manifest-schema", "identifier"));
+  }
+  if (Array.isArray(parsed.value.channels)) {
+    issues.push(...checkClaudeChannels(file, parsed.value.channels, "channels", "claude-plugin-manifest-schema"));
   }
   if (isJsonRecord(parsed.value.experimental)) {
     issues.push(

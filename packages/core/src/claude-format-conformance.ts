@@ -1,3 +1,4 @@
+import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
 import { CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
@@ -492,7 +493,7 @@ function checkClaudeMarketplacePluginArrays(
     ...checkClaudeConfigMapVariants(file, plugin.mcpServers, `${prefix}.mcpServers`, "mcp")
   );
   if (isJsonRecord(plugin.userConfig)) {
-    issues.push(...checkClaudeUserConfig(file, plugin.userConfig, `${prefix}.userConfig`));
+    issues.push(...checkClaudeUserConfig(file, plugin.userConfig, `${prefix}.userConfig`, "claude-marketplace-schema", "identifier"));
   }
   if (Array.isArray(plugin.monitors)) {
     for (const [index, monitor] of plugin.monitors.entries()) {
@@ -501,44 +502,9 @@ function checkClaudeMarketplacePluginArrays(
     }
   }
   if (Array.isArray(plugin.channels)) {
-    for (const [index, channel] of plugin.channels.entries()) {
-      const channelPrefix = `${prefix}.channels[${index}]`;
-      if (!isJsonRecord(channel)) {
-        report("invalid-field-type", `destination field ${channelPrefix} must be an object`);
-        continue;
-      }
-      if (channel.server === undefined) {
-        report("missing-required-field", `missing required destination field ${channelPrefix}.server`);
-      } else if (typeof channel.server !== "string") {
-        report("invalid-field-type", `destination field ${channelPrefix}.server must be a string`);
-      } else if (channel.server === "") {
-        report("invalid-shape", `destination field ${channelPrefix}.server must not be empty`);
-      }
-      issues.push(
-        ...checkFieldTypes(
-          file,
-          channel,
-          "claude",
-          "claude-marketplace-schema",
-          { displayName: "string", userConfig: "object" },
-          channelPrefix
-        ),
-        ...checkUnknownFields(
-          file,
-          channel,
-          "claude",
-          "claude-marketplace-schema",
-          ["displayName", "server", "userConfig"],
-          channelPrefix
-        )
-      );
-      if (isJsonRecord(channel.userConfig)) {
-        issues.push(
-          ...checkClaudeUserConfig(file, channel.userConfig, `${channelPrefix}.userConfig`)
-        );
-      }
-    }
+    issues.push(...checkClaudeChannels(file, plugin.channels, `${prefix}.channels`, "claude-marketplace-schema"));
   }
+
   if (Array.isArray(plugin.dependencies)) {
     for (const [index, dependency] of plugin.dependencies.entries()) {
       const dependencyPrefix = `${prefix}.dependencies[${index}]`;
@@ -916,47 +882,6 @@ function checkStringRecordValues(
       "invalid-field-type",
       `destination field ${prefix}.${key} must be a string`
     ));
-}
-
-function checkClaudeUserConfig(
-  file: ProviderFormatConformanceFile,
-  config: JsonRecord,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [name, entry] of Object.entries(config)) {
-    const entryPrefix = `${prefix}.${name}`;
-    if (!/^[A-Za-z_]\w*$/u.test(name)) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${entryPrefix} must use an identifier key`));
-    }
-    if (!isJsonRecord(entry)) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-field-type", `destination field ${entryPrefix} must be an object`));
-      continue;
-    }
-    issues.push(
-      ...checkRequiredFields(file, entry, "claude", "claude-marketplace-schema", ["description", "title", "type"], entryPrefix),
-      ...checkFieldTypes(file, entry, "claude", "claude-marketplace-schema", {
-        description: "string", max: "number", min: "number", multiple: "boolean",
-        required: "boolean", sensitive: "boolean", title: "string", type: "string",
-      }, entryPrefix),
-      ...checkUnknownFields(file, entry, "claude", "claude-marketplace-schema", [
-        "default", "description", "max", "min", "multiple", "required", "sensitive", "title", "type",
-      ], entryPrefix)
-    );
-    if (typeof entry.type === "string" && !["boolean", "directory", "file", "number", "string"].includes(entry.type)) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${entryPrefix}.type must be boolean, directory, file, number, or string`));
-    }
-    if (
-      entry.default !== undefined &&
-      typeof entry.default !== "string" &&
-      typeof entry.default !== "number" &&
-      typeof entry.default !== "boolean" &&
-      !(Array.isArray(entry.default) && entry.default.every((value) => typeof value === "string"))
-    ) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-field-type", `destination field ${entryPrefix}.default must be a string, number, boolean, or array of strings`));
-    }
-  }
-  return issues;
 }
 
 function hasParentPathSegment(value: string): boolean {

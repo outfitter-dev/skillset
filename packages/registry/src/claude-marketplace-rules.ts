@@ -242,14 +242,14 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.channels.shape", owners: ["checkClaudeMarketplacePluginArrays"],
+    id: "marketplace.channels.shape", parser: "channel-shape", owners: ["checkClaudeChannels"],
     predicate: "Channel is an object, requires nonempty string server; optional displayName and userConfig; rejects other keys",
-    qualification: "Verify each required/closed/minimum predicate individually against pinned nested shape.",
+    qualification: "Pinned 2.1.269 Qd is strict with server min length 1 and arbitrary string userConfig keys; no runtime or server-existence claim.",
     schema: [],
   },
   {
     id: "marketplace.userconfig.name", owners: ["checkClaudeUserConfig"],
-    predicate: "User-config key must be identifier",
+    predicate: "Root user-config key must be identifier; channel config keys accept arbitrary strings",
     qualification: "Pin supports the stated constraint only; provider runtime behavior is not established.",
     schema: [{"pointer": "/properties/plugins/items/properties/userConfig/propertyNames/pattern", "value": "^[A-Za-z_]\\w*$"}],
   },
@@ -266,9 +266,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [{"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/description/type", "value": "string"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/title/type", "value": "string"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/max/type", "value": "number"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/min/type", "value": "number"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/multiple/type", "value": "boolean"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/required/type", "value": "boolean"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/sensitive/type", "value": "boolean"}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties/default/anyOf", "value": [{"type": "string"}, {"type": "number"}, {"type": "boolean"}, {"type": "array", "items": {"type": "string"}}]}],
   },
   {
-    id: "marketplace.userconfig.types", owners: ["checkClaudeUserConfig"],
+    id: "marketplace.userconfig.types", parser: "user-config-types", owners: ["checkClaudeUserConfig"],
     predicate: "Each user-config entry is an object; known property values have their declared types",
-    qualification: "Full local behavior includes helper diagnostics and handling of invalid values; no blanket runtime authority claim.",
+    qualification: "Shared Ls and Zd/Qd call paths inspected in pinned 2.1.269 bytes; static predicates only, no provider execution.",
     schema: [],
   },
   {
@@ -284,9 +284,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [{"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/additionalProperties", "value": false}, {"pointer": "/properties/plugins/items/properties/userConfig/additionalProperties/properties", "value": {"type": {"description": "Type of the configuration value", "type": "string", "enum": ["string", "number", "boolean", "directory", "file"]}, "title": {"description": "Human-readable label shown in the config dialog", "type": "string"}, "description": {"description": "Help text shown beneath the field in the config dialog", "type": "string"}, "required": {"description": "If true, validation fails when this field is empty", "type": "boolean"}, "default": {"description": "Default value used when the user provides nothing", "anyOf": [{"type": "string"}, {"type": "number"}, {"type": "boolean"}, {"type": "array", "items": {"type": "string"}}]}, "multiple": {"description": "For string type: allow an array of strings", "type": "boolean"}, "sensitive": {"description": "If true, masks dialog input and stores value in secure storage (keychain/credentials file) instead of settings.json", "type": "boolean"}, "min": {"description": "Minimum value (number type only)", "type": "number"}, "max": {"description": "Maximum value (number type only)", "type": "number"}}}],
   },
   {
-    id: "marketplace.userconfig.closed", owners: ["checkClaudeUserConfig"],
+    id: "marketplace.userconfig.closed", parser: "user-config-closed", owners: ["checkClaudeUserConfig"],
     predicate: "Reject keys beyond default/description/max/min/multiple/required/sensitive/title/type",
-    qualification: "The pin supports this closed set, but current rolling provider docs mention options; this runtime/version discrepancy needs separate qualification.",
+    qualification: "Pinned 2.1.269 Ls is strict with this closed set. Newer rolling documentation may differ; no current universal runtime claim.",
     schema: [],
   },
   {

@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:08d3b528b473ee21c1508a2b28aa8cc29cb59d0f35d0ead9e23e185ba76eea58",
+  "evidenceHash": "sha256:53bde5c6226a399a0604414aef811d532d6569747f56ad3c322e6771f82593dd",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,7 +108,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:09b2b6edde9d1293d0b403d626fa398fedbfedd15e8a0871d9d3c2c056bb81c2",
+      "hash": "sha256:7788509f719e8fd5871d0d56d5f8cb415b6d637f5329b227a590352bc3333ad4",
       "ruleIds": [
         "marketplace.components.paths",
         "marketplace.components.mcp_reference",
@@ -116,7 +116,6 @@
         "marketplace.dependencies.string_pattern",
         "marketplace.dependencies.object_fields",
         "marketplace.dependencies.object_closed_version",
-        "marketplace.channels.shape",
         "marketplace.experimental"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
@@ -176,20 +175,6 @@
       "ruleIds": [
         "marketplace.lsp.values",
         "marketplace.mcp.records"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkClaudeUserConfig",
-      "hash": "sha256:060b14ca3e241237d77fdf71e17dd8dd1f90650e7503123abbbbef915ee49e37",
-      "ruleIds": [
-        "marketplace.userconfig.name",
-        "marketplace.userconfig.required",
-        "marketplace.userconfig.types.schema",
-        "marketplace.userconfig.types",
-        "marketplace.userconfig.enum",
-        "marketplace.userconfig.closed.schema",
-        "marketplace.userconfig.closed"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -270,6 +255,12 @@
       "hash": "sha256:9af649af6a8a53a54e582b9f4781fd2bb2ecfb04df2fac4e43c1dee5ac56d1e6",
       "ruleIds": [],
       "reason": "Shared command-map validator wiring; predicates owned by the dependency below."
+    },
+    {
+      "name": "import:\"./claude-user-config-conformance\"",
+      "hash": "sha256:a1dab37da6ae443f646e5c9681d5baafe90da7aabf75321d28edea5377da9899",
+      "ruleIds": [],
+      "reason": "Shared config and channel validator wiring; dependency below owns the predicates."
     }
   ],
   "dependencies": [
@@ -369,7 +360,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:b408f5e61da6d36a28af085465fd865384b0bb927943c2f3177e6136e752be1b",
+      "hash": "sha256:e6bfeea34ba798d3ef99053c27f026b89a14f9a8c8fa14e911727eda482414b1",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -382,7 +373,10 @@
         "marketplace.headers.source_digest",
         "marketplace.headers.restricted",
         "marketplace.commands.object",
-        "marketplace.commands.source"
+        "marketplace.commands.source",
+        "marketplace.channels.shape",
+        "marketplace.userconfig.types",
+        "marketplace.userconfig.closed"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -407,6 +401,22 @@
         "marketplace.commands.source"
       ],
       "reason": "Shared Kd known-field types, source prefix and truthiness XOR; unknown fields accepted. Reviewed against exact static parser windows and paired contexts."
+    },
+    {
+      "path": "packages/core/src/claude-user-config-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:ab7a1a6489e4a696cd81922b9fcf1cd97f9c224e397c565d2d239cc44f3b8367",
+      "ruleIds": [
+        "marketplace.userconfig.name",
+        "marketplace.userconfig.required",
+        "marketplace.userconfig.types.schema",
+        "marketplace.userconfig.types",
+        "marketplace.userconfig.enum",
+        "marketplace.userconfig.closed.schema",
+        "marketplace.userconfig.closed",
+        "marketplace.channels.shape"
+      ],
+      "reason": "Shared Ls strict member schema and Qd channels; identifier restriction only for root Zd. Reviewed static member bytes, paired public tests and unchanged other predicates."
     }
   ]
 }
