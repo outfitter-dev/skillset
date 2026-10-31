@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { chmod, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { withLockProvenance } from "@skillset/core/internal/lock-provenance";
 import { buildSkillsetResult } from "@skillset/core";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -139,3 +140,50 @@ test("draft and shipped copies retain distinct source paths in preview and durab
   expect((await readReportBundle(receipt.id)).report).toMatchObject({ payload: { skillCoalescing: report.skillCoalescing } });
   expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("verified current ownership");
 });
+
+
+for (const auxiliary of ["tools", "openai", "both"]) {
+  test(`current ${auxiliary} auxiliary lock records remain part of one verified skill`, async () => {
+    const root = await fixture();
+    if (auxiliary !== "openai") await writeFile(join(root, source), skill("demo").replace("description: Demonstrate demo.", "description: Demonstrate demo.\ntools:\n  read: true"));
+    if (auxiliary !== "tools") await Bun.write(join(root, ".skillset/skills/(group)/demo/agents/openai.yaml"), "interface:\n  display_name: Demo\n  short_description: Demonstrate managed skills.\n");
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const preview = await adoptSkillset(root);
+    expect(preview.skillPreparationErrors).toEqual([]);
+    expect(preview.ok).toBe(true);
+    expect(preview.skillCoalescing).toContainEqual(expect.objectContaining({ selectedSource: ".skillset/skills/(group)/demo", sources: expect.arrayContaining([".agents/skills/demo"]) }));
+    const sidecar = auxiliary === "tools" ? ".agents/skills/demo/.skillset.tools.yaml" : ".agents/skills/demo/agents/openai.yaml";
+    await writeFile(join(root, sidecar), "Edited.\n");
+    const blocked = await adoptSkillset(root, { write: true });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.writtenPaths).toEqual([]);
+  });
+}
+
+test("ordinary duplicate source directories with spaces preserve receipt paths", async () => {
+  const root = await createTestFixtureRoot("adopt-space-paths-");
+  for (const provider of [".agents", ".claude"]) await Bun.write(join(root, provider, "skills/my skill/SKILL.md"), skill("demo"));
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(true);
+  const receipt = await persistAdoptionReceipt(report);
+  expect((await readReportBundle(receipt.id)).report).toMatchObject({ payload: { skillCoalescing: report.skillCoalescing } });
+});
+
+
+for (const corruption of ["foreign", "duplicate"]) {
+  test(`${corruption} auxiliary ownership does not authorize coalescing`, async () => {
+    const root = await fixture();
+    await writeFile(join(root, source), skill("demo").replace("description: Demonstrate demo.", "description: Demonstrate demo.\ntools:\n  read: true"));
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const path = join(root, ".agents/skills/skillset.lock");
+    const lock = JSON.parse(await readFile(path, "utf8"));
+    const auxiliary = lock.items.find((item: { outputPath: string }) => item.outputPath.endsWith(".skillset.tools.yaml"));
+    expect(auxiliary).toBeDefined();
+    if (corruption === "foreign") auxiliary.sourcePath = ".skillset/skills/foreign/SKILL.md";
+    else lock.items.push({ ...auxiliary });
+    await writeFile(path, JSON.stringify(withLockProvenance(lock)));
+    const result = await adoptSkillset(root, { write: true });
+    expect(result.ok).toBe(false);
+    expect(result.writtenPaths).toEqual([]);
+  });
+}

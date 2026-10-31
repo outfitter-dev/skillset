@@ -57,15 +57,21 @@ export async function inspectAdoptionSkillRoots(rootPath: string, roots: readonl
               results.push({ path, kind: "unmanaged" });
               continue;
             }
-            const item = current[0];
-            if (prior.length !== 1 || current.length !== 1 || item === undefined || !isDeepStrictEqual(item, prior[0]) || anchor(item) !== primary || !item.sourcePath || (item.kind !== "standalone-skill" && item.kind !== "plugin-skill")) {
+            const primaries = current.filter((item) => anchor(item) === primary);
+            const item = primaries[0];
+            // Standards baseline and provider auxiliary files can have separate owners.
+            // The unit identity must agree, and every file must still have one claim.
+            if (primaries.length !== 1 || item === undefined || !item.sourcePath ||
+              (item.kind !== "standalone-skill" && item.kind !== "plugin-skill") ||
+              !isDeepStrictEqual(current, prior) || current.some((claim) => !sameSourceUnit(item, claim))) {
               results.push(unknown(path, `Stored and fresh ownership do not uniquely agree at ${lockPath}.`));
               continue;
             }
-            const expected = item.files.map((file) => join(root.path, file).replaceAll("\\", "/")).sort();
+            const expected = current.flatMap((claim) => claim.files).map((file) => join(root.path, file).replaceAll("\\", "/")).sort();
             try {
               const sourcePath = dirname(item.sourcePath);
               if (sourcePath === path || !(await lstat(resolveInside(rootPath, item.sourcePath))).isFile()) throw new Error("Authored source is unavailable.");
+              if (new Set(expected).size !== expected.length) throw new Error("Generated files have overlapping ownership claims.");
               const actual = await unitFiles(rootPath, path);
               if (!isDeepStrictEqual(actual, expected)) throw new Error("Generated unit has missing or unaccounted files.");
               for (const output of expected) {
@@ -96,4 +102,12 @@ async function unitFiles(rootPath: string, path: string): Promise<string[]> {
     else throw new Error(`Unsupported generated entry: ${child}`);
   }
   return files.sort();
+}
+
+
+function sameSourceUnit(left: ParsedGeneratedLockItem, right: ParsedGeneratedLockItem): boolean {
+  return left.kind === right.kind && left.name === right.name && left.plugin === right.plugin &&
+    left.sourcePath === right.sourcePath && left.sourceUnit === right.sourceUnit &&
+    left.effectiveName === right.effectiveName && left.draftOrigin === right.draftOrigin &&
+    left.draftPolicy === right.draftPolicy && left.shippedSibling === right.shippedSibling;
 }
