@@ -493,9 +493,9 @@ function checkAdoptionPayload(
       const itemPath = `${path}.skillCoalescing[${index}]`;
       if (!checkRecord(entry, itemPath, diagnostics)) return;
       checkShape(entry, ["destination", "sources", "selectedSource", "status", "reason"], ["destination", "sources", "status", "reason"], itemPath, diagnostics);
-      checkRelativeId(entry.destination, `${itemPath}.destination`, diagnostics);
-      checkRelativeIdList(entry.sources, `${itemPath}.sources`, diagnostics);
-      if (entry.selectedSource !== undefined) checkRelativeId(entry.selectedSource, `${itemPath}.selectedSource`, diagnostics);
+      checkPattern(entry.destination, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), `${itemPath}.destination`, "source path", diagnostics, 256);
+      checkStringList(entry.sources, `${itemPath}.sources`, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), 256, diagnostics);
+      if (entry.selectedSource !== undefined) checkPattern(entry.selectedSource, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), `${itemPath}.selectedSource`, "source path", diagnostics, 256);
       checkEnum(entry.status, ["compatible", "conflict"], `${itemPath}.status`, diagnostics);
       checkBoundedString(entry.reason, `${itemPath}.reason`, "reason", diagnostics, 1024);
     });
