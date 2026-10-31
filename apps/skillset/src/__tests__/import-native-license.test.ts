@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { lstat, mkdir, readFile, readdir, symlink } from "node:fs/promises";
+import { lstat, mkdir, readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { buildSkillsetResult } from "@skillset/core/internal/build";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
@@ -23,7 +23,7 @@ async function rejected(root: string, sourcePath: string, message: string) {
   await expect(importSource({ rootPath: root, sourcePath, kind: "plugin", testHooks: { beforeClaim: async () => { claimed = true; } } })).rejects.toThrow(message);
   expect(claimed).toBe(false);
   expect(await lstat(join(root, ".skillset/plugins/demo")).catch(() => undefined)).toBeUndefined();
-  expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
+  await expect(lstat(join(root, ".skillset/plugins"))).rejects.toMatchObject({ code: "ENOENT" });
 }
 
 for (const file of ["LICENSE", "LICENSE.txt"]) {
@@ -95,7 +95,7 @@ test("explicit import target cannot hide another native manifest license conflic
   await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), JSON.stringify({ name: "demo", description: "Demo", license: "MIT" }));
   await Bun.write(join(sourcePath, "LICENSE.txt"), notice);
   await expect(importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "cursor" })).rejects.toThrow("license metadata and bundled license text");
-  expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
+  await expect(lstat(join(root, ".skillset/plugins"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 test("records each actual native origin when a shared notice is normalized", async () => {
