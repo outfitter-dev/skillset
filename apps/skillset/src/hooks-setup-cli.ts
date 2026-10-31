@@ -43,7 +43,7 @@ export async function runHooksSetup(request: HooksSetupRequest): Promise<void> {
     action: request.remove ? "remove" : "install", changed: plan.changed,
     settingsPath: resolve(plan.rootPath, plan.settingsPath), recordPath: resolve(plan.rootPath, plan.recordPath),
     entry, trust,
-    invocationNote: "The command uses this CLI's absolute location. Rerun setup after moving or replacing that installation.",
+    invocationNote: "The command uses this CLI's absolute location. Rerun setup after moving or replacing that installation. Project hook commands are machine-specific; use user scope to avoid sharing executable paths in project configuration.",
   };
   const writes = request.yes && plan.changed ? [report.settingsPath, report.recordPath] : [];
   if (request.jsonOutput) printCliJsonData("hooks setup", { report, state: writes.length ? "written" : "planned", writes });

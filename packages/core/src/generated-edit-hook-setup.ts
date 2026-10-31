@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { prepareRepositoryMutationPath, resolveWorkspaceMutationRoot } from "./repository-mutation";
 import { composeHookEventText, hasCommand, readHookEventEntries } from "./settings-json-edit";
@@ -31,7 +31,7 @@ export async function planGeneratedEditHookSetup(rootPath: string, options: {
   const recordText = await readSelected(root, recordPath);
   const source = priorText ?? "{}\n";
   const entries = readHookEventEntries(source, EVENT);
-  const prior = readRecord(recordText, resolve(root, options.settingsPath));
+  const prior = readRecord(recordText, basename(options.settingsPath));
   const command = entryCommand(options.entry);
   const owned = prior === null ? [] : entries.filter((entry) => hasCommand(entry, entryCommand(prior)));
   if (prior !== null && (owned.length !== 1 || !isDeepStrictEqual(owned[0], prior))) {
@@ -45,7 +45,7 @@ export async function planGeneratedEditHookSetup(rootPath: string, options: {
   if (prior !== null) next = composeHookEventText(next, EVENT, entries, prior, entryCommand(prior), true);
   if (!options.remove) next = composeHookEventText(next, EVENT, readHookEventEntries(next, EVENT), options.entry, command, false);
   // Retain a cleared receipt on removal: it owns no hook and permits safe reinstallation.
-  const nextRecord = `${JSON.stringify({ version: 1, settingsPath: resolve(root, options.settingsPath), entry: options.remove ? null : options.entry }, null, 2)}\n`;
+  const nextRecord = `${JSON.stringify({ version: 1, settingsFile: basename(options.settingsPath), entry: options.remove ? null : options.entry }, null, 2)}\n`;
   return {
     entry: options.remove ? prior : options.entry,
     rootPath: root, settingsPath: options.settingsPath, recordPath,
@@ -71,13 +71,13 @@ async function readSelected(root: string, path: string): Promise<string | undefi
   }
 }
 
-function readRecord(text: string | undefined, settingsPath: string): JsonRecord | null {
+function readRecord(text: string | undefined, settingsFile: string): JsonRecord | null {
   if (text === undefined) return null;
   // Reuse strict duplicate-key validation, including nested objects.
   readHookEventEntries(text, EVENT);
   const record: unknown = JSON.parse(text);
-  if (!isJsonRecord(record) || record.version !== 1 || record.settingsPath !== settingsPath ||
-      Object.keys(record).some((key) => !["version", "settingsPath", "entry"].includes(key)) ||
+  if (!isJsonRecord(record) || record.version !== 1 || record.settingsFile !== settingsFile ||
+      Object.keys(record).some((key) => !["version", "settingsFile", "entry"].includes(key)) ||
       (record.entry !== null && !isJsonRecord(record.entry))) {
     throw new Error("skillset: invalid generated-edit hook ownership record");
   }

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, symlink } from "node:fs/promises";
+import { mkdir, rename, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { applyGeneratedEditHookSetup, planGeneratedEditHookSetup } from "../generated-edit-hook-setup";
@@ -82,4 +82,20 @@ test("changed or malformed records cannot authorize writes", async () => {
   await expect(applyGeneratedEditHookSetup(plan)).rejects.toThrow();
   expect(await Bun.file(join(root, settingsPath)).exists()).toBe(false);
   await expect(planGeneratedEditHookSetup(root, options)).rejects.toThrow("record");
+});
+
+
+test("relocated configuration can replace the old CLI path or remove its exact owned entry", async () => {
+  const root = await createTestFixtureRoot("hook-setup-move-from-");
+  const destination = await createTestFixtureRoot("hook-setup-move-to-");
+  const moved = join(destination, "project");
+  await applyGeneratedEditHookSetup(await planGeneratedEditHookSetup(root, options));
+  await rename(root, moved);
+  const replacement = { ...entry, hooks: [{ type: "command", command: "new-absolute-cli hooks run pre-tool-use" }] };
+  const repaired = await planGeneratedEditHookSetup(moved, { ...options, entry: replacement });
+  expect(repaired.changed).toBe(true);
+  await applyGeneratedEditHookSetup(repaired);
+  expect(JSON.parse(await Bun.file(join(moved, settingsPath)).text()).hooks.PreToolUse).toEqual([replacement]);
+  await applyGeneratedEditHookSetup(await planGeneratedEditHookSetup(moved, { ...options, remove: true }));
+  expect(JSON.parse(await Bun.file(join(moved, settingsPath)).text())).toEqual({});
 });
