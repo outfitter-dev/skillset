@@ -1,3 +1,4 @@
+import { checkClaudeHookReferences } from "./claude-hook-reference-conformance";
 import { checkClaudeExperimental } from "./claude-experimental-conformance";
 import { checkClaudeMonitors } from "./claude-monitor-conformance";
 import { checkClaudeLspServers } from "./claude-lsp-conformance";
@@ -415,39 +416,8 @@ function checkClaudeMarketplacePluginArrays(
   prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   const issues: ProviderFormatConformanceIssue[] = [];
-  const report = (code: Exclude<ProviderFormatConformanceIssueCode, "unclassified-skill">, message: string): void => {
-    issues.push(issue(file, "claude", "claude-marketplace-schema", code, message));
-  };
-  const checkItems = (
-    field: string,
-    valid: (value: unknown) => boolean,
-    expected: string
-  ): void => {
-    const value = plugin[field];
-    if (!Array.isArray(value)) return;
-    for (const [index, item] of value.entries()) {
-      if (valid(item)) continue;
-      report(
-        "invalid-field-type",
-        `destination field ${prefix}.${field}[${index}] must be ${expected}`
-      );
-    }
-  };
-  for (const [field, extension] of [
-    ["hooks", ".json"],
-  ] as const) {
-    issues.push(
-      ...checkClaudeComponentPaths(file, plugin[field], `${prefix}.${field}`, extension)
-    );
-  }
+  issues.push(...checkClaudeHookReferences(file, plugin.hooks, `${prefix}.hooks`, "claude-marketplace-schema"));
   issues.push(...checkClaudeComponentReferences(file, plugin, prefix, "claude-marketplace-schema"));
-  for (const field of ["hooks"] as const) {
-    checkItems(
-      field,
-      (value) => typeof value === "string" || isJsonRecord(value),
-      "a string or an object"
-    );
-  }
   if (Array.isArray(plugin.hooks)) {
     for (const [index, hookEntry] of plugin.hooks.entries()) {
       if (!isJsonRecord(hookEntry)) continue;
@@ -477,37 +447,6 @@ function checkClaudeMarketplacePluginArrays(
 
   if (isJsonRecord(plugin.experimental)) {
     issues.push(...checkClaudeExperimental(file, plugin.experimental, `${prefix}.experimental`, "claude-marketplace-schema"));
-  }
-  return issues;
-}
-
-function checkClaudeComponentPaths(
-  file: ProviderFormatConformanceFile,
-  value: unknown,
-  prefix: string,
-  extension?: string
-): readonly ProviderFormatConformanceIssue[] {
-  // Labels are attached while the array is walked so a mixed array cannot
-  // renumber its string entries: filtering to strings first reports the string
-  // in `[{...}, "bad"]` under index 0.
-  const paths: readonly (readonly [string, string])[] = typeof value === "string"
-    ? [[prefix, value]]
-    : Array.isArray(value)
-      ? value.flatMap((entry, index) =>
-          typeof entry === "string"
-            ? [[`${prefix}[${index}]`, entry] as const]
-            : []
-        )
-      : [];
-  const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [label, path] of paths) {
-    if (!path.startsWith("./")) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${label} must start with ./`));
-      continue;
-    }
-    if (extension !== undefined && !path.endsWith(extension)) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${label} must end with ${extension}`));
-    }
   }
   return issues;
 }
