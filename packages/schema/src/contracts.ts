@@ -199,6 +199,9 @@ export const SOURCE_METADATA_KEYS = [
   "version",
 ] as const;
 
+/** Skills declare identity at the top level; workspace/plugin metadata retains these fields. */
+export const SKILL_TOP_LEVEL_IDENTITY_FIELDS = ["name", "version"] as const;
+
 export const SOURCE_LISTING_KEYS = [
   "capabilities",
   "category",
@@ -387,7 +390,7 @@ export const skillFrontmatterContract = contract(
       schema: {
         anyOf: [nonEmptyStringSchema(), { minimum: 1, type: "integer" }],
       },
-      skillset: sourceMetadataSchema(),
+      skillset: skillSourceMetadataSchema(),
       summary: nonEmptyStringSchema(),
       supports: supportsSchema(),
       title: nonEmptyStringSchema(),
@@ -1205,6 +1208,13 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     unresolved_frontmatter: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
     version: semverStringSchema(),
   });
+}
+
+function skillSourceMetadataSchema(): SchemaJsonRecord {
+  const schema = sourceMetadataSchema();
+  const properties = { ...(schema.properties as SchemaJsonRecord) };
+  for (const field of SKILL_TOP_LEVEL_IDENTITY_FIELDS) delete properties[field];
+  return { ...schema, properties };
 }
 
 function sourceAuthorObjectSchema(): SchemaJsonRecord {

@@ -25,6 +25,7 @@ import {
   SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
   SOURCE_METADATA_KEYS,
+  SKILL_TOP_LEVEL_IDENTITY_FIELDS,
   SOURCE_LISTING_KEYS,
   SOURCE_UNIT_SELECTOR_PATTERN,
   TARGET_NAMES,
@@ -1695,7 +1696,7 @@ export function validateSkillFrontmatter(
     );
   }
   checkToolsPolicy(value.tools, `${path}.tools`, diagnostics);
-  checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
+  checkSkillSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
 }
@@ -3368,6 +3369,27 @@ function checkWorkspace(
       )
     );
   }
+}
+
+function checkSkillSourceMetadata(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (!isSchemaRecord(value)) {
+    checkSourceMetadata(value, path, diagnostics);
+    return;
+  }
+  const metadata = { ...value };
+  for (const field of SKILL_TOP_LEVEL_IDENTITY_FIELDS) {
+    if (value[field] !== undefined) diagnostics.push(diagnostic(
+      `${path}.${field}`,
+      "schema/skill-frontmatter/metadata-identity",
+      `skillset.${field} is unsupported in skills; use top-level ${field}`
+    ));
+    delete metadata[field];
+  }
+  checkSourceMetadata(metadata, path, diagnostics);
 }
 
 function checkSourceMetadata(

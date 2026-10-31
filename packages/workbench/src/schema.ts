@@ -124,7 +124,6 @@ function checkSkillContract(
       )
   );
   diagnostics.push(...checkSkillDescription(frontmatter, path, content));
-  diagnostics.push(...checkSkillsetSkillMetadata(frontmatter, path, content));
   return diagnostics;
 }
 
@@ -505,39 +504,6 @@ function checkSkillDescription(
   ];
 }
 
-function checkSkillsetSkillMetadata(
-  record: Record<string, unknown>,
-  path: string,
-  content: string
-): readonly WorkbenchDiagnostic[] {
-  const value = record.skillset;
-  if (value === undefined) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "skillset must be an object when present",
-        path,
-        ruleId: "schema/skill-frontmatter",
-        subjectKind: "skill",
-      }),
-    ];
-  }
-
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of ["name", "version"]) {
-    if (value[key] === undefined) continue;
-    diagnostics.push(schemaDiagnostic({
-      message: `skillset.${key} is unsupported in skills; use top-level ${key === "id" ? "name" : key}`,
-      fix: { kind: "suggestion", message: `Move this to top-level \`${key}: ...\` in the skill frontmatter.` },
-      locationLine: sourceLineForSchemaPath(content, `$.skillset.${key}`, "markdown-frontmatter"),
-      path,
-      ruleId: "schema/skill-frontmatter",
-      subjectKind: "skill",
-    }));
-  }
-  return diagnostics;
-}
-
 function wrongKind(
   path: string,
   subjectKind: "agent" | "hook" | "rule" | "skill" | "skill eval" | "migration state" | "test" | "workspace",
@@ -611,6 +577,9 @@ function sourceContractFix(
   }
   if (diagnostic.code === "schema/supports/key" || diagnostic.code === "schema/supports/packages") {
     return { kind: "suggestion", message: "Use `supports:\\n  packages: []`, or remove `supports` until package compatibility is needed." };
+  }
+  if (diagnostic.code === "schema/skill-frontmatter/metadata-identity") {
+    return { kind: "suggestion", message: `Move this to top-level \`${key}: ...\` in the skill frontmatter.` };
   }
   if (diagnostic.code === "schema/source-metadata/key" && diagnostic.path.endsWith(".id")) {
     return { kind: "suggestion", message: "Replace `skillset.id` with `skillset.name`." };

@@ -565,7 +565,6 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           path: ".skillset/skills/docs-cli/SKILL.md",
         },
         schema: 1,
-        version: "1.0.0",
       },
       summary: "Docs CLI skill.",
       supports: {
