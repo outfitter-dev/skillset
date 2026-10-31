@@ -160,3 +160,9 @@ test("SET-627: CommonMark normalizes literal invalid-percent syntax before bundl
   await Bun.write(join(root, ".skillset/shared/references/literal%ZZ.md"), "Literal percent filename.\n");
   expect((await buildSkillsetResult(root)).ok).toBe(true);
 });
+
+test("SET-627: link dot segments normalize before planned inventory lookup", async () => {
+  const root = await fixture("[directory](references/guide.md/..)\n[guide](missing/../references/guide.md)", "resources:\n  references:\n    - shared:references/guide.md\n");
+  expect(new URL("references/guide.md/..", "file:///bundle/SKILL.md").pathname).toBe("/bundle/references/");
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+});
