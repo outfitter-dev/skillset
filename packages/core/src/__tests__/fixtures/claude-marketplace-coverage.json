@@ -363,11 +363,11 @@
     {
       "path": "packages/core/src/manifest-field-contracts.ts",
       "declarations": [],
-      "hash": "sha256:14df1e8391c054e8b76aa7bc5ce2fddd3353930fe094f3af74d87735f002da81",
+      "hash": "sha256:fb7f5d9812eff671012b3c54b164d0884231e603b6d5026b1b0df8bd886d4b96",
       "ruleIds": [
         "marketplace.entry.field_types"
       ],
-      "reason": "Shared manifest contract re-exports the one registry inventory; guards against a parallel local copy."
+      "reason": "Shared manifest contract re-exports the one registry inventory; guards against a parallel local copy. SET-802 adds portable Agent Plugins author keys; Claude inventory and predicates are unchanged."
     },
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
