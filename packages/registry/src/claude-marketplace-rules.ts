@@ -206,8 +206,14 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
+    id: "marketplace.components.simple_paths", parser: "component-references", owners: ["checkClaudeComponentReferences"],
+    predicate: "Six shared component reference fields use ./, agents require .md, and skills also allow dot",
+    qualification: "Pinned shared parser input only; no filesystem or runtime claim.",
+    schema: [],
+  },
+  {
     id: "marketplace.components.paths", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths"],
-    predicate: "String component paths use ./; agents use .md, hooks/lspServers/monitors use .json; other enumerated components have no extra suffix",
+    predicate: "Residual hooks/lspServers/monitors string paths use ./ and .json; experimental themes use ./",
     qualification: "Map per-field per-alternative patterns individually; no blanket pointer for exact entire list.",
     schema: [],
   },
@@ -219,7 +225,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   },
   {
     id: "marketplace.components.array_types", owners: ["checkClaudeMarketplacePluginArrays"],
-    predicate: "commands arrays string; hooks/lspServers arrays string or object; monitors arrays object. MCP forms are owned by their separate pinned validator",
+    predicate: "hooks/lspServers arrays string or object; monitors arrays object. MCP forms are owned by their separate pinned validator",
     qualification: "Pin union structure must be compared separately to each Core condition.",
     schema: [],
   },

@@ -1,3 +1,4 @@
+export { CLAUDE_COMPONENT_REFERENCE_POLICY } from "./claude-component-reference-contract";
 export * from "./claude-dependency-contract";
 export * from "./claude-mcp-contract";
 import { CODEX_LEGACY_INTERFACE_FIELDS } from "./codex-legacy-interface";
