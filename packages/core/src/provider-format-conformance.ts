@@ -1,4 +1,5 @@
 import {
+  CURSOR_MARKETPLACE_METADATA_FIELD_TYPES,
   CURSOR_VARIABLES_REQUIRED_FIELDS,
   CURSOR_VARIABLES_TYPE,
   getProviderDestinationFormatSnapshot,
@@ -816,6 +817,10 @@ function checkCursorMarketplace(
     }),
     ...checkUnknownFields(file, parsed.value, "cursor", "cursor-marketplace-schema", ["metadata", "name", "owner", "plugins"]),
   ];
+  if (isJsonRecord(parsed.value.metadata)) {
+    issues.push(...checkFieldTypes(file, parsed.value.metadata, "cursor", "cursor-marketplace-schema",
+      CURSOR_MARKETPLACE_METADATA_FIELD_TYPES, "metadata"));
+  }
   if (isJsonRecord(parsed.value.owner)) {
     issues.push(
       ...checkAuthorObject(file, parsed.value.owner, "cursor", "cursor-marketplace-schema", "owner", ["email", "name"])
