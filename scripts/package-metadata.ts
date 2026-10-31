@@ -100,7 +100,7 @@ export function packedFileDiagnostics(
 export async function projectionDiagnostics(rootPath: string) {
   const diagnostics: string[] = [];
   for (const packageDir of publicPackageDirs) {
-    for (const file of ["README.md", "LICENSE"]) {
+    for (const file of packageDir === "apps/cli" ? ["LICENSE"] : ["README.md", "LICENSE"]) {
       const sourcePath = join(rootPath, file);
       const projectedPath = join(rootPath, packageDir, file);
       const [source, projected] = await Promise.all([
@@ -167,10 +167,10 @@ export async function distributionOutputGitDiagnostics(rootPath: string) {
 export async function readmeMetadataDiagnostics(rootPath: string) {
   const [readme, manifest] = await Promise.all([
     readFile(join(rootPath, "README.md"), "utf8"),
-    readManifest(join(rootPath, "apps", "cli", "package.json")),
+    readManifest(join(rootPath, "apps", "skillset", "package.json")),
   ]);
   if (typeof manifest.description !== "string" || !manifest.description) {
-    return ["apps/cli/package.json is missing a package description"];
+    return ["apps/skillset/package.json is missing a package description"];
   }
   const description = manifest.description;
   const expectedSentence = `Skillset is a ${description.charAt(0).toLowerCase()}${description.slice(1)}`;
@@ -190,6 +190,25 @@ export async function readmeMetadataDiagnostics(rootPath: string) {
     diagnostics.push(
       "README.md must include an executable Skillset example in its first 60 lines"
     );
+  }
+  const [bunReadme, bunManifest] = await Promise.all([
+    readFile(join(rootPath, "apps", "cli", "README.md"), "utf8").catch(() => ""),
+    readManifest(join(rootPath, "apps", "cli", "package.json")),
+  ]);
+  const bunFrontDoor = bunReadme.split("\n").slice(0, 60).join("\n");
+  if (typeof bunManifest.description !== "string" || !bunManifest.description ||
+      !bunFrontDoor.includes(bunManifest.description)) {
+    diagnostics.push("apps/cli/README.md must state the Bun package description in its first 60 lines");
+  }
+  for (const command of ["bun add --global @skillset/cli", "bunx @skillset/cli init"]) {
+    if (!bunFrontDoor.includes(command)) {
+      diagnostics.push(`apps/cli/README.md must include ${command} in its first 60 lines`);
+    }
+  }
+  const engines = bunManifest.engines;
+  const bunRange = isRecord(engines) ? engines.bun : undefined;
+  if (typeof bunRange !== "string" || !bunFrontDoor.includes(`Bun ${bunRange}`)) {
+    diagnostics.push(`apps/cli/README.md must state Bun ${bunRange ?? "runtime requirements"} in its first 60 lines`);
   }
   return diagnostics;
 }

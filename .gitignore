@@ -2,7 +2,6 @@ node_modules/
 dist/
 apps/skillset/README.md
 apps/skillset/LICENSE
-apps/cli/README.md
 apps/cli/LICENSE
 apps/native-*/README.md
 apps/native-*/LICENSE

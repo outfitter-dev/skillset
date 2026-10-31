@@ -20,5 +20,14 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/outfitter-dev/skillset.git"
-  }
+  },
+  "homepage": "https://github.com/outfitter-dev/skillset#readme",
+  "bugs": {
+    "url": "https://github.com/outfitter-dev/skillset/issues"
+  },
+  "keywords": [
+    "skillset",
+    "native",
+    "agents"
+  ]
 }
