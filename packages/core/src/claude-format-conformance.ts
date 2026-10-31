@@ -1,3 +1,4 @@
+import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
 import { checkClaudeDependencies } from "./claude-dependency-conformance";
 import { checkClaudeMcpServers } from "./claude-mcp-conformance";
 import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
@@ -430,21 +431,15 @@ function checkClaudeMarketplacePluginArrays(
     }
   };
   for (const [field, extension] of [
-    ["agents", ".md"],
-    ["commands", undefined],
     ["hooks", ".json"],
     ["lspServers", ".json"],
     ["monitors", ".json"],
-    ["outputStyles", undefined],
-    ["skills", undefined],
-    ["themes", undefined],
-    ["workflows", undefined],
   ] as const) {
     issues.push(
       ...checkClaudeComponentPaths(file, plugin[field], `${prefix}.${field}`, extension)
     );
   }
-  checkItems("commands", (value) => typeof value === "string", "a string");
+  issues.push(...checkClaudeComponentReferences(file, plugin, prefix, "claude-marketplace-schema"));
   for (const field of ["hooks", "lspServers"] as const) {
     checkItems(
       field,

@@ -1,3 +1,5 @@
+import { CLAUDE_COMPONENT_REFERENCE_POLICY } from "@skillset/registry";
+import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
 import { checkClaudeDependencies } from "./claude-dependency-conformance";
 import { checkClaudeMcpServers } from "./claude-mcp-conformance";
 import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
@@ -497,6 +499,7 @@ function checkClaudePluginManifest(
     ...format.requiredFields,
     ...format.optionalFields,
     "experimental",
+    ...Object.keys(CLAUDE_COMPONENT_REFERENCE_POLICY),
   ]);
   issues.push(...checkRequiredFields(file, parsed.value, "claude", "claude-plugin", format.requiredFields));
   issues.push(...checkFieldTypes(file, parsed.value, "claude", "claude-plugin-manifest-schema", CLAUDE_PLUGIN_FIELD_TYPES));
@@ -519,6 +522,7 @@ function checkClaudePluginManifest(
       )
     );
   }
+  issues.push(...checkClaudeComponentReferences(file, parsed.value, "", "claude-plugin-manifest-schema"));
   if (isJsonRecord(parsed.value.commands)) {
     issues.push(...checkClaudeCommandMap(file, parsed.value.commands, "commands", "claude-plugin-manifest-schema"));
   }

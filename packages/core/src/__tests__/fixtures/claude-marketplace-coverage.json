@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:4f59480a1f2f9d449754d078732b9aa491516553262ccf22afe41bd2fa6179bc",
+  "evidenceHash": "sha256:ae80a3463b64d86c2d936db873c57937e4a6094edfc1f922d71c96a4b9248c45",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,7 +108,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:069d6ecc9674541661e3cdc71b72b4dfec19ddcffc1cfa765b6eb328d650354b",
+      "hash": "sha256:606209b91860f6aecc192e0650993035cde47a27428db11983d455070753fd1a",
       "ruleIds": [
         "marketplace.components.paths",
         "marketplace.components.array_types",
@@ -255,6 +255,12 @@
       "hash": "sha256:c0c578fc240bc504d92f7c9739ca16321cf8b4edb251b283169e1b1cb702e808",
       "ruleIds": [],
       "reason": "Shared dependency input validator wiring."
+    },
+    {
+      "name": "import:\"./claude-component-reference-conformance\"",
+      "hash": "sha256:97a917febc42c7eea609ae199d8361dc14689b8a06b5e7c624b5b45bdf84ded2",
+      "ruleIds": [],
+      "reason": "Shared simple component references wiring."
     }
   ],
   "dependencies": [
@@ -354,7 +360,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:fad786e9eb77707e1b36e39baf4a2825cf58ff1b96b083b394e510690a180c01",
+      "hash": "sha256:85d77cc01729f927ffc5d38e5ec170b41e10c9ab42ee7da2392b357e0aac83fd",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -376,7 +382,8 @@
         "marketplace.mcp.records",
         "marketplace.mcp.oauth.fields",
         "marketplace.mcp.oauth.values",
-        "marketplace.dependencies.object_extra_fields"
+        "marketplace.dependencies.object_extra_fields",
+        "marketplace.components.simple_paths"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -465,6 +472,24 @@
         "marketplace.dependencies.object_extra_fields"
       ],
       "reason": "Reviewed shared Ec/Sc input grammar, required name and optional marketplace; extra values accepted, provider transformation not reproduced."
+    },
+    {
+      "path": "packages/core/src/claude-component-reference-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:1fc38d295379db670b009b648f35b1abeec582050f0c1bbce8a795da617bdd0e",
+      "ruleIds": [
+        "marketplace.components.simple_paths"
+      ],
+      "reason": "Reviewed shared six-field path input policy, suffix and root-dot exception; no filesystem or runtime claim."
+    },
+    {
+      "path": "packages/registry/src/claude-component-reference-contract.ts",
+      "declarations": [],
+      "hash": "sha256:50a7e5bdfcaedd20360e19ffeb94cf1ddea6060cae4cba28186e145d6834118c",
+      "ruleIds": [
+        "marketplace.components.simple_paths"
+      ],
+      "reason": "Reviewed shared six-field path input policy, suffix and root-dot exception; no filesystem or runtime claim."
     }
   ]
 }
