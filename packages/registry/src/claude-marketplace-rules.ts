@@ -57,9 +57,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [{"pointer": "/properties/plugins/items/properties/name/type", "value": "string"}, {"pointer": "/properties/plugins/items/properties/name/minLength", "value": 1}],
   },
   {
-    id: "marketplace.entry.name.pattern", owners: ["checkClaudeMarketplacePlugin"],
+    id: "marketplace.entry.name.pattern", parser: "entry-name-strict", owners: ["checkClaudeMarketplacePlugin"],
     predicate: "Name must start alphanumeric, contain only alphanumeric/dot/underscore/hyphen and be at most 128 characters",
-    qualification: "Pin asserts nonempty only; stricter pattern and max require separate evidence.",
+    qualification: "Pinned 2.1.269 static validator evidence: this pattern produces a Desktop compatibility warning that fails --strict. Core reports invalid shape; ordinary Claude Code runtime rejection and actual execution are not established.",
     schema: [],
   },
   {

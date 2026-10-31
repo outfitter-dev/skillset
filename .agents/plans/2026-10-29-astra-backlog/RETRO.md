@@ -824,3 +824,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Require an own source-inventory key before selecting required fields; inherited prototype names now return the existing unsupported-source diagnostic instead of throwing. No supported source form changes.
 - Regression baseline: five inherited-name failures and eight passing controls. Final affected corpus: 84 tests and 368 assertions pass; fast gate passes. Both direct and public conformance entry points are covered.
 - Reviewed only the changed discriminator predicate and its qualification; asserted every other declaration and delegated fingerprint unchanged before updating the coverage record. Exact review and full verification follow the commit.
+
+### SET-488 strict marketplace name qualification
+
+- Traced the exact pinned 2.1.269 exported validation handler through marketplace dispatch, name compatibility warning and strict success aggregation. The ledger now records a strict-warning stage separately from schema predicates; Core's diagnostic severity and behavior stay unchanged.
+- Independently verified the full member and all 15 source windows. The affected 37-test corpus / 243 assertions and fast gate pass. All Core declarations and other dependency fingerprints were asserted unchanged before updating only the reviewed parser evidence and name qualification.
+- Archive-host differences remain unresolved; no provider code was executed. Exact review and full immutable verification follow the commit.
