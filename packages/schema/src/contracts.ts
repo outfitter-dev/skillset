@@ -292,7 +292,17 @@ export const workspaceConfigContract = contract(
   {
     additionalProperties: false,
     properties: {
-      changes: { type: "object" },
+      changes: {
+        type: "object",
+        additionalProperties: true,
+        properties: {
+          reason: {
+            type: "object",
+            additionalProperties: true,
+            properties: { minLength: { type: "integer", minimum: 1 } },
+          },
+        },
+      },
       claude: workspaceTargetOverrideSchema(),
       codex: workspaceTargetOverrideSchema(),
       cursor: workspaceTargetOverrideSchema(),

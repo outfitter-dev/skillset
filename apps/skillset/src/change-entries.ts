@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "@skillset/core/internal/workspace-fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
-import { validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
+import { validateWorkspaceConfig, validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
 
 import { readChangeLedger, type ChangeLedgerEvent, type ChangeLedgerSourceUnit } from "@skillset/core/internal/change-ledger";
 import {
@@ -757,14 +757,14 @@ async function readReasonMinLength(rootPath: string, _options: ChangeStatusOptio
   const resolvedConfigPath = await firstExistingPath(configPaths.map((path) => resolveInside(rootPath, path)));
   if (resolvedConfigPath === undefined) return DEFAULT_REASON_MIN_LENGTH;
   const config = parseYamlRecord(await readFile(resolvedConfigPath, "utf8"), resolvedConfigPath);
+  const policy = validateWorkspaceConfig({ changes: config.changes });
+  if (!policy.ok) throw new CliUsageError(`skillset: ${resolvedConfigPath}: ${policy.diagnostics.map((item) => item.message).join("; ")}`);
   const changes = config.changes;
   if (!isJsonRecord(changes)) return DEFAULT_REASON_MIN_LENGTH;
   const reason = changes.reason;
   if (!isJsonRecord(reason)) return DEFAULT_REASON_MIN_LENGTH;
   const minLength = reason.minLength;
-  return typeof minLength === "number" && Number.isInteger(minLength) && minLength > 0
-    ? minLength
-    : DEFAULT_REASON_MIN_LENGTH;
+  return minLength === undefined ? DEFAULT_REASON_MIN_LENGTH : minLength as number;
 }
 
 async function firstExistingPath(paths: readonly string[]): Promise<string | undefined> {
