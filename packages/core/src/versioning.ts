@@ -1,5 +1,6 @@
 import { createSemverRegExp } from "@skillset/schema";
 
+import { InputValidationError } from "./input-validation-error";
 import { readString } from "./config";
 import { selectorForPluginSkill, selectorForRootConfig, selectorForStandaloneSkill, sourceUnitSelector } from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, SourcePlugin, SourceSkill } from "./types";
@@ -26,13 +27,13 @@ export function validateSchemaField(metadata: JsonRecord, label: string): void {
   const value = metadata.schema;
   if (value === undefined) return;
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label} to be a positive integer (currently ${SUPPORTED_SOURCE_SCHEMA}); ` +
         "skillset.schema is the source schema marker, not a version string"
     );
   }
   if (value !== SUPPORTED_SOURCE_SCHEMA) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: unsupported source schema ${value} in ${label}; ` +
         `this compiler supports skillset.schema ${SUPPORTED_SOURCE_SCHEMA}`
     );
@@ -43,10 +44,10 @@ export function validateVersionField(record: JsonRecord, label: string): void {
   const value = record.version;
   if (value === undefined) return;
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`skillset: expected ${label} to be a semantic version string`);
+    throw new InputValidationError(`skillset: expected ${label} to be a semantic version string`);
   }
   if (!semverPattern.test(value)) {
-    throw new Error(`skillset: expected ${label} to be a semantic version`);
+    throw new InputValidationError(`skillset: expected ${label} to be a semantic version`);
   }
 }
 

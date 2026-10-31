@@ -20,6 +20,7 @@ import {
   type SkillsetSchemaValidationResult,
 } from "@skillset/schema";
 
+import { InputValidationError } from "./input-validation-error";
 import type {
   CodexMarketplaceAuthor,
   CodexMarketplaceInterface,
@@ -179,7 +180,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
       key !== "targets" &&
       key !== "unsupportedDestination"
     ) {
-      throw new Error(`skillset: unsupported compile key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported compile key ${key} in ${label}`);
     }
   }
 
@@ -230,7 +231,7 @@ function readInstructionFrontPage(
       value as InstructionFrontPageDestination
     )
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label} to be claude-dir or repo-root`
     );
   }
@@ -246,7 +247,7 @@ function readSessionStartHookMode(
     typeof value !== "string" ||
     !SESSION_START_HOOK_MODES.has(value as SessionStartHookMode)
   ) {
-    throw new Error(`skillset: expected ${label} to be auto, on, or off`);
+    throw new InputValidationError(`skillset: expected ${label} to be auto, on, or off`);
   }
   return value as SessionStartHookMode;
 }
@@ -264,7 +265,7 @@ export function readInternalMarker(record: JsonRecord, label: string): boolean {
   const value = record.internal_marker;
   if (value === undefined) return true;
   if (typeof value !== "boolean") {
-    throw new Error(`skillset: expected ${label}.internal_marker to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.internal_marker to be a boolean`);
   }
   return value;
 }
@@ -281,11 +282,11 @@ export function readWorkspacePluginsConfig(
     };
   }
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label}.plugins to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.plugins to be an object`);
   }
   for (const key of Object.keys(raw)) {
     if (key !== "internal_use" && key !== "output") {
-      throw new Error(`skillset: unsupported ${label}.plugins key ${key}`);
+      throw new InputValidationError(`skillset: unsupported ${label}.plugins key ${key}`);
     }
   }
   return {
@@ -308,11 +309,11 @@ function readInternalUseConfig(
   if (value === undefined || value === false) return emptyInternalUseConfig();
   if (value === true) return { drafts: {}, plugins: true, skills: {} };
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be a boolean or an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be a boolean or an object`);
   }
   for (const key of Object.keys(value)) {
     if (key !== "drafts" && key !== "plugins" && key !== "skills") {
-      throw new Error(`skillset: unsupported ${label} key ${key}`);
+      throw new InputValidationError(`skillset: unsupported ${label} key ${key}`);
     }
   }
   return {
@@ -328,7 +329,7 @@ function readInternalUseDraftsByPlugin(
 ): InternalUseConfig["drafts"] {
   if (value === undefined) return {};
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   return Object.fromEntries(
     Object.entries(value).map(([pluginId, selection]) => [
@@ -346,7 +347,7 @@ function readInternalUseByPlugin(
 ): Readonly<Record<string, InternalUseConfig["plugins"]>> {
   if (value === undefined) return {};
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   return Object.fromEntries(
     Object.entries(value).map(([pluginId, selection]) => [
@@ -381,11 +382,11 @@ function readPackageOutputConfig(
     return { path: value, targets: targetRecord(() => ({})) };
   }
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be a path or an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be a path or an object`);
   }
   for (const key of Object.keys(value)) {
     if (key !== "path" && !isTargetName(key)) {
-      throw new Error(`skillset: unsupported ${label} key ${key}`);
+      throw new InputValidationError(`skillset: unsupported ${label} key ${key}`);
     }
   }
   return {
@@ -403,16 +404,16 @@ function readPackageOutputTarget(
   if (value === undefined) return {};
   if (typeof value === "string") return { path: value };
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be a path or an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be a path or an object`);
   }
   for (const key of Object.keys(value)) {
     if (key !== "combine" && key !== "name" && key !== "path") {
-      throw new Error(`skillset: unsupported ${label} key ${key}`);
+      throw new InputValidationError(`skillset: unsupported ${label} key ${key}`);
     }
   }
   const combine = value.combine;
   if (combine !== undefined && typeof combine !== "boolean") {
-    throw new Error(`skillset: expected ${label}.combine to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.combine to be a boolean`);
   }
   const name = readString(value, "name");
   const path = readString(value, "path");
@@ -427,17 +428,17 @@ function readCompileTargetNames(record: JsonRecord, label: string): readonly Tar
   const targets = record.targets;
   if (targets === undefined) return [...DEFAULT_TARGET_NAMES];
   if (!Array.isArray(targets)) {
-    throw new Error(`skillset: expected ${label} to be a string array`);
+    throw new InputValidationError(`skillset: expected ${label} to be a string array`);
   }
   const enabledTargets = new Set<TargetName>();
   for (const target of targets) {
     if (!isTargetName(target)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected ${TARGET_LIST_TEXT}`
       );
     }
     if (enabledTargets.has(target)) {
-      throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
+      throw new InputValidationError(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
     }
     enabledTargets.add(target);
   }
@@ -450,7 +451,7 @@ export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRec
   const raw = record.skillset;
   if (raw === undefined) return {};
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label}.skillset to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.skillset to be an object`);
   }
   return raw;
 }
@@ -470,10 +471,10 @@ export function readSkillsetName(
   const name = readString(metadata, "name");
   const id = readString(metadata, "id");
   if (id !== undefined) {
-    throw new Error(`skillset: ${label} uses unsupported skillset.id; use skillset.name`);
+    throw new InputValidationError(`skillset: ${label} uses unsupported skillset.id; use skillset.name`);
   }
   if (topLevelName !== undefined && name !== undefined && topLevelName !== name) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: ${label} has conflicting top-level name ${JSON.stringify(topLevelName)} and skillset.name ${JSON.stringify(name)}`
     );
   }
@@ -536,21 +537,21 @@ export function readDistributionConfig(
   const raw = record.distributions;
   if (raw === undefined) return {};
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label}.distributions to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.distributions to be an object`);
   }
 
   const result: Record<string, DistributionConfig> = {};
   for (const name of Object.keys(raw).sort()) {
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
-      throw new Error(`skillset: expected ${label}.distributions key ${JSON.stringify(name)} to be a lowercase id`);
+      throw new InputValidationError(`skillset: expected ${label}.distributions key ${JSON.stringify(name)} to be a lowercase id`);
     }
     const value = raw[name];
     if (!isJsonRecord(value)) {
-      throw new Error(`skillset: expected ${label}.distributions.${name} to be an object`);
+      throw new InputValidationError(`skillset: expected ${label}.distributions.${name} to be an object`);
     }
     for (const key of Object.keys(value)) {
       if (key !== "dryRun" && key !== "from" && key !== "to") {
-        throw new Error(`skillset: unsupported distribution key ${key} in ${label}.distributions.${name}`);
+        throw new InputValidationError(`skillset: unsupported distribution key ${key} in ${label}.distributions.${name}`);
       }
     }
     result[name] = readDistributionObject(value, `${label}.distributions.${name}`);
@@ -565,22 +566,22 @@ export function readMarketplaceCatalogConfig(
   const raw = record.marketplaces;
   if (raw === undefined) return {};
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label}.marketplaces to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.marketplaces to be an object`);
   }
 
   const result: Record<string, MarketplaceCatalogConfig> = {};
   let codexCatalog: string | undefined;
   for (const name of Object.keys(raw)) {
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
-      throw new Error(`skillset: expected ${label}.marketplaces key ${JSON.stringify(name)} to be a lowercase id`);
+      throw new InputValidationError(`skillset: expected ${label}.marketplaces key ${JSON.stringify(name)} to be a lowercase id`);
     }
     const value = raw[name];
     if (!isJsonRecord(value)) {
-      throw new Error(`skillset: expected ${label}.marketplaces.${name} to be an object`);
+      throw new InputValidationError(`skillset: expected ${label}.marketplaces.${name} to be an object`);
     }
     for (const key of Object.keys(value)) {
       if (key !== "description" && key !== "plugins" && key !== "targets" && key !== "title") {
-        throw new Error(`skillset: unsupported marketplace key ${key} in ${label}.marketplaces.${name}`);
+        throw new InputValidationError(`skillset: unsupported marketplace key ${key} in ${label}.marketplaces.${name}`);
       }
     }
     const catalog = readMarketplaceCatalogObject(
@@ -589,7 +590,7 @@ export function readMarketplaceCatalogConfig(
     );
     if (catalog.targets.includes("codex")) {
       if (codexCatalog !== undefined) {
-        throw new Error(
+        throw new InputValidationError(
           `skillset: Codex supports exactly one marketplace catalog; ${codexCatalog} and ${name} both target codex`
         );
       }
@@ -637,7 +638,7 @@ export function resolveTargets(
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   rejectTargetsKey(record, label);
   if (record.defaults !== undefined && options.allowDefaults !== true) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: ${label} uses unsupported defaults key; configure target defaults in root or plugin config`
     );
   }
@@ -684,21 +685,21 @@ export function resolveTarget(
   if (raw === false) return { enabled: false, options: parent.options };
 
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be true, false, or an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be true, false, or an object`);
   }
 
   const { enabled, ...rest } = raw;
   if (enabled !== undefined && typeof enabled !== "boolean") {
-    throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.enabled to be a boolean`);
   }
   if (rest.defaults !== undefined) {
     if (options.allowDefaults !== true) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: ${label}.defaults is only supported in root or plugin config`
       );
     }
     if (!isJsonRecord(rest.defaults)) {
-      throw new Error(`skillset: expected ${label}.defaults to be an object`);
+      throw new InputValidationError(`skillset: expected ${label}.defaults to be an object`);
     }
     validateDefaultSurfaces(rest.defaults, `${label}.defaults`);
   }
@@ -714,7 +715,7 @@ export function resolveTarget(
 
 export function stripSourceFrontmatter(frontmatter: JsonRecord, label = "source frontmatter"): JsonRecord {
   if (frontmatter.tool_intent !== undefined) {
-    throw new Error(`skillset: ${label} uses retired tool_intent; use tools`);
+    throw new InputValidationError(`skillset: ${label} uses retired tool_intent; use tools`);
   }
   const stripped: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {
@@ -754,7 +755,7 @@ export function readRecord(record: JsonRecord, key: string): JsonRecord | undefi
   const value = record[key];
   if (value === undefined) return undefined;
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${key} to be an object`);
+    throw new InputValidationError(`skillset: expected ${key} to be an object`);
   }
   return value;
 }
@@ -767,7 +768,7 @@ export function isOutputSelected(selection: OutputSelection, name: string): bool
 
 function rejectTargetsKey(record: JsonRecord, label: string): void {
   if (record.targets !== undefined) {
-    throw new Error(`skillset: ${label} uses unsupported targets key; use compile.targets`);
+    throw new InputValidationError(`skillset: ${label} uses unsupported targets key; use compile.targets`);
   }
 }
 
@@ -798,7 +799,7 @@ function validateWorkspaceSchemaDocument(
   }
 
   if (messages.length > 0) {
-    throw new Error(`skillset: ${dedupeMessages(messages).join("; ")}`);
+    throw new InputValidationError(`skillset: ${dedupeMessages(messages).join("; ")}`);
   }
 }
 
@@ -927,7 +928,7 @@ function readCompileRecord(record: JsonRecord, label: string): JsonRecord | unde
   const compile = record.compile;
   if (compile === undefined) return undefined;
   if (!isJsonRecord(compile)) {
-    throw new Error(`skillset: expected ${label}.compile to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.compile to be an object`);
   }
   return compile;
 }
@@ -936,10 +937,10 @@ function readCompileBuildMode(record: JsonRecord, label: string): CompileBuildMo
   const value = record.build;
   if (value === undefined) return "updated";
   if (typeof value !== "string") {
-    throw new Error(`skillset: expected ${label} to be one of: updated, all`);
+    throw new InputValidationError(`skillset: expected ${label} to be one of: updated, all`);
   }
   if (!COMPILE_BUILD_MODES.has(value as CompileBuildMode)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: unsupported ${label} ${JSON.stringify(value)}; expected one of: updated, all`
     );
   }
@@ -950,17 +951,17 @@ function readCompileSkillsetConfig(record: JsonRecord, label: string): CompileSk
   const value = record.skillset;
   if (value === undefined) return { metadata: true };
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(value)) {
     if (key !== "metadata") {
-      throw new Error(`skillset: unsupported compile skillset key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported compile skillset key ${key} in ${label}`);
     }
   }
   const metadata = value.metadata;
   if (metadata === undefined) return { metadata: true };
   if (typeof metadata !== "boolean") {
-    throw new Error(`skillset: expected ${label}.metadata to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.metadata to be a boolean`);
   }
   return { metadata };
 }
@@ -969,17 +970,17 @@ function readCompileFeatureConfig(record: JsonRecord, label: string): CompileFea
   const value = record.features;
   if (value === undefined) return { promptArguments: true };
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(value)) {
     if (key !== "promptArguments") {
-      throw new Error(`skillset: unsupported compile feature key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported compile feature key ${key} in ${label}`);
     }
   }
   const promptArguments = value.promptArguments;
   if (promptArguments === undefined) return { promptArguments: true };
   if (typeof promptArguments !== "boolean") {
-    throw new Error(`skillset: expected ${label}.promptArguments to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.promptArguments to be a boolean`);
   }
   return { promptArguments };
 }
@@ -988,10 +989,10 @@ function readUnsupportedDestinationPolicy(record: JsonRecord, label: string): Un
   const value = record.unsupportedDestination;
   if (value === undefined) return "error";
   if (typeof value !== "string") {
-    throw new Error(`skillset: expected ${label} to be one of: error, warn, skip, force`);
+    throw new InputValidationError(`skillset: expected ${label} to be one of: error, warn, skip, force`);
   }
   if (!UNSUPPORTED_DESTINATION_POLICIES.has(value as UnsupportedDestinationPolicy)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: unsupported ${label} ${JSON.stringify(value)}; expected one of: error, warn, skip, force`
     );
   }
@@ -1003,7 +1004,7 @@ function readDistributionObject(record: JsonRecord, label: string): Distribution
   const to = readDistributionTo(record.to, `${label}.to`);
   const dryRun = record.dryRun;
   if (dryRun !== undefined && typeof dryRun !== "boolean") {
-    throw new Error(`skillset: expected ${label}.dryRun to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.dryRun to be a boolean`);
   }
   return {
     dryRun: dryRun ?? true,
@@ -1018,7 +1019,7 @@ function readMarketplaceCatalogObject(record: JsonRecord, label: string): Market
   const targets = readOptionalTargetNames(record.targets, `${label}.targets`) ?? targetNames();
   const rawPlugins = record.plugins;
   if (!Array.isArray(rawPlugins) || rawPlugins.length === 0) {
-    throw new Error(`skillset: expected ${label}.plugins to be a non-empty array`);
+    throw new InputValidationError(`skillset: expected ${label}.plugins to be a non-empty array`);
   }
 
   const plugins = rawPlugins.map((entry, index) =>
@@ -1029,7 +1030,7 @@ function readMarketplaceCatalogObject(record: JsonRecord, label: string): Market
     const effectiveTargets = entry.targets ?? targets;
     const seenTargets = seenIds.get(entry.id) ?? new Set<TargetName>();
     if (effectiveTargets.some((target) => seenTargets.has(target))) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: expected ${label}.plugins to have unique effective ids per target; duplicate ${entry.id}`
       );
     }
@@ -1047,11 +1048,11 @@ function readMarketplaceCatalogObject(record: JsonRecord, label: string): Market
 
 function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): MarketplacePluginEntryConfig {
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(raw)) {
     if (key !== "channel" && key !== "codex" && key !== "id" && key !== "plugin" && key !== "ref" && key !== "repo" && key !== "sha" && key !== "targets" && key !== "version") {
-      throw new Error(`skillset: unsupported marketplace plugin key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported marketplace plugin key ${key} in ${label}`);
     }
   }
 
@@ -1069,10 +1070,10 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
   const version = readOptionalString(raw, "version", `${label}.version`);
   const policies = [channel, ref, sha, version].filter((value) => value !== undefined);
   if (policies.length > 1) {
-    throw new Error(`skillset: expected ${label} to set at most one of channel, ref, sha, or version`);
+    throw new InputValidationError(`skillset: expected ${label} to set at most one of channel, ref, sha, or version`);
   }
   if (channel !== undefined && channel !== "latest") {
-    throw new Error(`skillset: expected ${label}.channel to be latest`);
+    throw new InputValidationError(`skillset: expected ${label}.channel to be latest`);
   }
   if (ref !== undefined) validateRemoteRepositoryRevision({ kind: "ref", ref });
   if (sha !== undefined) validateRemoteRepositoryRevision({ kind: "sha", sha });
@@ -1096,7 +1097,7 @@ function readCodexMarketplacePluginConfig(
 ): CodexMarketplacePluginConfig | undefined {
   if (raw === undefined) return undefined;
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   const allowed = new Set([
     "author",
@@ -1161,7 +1162,7 @@ function readCodexMarketplaceAuthor(
 ): CodexMarketplaceAuthor | undefined {
   if (raw === undefined) return undefined;
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   rejectUnknownKeys(
     raw,
@@ -1185,7 +1186,7 @@ function readCodexMarketplaceInterface(
 ): CodexMarketplaceInterface | undefined {
   if (raw === undefined) return undefined;
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   rejectUnknownKeys(
     raw,
@@ -1205,7 +1206,7 @@ function readCodexMarketplaceInterface(
         key === "defaultPrompt" &&
         (strings.length > 3 || strings.some((value) => [...value].length > 128))
       ) {
-        throw new Error(
+        throw new InputValidationError(
           `skillset: ${label}.defaultPrompt permits at most three 128-character prompts`
         );
       }
@@ -1213,7 +1214,7 @@ function readCodexMarketplaceInterface(
         key === "screenshots" &&
         strings.some((value) => !isCodexMarketplaceLocalPath(value))
       ) {
-        throw new Error(
+        throw new InputValidationError(
           `skillset: expected ${label}.screenshots entries to be contained ./ asset paths`
         );
       }
@@ -1226,7 +1227,7 @@ function readCodexMarketplaceInterface(
       (key === "composerIcon" || key === "logo" || key === "logoDark") &&
       !isCodexMarketplaceLocalPath(value)
     ) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: expected ${label}.${key} to be a contained ./ asset path`
       );
     }
@@ -1241,7 +1242,7 @@ function readCodexMarketplacePolicy(
 ): CodexMarketplacePluginPolicy | undefined {
   if (raw === undefined) return undefined;
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   rejectUnknownKeys(
     raw,
@@ -1258,7 +1259,7 @@ function readCodexMarketplacePolicy(
     installation !== undefined &&
     !CODEX_MARKETPLACE_INSTALLATION_POLICY_SET.has(installation)
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label}.installation to be AVAILABLE, INSTALLED_BY_DEFAULT, or NOT_AVAILABLE`
     );
   }
@@ -1271,7 +1272,7 @@ function readCodexMarketplacePolicy(
     authentication !== undefined &&
     !CODEX_MARKETPLACE_AUTHENTICATION_POLICY_SET.has(authentication)
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label}.authentication to be ON_INSTALL or ON_USE`
     );
   }
@@ -1293,18 +1294,18 @@ function readCodexMarketplaceSource(
   if (raw === undefined) return undefined;
   if (typeof raw === "string") {
     if (!isCodexMarketplaceLocalPath(raw)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: expected ${label} to be a contained ./ path relative to the marketplace root`
       );
     }
     return { path: raw, source: "local" };
   }
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be a local path or source object`);
+    throw new InputValidationError(`skillset: expected ${label} to be a local path or source object`);
   }
   const source = readRequiredString(raw, "source", `${label}.source`);
   if (!CODEX_MARKETPLACE_SOURCE_KIND_SET.has(source)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label}.source to be git-subdir, local, npm, or url`
     );
   }
@@ -1317,7 +1318,7 @@ function readCodexMarketplaceSource(
     );
     const path = readRequiredString(raw, "path", `${label}.path`);
     if (!isCodexMarketplaceLocalPath(path)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: expected ${label}.path to be a contained ./ path relative to the marketplace root`
       );
     }
@@ -1332,17 +1333,17 @@ function readCodexMarketplaceSource(
     );
     const packageName = readRequiredString(raw, "package", `${label}.package`);
     if (!/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u.test(packageName)) {
-      throw new Error(`skillset: expected ${label}.package to be an npm package name`);
+      throw new InputValidationError(`skillset: expected ${label}.package to be an npm package name`);
     }
     const registry = readOptionalString(raw, "registry", `${label}.registry`);
     if (registry !== undefined && !isCredentialFreeHttpsUrl(registry)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: expected ${label}.registry to be a credential-free HTTPS URL`
       );
     }
     const version = readOptionalString(raw, "version", `${label}.version`);
     if (version !== undefined && !isRegistryNpmVersionSelector(version)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: expected ${label}.version to be an npm registry version, tag, or range`
       );
     }
@@ -1363,10 +1364,10 @@ function readCodexMarketplaceSource(
   validateCodexMarketplaceGitUrl(url, `${label}.url`);
   const path = readOptionalString(raw, "path", `${label}.path`);
   if (source === "git-subdir" && path === undefined) {
-    throw new Error(`skillset: expected ${label}.path to be a non-empty string`);
+    throw new InputValidationError(`skillset: expected ${label}.path to be a non-empty string`);
   }
   if (path !== undefined && !isCodexMarketplaceLocalPath(path)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label}.path to be a contained ./ path relative to the repository root`
     );
   }
@@ -1395,13 +1396,13 @@ function readCodexMarketplaceProducts(
         typeof value !== "string" || !CODEX_MARKETPLACE_PRODUCT_SET.has(value)
     )
   ) {
-    throw new Error(`skillset: expected ${label} entries to be atlas, chatgpt, or codex`);
+    throw new InputValidationError(`skillset: expected ${label} entries to be atlas, chatgpt, or codex`);
   }
   const products = raw.map(
     (value) => String(value).toLowerCase() as CodexMarketplaceProduct
   );
   if (new Set(products).size !== products.length) {
-    throw new Error(`skillset: expected ${label} entries to be unique`);
+    throw new InputValidationError(`skillset: expected ${label} entries to be unique`);
   }
   return products;
 }
@@ -1418,7 +1419,7 @@ function rejectUnknownKeys(
 ): void {
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) {
-      throw new Error(`skillset: unsupported ${subject} key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported ${subject} key ${key} in ${label}`);
     }
   }
 }
@@ -1433,7 +1434,7 @@ function readOptionalNonEmptyStringArray(
     raw.length === 0 ||
     raw.some((value) => typeof value !== "string" || value.trim().length === 0)
   ) {
-    throw new Error(`skillset: expected ${label} to be a non-empty string array`);
+    throw new InputValidationError(`skillset: expected ${label} to be a non-empty string array`);
   }
   return raw.map((value) => String(value));
 }
@@ -1451,10 +1452,10 @@ function readOptionalEnumArray(
     (!allowEmpty && raw.length === 0) ||
     raw.some((value) => typeof value !== "string" || !allowed.has(value))
   ) {
-    throw new Error(`skillset: expected ${label} entries to be ${expected}`);
+    throw new InputValidationError(`skillset: expected ${label} entries to be ${expected}`);
   }
   if (new Set(raw).size !== raw.length) {
-    throw new Error(`skillset: expected ${label} entries to be unique`);
+    throw new InputValidationError(`skillset: expected ${label} entries to be unique`);
   }
   return raw.map((value) => String(value));
 }
@@ -1463,27 +1464,26 @@ function validateCodexMarketplaceGitUrl(value: string, label: string): void {
   if (isCodexMarketplaceFileGitUrl(value) || value.startsWith("/")) return;
   try {
     parseRemoteRepositoryReference(value);
-  } catch {
-    throw new Error(
-      `skillset: expected ${label} to be a credential-free remote Git URL, file URL, or absolute path`
+  } catch (error) {
+    if (!(error instanceof InputValidationError)) throw error;
+    throw new InputValidationError(
+      `skillset: expected ${label} to be a credential-free remote Git URL, file URL, or absolute path`,
+      { cause: error }
     );
   }
 }
 
 function isCodexMarketplaceFileGitUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === "file:" &&
-      url.username.length === 0 &&
-      url.password.length === 0 &&
-      url.search.length === 0 &&
-      url.hash.length === 0 &&
-      url.pathname.startsWith("/")
-    );
-  } catch {
-    return false;
-  }
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  return (
+    url.protocol === "file:" &&
+    url.username.length === 0 &&
+    url.password.length === 0 &&
+    url.search.length === 0 &&
+    url.hash.length === 0 &&
+    url.pathname.startsWith("/")
+  );
 }
 
 function isCodexMarketplaceLocalPath(value: string): boolean {
@@ -1499,31 +1499,28 @@ function isCodexMarketplaceRemoteSubdir(value: string): boolean {
 }
 
 function isCredentialFreeHttpsUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" &&
-      url.username.length === 0 &&
-      url.password.length === 0 &&
-      url.hostname.length > 0 &&
-      url.search.length === 0 &&
-      url.hash.length === 0;
-  } catch {
-    return false;
-  }
+  if (!URL.canParse(value)) return false;
+  const url = new URL(value);
+  return url.protocol === "https:" &&
+    url.username.length === 0 &&
+    url.password.length === 0 &&
+    url.hostname.length > 0 &&
+    url.search.length === 0 &&
+    url.hash.length === 0;
 }
 
 function readOptionalTargetNames(raw: JsonValue | undefined, label: string): readonly TargetName[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
-    throw new Error(`skillset: expected ${label} to be a non-empty target array`);
+    throw new InputValidationError(`skillset: expected ${label} to be a non-empty target array`);
   }
   const seen = new Set<TargetName>();
   for (const target of raw) {
     if (!isTargetName(target)) {
-      throw new Error(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected ${TARGET_LIST_TEXT}`);
+      throw new InputValidationError(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected ${TARGET_LIST_TEXT}`);
     }
     if (seen.has(target)) {
-      throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
+      throw new InputValidationError(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
     }
     seen.add(target);
   }
@@ -1532,7 +1529,7 @@ function readOptionalTargetNames(raw: JsonValue | undefined, label: string): rea
 
 function validateMarketplaceId(value: string, label: string): void {
   if (/^[a-z0-9][a-z0-9-]*$/.test(value)) return;
-  throw new Error(`skillset: expected ${label} to be a lowercase plugin id`);
+  throw new InputValidationError(`skillset: expected ${label} to be a lowercase plugin id`);
 }
 
 function validateMarketplaceRepo(value: string, label: string): void {
@@ -1543,29 +1540,30 @@ function validateMarketplaceRepo(value: string, label: string): void {
     value.startsWith("file:") ||
     /^[A-Za-z]:[\\/]/.test(value)
   ) {
-    throw new Error(`skillset: expected ${label} to be a remote repo reference, not a filesystem path`);
+    throw new InputValidationError(`skillset: expected ${label} to be a remote repo reference, not a filesystem path`);
   }
   try {
     parseRemoteRepositoryReference(value);
   } catch (error) {
-    const message = error instanceof Error ? error.message.replace(/^skillset:\s*/u, "") : String(error);
-    throw new Error(`skillset: invalid ${label}: ${message}`);
+    if (!(error instanceof InputValidationError)) throw error;
+    const message = error.message.replace(/^skillset:\s*/u, "");
+    throw new InputValidationError(`skillset: invalid ${label}: ${message}`, { cause: error });
   }
 }
 
 function readDistributionFrom(raw: JsonValue | undefined, label: string): DistributionConfig["from"] {
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(raw)) {
     if (key !== "runtime" && key !== "selector" && key !== "target") {
-      throw new Error(`skillset: unsupported distribution from key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported distribution from key ${key} in ${label}`);
     }
   }
 
   const target = raw.target;
   if (!isTargetName(target)) {
-    throw new Error(`skillset: expected ${label}.target to be ${TARGET_LIST_TEXT}`);
+    throw new InputValidationError(`skillset: expected ${label}.target to be ${TARGET_LIST_TEXT}`);
   }
   const selector = readRequiredString(raw, "selector", `${label}.selector`);
   const runtime = readDistributionRuntime(raw, target, label);
@@ -1578,33 +1576,33 @@ function readDistributionFrom(raw: JsonValue | undefined, label: string): Distri
 
 function readDistributionTo(raw: JsonValue | undefined, label: string): DistributionConfig["to"] {
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(raw)) {
     if (key !== "branch" && key !== "kind" && key !== "path" && key !== "repo" && key !== "subdirectory") {
-      throw new Error(`skillset: unsupported distribution to key ${key} in ${label}`);
+      throw new InputValidationError(`skillset: unsupported distribution to key ${key} in ${label}`);
     }
   }
 
   const kind = raw.kind;
   if (kind !== "git" && kind !== "local") {
-    throw new Error(`skillset: expected ${label}.kind to be local or git`);
+    throw new InputValidationError(`skillset: expected ${label}.kind to be local or git`);
   }
   const path = readOptionalString(raw, "path", `${label}.path`);
   const repo = readOptionalString(raw, "repo", `${label}.repo`);
   const branch = readOptionalString(raw, "branch", `${label}.branch`);
   const subdirectory = readOptionalString(raw, "subdirectory", `${label}.subdirectory`);
   if (kind === "local" && path === undefined) {
-    throw new Error(`skillset: ${label}.path is required for local distributions`);
+    throw new InputValidationError(`skillset: ${label}.path is required for local distributions`);
   }
   if (kind === "local" && repo !== undefined) {
-    throw new Error(`skillset: ${label}.repo is only supported for git distributions`);
+    throw new InputValidationError(`skillset: ${label}.repo is only supported for git distributions`);
   }
   if (kind === "git" && repo === undefined) {
-    throw new Error(`skillset: ${label}.repo is required for git distributions`);
+    throw new InputValidationError(`skillset: ${label}.repo is required for git distributions`);
   }
   if (kind === "git" && path !== undefined) {
-    throw new Error(`skillset: ${label}.path is only supported for local distributions`);
+    throw new InputValidationError(`skillset: ${label}.path is only supported for local distributions`);
   }
   return {
     ...(branch === undefined ? {} : { branch }),
@@ -1623,12 +1621,12 @@ function readDistributionRuntime(
   const runtime = readOptionalString(record, "runtime", `${label}.runtime`);
   if (runtime === undefined) return undefined;
   if (!SKILLSET_RUNTIME_IDS.includes(runtime as SkillsetRuntimeId)) {
-    throw new Error(`skillset: unsupported ${label}.runtime ${JSON.stringify(runtime)}; expected one of: ${SKILLSET_RUNTIME_IDS.join(", ")}`);
+    throw new InputValidationError(`skillset: unsupported ${label}.runtime ${JSON.stringify(runtime)}; expected one of: ${SKILLSET_RUNTIME_IDS.join(", ")}`);
   }
   const runtimeId = runtime as SkillsetRuntimeId;
   const compatible = DISTRIBUTION_RUNTIME_TARGETS[target];
   if (!compatible.includes(runtimeId)) {
-    throw new Error(`skillset: ${label}.runtime ${runtime} is not compatible with target ${target}; expected one of: ${compatible.join(", ")}`);
+    throw new InputValidationError(`skillset: ${label}.runtime ${runtime} is not compatible with target ${target}; expected one of: ${compatible.join(", ")}`);
   }
   return runtimeId;
 }
@@ -1636,7 +1634,7 @@ function readDistributionRuntime(
 function readRequiredString(record: JsonRecord, key: string, label: string): string {
   const value = readOptionalString(record, key, label);
   if (value === undefined) {
-    throw new Error(`skillset: expected ${label} to be a non-empty string`);
+    throw new InputValidationError(`skillset: expected ${label} to be a non-empty string`);
   }
   return value;
 }
@@ -1645,7 +1643,7 @@ function readOptionalString(record: JsonRecord, key: string, label: string): str
   const value = record[key];
   if (value === undefined) return undefined;
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`skillset: expected ${label} to be a non-empty string`);
+    throw new InputValidationError(`skillset: expected ${label} to be a non-empty string`);
   }
   return value.trim();
 }
@@ -1658,17 +1656,17 @@ function readShorthandTargetDefaults(
   const result = targetRecord(() => ({}));
   if (defaults === undefined) return result;
   if (!isJsonRecord(defaults)) {
-    throw new Error(`skillset: expected ${label}.defaults to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.defaults to be an object`);
   }
   for (const key of Object.keys(defaults)) {
     if (!isTargetName(key)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: unsupported target ${JSON.stringify(key)} in ${label}.defaults; expected ${TARGET_LIST_TEXT}`
       );
     }
     const targetDefaults = defaults[key];
     if (!isJsonRecord(targetDefaults)) {
-      throw new Error(`skillset: expected ${label}.defaults.${key} to be an object`);
+      throw new InputValidationError(`skillset: expected ${label}.defaults.${key} to be an object`);
     }
     validateDefaultSurfaces(targetDefaults, `${label}.defaults.${key}`);
     result[key] = targetDefaults;
@@ -1679,10 +1677,10 @@ function readShorthandTargetDefaults(
 function validateDefaultSurfaces(defaults: JsonRecord, label: string): void {
   for (const key of Object.keys(defaults)) {
     if (key === RETIRED_RULE_DEFAULTS_SURFACE) {
-      throw new Error(`skillset: ${label}.${key} is retired; use ${label}.rules`);
+      throw new InputValidationError(`skillset: ${label}.${key} is retired; use ${label}.rules`);
     }
     if (!DEFAULT_SURFACES.has(key as FeatureSurface)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected agents, plugins, rules, or skills`
       );
     }
@@ -1733,7 +1731,7 @@ function readTargetOutputSetting(
   if (rawTarget === undefined || rawTarget === true) return { selection: true };
   if (rawTarget === false) return { selection: false };
   if (!isJsonRecord(rawTarget)) {
-    throw new Error(`skillset: expected ${label.split(".")[0]} to be true, false, or an object`);
+    throw new InputValidationError(`skillset: expected ${label.split(".")[0]} to be true, false, or an object`);
   }
 
   if (rawTarget.enabled === false) return { selection: false };
@@ -1750,14 +1748,14 @@ function readOutputSetting(
   if (raw === true || raw === false) return { selection: raw };
   if (Array.isArray(raw)) return { selection: readStringArrayValue(raw, label) };
   if (!isJsonRecord(raw)) {
-    throw new Error(`skillset: expected ${label} to be true, false, a string array, or an object`);
+    throw new InputValidationError(`skillset: expected ${label} to be true, false, a string array, or an object`);
   }
 
   if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
-    throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
+    throw new InputValidationError(`skillset: expected ${label}.enabled to be a boolean`);
   }
   if (!allowPath && Object.hasOwn(raw, "path")) {
-    throw new Error(`skillset: unsupported ${label}.path; provider skill roots are fixed`);
+    throw new InputValidationError(`skillset: unsupported ${label}.path; provider skill roots are fixed`);
   }
 
   const include = raw.include === undefined ? undefined : readStringArrayValue(raw.include, `${label}.include`);
@@ -1773,7 +1771,7 @@ function rejectProviderSkillOutputRoots(record: JsonRecord): void {
     const targetConfig = record[target];
     if (!isJsonRecord(targetConfig) || !isJsonRecord(targetConfig.skills)) continue;
     if (Object.hasOwn(targetConfig.skills, "path")) {
-      throw new Error(`skillset: unsupported ${target}.skills.path; provider skill roots are fixed`);
+      throw new InputValidationError(`skillset: unsupported ${target}.skills.path; provider skill roots are fixed`);
     }
   }
 }
@@ -1783,7 +1781,7 @@ function rejectLegacySkillOutputRoots(metadata: JsonRecord): void {
   if (!isJsonRecord(outputs) || !isJsonRecord(outputs.skills)) return;
   for (const target of targetNames()) {
     if (Object.hasOwn(outputs.skills, target)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: unsupported skillset.outputs.skills.${target}; provider skill roots are fixed`
       );
     }
@@ -1814,11 +1812,11 @@ export function readClaudeBundlePath(
   const claude = config.claude;
   if (!isJsonRecord(claude) || claude.bundle === undefined) return undefined;
   if (!isJsonRecord(claude.bundle)) {
-    throw new Error(`skillset: expected ${label}.claude.bundle to be an object`);
+    throw new InputValidationError(`skillset: expected ${label}.claude.bundle to be an object`);
   }
   const path = readString(claude.bundle, "path");
   if (path === undefined) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: expected ${label}.claude.bundle.path to be a string`
     );
   }
@@ -1827,7 +1825,7 @@ export function readClaudeBundlePath(
 
 function readStringArrayValue(value: JsonValue, label: string): readonly string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-    throw new Error(`skillset: expected ${label} to be a string array`);
+    throw new InputValidationError(`skillset: expected ${label} to be a string array`);
   }
   return value.map((item) => String(item));
 }

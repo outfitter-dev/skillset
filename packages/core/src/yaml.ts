@@ -1,4 +1,5 @@
 import YAML from "yaml";
+import { InputValidationError } from "./input-validation-error";
 
 import type { JsonRecord, JsonValue, MarkdownParts } from "./types";
 
@@ -7,15 +8,28 @@ export function isJsonRecord(value: unknown): value is JsonRecord {
 }
 
 export function parseYamlRecord(content: string, label: string): JsonRecord {
-  let parsed: unknown;
-  try {
-    parsed = YAML.parse(content) as unknown;
-  } catch (error) {
-    throw yamlSyntaxError(error, label);
+  const document = YAML.parseDocument(content);
+  for (const warning of document.warnings) process.emitWarning(warning);
+  const parseError = document.errors[0];
+  if (parseError !== undefined) {
+    if (!(parseError instanceof YAML.YAMLParseError)) throw parseError;
+    throw invalidYaml(parseError, label);
   }
+  // Alias conversion also throws ReferenceError for internal invariants. Prove
+  // this source error from the parsed document instead of trusting that class.
+  YAML.visit(document, {
+    Alias(_key, alias) {
+      if (alias.resolve(document) === undefined) {
+        throw invalidYaml(new ReferenceError(
+          `Unresolved alias (the anchor must be set before the alias): ${alias.source}`
+        ), label);
+      }
+    },
+  });
+  const parsed: unknown = document.toJS();
   if (parsed === null) return {};
   if (!isJsonRecord(parsed)) {
-    throw new Error(`skillset: expected ${label} to contain a YAML object`);
+    throw new InputValidationError(`skillset: expected ${label} to contain a YAML object`);
   }
   return parsed;
 }
@@ -30,7 +44,7 @@ export function parseMarkdown(content: string, label: string): MarkdownParts {
 
   const closingIndex = lines.findIndex((line, index) => index > 0 && line === "---");
   if (closingIndex === -1) {
-    throw new Error(`skillset: frontmatter in ${label} starts with --- but never closes`);
+    throw new InputValidationError(`skillset: frontmatter in ${label} starts with --- but never closes`);
   }
 
   const frontmatter = parseYamlRecord(lines.slice(1, closingIndex).join("\n"), label);
@@ -83,10 +97,6 @@ function sortValue(value: JsonValue): JsonValue {
   return value;
 }
 
-function yamlSyntaxError(error: unknown, label: string): Error {
-  const cause = error instanceof Error ? error : undefined;
-  const detail = cause?.message ?? String(error);
-  return new Error(`skillset: ${label} is not valid YAML: ${detail}`, {
-    ...(cause === undefined ? {} : { cause }),
-  });
+function invalidYaml(cause: Error, label: string): InputValidationError {
+  return new InputValidationError(`skillset: ${label} is not valid YAML: ${cause.message}`, { cause });
 }
