@@ -799,3 +799,10 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Type deliberate feature source selection/kind/pointer rejects while retaining the existing diagnostic code, feature, path, and message.
 - resolveInside now distinguishes its explicit lexical rejection as PathContainmentError; the feature-pointer input boundary alone translates that to InputValidationError. Path-adapter faults and derived output-root failures are not caught as input. Containment semantics are unchanged.
 - Tests preserve conventional/explicit loading, detect invalid pointers and kinds, prove operational stat failures and observed-then-vanished races keep their identities. Initial 8 failures/11 controls; final focused 52 tests and 214 assertions across feature, path, and MCP suites; fast gate passes. Review/full verification follow the commit.
+
+### SET-467 release cache corruption boundary
+
+- Ledger-derived recovery now catches only explicit CorruptReleaseStateError from cache syntax/shape validation, including a narrow wrapper around the version validator. Read failures, internal faults, and unknown source-move cursors remain errors.
+- Preserve nonempty-ledger recovery for every previously rejected cache content shape, legacy optional-field permissiveness, valid cache merge priority, and move semantics. No claim of reconstructing absent cache-only history.
+- New regression tests initially exposed 26 failures with 17 passing controls. Final focused release/cache/move/CLI suite: 69 tests, 224 assertions; fast repository gate passes. Review/full immutable verification follow the commit.
+- Supports layer 8552b13e full verification: 4808 pass, 3 skip, 4 todo, 3 failures, all deferred native-size limits; no receipt.

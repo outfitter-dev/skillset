@@ -39,7 +39,7 @@ A confirmed release with at least one entry to apply:
 
 With no entry to apply, `release apply` writes nothing. Events that lifecycle commands such as `draft` record without a change entry stay in their pending files, where readers still fold them, until the next release that has an entry folds them in.
 
-Release state wins over inline source versions when a release scope exists. Otherwise inline metadata remains the import/read fallback. Pending reasons never appear as a pending section in committed changelogs. Cached `.skillset/changes/state.json` is published atomically so readers observe a complete previous document or a complete replacement.
+Release state wins over inline source versions when a release scope exists. Otherwise inline metadata remains the import/read fallback. Pending reasons never appear as a pending section in committed changelogs. Cached `.skillset/changes/state.json` is published atomically so readers observe a complete previous document or a complete replacement. If ledger-derived release scopes exist, the reader can ignore malformed cached state and use those scopes. Filesystem failures and unexpected internal errors remain errors; they do not trigger this corruption recovery.
 
 ## Correct Wording Without Editing Generated Changelogs
 
