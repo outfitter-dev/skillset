@@ -836,3 +836,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Reproduced public conformance accepting repeated names across distinct sources; now diagnose each later exact-string duplicate against the first entry. Unique and case-distinct names pass; malformed values remain diagnostic without coercion.
 - Registered the pinned 2.1.269 post-parse validator error separately from schema predicates and strict warnings. The provider diagnoses every duplicate-group member; Core intentionally points later entries to the first. No provider code was executed.
 - All 58 focused tests / 302 assertions and the fast gate pass. The exact member and all 16 evidence windows verify. Coverage updates were constrained to the changed marketplace function, the new rule and reviewed parser evidence; unrelated declarations and dependencies were asserted unchanged. Exact review and full immutable verification follow the commit.
+
+### SET-488 metadata and rename qualification
+
+- Qualified exact metadata keys on the pinned 2.1.269 strict-warning path and string-or-null rename object values on the validator error path. Loader catch behavior and additional rename-chain/target checks remain distinct. Core declarations are unchanged.
+- Compared entry keys separately: provider-only binaries/headers/headersHelper remain unresolved and are tracked in SET-801, with public API probes confirming Core's unknown-field diagnostics. No permissive field additions were made.
+- All 37 focused tests / 250 assertions and the fast gate pass. Independently verified the member and all 19 windows. Only reviewed evidence fingerprints changed; unrelated declarations and dependencies were asserted unchanged. Exact review and full verification follow the commit.

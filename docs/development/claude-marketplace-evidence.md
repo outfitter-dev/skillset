@@ -39,3 +39,5 @@ Fingerprints are change-review tripwires, not semantic proofs or an inferred Typ
 This record preserves current offline validation behavior. Several stricter predicates still have unresolved runtime or version provenance; they remain visible follow-up work and do not become a beta readiness gate.
 
 The duplicate-name rule records the pinned validator's post-parse exact-name comparison and error path. Core reports each later duplicate against its first occurrence; the provider code reports every member of the duplicate group. This is offline conformance evidence, with no provider execution claim.
+
+The metadata closed-key record matches `pluginRoot`, `version` and `description` on the pinned strict-warning path. The rename record qualifies only optional object member values of string or null on the validator error path; the base loader catches invalid renames, and extra chain/target checks remain separate. Plugin-entry closed-key authority remains unresolved: the pinned provider recognizes `binaries`, `headers` and `headersHelper`, which Core currently omits. These records do not change compiler behavior.

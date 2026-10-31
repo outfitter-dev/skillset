@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique";
+export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -135,6 +135,24 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
       "start": 208266450,
       "end": 208266950,
       "contentHash": "sha256:e6f14085d3f61922f7c71c41daa43f389509d8feb1477199038d8576c3d1ff51"
+    },
+    {
+      "id": "marketplace-metadata-shape",
+      "start": 181312531,
+      "end": 181314017,
+      "contentHash": "sha256:90067633aa85cc84aacdaa24c5fc6d5f9b0702f53c768d875c9be1d7d9f726a5"
+    },
+    {
+      "id": "strict-validator-overrides-and-unknown",
+      "start": 208263350,
+      "end": 208265800,
+      "contentHash": "sha256:ec968f65baa3785da49d03e64f3484548f9a85c442a584b56672d0bd144c6815"
+    },
+    {
+      "id": "unknown-warning-helper",
+      "start": 208254850,
+      "end": 208255195,
+      "contentHash": "sha256:debad8fffcd9f1ccd97a117fb53b6b2294878011a880a6529ac9704e666f83da"
     }
   ],
   "predicates": {
@@ -191,6 +209,36 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
         "marketplace-validator-return"
       ],
       "claim": "After schema parsing succeeds, the marketplace validator compares plugin names with exact equality and records duplicate names as errors. Core diagnoses each later occurrence against the first, while the pinned validator diagnoses every member of a duplicate group. Static inspection does not establish observed execution or runtime behavior."
+    },
+    "metadata-closed-strict": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.metadata.closed",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-return",
+        "strict-validator-overrides-and-unknown",
+        "marketplace-metadata-shape",
+        "unknown-warning-helper",
+        "strict-success-policy"
+      ],
+      "claim": "The validator compares raw object-valued metadata keys to LMe metadata keys pluginRoot/version/description using U. Other keys produce warnings, which fail only under --strict. Core reports an unknown-field diagnostic. This qualifies the exact key set, not ordinary non-strict validation, value types or runtime behavior."
+    },
+    "rename-values": {
+      "stage": "validator-error",
+      "ruleId": "marketplace.renames.values",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-return",
+        "strict-validator-overrides-and-unknown",
+        "marketplace-metadata-shape"
+      ],
+      "claim": "The validator overrides the base loader renames schema with an optional string-keyed record of string-or-null values and sends parse failures to errors. This qualifies JSON object member value shape only. The base loader catches invalid renames; additional validator rename-chain resolution and target-name checks are separate and not claimed as Core behavior."
     }
   },
   "limitation": "Embedded bundled JavaScript inspection only. Schema-predicate records do not establish command exit status because entry recovery and later validation stages differ. The strict-warning record traces one warning-to-status condition; it does not establish whole-command acceptance, installation, trust or runtime behavior. No provider code was executed."
@@ -211,11 +259,15 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     ids.add(window.id);
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
-  for (const id of ["archive-digest", "command-limits", "entry-name-strict", "entry-name-unique"] as const) {
+  for (const [id, stage] of [
+    ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
+    ["entry-name-strict", "strict-warning"], ["entry-name-unique", "validator-error"],
+    ["metadata-closed-strict", "strict-warning"], ["rename-values", "validator-error"],
+  ] as const) {
     const predicate = evidence.predicates[id];
-    if (predicate === undefined || predicate.stage !== (id === "entry-name-strict" ? "strict-warning" : id === "entry-name-unique" ? "validator-error" : "schema-predicate") || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
+    if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 4) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 6) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {
