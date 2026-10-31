@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:0a62880e954446ff4d04c0fc3d13369f7e3b5bb5b9f4cae8729d604c73e68c19",
+  "evidenceHash": "sha256:d6efea44ed12939c1ebd15628cd152086274b787b6cc7f162983cf5ffa2ecf66",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,19 +108,8 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:f32171dd6ebf00454bf85e7048f6392d76796705828871b332031fc6a742ee72",
-      "ruleIds": [
-        "marketplace.components.paths",
-        "marketplace.components.array_types"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkClaudeComponentPaths",
-      "hash": "sha256:4081bbaa2d653f6dd4a755347a901eff63b7f73c2c5efc0d8c76aa3b6743f03e",
-      "ruleIds": [
-        "marketplace.components.paths"
-      ],
+      "hash": "sha256:c2f272a2a477149161289d737d9a89c6f2c751eef93c7e467517f52d3c24209e",
+      "ruleIds": [],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
     {
@@ -249,6 +238,12 @@
       "hash": "sha256:7390c4861965e9f60ceb8981b2b59551386fb7a2015b2270a94f53eb6422eded",
       "ruleIds": [],
       "reason": "Shared experimental validator wiring."
+    },
+    {
+      "name": "import:\"./claude-hook-reference-conformance\"",
+      "hash": "sha256:984240e180f2086fb905339cfbaac27ea208b4f9a924e7c2eff9cf995c2639f6",
+      "ruleIds": [],
+      "reason": "Shared lexical hook reference validator wiring."
     }
   ],
   "dependencies": [
@@ -348,7 +343,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:b7b998e01b969e5c4aa77b4c87ffd0c8583f498610280b50733b86852d5f594f",
+      "hash": "sha256:832b341843cc6b545e80771ccd72db36e998d528e1c53668e60b52324f202a1b",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -382,7 +377,9 @@
         "marketplace.monitors.unique",
         "marketplace.experimental",
         "marketplace.experimental.children",
-        "marketplace.experimental.syntax"
+        "marketplace.experimental.syntax",
+        "marketplace.components.paths",
+        "marketplace.components.array_types"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -547,6 +544,16 @@
         "marketplace.experimental.syntax"
       ],
       "reason": "Reviewed rc child schemas and Be strict warning inventory; Core retains existing blocking unknown/nonobject policy."
+    },
+    {
+      "path": "packages/core/src/claude-hook-reference-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:2b6f47a89b29cdf650fc5087b113f4bc8f047ff4dc06aa0707c998c2799f6f16",
+      "ruleIds": [
+        "marketplace.components.paths",
+        "marketplace.components.array_types"
+      ],
+      "reason": "Reviewed shared jd/Ke reference union; inline handler checks remain independently owned."
     }
   ]
 }

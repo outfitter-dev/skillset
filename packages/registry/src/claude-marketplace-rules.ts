@@ -212,9 +212,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.components.paths", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths"],
-    predicate: "Residual hooks string paths use ./ and .json",
-    qualification: "Map per-field per-alternative patterns individually; no blanket pointer for exact entire list.",
+    id: "marketplace.components.paths", parser: "hook-reference-paths", owners: ["checkClaudeHookReferences"],
+    predicate: "Hook reference strings use ./ and .json",
+    qualification: "Pinned shared jd/Ke lexical input predicates; no filesystem or inline hook semantics claim.",
     schema: [],
   },
   {
@@ -224,9 +224,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.components.array_types", owners: ["checkClaudeMarketplacePluginArrays"],
-    predicate: "hooks arrays string or object; monitors arrays object. MCP forms are owned by their separate pinned validator",
-    qualification: "Pin union structure must be compared separately to each Core condition.",
+    id: "marketplace.components.array_types", parser: "hook-reference-array", owners: ["checkClaudeHookReferences"],
+    predicate: "Hook arrays contain reference strings or inline objects; inline contents are separately owned",
+    qualification: "Pinned shared jd union structure only; standalone inline recovery and handler acceptance remain separate.",
     schema: [],
   },
   {
