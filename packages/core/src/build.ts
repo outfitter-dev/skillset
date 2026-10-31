@@ -54,7 +54,7 @@ import {
 import { renderBuildGraph } from "./render";
 import type { RenderDestination } from "./build-destination";
 import { claudeMarketplaceSourcePlugins } from "./render-marketplaces";
-import { CLAUDE_PROJECT_INSTRUCTION_PATHS, readRulePaths } from "./render-rules";
+import { CLAUDE_PROJECT_INSTRUCTION_PATHS, planRuleInstructionProjections, readRulePaths } from "./render-rules";
 import { loadBuildGraph } from "./resolver";
 import {
   standardProfileStatuses,
@@ -103,12 +103,20 @@ function managedOutputProvenancePolicy(
   };
 }
 
-function assertBuildProjection(
+async function assertBuildProjection(
   graph: BuildGraph,
   scopes: readonly BuildScope[] | undefined
-): void {
+): Promise<void> {
   if (graph.root.compile.targets.length > 0) return;
   if (scopedOutputRoots(graph, scopes).length > 0) return;
+  // Instruction files are managed individually; the workspace is not a managed root.
+  if (includesProjectScope(scopes)) {
+    const projections = await planRuleInstructionProjections(graph);
+    if (projections.some(({ outputProjection }) =>
+      outputProjection.consumer.phase === "baseline" &&
+      outputProjection.consumer.standardProfile === "agent-instructions"
+    )) return;
+  }
 
   throw new SkillsetFeatureDiagnosticError({
     code: "no-projections",
@@ -461,7 +469,7 @@ async function runBuildProjection(
   collected: { repair?: SkillsetRepairPlan }
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertBuildProjection(graph, options.scopes);
+  await assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1473,7 +1481,7 @@ export async function diffSkillsetResult(
   inspection: SkillsetDiffInspectionOptions = {}
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertBuildProjection(graph, options.scopes);
+  await assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
@@ -1574,7 +1582,7 @@ export async function verifySkillsetResult(
   options: SkillsetOptions = {}
 ): Promise<SkillsetVerifyResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  assertBuildProjection(graph, options.scopes);
+  await assertBuildProjection(graph, options.scopes);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);

@@ -99,6 +99,7 @@ const OWNED_FUNCTIONS = {
     "withOptionalSurfacePaths",
   ],
   "render-rules": [
+    "planRuleInstructionProjections",
     "readRulePaths",
     "renderRules",
     "ruleAppliesTo",
