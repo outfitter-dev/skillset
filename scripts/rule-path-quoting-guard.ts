@@ -19,9 +19,33 @@ const SHELLS = new Set([
   "pwsh",
 ]);
 const COMMAND =
-  /^(?:\$\s+)?(?:cat|mkdir|cd|ls|cp|mv|rm|git|skillset|bun|Get-Content|Get-Item|Get-ChildItem|Remove-Item|Copy-Item|Move-Item|New-Item)\b/iu;
+  /^(?:\$\s+)?(?:echo|printf|cat|mkdir|cd|ls|cp|mv|rm|git|skillset|bun|Get-Content|Get-Item|Get-ChildItem|Remove-Item|Copy-Item|Move-Item|New-Item)\b/iu;
 const WILDCARD_CMDLET =
   /\b(?:Get-Content|Get-Item|Get-ChildItem|Remove-Item|Copy-Item|Move-Item|Set-Content|Add-Content|Test-Path)\b/iu;
+
+/** Find a substitution boundary without treating quoted parentheses as syntax. */
+function substitutionEnd(text: string, start: number): number | undefined {
+  let depth = 1;
+  let quote = "";
+  for (let index = start; index < text.length; index++) {
+    const character = text[index]!;
+    if (character === "\\" && quote !== "'") {
+      index++;
+      continue;
+    }
+    if (quote !== "") {
+      if (character === quote) quote = "";
+      continue;
+    }
+    if (character === "'" || character === '\"') {
+      quote = character;
+      continue;
+    }
+    if (character === "(") depth++;
+    if (character === ")" && --depth === 0) return index;
+  }
+  return undefined;
+}
 
 /** Checks literal path examples, preserving quotes that normalized argv would erase. */
 function unsafePaths(command: string, powershell: boolean): string[] {
@@ -30,13 +54,19 @@ function unsafePaths(command: string, powershell: boolean): string[] {
   let quote = "";
   let unprotected = false;
   let arrayDepth = 0;
-  let substitutionDepth = 0;
+
   let wildcardCmdlet = false;
   let literalPathNext = false;
+  let commandName: string | undefined;
   const flush = () => {
     if (value === "") return;
+    commandName ??= value;
     if (WILDCARD_CMDLET.test(value)) wildcardCmdlet = true;
-    if (/[\/\\]/u.test(value) && /[\[\]()]/u.test(value)) {
+    const barePathOperand =
+      /^(?:cat|mkdir|cd|ls|cp|mv|rm|Get-Content|Get-Item|Get-ChildItem|Remove-Item|Copy-Item|Move-Item|New-Item)$/iu.test(
+        commandName
+      ) && !value.startsWith("-");
+    if ((/[\/\\]/u.test(value) || barePathOperand) && /[\[\]()]/u.test(value)) {
       if (quote !== "" || unprotected)
         violations.push(`Quote the literal shell path: ${value}`);
       else if (
@@ -56,6 +86,20 @@ function unsafePaths(command: string, powershell: boolean): string[] {
   };
   for (let index = 0; index < command.length; index++) {
     const character = command[index]!;
+    if (
+      !powershell &&
+      quote !== "'" &&
+      character === "$" &&
+      command[index + 1] === "("
+    ) {
+      const end = substitutionEnd(command, index + 2);
+      const nested = command.slice(index + 2, end);
+      violations.push(...unsafePaths(nested, false));
+      if (end === undefined) return violations;
+      value += "$substitution";
+      index = end;
+      continue;
+    }
     if (quote !== "") {
       if (character === quote) quote = "";
       else if (character === (powershell ? "`" : "\\") && quote === '"')
@@ -68,19 +112,9 @@ function unsafePaths(command: string, powershell: boolean): string[] {
       arrayDepth++;
       continue;
     }
-    if (character === "(" && value === "$") {
-      value = "";
-      substitutionDepth++;
-      continue;
-    }
-    if (
-      character === ")" &&
-      (arrayDepth > 0 || substitutionDepth > 0) &&
-      !value.includes("(")
-    ) {
+    if (character === ")" && arrayDepth > 0 && !value.includes("(")) {
       flush();
-      if (substitutionDepth > 0) substitutionDepth--;
-      else arrayDepth--;
+      arrayDepth--;
       continue;
     }
     if (character === "#" && value === "") break;
@@ -97,6 +131,7 @@ function unsafePaths(command: string, powershell: boolean): string[] {
       if (/[;|&]/u.test(character)) {
         wildcardCmdlet = false;
         literalPathNext = false;
+        commandName = undefined;
       }
       continue;
     }
@@ -136,7 +171,7 @@ export function scanRulePathQuoting(
           : [];
     for (const snippet of snippets) {
       for (const text of unsafePaths(
-        snippet,
+        snippet.replace(/^\s*\$\s+/u, ""),
         fence?.language === "powershell" || fence?.language === "pwsh"
       )) {
         violations.push({ file, line: index + 1, text });

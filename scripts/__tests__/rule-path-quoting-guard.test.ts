@@ -121,3 +121,15 @@ test("PowerShell literal-path permission does not leak across operands or comman
     )
   ).toHaveLength(1);
 });
+
+test("bare literal operands and command substitutions retain shell risk", () => {
+  expect(scan("mkdir [slug]")).toHaveLength(1);
+  expect(scan("$ mkdir [slug]", "console")).toHaveLength(1);
+  expect(scan("skillset diff [path...]")).toEqual([]);
+  expect(scan("cat [slug]")).toHaveLength(1);
+  expect(scan("mkdir '[slug]'")).toEqual([]);
+  expect(scan('echo "$(cat app/[slug]/AGENTS.md)"')).toHaveLength(1);
+  expect(scan("echo \"$(cat 'app/[slug]/AGENTS.md')\"")).toEqual([]);
+  expect(scan("echo '$(cat app/[slug]/AGENTS.md)'")).toEqual([]);
+  expect(scan('[[ "$name" == [a-z] ]]')).toEqual([]);
+});
