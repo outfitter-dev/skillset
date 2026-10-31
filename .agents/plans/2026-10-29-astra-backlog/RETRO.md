@@ -881,3 +881,8 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 
 - Schema and the change checker now reject malformed known `changes.reason.minLength` values instead of silently substituting 40. Missing values preserve the default; positive integer overrides retain their behavior. Workspace-only scope avoids implying plugin policy consumption. Existing unknown-key acceptance is preserved pending the separate owner decision.
 - Baseline: 12 malformed-policy cases failed parity tests; six valid/default/plugin controls passed. Focused schema, actual change-check and Workbench regressions pass after the fix. The broader six-project reconciliation remains outcome-based; live issue counts are not an eligible denominator.
+
+### SET-697 consumed plugin output paths
+
+- Shared schema now validates the known `skillset.outputs.plugins` object and each provider path as a nonblank string. Core's direct output reader consumes the same validator, so malformed values no longer silently fall back; graph tests retain default paths and the existing custom shared-package placement refusal. Unknown extension keys remain accepted pending the separate policy decision.
+- Baseline: 26 malformed cases failed while four controls passed. Final focused output/schema/target tests: 39 pass / 126 assertions. The source metadata example now demonstrates the actually consumed nested map. Six narrow capability judgments were requalified: only the input-validation boundary changed, their implementation owners remain unchanged, and 200 manifest/adoption/invocation/agent/rule/crosswalk tests pass with 926 assertions. No provider-runtime or broader placement claim.

@@ -19,8 +19,9 @@ origin:
   ref: main
   repo: https://github.com/example/team-skillset
 outputs:
-  claude: plugins
-  codex: plugins
+  plugins:
+    claude: plugins
+    codex: plugins
 preprocess: false
 repository: https://github.com/example/team-skillset
 schema: 1
