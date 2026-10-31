@@ -1360,7 +1360,7 @@ Family: plugins. Exact aliases: `agents/`.
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:f832da96e35b42b4720357ad0120621856b0a0630d8a680c3da6d282b6f8c41d`.
+- Authority pin: `sha256:382d47046d76fbda2e02ab0c233e2eb63a4a828c5d7b807feac15b66eac820b3`.
 - Standards: none recorded.
 - Provider-native destination: `claude-subagent`.
 
@@ -1407,7 +1407,7 @@ Limitations:
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: unsupported; fidelity: **unavailable**; evidence: **current**.
 - Semantic scope: The pinned Codex plugin contract has no plugin agents component; Skillset cannot faithfully emit plugin-packaged agents there.
-- Authority pin: `sha256:89cf22a19c3f2ce9990b2015738328565695b9d935b79004797448ff34b49542`.
+- Authority pin: `sha256:56a39e726a744c09d57819b308eb8c8d9451bd24524f5e2f1930f1fb458e19b9`.
 - Standards: none recorded.
 - Provider-native destination: `codex-plugin`.
 
@@ -1467,12 +1467,16 @@ Limitations:
       "developerName",
       "displayName",
       "logo",
+      "logoDark",
       "longDescription",
       "privacyPolicyURL",
+      "privacyPolicyUrl",
       "screenshots",
       "shortDescription",
       "termsOfServiceURL",
-      "websiteURL"
+      "termsOfServiceUrl",
+      "websiteURL",
+      "websiteUrl"
     ],
     "authorFields": [
       "name",
@@ -1526,7 +1530,7 @@ Limitations:
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:644a981dfc902dadd6c3293d895d31483dd4f88faa9553f9ff0eab40e9d4481d`.
+- Authority pin: `sha256:a8071aec37acbf65ea43164a586fb8fde968e9120e0c42556fe40746877a8ed5`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-agent`.
 
