@@ -66,6 +66,7 @@ import {
   compareStrings,
   isPathInside,
   logicalDiagnosticPath,
+  PathContainmentError,
   resolveInside,
   toLogicalDiagnosticPath,
   validateSlug,
@@ -1473,7 +1474,7 @@ async function loadPluginFeature(
   const raw = config[key];
   if (raw === false) return undefined;
   if (key === "app" && raw !== undefined) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: plugin ${pluginId} feature app is conventional-only; author .app.json instead`
     );
   }
@@ -1490,28 +1491,28 @@ async function loadPluginFeature(
     sourcePath = conventionalSource;
   } else if (raw === true) {
     if (!hasConventionalSource) {
-      throw new Error(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${logicalDiagnosticPath(rootPath, conventionalSource)}`);
+      throw new InputValidationError(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${logicalDiagnosticPath(rootPath, conventionalSource)}`);
     }
     sourcePath = conventionalSource;
   } else if (isJsonRecord(raw)) {
     sourcePointer = readString(raw, "source");
     if (sourcePointer === undefined) {
-      throw new Error(`skillset: plugin ${pluginId} feature ${key} requires source`);
+      throw new InputValidationError(`skillset: plugin ${pluginId} feature ${key} requires source`);
     }
     sourcePath = await resolveRepoSourcePointer(rootPath, sourcePointer, `${configLabel}.${key}.source`, outputRoots);
     origin = "explicit";
   } else {
-    throw new Error(`skillset: expected ${configLabel}.${key} to be true, false, or an object`);
+    throw new InputValidationError(`skillset: expected ${configLabel}.${key} to be true, false, or an object`);
   }
 
   const stats = await stat(sourcePath);
   if ((key === "app" || key === "mcp") && !stats.isFile()) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: plugin ${pluginId} feature ${key} source must be a file`
     );
   }
   if (key === "bin" && !stats.isDirectory()) {
-    throw new Error(`skillset: plugin ${pluginId} feature bin source must be a directory`);
+    throw new InputValidationError(`skillset: plugin ${pluginId} feature bin source must be a directory`);
   }
 
   if (key === "mcp") {
@@ -1568,17 +1569,23 @@ async function resolveRepoSourcePointer(
   outputRoots: readonly ActiveOutputRoot[]
 ): Promise<string> {
   if (!sourcePointer.startsWith("repo:")) {
-    throw new Error(`skillset: ${label} must use a repo:<path> source pointer`);
+    throw new InputValidationError(`skillset: ${label} must use a repo:<path> source pointer`);
   }
-  const sourcePath = resolveInside(rootPath, sourcePointer.slice("repo:".length));
+  let sourcePath: string;
+  try {
+    sourcePath = resolveInside(rootPath, sourcePointer.slice("repo:".length));
+  } catch (error) {
+    if (!(error instanceof PathContainmentError)) throw error;
+    throw new InputValidationError(error.message, { cause: error });
+  }
   const outputRoot = outputRoots.find((root) => isInsidePath(sourcePath, resolveInside(rootPath, root.path)));
   if (outputRoot !== undefined) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: ${label} points inside generated output root ${outputRoot.label} (${outputRoot.path}); feature sources must live outside generated outputs`
     );
   }
   if (!(await exists(sourcePath))) {
-    throw new Error(`skillset: ${label} points to missing path ${sourcePointer}`);
+    throw new InputValidationError(`skillset: ${label} points to missing path ${sourcePointer}`);
   }
   return sourcePath;
 }

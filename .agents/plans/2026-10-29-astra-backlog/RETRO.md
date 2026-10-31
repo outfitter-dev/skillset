@@ -793,3 +793,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Source reads are outside the SyntaxError-only JSON catch. Declared cwd, command, and argument paths convert only ENOENT to missing-source validation with the original cause; other stat and realpath failures preserve identity. Successful realpath escape remains a typed input rejection.
 - Initial regression: 31 failures and 10 existing operational passes. Final focused suite: 62 tests, 211 assertions; fast gate passes. Independent review and full immutable verification follow the commit. Existing MCP diagnostic metadata remains unchanged; this prerequisite does not complete informational status.
 - Parent hook final 803afdc1 full verification: 4790 pass, 3 skip, 4 todo, 3 failures, all SET-419/420 native-size limits; no receipt.
+
+### SET-467 plugin feature source classification
+
+- Type deliberate feature source selection/kind/pointer rejects while retaining the existing diagnostic code, feature, path, and message.
+- resolveInside now distinguishes its explicit lexical rejection as PathContainmentError; the feature-pointer input boundary alone translates that to InputValidationError. Path-adapter faults and derived output-root failures are not caught as input. Containment semantics are unchanged.
+- Tests preserve conventional/explicit loading, detect invalid pointers and kinds, prove operational stat failures and observed-then-vanished races keep their identities. Initial 8 failures/11 controls; final focused 52 tests and 214 assertions across feature, path, and MCP suites; fast gate passes. Review/full verification follow the commit.

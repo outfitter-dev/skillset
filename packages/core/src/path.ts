@@ -51,6 +51,14 @@ export interface PathContainmentOptions {
   readonly path?: PathContainmentApi;
 }
 
+/** A deliberate containment rejection; the caller owns input provenance. */
+export class PathContainmentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PathContainmentError";
+  }
+}
+
 const PARENT_SEGMENT = "..";
 
 /**
@@ -97,7 +105,7 @@ export function resolveInside(
   const resolvedRoot = api.resolve(root);
   const resolved = api.resolve(resolvedRoot, candidate);
   if (!isPathInside(resolvedRoot, resolved, opts)) {
-    throw new Error(`skillset: refusing to operate outside repo root: ${candidate}`);
+    throw new PathContainmentError(`skillset: refusing to operate outside repo root: ${candidate}`);
   }
   return resolved;
 }
