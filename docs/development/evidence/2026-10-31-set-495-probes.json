@@ -1,0 +1,1721 @@
+{
+  "conformanceRevision": "02559515979024f1fab9cf1a8e1c711185adcbea",
+  "conformance": [
+    {
+      "id": "claude-shallow",
+      "path": "plugins/a/.claude-plugin/plugin.json",
+      "input": {
+        "name": "a",
+        "description": "a",
+        "commands": {
+          "bad": 42
+        },
+        "mcpServers": {
+          "server": {
+            "command": 99
+          }
+        },
+        "userConfig": {
+          "x": 42
+        }
+      },
+      "result": {
+        "checkedFiles": 1,
+        "issues": [],
+        "ok": true
+      }
+    },
+    {
+      "id": "claude-marketplace-control",
+      "path": ".claude-plugin/marketplace.json",
+      "input": {
+        "name": "x",
+        "owner": {
+          "name": "x"
+        },
+        "plugins": [
+          {
+            "name": "a",
+            "source": "./a",
+            "commands": {
+              "bad": 42
+            },
+            "mcpServers": {
+              "server": {
+                "command": 99
+              }
+            },
+            "userConfig": {
+              "x": 42
+            }
+          }
+        ]
+      },
+      "result": {
+        "checkedFiles": 1,
+        "issues": [
+          {
+            "code": "invalid-field-type",
+            "message": "destination field plugins[0].commands.bad must be an object",
+            "outputPath": ".claude-plugin/marketplace.json",
+            "providerRef": "claude-marketplace-schema",
+            "target": "claude"
+          },
+          {
+            "code": "invalid-field-type",
+            "message": "destination field plugins[0].mcpServers.server.command must be a string",
+            "outputPath": ".claude-plugin/marketplace.json",
+            "providerRef": "claude-marketplace-schema",
+            "target": "claude"
+          },
+          {
+            "code": "invalid-field-type",
+            "message": "destination field plugins[0].userConfig.x must be an object",
+            "outputPath": ".claude-plugin/marketplace.json",
+            "providerRef": "claude-marketplace-schema",
+            "target": "claude"
+          }
+        ],
+        "ok": false
+      }
+    },
+    {
+      "id": "agent-author",
+      "path": "plugins/a/plugin.json",
+      "input": {
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        "name": "a",
+        "version": "1.0.0",
+        "author": {
+          "name": 42
+        },
+        "extensions": {
+          "com.openai": {
+            "interface": {}
+          }
+        }
+      },
+      "result": {
+        "checkedFiles": 1,
+        "issues": [],
+        "ok": true
+      }
+    },
+    {
+      "id": "cursor-metadata",
+      "path": ".cursor-plugin/marketplace.json",
+      "input": {
+        "name": "x",
+        "plugins": [],
+        "metadata": {
+          "description": 42
+        }
+      },
+      "result": {
+        "checkedFiles": 1,
+        "issues": [],
+        "ok": true
+      }
+    },
+    {
+      "id": "cursor-metadata-open-control",
+      "path": ".cursor-plugin/marketplace.json",
+      "input": {
+        "name": "x",
+        "plugins": [],
+        "metadata": {
+          "description": "ok",
+          "any": {
+            "x": 42
+          }
+        }
+      },
+      "result": {
+        "checkedFiles": 1,
+        "issues": [],
+        "ok": true
+      }
+    },
+    {
+      "id": "legacy-interface",
+      "path": "plugins/a/.codex-plugin/plugin.json",
+      "input": {
+        "name": "a",
+        "interface": {
+          "displayName": 42,
+          "capabilities": [
+            42
+          ]
+        }
+      },
+      "result": {
+        "checkedFiles": 1,
+        "issues": [],
+        "ok": true
+      }
+    }
+  ],
+  "sourceRevision": "8dcd23e5b455645b61a63ad5420ca659a8102b97",
+  "source": [
+    {
+      "id": "portable-manifest",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "target": "claude",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/.claude-plugin/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/plugins.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-plugin-manifest-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "target": "claude",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/skills.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-skill-frontmatter-overlay",
+              "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-skill",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "skillset.yaml",
+          "sourcePath": "skillset.yaml",
+          "featureId": "marketplaces",
+          "target": "claude",
+          "destination": "marketplaces",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": ".claude-plugin/marketplace.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/marketplaces.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-marketplace-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805"
+            }
+          ]
+        }
+      ],
+      "data": null
+    },
+    {
+      "id": "presentation",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [
+        {
+          "code": "source-warning",
+          "message": "skillset: .skillset/plugins/tools/skillset.yaml: $.skillset.presentation is retained for compatibility; use $.skillset.listing. Move presentation fields under `skillset.listing` and use snake_case field names.",
+          "severity": "warning"
+        }
+      ],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "target": "claude",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/.claude-plugin/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/plugins.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-plugin-manifest-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "target": "claude",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/skills.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-skill-frontmatter-overlay",
+              "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-skill",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "skillset.yaml",
+          "sourcePath": "skillset.yaml",
+          "featureId": "marketplaces",
+          "target": "claude",
+          "destination": "marketplaces",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": ".claude-plugin/marketplace.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/marketplaces.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-marketplace-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805"
+            }
+          ]
+        }
+      ],
+      "data": null
+    },
+    {
+      "id": "portable-marketplace",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "target": "claude",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/.claude-plugin/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/plugins.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-plugin-manifest-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "target": "claude",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/skills.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-skill-frontmatter-overlay",
+              "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-skill",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "skillset.yaml",
+          "sourcePath": "skillset.yaml",
+          "featureId": "marketplaces",
+          "target": "claude",
+          "destination": "marketplaces",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": ".claude-plugin/marketplace.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/marketplaces.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-marketplace-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805"
+            }
+          ]
+        }
+      ],
+      "data": null
+    },
+    {
+      "id": "rule-metadata",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "target": "claude",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/.claude-plugin/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/plugins.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-plugin-manifest-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "target": "claude",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/skills.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-skill-frontmatter-overlay",
+              "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-skill",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "rule:AGENTS.md",
+          "sourcePath": ".skillset/rules",
+          "featureId": "project-instructions",
+          "standardProfile": "agent-instructions",
+          "destination": "rule",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "rule",
+              "path": "AGENTS.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Instructions unversioned specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "rule:review",
+          "sourcePath": ".skillset/rules/review.md",
+          "featureId": "project-instructions",
+          "target": "claude",
+          "destination": "rule",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "rule",
+              "path": ".claude/rules/review.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/rules.md"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "skillset.yaml",
+          "sourcePath": "skillset.yaml",
+          "featureId": "marketplaces",
+          "target": "claude",
+          "destination": "marketplaces",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": ".claude-plugin/marketplace.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/marketplaces.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-marketplace-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805"
+            }
+          ]
+        }
+      ],
+      "data": null
+    },
+    {
+      "id": "skill-feature-selection",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "target": "claude",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/.claude-plugin/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/plugins.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-plugin-manifest-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "target": "claude",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/skills.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-skill-frontmatter-overlay",
+              "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-skill",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "rule:AGENTS.md",
+          "sourcePath": ".skillset/rules",
+          "featureId": "project-instructions",
+          "standardProfile": "agent-instructions",
+          "destination": "rule",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "rule",
+              "path": "AGENTS.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Instructions unversioned specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "rule:review",
+          "sourcePath": ".skillset/rules/review.md",
+          "featureId": "project-instructions",
+          "target": "claude",
+          "destination": "rule",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "rule",
+              "path": ".claude/rules/review.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/rules.md"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "skillset.yaml",
+          "sourcePath": "skillset.yaml",
+          "featureId": "marketplaces",
+          "target": "claude",
+          "destination": "marketplaces",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": ".claude-plugin/marketplace.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/marketplaces.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-marketplace-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805"
+            }
+          ]
+        }
+      ],
+      "data": null
+    },
+    {
+      "id": "legacy-output-root",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.config:root",
+          "sourcePath": ".skillset/plugins/tools",
+          "featureId": "plugin-manifests",
+          "target": "claude",
+          "destination": "plugin-manifest",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin",
+              "path": "plugins/tools/.claude-plugin/plugin.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/plugins.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-plugin-manifest-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.feature:bin",
+          "sourcePath": ".skillset/plugins/tools/bin",
+          "featureId": "plugin-bin",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "bin",
+          "status": "intentionally_skipped",
+          "reason": "agent-plugins-1.0 does not declare plugin-bin in its support envelope",
+          "policy": "default",
+          "diagnostics": [
+            {
+              "code": "plugin-component-uncovered"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.feature:bin",
+          "sourcePath": ".skillset/plugins/tools/bin",
+          "featureId": "plugin-bin",
+          "target": "claude",
+          "destination": "bin",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": "plugins/tools/bin/demo.sh"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/executables.md"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-plugin",
+              "verifiedAt": "2026-09-11",
+              "note": "sha256:32b35fecd5b57d47d7a33d6f18fbe308dded8b2d58c14e8efc64a36ee4499877"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "standardProfile": "agent-plugins-1.0",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 schema"
+            },
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Plugins 1.0 1.0.0 specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "plugin.tools.skill:helper",
+          "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+          "featureId": "plugin-skills",
+          "target": "claude",
+          "destination": "skill",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "plugin-skill",
+              "path": "plugins/tools/skills/helper/SKILL.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/skills.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-skill-frontmatter-overlay",
+              "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-skill",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "rule:AGENTS.md",
+          "sourcePath": ".skillset/rules",
+          "featureId": "project-instructions",
+          "standardProfile": "agent-instructions",
+          "destination": "rule",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "rule",
+              "path": "AGENTS.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "external-docs",
+              "ref": "https://raw.githubusercontent.com/agentsmd/agents.md/d001185d792eb6402a58e4cbef1c228b309ec25d/README.md",
+              "verifiedAt": "2026-09-12T15:34:39.000Z",
+              "note": "Agent Instructions unversioned specification"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "rule:review",
+          "sourcePath": ".skillset/rules/review.md",
+          "featureId": "project-instructions",
+          "target": "claude",
+          "destination": "rule",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "rule",
+              "path": ".claude/rules/review.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/rules.md"
+            }
+          ]
+        },
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "skillset.yaml",
+          "sourcePath": "skillset.yaml",
+          "featureId": "marketplaces",
+          "target": "claude",
+          "destination": "marketplaces",
+          "status": "target_native",
+          "outputs": [
+            {
+              "kind": "plugin-feature",
+              "path": ".claude-plugin/marketplace.json"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/marketplaces.md"
+            },
+            {
+              "kind": "provider-schema",
+              "ref": "claude-marketplace-schema",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:4fc9f71550f0c498cfa92d020a516b0165bdbcb2f5f54904654bf9e42346f805"
+            }
+          ]
+        }
+      ],
+      "data": null
+    },
+    {
+      "id": "change-policy-status",
+      "ok": true,
+      "exitCode": 0,
+      "diagnostics": [],
+      "renderResults": [],
+      "data": {
+        "baseline": {
+          "kind": "git-ref",
+          "ref": "HEAD",
+          "resolvedRef": "182bb49f5801f5d30b2ffdd4b21433924ff27632"
+        },
+        "generatedDrift": {
+          "added": [],
+          "changed": [
+            "skillset.lock"
+          ],
+          "missing": [],
+          "removed": []
+        },
+        "hashSchema": "skillset-source-unit-v3",
+        "sourceChanges": [],
+        "sourceUnits": [
+          {
+            "hash": "sha256:cd54b53132c34d47db238dcfd9a6d4b0546a04104e22d2227038971982b4f069",
+            "hashSchema": "skillset-source-unit-v3",
+            "id": "config:root",
+            "kind": "root-config",
+            "regions": [],
+            "sourcePath": "skillset.yaml",
+            "sourcePaths": [
+              "skillset.yaml"
+            ]
+          },
+          {
+            "hash": "sha256:e743a2012a836be72ef162f810a86d0afd19356f4ec4bfcd63507a9743ab21d0",
+            "hashSchema": "skillset-source-unit-v3",
+            "id": "plugin.tools.config:root",
+            "kind": "plugin-config",
+            "regions": [],
+            "sourcePath": ".skillset/plugins/tools/skillset.yaml",
+            "sourcePaths": [
+              ".skillset/plugins/tools/skillset.yaml"
+            ]
+          },
+          {
+            "hash": "sha256:a9f162e1aaf4aec6cdcb2d7e7431c74719f60605641adc298ea95358c9fe265e",
+            "hashSchema": "skillset-source-unit-v3",
+            "id": "plugin.tools.skill:helper",
+            "kind": "plugin-skill",
+            "regions": [],
+            "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+            "sourcePaths": [
+              ".skillset/plugins/tools/skills/helper/SKILL.md"
+            ]
+          },
+          {
+            "hash": "sha256:ebc931a7109e995cb0fc4939127935c8db76c1fd4afbf60157ee58f4badabc5d",
+            "hashSchema": "skillset-source-unit-v3",
+            "id": "plugin:tools",
+            "kind": "plugin",
+            "regions": [],
+            "sourcePath": ".skillset/plugins/tools/skillset.yaml",
+            "sourcePaths": [
+              ".skillset/plugins/tools/skills/helper/SKILL.md",
+              ".skillset/plugins/tools/skillset.yaml"
+            ]
+          },
+          {
+            "hash": "sha256:903e25a8072eda823a9d9dd911113ba4f249de4f768c8b29e3312e820982d92f",
+            "hashSchema": "skillset-source-unit-v3",
+            "id": "rule:review",
+            "kind": "rule",
+            "regions": [],
+            "sourcePath": ".skillset/rules/review.md",
+            "sourcePaths": [
+              ".skillset/rules/review.md"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "change-policy-check",
+      "ok": false,
+      "exitCode": 1,
+      "diagnostics": [
+        {
+          "code": "change-reason-too-short",
+          "message": "reason must be at least 40 characters",
+          "path": ".skillset/changes/8b4ba12cb57b.md",
+          "severity": "error"
+        }
+      ],
+      "renderResults": [],
+      "data": {
+        "entries": [
+          {
+            "bump": "patch",
+            "format": "reason",
+            "id": "8b4ba12cb57b",
+            "ignored": false,
+            "path": ".skillset/changes/8b4ba12cb57b.md",
+            "reason": "short",
+            "schemaDiagnostics": [],
+            "scopes": [
+              "config:root"
+            ],
+            "sourceHashes": {
+              "config:root": [
+                "sha256:cd54b53132c34d47db238dcfd9a6d4b0546a04104e22d2227038971982b4f069"
+              ]
+            }
+          }
+        ],
+        "issues": [
+          {
+            "code": "change-reason-too-short",
+            "message": "reason must be at least 40 characters",
+            "path": ".skillset/changes/8b4ba12cb57b.md",
+            "ref": "@8b4ba12cb57b",
+            "severity": "error"
+          }
+        ],
+        "ok": false,
+        "stackedEvidence": [],
+        "status": {
+          "baseline": {
+            "kind": "git-ref",
+            "ref": "HEAD",
+            "resolvedRef": "182bb49f5801f5d30b2ffdd4b21433924ff27632"
+          },
+          "generatedDrift": {
+            "added": [],
+            "changed": [
+              "skillset.lock"
+            ],
+            "missing": [],
+            "removed": []
+          },
+          "hashSchema": "skillset-source-unit-v3",
+          "sourceChanges": [],
+          "sourceUnits": [
+            {
+              "hash": "sha256:cd54b53132c34d47db238dcfd9a6d4b0546a04104e22d2227038971982b4f069",
+              "hashSchema": "skillset-source-unit-v3",
+              "id": "config:root",
+              "kind": "root-config",
+              "regions": [],
+              "sourcePath": "skillset.yaml",
+              "sourcePaths": [
+                "skillset.yaml"
+              ]
+            },
+            {
+              "hash": "sha256:e743a2012a836be72ef162f810a86d0afd19356f4ec4bfcd63507a9743ab21d0",
+              "hashSchema": "skillset-source-unit-v3",
+              "id": "plugin.tools.config:root",
+              "kind": "plugin-config",
+              "regions": [],
+              "sourcePath": ".skillset/plugins/tools/skillset.yaml",
+              "sourcePaths": [
+                ".skillset/plugins/tools/skillset.yaml"
+              ]
+            },
+            {
+              "hash": "sha256:a9f162e1aaf4aec6cdcb2d7e7431c74719f60605641adc298ea95358c9fe265e",
+              "hashSchema": "skillset-source-unit-v3",
+              "id": "plugin.tools.skill:helper",
+              "kind": "plugin-skill",
+              "regions": [],
+              "sourcePath": ".skillset/plugins/tools/skills/helper/SKILL.md",
+              "sourcePaths": [
+                ".skillset/plugins/tools/skills/helper/SKILL.md"
+              ]
+            },
+            {
+              "hash": "sha256:ebc931a7109e995cb0fc4939127935c8db76c1fd4afbf60157ee58f4badabc5d",
+              "hashSchema": "skillset-source-unit-v3",
+              "id": "plugin:tools",
+              "kind": "plugin",
+              "regions": [],
+              "sourcePath": ".skillset/plugins/tools/skillset.yaml",
+              "sourcePaths": [
+                ".skillset/plugins/tools/skills/helper/SKILL.md",
+                ".skillset/plugins/tools/skillset.yaml"
+              ]
+            },
+            {
+              "hash": "sha256:903e25a8072eda823a9d9dd911113ba4f249de4f768c8b29e3312e820982d92f",
+              "hashSchema": "skillset-source-unit-v3",
+              "id": "rule:review",
+              "kind": "rule",
+              "regions": [],
+              "sourcePath": ".skillset/rules/review.md",
+              "sourcePaths": [
+                ".skillset/rules/review.md"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "agentMetadataRevision": "02559515979024f1fab9cf1a8e1c711185adcbea",
+  "agentMetadata": [
+    {
+      "target": "claude",
+      "outputs": [
+        {
+          "path": ".claude/agents/reviewer.md",
+          "text": "---\ndescription: Review changes.\nmetadata:\n  team: security\nname: reviewer\n---\n\nReview the requested changes.\n"
+        }
+      ],
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "agent:reviewer",
+          "sourcePath": ".skillset/subagents/review.md",
+          "featureId": "project-agents",
+          "target": "claude",
+          "destination": "agent",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "project-agent",
+              "path": ".claude/agents/reviewer.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/agents.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "claude-subagent-frontmatter-overlay",
+              "note": "Claude subagent Markdown/frontmatter structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "claude-subagent",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:41303616b5d8d8f13b01380d224e4687846dbf68ae5c4c3ddd1fb80f4762f95a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": "codex",
+      "outputs": [
+        {
+          "path": ".codex/agents/reviewer.toml",
+          "text": "description = \"Review changes.\"\ndeveloper_instructions = \"Review the requested changes.\\n\"\nname = \"reviewer\"\n"
+        }
+      ],
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "agent:reviewer",
+          "sourcePath": ".skillset/subagents/review.md",
+          "featureId": "project-agents",
+          "target": "codex",
+          "destination": "agent",
+          "status": "transformed",
+          "outputs": [
+            {
+              "kind": "project-agent",
+              "path": ".codex/agents/reviewer.toml"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/agents.md"
+            },
+            {
+              "kind": "provider-overlay",
+              "ref": "codex-subagent-toml-overlay",
+              "note": "Codex custom agent TOML structure is currently documented in prose; no adopted JSON Schema source is available."
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "codex-subagent",
+              "verifiedAt": "2026-06-23",
+              "note": "sha256:45166b628859b5cecc6d2ecd78561d4ad73e58c4ab7c4cfddda53a3365867cb6"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": "cursor",
+      "outputs": [
+        {
+          "path": ".cursor/agents/reviewer.md",
+          "text": "---\ndescription: Review changes.\nmetadata:\n  team: security\nname: reviewer\n---\n\nReview the requested changes.\n"
+        }
+      ],
+      "diagnostics": [],
+      "renderResults": [
+        {
+          "schema": "skillset-render-result@2",
+          "sourceUnit": "agent:reviewer",
+          "sourcePath": ".skillset/subagents/review.md",
+          "featureId": "project-agents",
+          "target": "cursor",
+          "destination": "agent",
+          "status": "rendered",
+          "outputs": [
+            {
+              "kind": "project-agent",
+              "path": ".cursor/agents/reviewer.md"
+            }
+          ],
+          "evidence": [
+            {
+              "kind": "docs",
+              "ref": "docs/reference/features/agents.md"
+            },
+            {
+              "kind": "provider-snapshot",
+              "ref": "cursor-agent",
+              "verifiedAt": "2026-09-16",
+              "note": "sha256:fd3fd7e64eb1acd91746624990ea267e0f9d81672cb8518946c14c320343030f"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
