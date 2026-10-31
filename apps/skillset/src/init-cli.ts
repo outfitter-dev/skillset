@@ -1,3 +1,4 @@
+import { formatFormatterIgnoreSuggestions } from "./formatter-ignore-suggestions";
 import { resolve } from "node:path";
 
 import type {
@@ -241,6 +242,8 @@ function printAdoptReport(
   for (const skip of report.surveySkips) {
     console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);
   }
+  const formatterAdvice = formatFormatterIgnoreSuggestions(report.formatterSuggestions);
+  if (formatterAdvice) console.log(formatterAdvice);
   if (!report.write) {
     return;
   }

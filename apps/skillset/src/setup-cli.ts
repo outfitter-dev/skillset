@@ -1,3 +1,4 @@
+import { formatFormatterIgnoreSuggestions } from "./formatter-ignore-suggestions";
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
 
 import { adoptCandidateId } from "./adopt";
@@ -35,6 +36,8 @@ export const printSetupReport = (result: SetupReport, reason: string): void => {
   for (const skip of result.surveySkips) {
     console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);
   }
+  const formatterAdvice = formatFormatterIgnoreSuggestions(result.formatterSuggestions);
+  if (formatterAdvice) console.log(formatterAdvice);
   const created = result.files.filter(
     (file) => file.status === "create"
   ).length;
