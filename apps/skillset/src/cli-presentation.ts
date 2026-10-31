@@ -361,7 +361,7 @@ const PRESENTATION = {
   },
   status: {
     group: "Inspect",
-    summary: "Summarize workspace health and generated drift.",
+    summary: "Inspect workspace readiness; completed observations exit zero even when output has diverged.",
     synopses: ["status [--activation] [--json] [--root <path>]"],
   },
   test: {

@@ -259,6 +259,23 @@ export async function independentlyObservedOutputBaseline(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<boolean> {
+  return (await inspectIndependentOutputBaseline(rootPath, options, false)).hasBaseline;
+}
+
+/** Preserve corrupt-lock evidence independently of source graph discovery. */
+export async function independentlyObserveOutputBaseline(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<{ readonly hasBaseline: boolean; readonly corruptLocks: readonly GeneratedLockReadError[] }> {
+  return inspectIndependentOutputBaseline(rootPath, options, true);
+}
+
+async function inspectIndependentOutputBaseline(
+  rootPath: string,
+  options: SkillsetOptions,
+  inspectAllRoots: boolean
+): Promise<{ readonly hasBaseline: boolean; readonly corruptLocks: readonly GeneratedLockReadError[] }> {
+  const corruptLocks: GeneratedLockReadError[] = [];
   const configPath = join(rootPath, "skillset.yaml");
   let configText: string | undefined;
   try {
@@ -356,16 +373,21 @@ export async function independentlyObservedOutputBaseline(
       if (
         error instanceof GeneratedLockReadError &&
         (error.kind === "invalid-json" || error.kind === "schema")
-      ) return false;
+      ) {
+        corruptLocks.push(error);
+        return false;
+      }
       throw error;
     }
   };
 
-  if (includesScope("project") && await inspect([], true)) return true;
+  let hasBaseline = includesScope("project") && await inspect([], true);
   for (const outputRoot of [...outputRoots].sort(compareStrings)) {
-    if (await inspect([outputRoot], false)) return true;
+    // Boolean baseline recovery needs only one witness; status needs every blocker.
+    if (hasBaseline && !inspectAllRoots) break;
+    if (await inspect([outputRoot], false)) hasBaseline = true;
   }
-  return false;
+  return { hasBaseline, corruptLocks };
 }
 
 function addDeclaredProviderOutputRoots(

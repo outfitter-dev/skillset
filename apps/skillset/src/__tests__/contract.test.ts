@@ -799,7 +799,7 @@ Body.
 
   const result = await runSkillsetCli("status", "--root", root, "--json");
 
-  expect(result.exitCode).toBe(1);
+  expect(result.exitCode).toBe(0);
   const envelope = JSON.parse(result.stdout) as {
     readonly command: string;
     readonly data: {
@@ -822,7 +822,7 @@ Body.
         state: "blocked",
       },
     },
-    ok: false,
+    ok: true,
   });
   expect(result.stdout).not.toContain("cli.usage");
 });
@@ -8208,7 +8208,7 @@ Audit body.
   expect(doctor.stdout).toContain(
     "standards: active agent-plugins-1.0 (plugins); registry agent-instructions adopted, agent-skills adopted"
   );
-  expect(doctor.stdout).toContain("status found 2 render result advisories");
+  expect(doctor.stdout.split("\n")[0]).toContain("Workspace output is current.");
 
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
@@ -8381,26 +8381,13 @@ Audit body.
   expect(JSON.parse(missingFeature.stdout)).toMatchObject({ data: { features: [] }, exitCode: 1, schemaVersion: "skillset.cli.result@1" });
 
   const doctor = await runSkillsetCli("status", "--root", root);
-  expect(doctor.stdout).toContain("features:");
-  expect(doctor.stdout).toContain("status implemented");
-  for (const target of targetNames()) {
-    expect(doctor.stdout).toContain(`feature support: ${target}`);
-  }
+  expect(doctor.stdout).not.toContain("features:");
+  expect(doctor.stdout).not.toContain("feature support:");
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(JSON.parse(doctorJson.stdout)).toMatchObject({ command: "status" });
-  const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
-    featureCapabilities: {
-      byTargetSupport: Record<string, Record<string, number>>;
-      featureIds: readonly string[];
-      total: number;
-    };
-  } }).data;
-  expect(doctorReport.featureCapabilities.total).toBeGreaterThan(0);
-  expect(Object.keys(doctorReport.featureCapabilities.byTargetSupport)).toEqual([...targetNames()]);
-  for (const target of targetNames()) {
-    expect(doctorReport.featureCapabilities.byTargetSupport[target]?.native).toBeGreaterThan(0);
-  }
-  expect(doctorReport.featureCapabilities.featureIds).toContain("plugin-bin");
+  const doctorReport = JSON.parse(doctorJson.stdout).data;
+  expect(doctorReport).not.toHaveProperty("featureCapabilities");
+  expect(doctorReport).toHaveProperty("conclusion");
 
   for (const retired of ["doctor", "features"]) {
     const removed = await runSkillsetCli(retired);

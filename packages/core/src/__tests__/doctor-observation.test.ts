@@ -55,3 +55,28 @@ for (const phase of ["graph", "output"] as const) {
     expect(child.exitCode).toBe(0);
   });
 }
+
+
+test("public doctor keeps an early baseline witness when a later output is unreadable", async () => {
+  const root = await fixture();
+  await Bun.write(join(root, ".skillset/rules/root.md"), "# Root guidance\n");
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  const child = Bun.spawnSync([process.execPath, "--eval", `
+    import assert from "node:assert/strict";
+    import { mock } from "bun:test";
+    const fs = await import("node:fs/promises");
+    const readFile = fs.readFile;
+    mock.module("node:fs/promises", () => ({ ...fs, readFile: async (path, ...args) => {
+      if (path === ${JSON.stringify(join(root, ".agents/skills/skillset.lock"))}) throw Object.assign(new Error("unreadable"), { code: "EACCES" });
+      return readFile(path, ...args);
+    }}));
+    const resolver = await import("./packages/core/src/resolver.ts");
+    mock.module("./packages/core/src/resolver.ts", () => ({ ...resolver, loadBuildGraph: async () => { throw new Error("graph unavailable"); } }));
+    const { doctorSkillset } = await import("./packages/core/src/authoring.ts");
+    const report = await doctorSkillset(${JSON.stringify(root)});
+    assert.equal(report.outputState.hasBaseline, true);
+    assert.equal(report.buildError, "graph unavailable");
+  `], { cwd: fileURLToPath(new URL("../../../../", import.meta.url)), stdout: "pipe", stderr: "pipe" });
+  expect(new TextDecoder().decode(child.stderr)).toBe("");
+  expect(child.exitCode).toBe(0);
+});
