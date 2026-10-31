@@ -48,7 +48,11 @@ export async function preflightAdoptionSkills(
       try {
         const sourcePath = join(rootPath, candidate.path);
         await prepareRepositoryMutationPath(rootPath, join(sourcePath, "SKILL.md"), { createParents: false });
-        fingerprints.set(sourcePath, await hashSkillDirectory(sourcePath));
+        for (const path of roots.find((root) => root.path === candidate.path)!.units) {
+          const unitPath = resolve(rootPath, path);
+          await prepareRepositoryMutationPath(rootPath, join(unitPath, "SKILL.md"), { createParents: false });
+          fingerprints.set(unitPath, await hashSkillDirectory(unitPath));
+        }
         batches.set(candidate, await prepareImportBatch({ ...await optionsFor(candidate), excludeSources }));
       } catch (error) { batches.set(candidate, error instanceof Error ? error : new Error(String(error))); }
     }
@@ -83,6 +87,12 @@ export async function preflightAdoptionSkills(
       batches, decisions, dispose,
       errors: [...ownership.flatMap((entry) => entry.kind === "unknown" ? [{ path: entry.path, message: entry.reason }] : []), ...[...batches.entries()].flatMap(([candidate, batch]) => batch instanceof Error ? [{ path: candidate.path, message: batch.message }] : [])],
       async assertUnchanged() {
+        for (const root of roots) {
+          const path = resolve(rootPath, root.path);
+          await prepareRepositoryMutationPath(rootPath, join(path, "SKILL.md"), { createParents: false });
+          const plan = await planImports(path, "skills");
+          if (!isDeepStrictEqual(root.units, plan.items.map((item) => display(item.sourcePath)))) throw new Error(`skillset: selected skill membership changed after preflight: ${root.path}; rerun the preview`);
+        }
         if (!isDeepStrictEqual(ownership, await inspectAdoptionSkillRoots(rootPath, roots))) throw new Error("skillset: managed skill ownership changed after preflight; rerun the preview");
         for (const path of absentDestinations) {
           const present = await lstat(path).then(() => true, (error) => { if (error.code === "ENOENT") return false; throw error; });
