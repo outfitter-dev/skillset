@@ -4,7 +4,7 @@ import { hashSkillDirectory } from "@skillset/core/internal/source-tree-identity
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import { inspectAdoptionSkillRoots, type AdoptionSkillRoot } from "@skillset/core/internal/adoption-managed-skills";
 import { isDeepStrictEqual } from "node:util";
-import { composeImportedProviderSkill, planImports, type ImportSourcesOptions } from "./import";
+import { composeImportedProviderSkill, planSkillCollection, type ImportSourcesOptions } from "./import";
 import { prepareImportBatch, type PreparedImportBatch } from "./import-prepared-batch";
 import type { SetupImportCandidate } from "./setup";
 
@@ -30,7 +30,7 @@ export async function preflightAdoptionSkills(
       try {
         const source = join(rootPath, candidate.path);
         await prepareRepositoryMutationPath(rootPath, join(source, "SKILL.md"), { createParents: false });
-        const plan = await planImports(source, "skills");
+        const plan = await planSkillCollection(source);
         roots.push({ path: candidate.path, units: plan.items.map((item) => display(item.sourcePath)) });
       } catch (error) { batches.set(candidate, error instanceof Error ? error : new Error(String(error))); }
     }
@@ -90,7 +90,7 @@ export async function preflightAdoptionSkills(
         for (const root of roots) {
           const path = resolve(rootPath, root.path);
           await prepareRepositoryMutationPath(rootPath, join(path, "SKILL.md"), { createParents: false });
-          const plan = await planImports(path, "skills");
+          const plan = await planSkillCollection(path);
           if (!isDeepStrictEqual(root.units, plan.items.map((item) => display(item.sourcePath)))) throw new Error(`skillset: selected skill membership changed after preflight: ${root.path}; rerun the preview`);
         }
         if (!isDeepStrictEqual(ownership, await inspectAdoptionSkillRoots(rootPath, roots))) throw new Error("skillset: managed skill ownership changed after preflight; rerun the preview");

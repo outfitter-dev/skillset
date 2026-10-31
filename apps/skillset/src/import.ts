@@ -1646,6 +1646,11 @@ function defaultProviderSkillRoot(provider: ImportProvider): string {
   return join(home, ".skillset");
 }
 
+/** Adoption must inspect lock claims even when a collection has no surviving skills. */
+export async function planSkillCollection(sourcePath: string): Promise<ImportPlan> {
+  return { items: await skillChildren(sourcePath), kind: "skills", warnings: [] };
+}
+
 export async function planImports(sourcePath: string, requestedKind: ImportKind | undefined): Promise<ImportPlan> {
   if (requestedKind === "skill") {
     if (!(await isSkillSource(sourcePath))) {
@@ -1662,11 +1667,11 @@ export async function planImports(sourcePath: string, requestedKind: ImportKind 
   }
 
   if (requestedKind === "skills") {
-    const items = await skillChildren(sourcePath);
-    if (items.length === 0) {
+    const plan = await planSkillCollection(sourcePath);
+    if (plan.items.length === 0) {
       throw new Error(`skillset: expected a skills root with child skill directories: ${sourcePath}`);
     }
-    return { items, kind: "skills", warnings: [] };
+    return plan;
   }
 
   if (requestedKind === "plugins") {

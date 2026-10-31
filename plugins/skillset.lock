@@ -170,15 +170,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset-init",
-      "outputHash": "sha256:d05690d25d716e3a5fdfd56dbd5e5bbcb96e8d212d8a78acd4a4bdcb96ab9a25",
+      "outputHash": "sha256:e88ee95c23ed06dfc042161c7fadba24702ffd9c053e5e72aae917ef4887d18c",
       "outputPath": "skillset/skills/skillset-init/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:43a65d697a9c0b75fc242d0ae27179108cfabd5ffc316f3b3c28f38fe54284b5",
+      "provenanceHash": "sha256:7db172bf4c635aacac9482dcf4cc1ec206d176d9bb6c151396023e606ef1c410",
       "role": "standard",
-      "sourceHash": "sha256:0174c518c0f1942b2939236d64c3ce6ce6a7228f5e7b2ab831d19037bd564a7e",
+      "sourceHash": "sha256:a1ad74bcbf3b2fbedeba18f88858b9b59a48128619540892c85a5ebe23b72794",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset-init/SKILL.md",
       "version": "0.1.1"
     },
@@ -231,15 +231,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset-maintain",
-      "outputHash": "sha256:bedc49e28ebf93b1254656b0d9ceb6c74a40a7a634007378521b2db7687cdd3a",
+      "outputHash": "sha256:cc203446e279da59db50a8603b86fd1b6d753054d7331ce905a01af195af5ca9",
       "outputPath": "skillset/skills/skillset-maintain/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:ad4b28e3a30f00500619561a1d610b06ddb2a029f8eab25900af7ee9350008cb",
+      "provenanceHash": "sha256:6c25ed3e886bbe0942f361fc0df2c9af5e7144b392e48d8dd4983b79452a5e8c",
       "role": "standard",
-      "sourceHash": "sha256:f74de3828e7922d0e4765ed4f77e8d11e49e1b7cd92d254fc9e305729aa15ac4",
+      "sourceHash": "sha256:9b6ca79d3c30528b96d064cc705908aa2fbba9c0782f51b724271c9d1f2a8f0e",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset-maintain/SKILL.md",
       "version": "0.1.1"
     },
@@ -288,15 +288,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset-provider-capabilities",
-      "outputHash": "sha256:59db1061e6eca094bb4ddc54dce730d832fddfcb4ebfcaa25a63b32ec381b69c",
+      "outputHash": "sha256:6b99c96ac84cbf2f7f0bc89852ba674316c8019f43d20eb27067a9f610061bb3",
       "outputPath": "skillset/skills/skillset-provider-capabilities/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:4d888d86556035a3d6eff2a91bf5cafa9eaa16ffe12808db6a8331c8f558241f",
+      "provenanceHash": "sha256:9ab0202f057923bbff26a11651d92eb04a469ad7b45d01933cbc1e1145b6d2c4",
       "role": "standard",
-      "sourceHash": "sha256:9012160a1ceba292dde3c5c5f883779afb22580f962346561681775d1f8688ab",
+      "sourceHash": "sha256:31b35dcbf6fc2d64cb5ba1ad9089a70eb5e6c66361ae376f374dcbb1ad5099e2",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
       "version": "0.1.1"
     },
@@ -349,15 +349,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset",
-      "outputHash": "sha256:aef6420015075aaf00ecaa0e032d7f552c5e9758d6c8e44c1f5d545de67a2422",
+      "outputHash": "sha256:355803ba42398f8bdd0c6a434a4c5f1047d1d076d2ea6d3457df8947b4c00372",
       "outputPath": "skillset/skills/skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:c0dcdfbf82ab5b6e193c3a004929117a05fd6342ce4fae1b796bb32d33a2e173",
+      "provenanceHash": "sha256:fc575cde03c79cf328f0668db963c951043044ee41594eb6625d26196df3ee0d",
       "role": "standard",
-      "sourceHash": "sha256:18634dab68fbbc9de78fb6f301d5d033dbf4c79c914ef94dff91539d083cb93a",
+      "sourceHash": "sha256:255c644fb100a18236fbf35bf84123e00c4bb7936243ee1ad8789c5b672db42e",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
       "version": "0.1.0"
     }

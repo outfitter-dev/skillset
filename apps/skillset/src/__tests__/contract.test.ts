@@ -7094,7 +7094,7 @@ test("SET-256: init ignores retired provider-first generated plugin roots", asyn
   expect(report.importCandidates).toEqual([{ kind: "plugin", path: "plugins/authored" }]);
 });
 
-test("SET-255: an empty shared plugin lock does not hide unproven import candidates", async () => {
+test("SET-255: an invalid shared plugin lock reports unknown ownership without importing candidates", async () => {
   const root = await contractFixture({
     ".claude-plugin/marketplace.json": JSON.stringify({
       name: "demo-marketplace",
@@ -7112,10 +7112,15 @@ test("SET-255: an empty shared plugin lock does not hide unproven import candida
 
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
 
-  expect(report.importCandidates).toEqual([
-    { kind: "plugin", path: "plugins/authored" },
-    { kind: "plugin", path: "plugins/generated" },
-  ]);
+  expect(report.importCandidates).toEqual([]);
+  expect(report.surveyDiagnostics).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "managed-plugin-ownership-unknown", paths: ["plugins/authored"], severity: "error" }),
+    expect.objectContaining({ code: "managed-plugin-ownership-unknown", paths: ["plugins/generated"], severity: "error" }),
+  ]));
+  const adopted = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--yes", "--json");
+  expect(adopted.exitCode).toBe(1);
+  await expect(lstat(join(root, "skillset.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
+  await expect(lstat(join(root, ".skillset"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 test("SET-62: nested plugin scan dedupes marketplace sources and guards containment", async () => {

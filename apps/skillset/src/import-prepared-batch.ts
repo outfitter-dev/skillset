@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { ImportBatchError, planImports, prepareImportSource, type ImportSourcesOptions, type ImportBatchReport, type PreparedImportSource } from "./import";
+import { ImportBatchError, planImports, planSkillCollection, prepareImportSource, type ImportSourcesOptions, type ImportBatchReport, type PreparedImportSource } from "./import";
 
 export interface PreparedImportBatch {
   readonly units: readonly PreparedImportSource[];
@@ -10,7 +10,7 @@ export interface PreparedImportBatch {
 /** Adoption prepares every selected unit before deciding whether any may be claimed. */
 export async function prepareImportBatch(options: ImportSourcesOptions & { readonly sourcePath: string; readonly excludeSources?: ReadonlySet<string> }): Promise<PreparedImportBatch> {
   const sourcePath = resolve(options.sourcePath);
-  const plan = await planImports(sourcePath, options.kind);
+  const plan = options.kind === "skills" ? await planSkillCollection(sourcePath) : await planImports(sourcePath, options.kind);
   if (options.name !== undefined && plan.items.length !== 1) throw new Error("skillset: --name can only be used when importing one skill or plugin");
   const units: PreparedImportSource[] = [];
   const dispose = async () => { for (const unit of units) await unit.dispose(); };
