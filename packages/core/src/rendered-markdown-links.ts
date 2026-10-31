@@ -67,7 +67,8 @@ export function assertRenderedMarkdownLinks(
       const target = resolve(dirname(output), local);
       const contained = isPathInside(primary.boundary, target, { allowEqual: true });
       // Directories exist only when the planned package contains a descendant file.
-      const exists = inventory.has(target) || [...inventory.keys()].some((path) => isPathInside(target, path) && isPathInside(primary.boundary, path));
+      const directory = /(?:\/|(?:^|\/)\.{1,2})$/u.test(local);
+      const exists = (!directory && inventory.has(target)) || [...inventory.keys()].some((path) => isPathInside(target, path) && isPathInside(primary.boundary, path));
       if (contained && exists) continue;
       throw new SkillsetFeatureDiagnosticError({
         code: "bundle-markdown-link-missing",
