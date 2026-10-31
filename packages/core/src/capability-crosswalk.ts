@@ -326,14 +326,14 @@ const judgments: readonly CapabilityJudgment[] = [
     implementationPaths: ["packages/core/src/render-codex-skill-sidecars.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is represented directly as policy.allow_implicit_invocation in agents/openai.yaml.",
     limitations: ["Scope is invocation eligibility only, not model compliance or user invocation. Explicit provider overrides are outside this judgment.", "Implementation proof: packages/core/src/__tests__/skill-invocation-policy.test.ts; render-codex-skill-sidecars.ts."],
-    authorityHash: "sha256:86162871ff9d4e0de5c9cddf498cdeb564cd5adb90018a8e60eb809a4f1bb4d7",
+    authorityHash: "sha256:e3737a857433eb9363a7a9b501654fced5ba375b382178896f19027d73d36104",
   },
   {
     capabilityId: "skill-invocation", featureId: "skill-invocation-policy", target: "claude", fidelity: "equivalent",
     implementationPaths: ["packages/core/src/render.ts", "packages/core/src/skill-policy.ts", "packages/core/src/__tests__/skill-invocation-policy.test.ts", "docs/reference/features/skills.md"],
     scope: "The resolved implicit_invocation boolean is inverted into disable-model-invocation; false eligibility becomes true disablement and vice versa.",
     limitations: ["Scope is invocation eligibility only; this does not disable explicit user invocation or prove runtime enforcement. Explicit provider overrides are outside this judgment.", "Implementation proof: packages/core/src/__tests__/skill-invocation-policy.test.ts; render.ts."],
-    authorityHash: "sha256:8ef90765af35eee69eabc5d166e12f82afe0b6b72859a2e7d7cd2bb41b523bce",
+    authorityHash: "sha256:3ccf08d22e06fd85be924d62cd10109b0f278ae01eb441698d13e64f73b7a1fc",
   },
   {
     capabilityId: "project-agents", featureId: "project-agents", target: "codex", fidelity: "partial",
