@@ -1,3 +1,4 @@
+import { checkClaudeExperimental } from "./claude-experimental-conformance";
 import { checkClaudeMonitors } from "./claude-monitor-conformance";
 import { checkClaudeLspServers } from "./claude-lsp-conformance";
 import { CLAUDE_COMPONENT_REFERENCE_POLICY } from "@skillset/registry";
@@ -541,14 +542,7 @@ function checkClaudePluginManifest(
     issues.push(...checkClaudeDependencies(file, parsed.value.dependencies, "dependencies", "claude-plugin-manifest-schema"));
   }
   if (isJsonRecord(parsed.value.experimental)) {
-    issues.push(...checkFieldTypes(file, parsed.value.experimental, "claude", "claude-plugin-manifest-schema", { monitors: "string-or-array" }, "experimental"));
-    issues.push(...checkClaudeMonitors(file, parsed.value.experimental.monitors, "experimental.monitors", "claude-plugin-manifest-schema"));
-    issues.push(
-      ...checkUnknownFields(file, parsed.value.experimental, "claude", "claude-plugin", [
-        "monitors",
-        "themes",
-      ], "experimental")
-    );
+    issues.push(...checkClaudeExperimental(file, parsed.value.experimental, "experimental", "claude-plugin-manifest-schema"));
   }
   return issues;
 }

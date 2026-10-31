@@ -213,7 +213,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   },
   {
     id: "marketplace.components.paths", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths"],
-    predicate: "Residual hooks string paths use ./ and .json; experimental themes use ./",
+    predicate: "Residual hooks string paths use ./ and .json",
     qualification: "Map per-field per-alternative patterns individually; no blanket pointer for exact entire list.",
     schema: [],
   },
@@ -392,9 +392,21 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.experimental", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths", "checkClaudeMonitorRecord"],
-    predicate: "experimental permits only monitors/themes; validates types, path shape, and monitor entries",
-    qualification: "experimental not present in pinned marketplace entry.",
+    id: "marketplace.experimental", parser: "experimental-warning-inventory", owners: ["checkClaudeExperimental"],
+    predicate: "experimental permits the five provider-known names; Core retains blocking diagnostics for unknown names and nonobject parents",
+    qualification: "Pinned 2.1.269 validator warnings fail under strict; rc base parser passthrough/preprocessing differs. No non-strict provider rejection claim.",
+    schema: [],
+  },
+  {
+    id: "marketplace.experimental.children", parser: "experimental-child-types", owners: ["checkClaudeExperimental"],
+    predicate: "Known experimental child types and relative theme/output-style references are validated",
+    qualification: "Pinned shared rc schema; monitor checks remain separately owned, no filesystem or provider execution.",
+    schema: [],
+  },
+  {
+    id: "marketplace.experimental.syntax", parser: "experimental-syntax", owners: ["checkClaudeSyntaxHighlighting"],
+    predicate: "Syntax highlighting has strict bounded language array and strict typed records with exact string patterns and bounds",
+    qualification: "Pinned Yd/Gd/Wd input predicates; no remote resolution, integrity verification or runtime loading claim.",
     schema: [],
   },
   {

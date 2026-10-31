@@ -823,7 +823,7 @@ describe("provider format conformance", () => {
       "destination field plugins[0].skills must be a string or an array of strings",
       "destination field plugins[0].themes must be a string or an array of strings",
       "destination field plugins[0].workflows must be a string or an array of strings",
-      "unknown destination field plugins[0].experimental.unknown; allowed fields are monitors, themes",
+      "unknown destination field plugins[0].experimental.unknown; allowed fields are evals, monitors, outputStyles, syntaxHighlighting, themes",
     ]);
   });
 

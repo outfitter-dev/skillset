@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:d56e440309049c310191852187d2fd08ec587ad5171f1f8c117798a9eac6120e",
+  "evidenceHash": "sha256:0a62880e954446ff4d04c0fc3d13369f7e3b5bb5b9f4cae8729d604c73e68c19",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,11 +108,10 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:f297050bcbeb09428a28d24041d67b43ef229f9be47b9011ef6ba4ff8e28f42c",
+      "hash": "sha256:f32171dd6ebf00454bf85e7048f6392d76796705828871b332031fc6a742ee72",
       "ruleIds": [
         "marketplace.components.paths",
-        "marketplace.components.array_types",
-        "marketplace.experimental"
+        "marketplace.components.array_types"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -120,8 +119,7 @@
       "name": "function:checkClaudeComponentPaths",
       "hash": "sha256:4081bbaa2d653f6dd4a755347a901eff63b7f73c2c5efc0d8c76aa3b6743f03e",
       "ruleIds": [
-        "marketplace.components.paths",
-        "marketplace.experimental"
+        "marketplace.components.paths"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -245,6 +243,12 @@
       "hash": "sha256:7df002cb6caf8ca60714065ff371ae2aa2e30f452239115d19fb6c408d68338f",
       "ruleIds": [],
       "reason": "Shared monitor validator wiring."
+    },
+    {
+      "name": "import:\"./claude-experimental-conformance\"",
+      "hash": "sha256:7390c4861965e9f60ceb8981b2b59551386fb7a2015b2270a94f53eb6422eded",
+      "ruleIds": [],
+      "reason": "Shared experimental validator wiring."
     }
   ],
   "dependencies": [
@@ -344,7 +348,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:7c0aed365d41886954aeb0c974095c04597047b998abf83bdcd5b293836909e3",
+      "hash": "sha256:b7b998e01b969e5c4aa77b4c87ffd0c8583f498610280b50733b86852d5f594f",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -375,7 +379,10 @@
         "marketplace.monitors.references",
         "marketplace.monitors.required",
         "marketplace.monitors.closed_when",
-        "marketplace.monitors.unique"
+        "marketplace.monitors.unique",
+        "marketplace.experimental",
+        "marketplace.experimental.children",
+        "marketplace.experimental.syntax"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -518,6 +525,28 @@
         "marketplace.monitors.unique"
       ],
       "reason": "Reviewed shared ec/Tzn/Ns monitor input contracts, strict fields and unique names; no runtime claim."
+    },
+    {
+      "path": "packages/core/src/claude-experimental-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:18db1e866f72ebf5450f2dde908368ef4a368a3ca614667983c971f90e82929f",
+      "ruleIds": [
+        "marketplace.experimental",
+        "marketplace.experimental.children",
+        "marketplace.experimental.syntax"
+      ],
+      "reason": "Reviewed rc child schemas and Be strict warning inventory; Core retains existing blocking unknown/nonobject policy."
+    },
+    {
+      "path": "packages/registry/src/claude-experimental-contract.ts",
+      "declarations": [],
+      "hash": "sha256:4449e8008ca873f7a65ea47db77b059ade0851d07d46b9cb48ccb59b9889539e",
+      "ruleIds": [
+        "marketplace.experimental",
+        "marketplace.experimental.children",
+        "marketplace.experimental.syntax"
+      ],
+      "reason": "Reviewed rc child schemas and Be strict warning inventory; Core retains existing blocking unknown/nonobject policy."
     }
   ]
 }
