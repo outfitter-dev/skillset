@@ -38,7 +38,7 @@ test("SET-488: coverage detects inline predicates, new declarations, imports and
     source.replace("source.timeout > 600", "source.timeout > 601"),
     `${source}\nfunction unreviewedRule() { return true; }`,
     `${source}\nconst unreviewedLimit = 900;`,
-    source.replace('from "./hooks"', 'from "./unreviewed-hooks"'),
+    source.replace('from "./claude-inline-hooks-conformance"', 'from "./unreviewed-inline-hooks"'),
     source.replace("function checkClaudeMarketplacePluginArrays(", "function renamedClaudeMarketplacePluginArrays("),
   ]) {
     expect(changed).not.toBe(source);
@@ -49,8 +49,8 @@ test("SET-488: coverage detects inline predicates, new declarations, imports and
 });
 
 test("SET-488: delegated condition and registry inventory mutations change the guarded fingerprints", async () => {
-  const hooks = await read("packages/core/src/hooks.ts");
-  expect(marketplaceDeclarations(hooks.replace('typeof type !== "string"', 'typeof type !== "number"'))).not.toEqual(marketplaceDeclarations(hooks));
+  const hooks = await read("packages/core/src/claude-inline-hooks-conformance.ts");
+  expect(marketplaceDeclarations(hooks.replace('typeof handler.type !== "string"', 'typeof handler.type !== "number"'))).not.toEqual(marketplaceDeclarations(hooks));
   const inventories = await read("packages/registry/src/claude-marketplace-inventories.ts");
   expect(marketplaceDeclarations(inventories.replace('archive: ["url"]', 'archive: ["url", "sha256"]'))).not.toEqual(marketplaceDeclarations(inventories));
 });

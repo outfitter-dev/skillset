@@ -1,17 +1,11 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:d6efea44ed12939c1ebd15628cd152086274b787b6cc7f162983cf5ffa2ecf66",
+  "evidenceHash": "sha256:8e488ae512dde840bfc28f101a86158097860d7c7a089d5aeaa03e4176e64ed4",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
       "hash": "sha256:7dfda7704b1ecce402ea77f1c7ac8d5ee8c61daf9d551acc506a74d42233a9a1",
-      "ruleIds": [],
-      "reason": "Module wiring or marketplace path routing; not a provider predicate."
-    },
-    {
-      "name": "import:\"./hooks\"",
-      "hash": "sha256:0780b85b34fc2b052ed5110d9851e42762d65454f347cbb46f1d7a680ddb49f1",
       "ruleIds": [],
       "reason": "Module wiring or marketplace path routing; not a provider predicate."
     },
@@ -23,7 +17,7 @@
     },
     {
       "name": "import:\"./provider-format-conformance-validation\"",
-      "hash": "sha256:397d3c90ce9822dfdcdcec59b92090cecc8fa2c83d5aede88f5e9cd44237e900",
+      "hash": "sha256:1fbd889a5b135059e51a2f6d6d2b08d6f8e99c43dcbca67f1dd581cb62f56cb4",
       "ruleIds": [],
       "reason": "Module wiring or marketplace path routing; not a provider predicate."
     },
@@ -108,17 +102,8 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:c2f272a2a477149161289d737d9a89c6f2c751eef93c7e467517f52d3c24209e",
+      "hash": "sha256:eff554caa79554c2588a47d8ce792cebdd255e279fe371c9dc0b762126f17d08",
       "ruleIds": [],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkClaudeHookMap",
-      "hash": "sha256:86651b14d522926d321e63d7edcf77aa8447003ab2bec733cf8977da6a110fa7",
-      "ruleIds": [
-        "marketplace.hooks.events",
-        "marketplace.hooks.definition"
-      ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
     {
@@ -244,38 +229,15 @@
       "hash": "sha256:984240e180f2086fb905339cfbaac27ea208b4f9a924e7c2eff9cf995c2639f6",
       "ruleIds": [],
       "reason": "Shared lexical hook reference validator wiring."
+    },
+    {
+      "name": "import:\"./claude-inline-hooks-conformance\"",
+      "hash": "sha256:76c2bc5e722124291e82364d1e55ea578b127c110caf68b93ae1f70ad37a5992",
+      "ruleIds": [],
+      "reason": "Native inline input validator wiring; compiler render guard remains separate."
     }
   ],
   "dependencies": [
-    {
-      "path": "packages/core/src/hooks.ts",
-      "declarations": [],
-      "hash": "sha256:1159301325fd318a787631a8e3373805596392b2ab14a42ed3b9531ca459d8fe",
-      "ruleIds": [
-        "marketplace.hooks.definition"
-      ],
-      "reason": "Complete delegated hook validator, including target branches; authority remains qualified by hook evidence."
-    },
-    {
-      "path": "packages/core/src/hook-capabilities.ts",
-      "declarations": [],
-      "hash": "sha256:42e6d5f26baa43d47a1012873b26d08dee2d3aa3943a6f25961180401e38590a",
-      "ruleIds": [
-        "marketplace.hooks.events",
-        "marketplace.hooks.definition"
-      ],
-      "reason": "Delegated hook capability projection and lookup helpers."
-    },
-    {
-      "path": "packages/registry/src/hook-evidence.ts",
-      "declarations": [],
-      "hash": "sha256:2984cc8e5726acf536b72ead9074d3c4b2101a52fa3451fcbb6c51a097bd186e",
-      "ruleIds": [
-        "marketplace.hooks.events",
-        "marketplace.hooks.definition"
-      ],
-      "reason": "Existing provider hook evidence owner; full source guarded, including non-Claude portions to avoid a synthetic call graph."
-    },
     {
       "path": "packages/core/src/provider-format-conformance-validation.ts",
       "declarations": [],
@@ -343,7 +305,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:832b341843cc6b545e80771ccd72db36e998d528e1c53668e60b52324f202a1b",
+      "hash": "sha256:6f1f4d7e8ba562854cf6162c01c161d6f3a3fd7eed3ba010d5128ef1c1d6e2d3",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -379,7 +341,9 @@
         "marketplace.experimental.children",
         "marketplace.experimental.syntax",
         "marketplace.components.paths",
-        "marketplace.components.array_types"
+        "marketplace.components.array_types",
+        "marketplace.hooks.events",
+        "marketplace.hooks.definition"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -554,6 +518,26 @@
         "marketplace.components.array_types"
       ],
       "reason": "Reviewed shared jd/Ke reference union; inline handler checks remain independently owned."
+    },
+    {
+      "path": "packages/core/src/claude-inline-hooks-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:b1628525757327dbe23aa40d1c63b7a56c9632782e3a096ab2593302f5f0b990",
+      "ruleIds": [
+        "marketplace.hooks.events",
+        "marketplace.hooks.definition"
+      ],
+      "reason": "Reviewed Wq/Rd input schemas and standalone-only Tt/Nne group guard observations; no render capability expansion."
+    },
+    {
+      "path": "packages/registry/src/claude-inline-hook-contract.ts",
+      "declarations": [],
+      "hash": "sha256:0610dd405ce0677e2339caa3769e682d50809c442d08823d785f224ebde18dc5",
+      "ruleIds": [
+        "marketplace.hooks.events",
+        "marketplace.hooks.definition"
+      ],
+      "reason": "Reviewed Wq/Rd input schemas and standalone-only Tt/Nne group guard observations; no render capability expansion."
     }
   ]
 }

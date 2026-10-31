@@ -1,3 +1,4 @@
+import { checkClaudeInlineHooks } from "./claude-inline-hooks-conformance";
 import { checkClaudeHookReferences } from "./claude-hook-reference-conformance";
 import { checkClaudeExperimental } from "./claude-experimental-conformance";
 import { checkClaudeMonitors } from "./claude-monitor-conformance";
@@ -9,13 +10,11 @@ import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
 import { CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
-import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
 import { CLAUDE_PLUGIN_FIELD_TYPES } from "./manifest-field-contracts";
 import {
   checkFieldTypes,
   checkRequiredFields,
   checkUnknownFields,
-  errorMessage,
   issue,
   jsonSchemaSummary,
   parseJsonRecord,
@@ -418,21 +417,14 @@ function checkClaudeMarketplacePluginArrays(
   const issues: ProviderFormatConformanceIssue[] = [];
   issues.push(...checkClaudeHookReferences(file, plugin.hooks, `${prefix}.hooks`, "claude-marketplace-schema"));
   issues.push(...checkClaudeComponentReferences(file, plugin, prefix, "claude-marketplace-schema"));
-  if (Array.isArray(plugin.hooks)) {
-    for (const [index, hookEntry] of plugin.hooks.entries()) {
-      if (!isJsonRecord(hookEntry)) continue;
-      issues.push(...checkClaudeHookMap(file, hookEntry, `${prefix}.hooks[${index}]`));
-    }
-  }
+  issues.push(...checkClaudeInlineHooks(file, plugin.hooks, `${prefix}.hooks`, "claude-marketplace-schema"));
   if (Array.isArray(plugin.dependencies)) {
     issues.push(...checkClaudeDependencies(file, plugin.dependencies, `${prefix}.dependencies`, "claude-marketplace-schema"));
   }
   if (isJsonRecord(plugin.commands)) {
     issues.push(...checkClaudeCommandMap(file, plugin.commands, `${prefix}.commands`, "claude-marketplace-schema"));
   }
-  if (isJsonRecord(plugin.hooks)) {
-    issues.push(...checkClaudeHookMap(file, plugin.hooks, `${prefix}.hooks`));
-  }
+
   issues.push(
     ...checkClaudeLspServers(file, plugin.lspServers, `${prefix}.lspServers`, "claude-marketplace-schema"),
     ...checkClaudeMcpServers(file, plugin.mcpServers, `${prefix}.mcpServers`, "claude-marketplace-schema")
@@ -447,37 +439,6 @@ function checkClaudeMarketplacePluginArrays(
 
   if (isJsonRecord(plugin.experimental)) {
     issues.push(...checkClaudeExperimental(file, plugin.experimental, `${prefix}.experimental`, "claude-marketplace-schema"));
-  }
-  return issues;
-}
-
-function checkClaudeHookMap(
-  file: ProviderFormatConformanceFile,
-  hooks: JsonRecord,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  const issues = [
-    ...checkUnknownFields(
-      file,
-      hooks,
-      "claude",
-      "claude-marketplace-schema",
-      [...CLAUDE_HOOK_EVENTS],
-      prefix
-    ),
-  ];
-  try {
-    validateHookDefinition(hooks, { sourcePath: file.path, target: "claude" });
-  } catch (error) {
-    issues.push(
-      issue(
-        file,
-        "claude",
-        "claude-marketplace-schema",
-        "invalid-shape",
-        `${prefix} is invalid: ${errorMessage(error)}`
-      )
-    );
   }
   return issues;
 }

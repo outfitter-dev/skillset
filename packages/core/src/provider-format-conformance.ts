@@ -1,3 +1,4 @@
+import { checkClaudeInlineHooks } from "./claude-inline-hooks-conformance";
 import { checkClaudeHookReferences } from "./claude-hook-reference-conformance";
 import { checkClaudeExperimental } from "./claude-experimental-conformance";
 import { checkClaudeMonitors } from "./claude-monitor-conformance";
@@ -527,6 +528,7 @@ function checkClaudePluginManifest(
     );
   }
   issues.push(...checkClaudeHookReferences(file, parsed.value.hooks, "hooks", "claude-plugin-manifest-schema"));
+  issues.push(...checkClaudeInlineHooks(file, parsed.value.hooks, "hooks", "claude-plugin-manifest-schema"));
   issues.push(...checkClaudeComponentReferences(file, parsed.value, "", "claude-plugin-manifest-schema"));
   if (isJsonRecord(parsed.value.commands)) {
     issues.push(...checkClaudeCommandMap(file, parsed.value.commands, "commands", "claude-plugin-manifest-schema"));

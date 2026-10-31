@@ -1031,7 +1031,7 @@ describe("provider format conformance", () => {
       "destination field plugins[0].dependencies[0] must be a valid plugin dependency identifier",
       "destination field plugins[0].dependencies[1].marketplace must not be empty",
       "missing required destination field plugins[0].experimental.monitors[0].command",
-      "unknown destination field plugins[0].hooks[0].Bogus; allowed fields are ConfigChange, CwdChanged, Elicitation, ElicitationResult, FileChanged, InstructionsLoaded, MessageDisplay, Notification, PermissionDenied, PermissionRequest, PostCompact, PostToolBatch, PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Setup, Stop, StopFailure, SubagentStart, SubagentStop, TaskCompleted, TaskCreated, TeammateIdle, UserPromptExpansion, UserPromptSubmit, WorktreeCreate, WorktreeRemove",
+      "unknown destination field plugins[0].hooks[0].Bogus; allowed fields are ConfigChange, CwdChanged, DirectoryAdded, Elicitation, ElicitationResult, FileChanged, InstructionsLoaded, MessageDisplay, Notification, PermissionDenied, PermissionRequest, PostCompact, PostModelSwitch, PostToolBatch, PostToolUse, PostToolUseFailure, PreCompact, PreModelSwitch, PreToolUse, SessionEnd, SessionStart, Setup, Stop, StopFailure, SubagentStart, SubagentStop, TaskCompleted, TaskCreated, TeammateIdle, UserPromptExpansion, UserPromptSubmit, WorktreeCreate, WorktreeRemove",
       "destination field plugins[0].lspServers[0].ts.command must be a string",
       "destination field plugins[0].lspServers[0].ts.transport must be socket or stdio",
       "destination field plugins[0].mcpServers[0].x.command must be a string",
