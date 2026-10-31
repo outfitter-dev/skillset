@@ -214,11 +214,6 @@ function printAdoptReport(
   receipt?: OperationReceiptReference
 ): void {
   console.log(`skillset: adopt ${report.rootPath} (${reason})`);
-  if (report.acquisition.kind === "git") {
-    console.log(
-      `  source: git ${report.acquisition.repo} @ ${report.acquisition.ref}`
-    );
-  }
   if (report.alreadyAdopted) {
     console.log(
       "  note: repo already has a Skillset workspace marker; adopting against existing source"
