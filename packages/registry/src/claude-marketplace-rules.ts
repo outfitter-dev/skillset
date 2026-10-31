@@ -224,21 +224,21 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.dependencies.string_pattern", owners: ["checkClaudeMarketplacePluginArrays"],
+    id: "marketplace.dependencies.string_pattern", owners: ["checkClaudeDependencies"],
     predicate: "String dependency matches plugin identifier with optional marketplace and caret-version suffix",
     qualification: "Pin supports the stated constraint only; provider runtime behavior is not established.",
     schema: [{"pointer": "/properties/plugins/items/properties/dependencies/items/anyOf/0/pattern", "value": "^[A-Za-z0-9][-A-Za-z0-9._]*(@[A-Za-z0-9][-A-Za-z0-9._]*)?(@\\^[^@]*)?$"}],
   },
   {
-    id: "marketplace.dependencies.object_fields", owners: ["checkClaudeMarketplacePluginArrays"],
+    id: "marketplace.dependencies.object_fields", owners: ["checkClaudeDependencies"],
     predicate: "Object requires nonempty patterned name; optional patterned nonempty marketplace",
     qualification: "Pin supports the stated constraint only; provider runtime behavior is not established.",
     schema: [{"pointer": "/properties/plugins/items/properties/dependencies/items/anyOf/1/required", "value": ["name"]}, {"pointer": "/properties/plugins/items/properties/dependencies/items/anyOf/1/properties", "value": {"name": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][-A-Za-z0-9._]*$"}, "marketplace": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][-A-Za-z0-9._]*$"}}}],
   },
   {
-    id: "marketplace.dependencies.object_closed_version", owners: ["checkClaudeMarketplacePluginArrays"],
-    predicate: "Dependency object accepts name/marketplace/version only; version optional nonempty string",
-    qualification: "Pin has open additionalProperties and no version property.",
+    id: "marketplace.dependencies.object_extra_fields", parser: "dependency-extra-fields", owners: ["checkClaudeDependencies"],
+    predicate: "Dependency object validates name and optional marketplace; extra values including version are accepted",
+    qualification: "Pinned 2.1.269 Ec is loose and shared by both manifest contexts. The later identifier transformation is not reproduced or a preservation promise.",
     schema: [],
   },
   {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,18 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "dependency-input-schema",
+  "start": 181314000,
+  "end": 181315100,
+  "contentHash": "sha256:bcd2cd1f3213b810ef11d81e2d89024806e3abbb425402364a8565a809790070"
+},
+{
+  "id": "shared-plugin-fields",
+  "start": 181278016,
+  "end": 181281186,
+  "contentHash": "sha256:8520ce50c69a6f8c9d09f09470a2318315bfd2dfc5f191f7c9110f05ac14e4a6"
+},
 {
   "id": "mcp-reference-forms",
   "start": 181275990,
@@ -246,6 +258,19 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"dependency-extra-fields": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.dependencies.object_extra_fields",
+  "windows": [
+    "dependency-input-schema",
+    "shared-plugin-fields",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Shared zd dependencies use Ec: patterned strings or objects requiring patterned nonempty name and optional patterned nonempty marketplace. Ec objects are loose and do not constrain extra values including version. The provider subsequently transforms to an identifier string; conformance validates input only and does not promise preservation or apply normalization."
+},
 "mcp-references": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.components.mcp_reference",
@@ -545,7 +570,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
-    ["mcp-references", "schema-predicate"], ["mcp-variants", "schema-predicate"], ["mcp-records", "schema-predicate"], ["mcp-oauth-fields", "schema-predicate"], ["mcp-oauth-values", "schema-predicate"],
+    ["dependency-extra-fields", "schema-predicate"], ["mcp-references", "schema-predicate"], ["mcp-variants", "schema-predicate"], ["mcp-records", "schema-predicate"], ["mcp-oauth-fields", "schema-predicate"], ["mcp-oauth-values", "schema-predicate"],
     ["channel-shape", "schema-predicate"], ["user-config-types", "schema-predicate"], ["user-config-closed", "schema-predicate"],
     ["command-map-fields", "schema-predicate"], ["command-map-source", "schema-predicate"],
     ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
@@ -557,7 +582,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 20) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 21) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {

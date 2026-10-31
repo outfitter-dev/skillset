@@ -1030,7 +1030,6 @@ describe("provider format conformance", () => {
       "destination field plugins[0].commands.foo.source must be a string",
       "destination field plugins[0].dependencies[0] must be a valid plugin dependency identifier",
       "destination field plugins[0].dependencies[1].marketplace must not be empty",
-      "destination field plugins[0].dependencies[1].version must be a string",
       "missing required destination field plugins[0].experimental.monitors[0].command",
       "unknown destination field plugins[0].hooks[0].Bogus; allowed fields are ConfigChange, CwdChanged, Elicitation, ElicitationResult, FileChanged, InstructionsLoaded, MessageDisplay, Notification, PermissionDenied, PermissionRequest, PostCompact, PostToolBatch, PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Setup, Stop, StopFailure, SubagentStart, SubagentStop, TaskCompleted, TaskCreated, TeammateIdle, UserPromptExpansion, UserPromptSubmit, WorktreeCreate, WorktreeRemove",
       "destination field plugins[0].lspServers[0].ts.command must be a string",
@@ -1320,7 +1319,7 @@ skillset:
     ]);
   });
 
-  it("rejects unknown fields in Claude marketplace dependency objects", () => {
+  it("accepts extra input fields in pinned Claude dependency objects", () => {
     const report = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {
         name: "example",
@@ -1338,13 +1337,7 @@ skillset:
       }),
     ]);
 
-    expect(report.issues.map(({ code, message }) => ({ code, message }))).toEqual([
-      {
-        code: "unknown-destination-field",
-        message:
-          "unknown destination field plugins[0].dependencies[1].unexpected; allowed fields are marketplace, name, version",
-      },
-    ]);
+    expect(report.issues).toEqual([]);
   });
 
   it("rejects IPv4-mapped IPv6 loopback and link-local archive hosts", () => {
