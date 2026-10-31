@@ -1,3 +1,4 @@
+import { isEmptySourceGraphError } from "./empty-source-graph";
 import { dirname, join, relative } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { generatedFileModeMatches } from "./generated-file-mode";
@@ -24,7 +25,7 @@ export async function inspectAdoptionPluginPackages(rootPath: string, candidates
     return await withWorkspaceReadBoundary(rootPath, async () => {
       const exists = async (path: string) => lstat(resolveInside(rootPath, path)).then(() => true, (error) => { if (error.code === "ENOENT") return false; throw error; });
       const hasWorkspace = await exists("skillset.yaml") && await exists(".skillset");
-      const graph = hasWorkspace ? await loadBuildGraph(rootPath, {}) : undefined;
+      const graph = hasWorkspace ? await loadBuildGraph(rootPath, {}).catch((error) => { if (isEmptySourceGraphError(error)) return undefined; throw error; }) : undefined;
       const files = graph === undefined ? [] : await renderBuildGraph({ ...graph, root: { ...graph.root, compile: { ...graph.root.compile, sessionStartHook: "off" } } });
       const rendered = new Map(files.map((file) => [file.path, file]));
       const lockPaths = new Set<string>();
@@ -75,7 +76,16 @@ export async function inspectAdoptionPluginPackages(rootPath: string, candidates
           if (plugin === undefined) throw new Error("Package does not resolve to one canonical plugin.");
           const sourcePath = relative(rootPath, plugin.path).replaceAll("\\", "/");
           const skills = new Set((plugin.discoveredSkills ?? plugin.skills).map((skill) => relative(rootPath, skill.sourcePath).replaceAll("\\", "/")));
-          if (items.some((item) => item.kind === "plugin" ? item.name !== plugin.id || item.sourcePath !== sourcePath : item.kind !== "plugin-skill" || item.plugin !== plugin.id || !skills.has(item.sourcePath ?? ""))) throw new Error("Package includes unrelated or unresolved source ownership.");
+          const sourceRelative = (path: string) => relative(rootPath, path).replaceAll("\\", "/");
+          const belongsToPlugin = (item: ParsedGeneratedLockItem): boolean => {
+            if (item.kind === "plugin") return item.name === plugin.id && item.sourcePath === sourcePath;
+            if (item.plugin !== plugin.id) return false;
+            if (item.kind === "plugin-skill") return skills.has(item.sourcePath ?? "");
+            if (item.kind === "plugin-feature") return plugin.features.some((feature) => item.feature === feature.key && item.name === `${plugin.id}:${feature.key}` && item.sourcePath === sourceRelative(feature.sourcePath) && item.sourcePointer === feature.sourcePointer);
+            if (item.kind === "island") return graph!.projectIslands.some((island) => island.plugin === plugin.id && item.sourcePath === sourceRelative(island.sourcePath) && item.name === `${island.target}:${plugin.id}:${island.relativePath}`);
+            return false;
+          };
+          if (!items.every(belongsToPlugin)) throw new Error("Package includes unrelated or unresolved source ownership.");
           const expected = entries.flatMap((entry) => entry.current.flatMap((item) => item.files.map((file) => join(dirname(entry.path), file)))).sort();
           if (expected.some((file) => !isPathInside(path, file, { allowEqual: false })) || new Set(expected).size !== expected.length) throw new Error("Package ownership crosses its boundary or overlaps.");
           const actual = await packageFiles(rootPath, path);

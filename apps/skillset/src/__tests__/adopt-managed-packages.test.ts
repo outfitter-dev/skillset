@@ -107,3 +107,32 @@ for (const changed of ["source", "output", "lock"]) {
     } finally { spy.mockRestore(); }
   });
 }
+
+for (const locked of [false, true]) {
+  test(`empty initialized workspace with ${locked ? "invalid claim" : "unowned plugin"} preserves ownership distinction`, async () => {
+    const root = await createTestFixtureRoot("adopt-empty-plugin-");
+    await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude]\n  session_start_hook: off\n");
+    await mkdir(join(root, ".skillset"));
+    await Bun.write(join(root, "plugins/third/.claude-plugin/plugin.json"), JSON.stringify({ name: "third", description: "Third plugin." }));
+    if (locked) await Bun.write(join(root, "plugins/skillset.lock"), "{}");
+    const result = await adoptSkillset(root, { write: true });
+    expect(result.ok).toBe(!locked);
+    if (locked) expect(result.writtenPaths).toEqual([]);
+    else expect(result.imports.flatMap((entry) => entry.units).map((unit) => unit.name)).toEqual(["third"]);
+  });
+}
+
+for (const feature of ["mcp", "bin", "island"] as const) {
+  test(`clean package ${feature} ownership retains its canonical plugin`, async () => {
+    const root = await fixture();
+    const path = feature === "mcp" ? ".mcp.json" : feature === "bin" ? "bin/demo.sh" : "_claude/commands/review.md";
+    const content = feature === "mcp" ? JSON.stringify({ mcpServers: { demo: { command: "demo", args: [] } } }) : feature === "bin" ? "#!/bin/sh\nexit 0\n" : "Review this code.\n";
+    await Bun.write(join(root, ".skillset/plugins/alpha", path), content);
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const result = await adoptSkillset(root, { write: true });
+    expect(result.surveyDiagnostics).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.pluginCoalescing).toHaveLength(1);
+    expect(result.imports).toEqual([]);
+  });
+}
