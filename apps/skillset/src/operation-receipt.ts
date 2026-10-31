@@ -115,6 +115,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
     normalizations: [...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])],
     capabilityAssessments: report.imports.flatMap((entry) => entry.capabilityAssessments ?? []),
     alreadyAdopted: report.alreadyAdopted,
+    ...(report.pluginCoalescing === undefined ? {} : { pluginCoalescing: report.pluginCoalescing }),
     ...(report.skillCoalescing === undefined ? {} : { skillCoalescing: report.skillCoalescing }),
     candidateIds: candidateIds.items,
     destinations: destinations.items,

@@ -372,11 +372,11 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/render-plugin-manifest.ts", contentHash: "sha256:9aae325c89c69850911d3a5b4566132b21aae5f2c5a9b9977ae106639505ce87" },
   { path: "packages/core/src/plugin-manifest-identity.ts", contentHash: "sha256:d10cb0004cb89c6c70ee5bc3e1ae91c15a52618cf9acece984bcc991195d61bd" },
   { path: "apps/skillset/src/import.ts", contentHash: "sha256:4d448a411a660cfb2e7038c866950ee6661666fe6422afc7a0f7a79bed6ae2ed" },
-  { path: "apps/skillset/src/adopt.ts", contentHash: "sha256:0acbb4e434743b1f5911e67992045478efc38ba55af024c569a6a960bd8d6fca" },
+  { path: "apps/skillset/src/adopt.ts", contentHash: "sha256:a7ce28d2226f44451c09acc61b0ba63f59bd0eff741552f4ad7e2c009f05be7a" },
   { path: "packages/core/src/build.ts", contentHash: "sha256:442cef0d9919d2105d64fdc6d339c66e8b957d843fbedad590117a667930d216" },
   { path: "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", contentHash: "sha256:e7be2ba62a564c10f5fd37ea4106b776d84de25695a0e740716bbccf55a8ea46" },
   { path: "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", contentHash: "sha256:1b15aefb0d36f4e8352c978e30219fff4ea6ba6c094aa41e007ede6cfc9f3f6c" },
-  { path: "docs/guides/importing.md", contentHash: "sha256:10707422c3621bc307ef0c812e86847602900ac701ab1ca5233e19e558c69b1c" },
+  { path: "docs/guides/importing.md", contentHash: "sha256:9c26cf845810e05b38b7d4f24027d79bf9d8b8ce609819f76e26b67914fe7b40" },
 
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:cddc2c7f379fe7701416805437167525ce71383e5589973a86bbcf685fb769c0" },

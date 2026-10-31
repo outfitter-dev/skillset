@@ -665,6 +665,52 @@
               ],
               "type": "object"
             },
+            "pluginCoalescing": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "destination": {
+                    "maxLength": 256,
+                    "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "selectedSource": {
+                    "maxLength": 256,
+                    "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                    "type": "string"
+                  },
+                  "sources": {
+                    "items": {
+                      "maxLength": 256,
+                      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                      "type": "string"
+                    },
+                    "maxItems": 200,
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "status": {
+                    "enum": [
+                      "compatible",
+                      "conflict"
+                    ]
+                  }
+                },
+                "required": [
+                  "destination",
+                  "sources",
+                  "status",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "renderResults": {
               "additionalProperties": false,
               "properties": {

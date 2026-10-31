@@ -1,3 +1,6 @@
+import { inspectAdoptionPluginPackages } from "@skillset/core/internal/adoption-managed-plugins";
+import type { PluginCoalescingDecision } from "@skillset/schema";
+import { isDeepStrictEqual } from "node:util";
 import { preflightAdoptionSkills, type SkillCoalescingDecision } from "./adopt-skill-preflight";
 import type { PreparedImportBatch } from "./import-prepared-batch";
 import { qualifyMcpDependencySources, type McpDependencySource } from "@skillset/core/internal/adoption-mcp-dependencies";
@@ -120,6 +123,7 @@ export interface TransformPreview {
 }
 
 export interface AdoptReport {
+  readonly pluginCoalescing?: readonly PluginCoalescingDecision[];
   readonly skillCoalescing?: readonly SkillCoalescingDecision[];
   readonly skillPreparationErrors?: readonly { readonly path: string; readonly message: string }[];
   readonly acquisition: AdoptAcquisition;
@@ -313,6 +317,9 @@ async function adoptResolvedRoot(
     ...(targets === undefined ? {} : { targets }),
   });
   const candidates = selectAdoptCandidates(survey.importCandidates, selectedCandidates);
+  const managedPackagePaths = (survey.pluginCoalescing ?? []).flatMap((entry) => entry.sources);
+  const packageProof = managedPackagePaths.length === 0 ? [] : await inspectAdoptionPluginPackages(resolvedRoot, managedPackagePaths);
+  if (managedPackagePaths.some((path) => !packageProof.some((entry) => entry.path === path && entry.kind === "managed"))) throw new Error("skillset: managed package ownership changed after survey");
   const preflight = await preflightAdoptionSkills(resolvedRoot, candidates, async (candidate) => {
     const providers = await providersForAdoptCandidate(resolvedRoot, candidate);
     return {
@@ -325,6 +332,7 @@ async function adoptResolvedRoot(
   try {
   const skillPreflightBlocked = preflight.decisions.some((decision) => decision.status === "conflict") || preflight.errors.length > 0;
   await preflight.assertUnchanged();
+  if (managedPackagePaths.length > 0 && !isDeepStrictEqual(packageProof, await inspectAdoptionPluginPackages(resolvedRoot, managedPackagePaths))) throw new Error("skillset: managed package evidence changed before adoption");
 
 
   if (!writeMode) {
@@ -335,6 +343,7 @@ async function adoptResolvedRoot(
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
+      pluginCoalescing: survey.pluginCoalescing ?? [],
       skillCoalescing: preflight.decisions,
       skillPreparationErrors: preflight.errors,
       cutover: [],
@@ -360,6 +369,7 @@ async function adoptResolvedRoot(
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
+      pluginCoalescing: survey.pluginCoalescing ?? [],
       skillCoalescing: preflight.decisions,
       skillPreparationErrors: preflight.errors,
       cutover: [],
@@ -516,6 +526,7 @@ async function adoptResolvedRoot(
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
     candidates,
+    pluginCoalescing: survey.pluginCoalescing ?? [],
     skillCoalescing: preflight.decisions,
     skillPreparationErrors: preflight.errors,
     cutover: [...new Set(cutover)].sort(),
@@ -844,6 +855,10 @@ export function renderAdoptReportMarkdown(
 
   lines.push(...renderImportNormalizations([...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])]));
   lines.push(...renderImportCapabilityAssessments(report.imports.flatMap((entry) => entry.capabilityAssessments ?? [])));
+  if ((report.pluginCoalescing?.length ?? 0) > 0) {
+    lines.push("", "## Verified plugin packages", "");
+    for (const decision of report.pluginCoalescing ?? []) lines.push(`- ${decision.sources.join(", ")} → ${decision.selectedSource}. ${decision.reason}`);
+  }
   if ((report.skillCoalescing?.length ?? 0) > 0 || (report.skillPreparationErrors?.length ?? 0) > 0) {
     lines.push("## Skill candidate preflight", "");
     for (const decision of report.skillCoalescing ?? []) lines.push(`- ${decision.status}: ${decision.sources.join(", ")} → ${decision.destination}. ${decision.reason}${decision.selectedSource === undefined ? "" : ` Retained source: ${decision.selectedSource}.`}`);

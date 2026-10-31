@@ -107,7 +107,11 @@ export interface SkillCoalescingDecision {
   readonly reason: string;
 }
 
+/** A verified shared package retains its canonical authored plugin. */
+export type PluginCoalescingDecision = SkillCoalescingDecision;
+
 export interface SkillsetAdoptionReportPayload {
+  readonly pluginCoalescing?: readonly PluginCoalescingDecision[];
   readonly skillCoalescing?: readonly SkillCoalescingDecision[];
   readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];

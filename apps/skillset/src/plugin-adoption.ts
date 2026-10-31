@@ -26,6 +26,7 @@ export interface PluginAdoptionGroup {
 
 export interface PluginAdoptionDiagnostic {
   readonly code:
+    | "managed-plugin-ownership-unknown"
     | "agent-plugin-import-blocked"
     | "competing-plugin-sources"
     | "invalid-plugin-manifest"

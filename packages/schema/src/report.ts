@@ -454,6 +454,7 @@ function checkAdoptionPayload(
       "capabilityAssessments",
       "normalizations",
       "skillCoalescing",
+      "pluginCoalescing",
       "alreadyAdopted",
       "candidateIds",
       "cutover",
@@ -487,10 +488,12 @@ function checkAdoptionPayload(
     checkBoundedCount(value.cutover.total, `${path}.cutover.total`, diagnostics);
     checkRetainedListCounts({ paths: value.cutover.total }, { paths: value.cutover.paths }, `${path}.cutover`, diagnostics);
   }
-  if (value.skillCoalescing !== undefined) {
-    if (!Array.isArray(value.skillCoalescing)) diagnostics.push(diagnostic(`${path}.skillCoalescing`, "schema/report/list", "skillCoalescing must be an array"));
-    else value.skillCoalescing.forEach((entry, index) => {
-      const itemPath = `${path}.skillCoalescing[${index}]`;
+  for (const key of ["skillCoalescing", "pluginCoalescing"] as const) {
+    const decisions = value[key];
+    if (decisions === undefined) continue;
+    if (!Array.isArray(decisions)) diagnostics.push(diagnostic(`${path}.${key}`, "schema/report/list", `${key} must be an array`));
+    else decisions.forEach((entry, index) => {
+      const itemPath = `${path}.${key}[${index}]`;
       if (!checkRecord(entry, itemPath, diagnostics)) return;
       checkShape(entry, ["destination", "sources", "selectedSource", "status", "reason"], ["destination", "sources", "status", "reason"], itemPath, diagnostics);
       checkPattern(entry.destination, new RegExp(MIGRATION_LOCATION_PATTERN, "u"), `${itemPath}.destination`, "source path", diagnostics, 256);

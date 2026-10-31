@@ -2099,6 +2099,7 @@ function reportAdoptionPayloadSchema(): SchemaJsonRecord {
       normalizations: arraySchema(importNormalizationSchema(TARGET_NAMES)),
       alreadyAdopted: { type: "boolean" },
       skillCoalescing: reportSkillCoalescingSchema(),
+      pluginCoalescing: reportSkillCoalescingSchema(),
       candidateIds: reportIdListSchema(),
       cutover: requiredObjectSchema({ paths: reportIdListSchema(), total: reportBoundedCountSchema() }, ["paths", "total"]),
       destinations: reportIdListSchema(),
