@@ -1,3 +1,4 @@
+import type { FormatterIgnoreSuggestion } from "./formatter-ignore-suggestions";
 import { inspectAdoptionPluginPackages } from "@skillset/core/internal/adoption-managed-plugins";
 import type { PluginCoalescingDecision } from "@skillset/schema";
 import { isDeepStrictEqual } from "node:util";
@@ -123,6 +124,7 @@ export interface TransformPreview {
 }
 
 export interface AdoptReport {
+  readonly formatterSuggestions?: readonly FormatterIgnoreSuggestion[];
   readonly pluginCoalescing?: readonly PluginCoalescingDecision[];
   readonly skillCoalescing?: readonly SkillCoalescingDecision[];
   readonly skillPreparationErrors?: readonly { readonly path: string; readonly message: string }[];
@@ -355,6 +357,7 @@ async function adoptResolvedRoot(
       setupFiles: survey.files,
       surveyDiagnostics: survey.surveyDiagnostics,
       surveySkips: survey.surveySkips,
+      formatterSuggestions: survey.formatterSuggestions ?? [],
       transformPreviews: [],
       write: false,
       writtenPaths: [],
@@ -381,6 +384,7 @@ async function adoptResolvedRoot(
       setupFiles: survey.files,
       surveyDiagnostics: survey.surveyDiagnostics,
       surveySkips: survey.surveySkips,
+      formatterSuggestions: survey.formatterSuggestions ?? [],
       transformPreviews: [],
       write: false,
       writtenPaths: [...new Set(acquisitionWrittenPaths)],
@@ -545,6 +549,7 @@ async function adoptResolvedRoot(
     setupFiles: init.files,
     surveyDiagnostics: survey.surveyDiagnostics,
     surveySkips: survey.surveySkips,
+    formatterSuggestions: survey.formatterSuggestions ?? [],
     transformPreviews,
     write: true,
     writtenPaths,

@@ -1,3 +1,4 @@
+import { formatterIgnoreSuggestions, type FormatterIgnoreSuggestion } from "./formatter-ignore-suggestions";
 import { inspectAdoptionPluginPackages } from "@skillset/core/internal/adoption-managed-plugins";
 import type { PluginCoalescingDecision } from "@skillset/schema";
 import { applyWorkspaceTransaction } from "@skillset/core/internal/workspace-transaction";
@@ -86,6 +87,7 @@ export interface SetupGit {
 }
 
 export interface SetupReport {
+  readonly formatterSuggestions?: readonly FormatterIgnoreSuggestion[];
   readonly pluginCoalescing?: readonly PluginCoalescingDecision[];
   readonly nativeAgents?: true;
   readonly baselinePath?: string;
@@ -247,6 +249,8 @@ async function applySetupPlan(
     files.push({ path: file.path, status: existing === undefined ? "create" : "exists" });
   }
 
+  const formatterSuggestions = await formatterIgnoreSuggestions(rootPath, currentConfig ?? workspaceManifest(name, targets, scaffoldUnsupportedDestination), nativeSource !== undefined);
+
   if (options.write === true) {
     if (kind === "create" && !(await pathExists(rootPath))) {
       await mkdir(rootPath, { recursive: true });
@@ -302,6 +306,7 @@ async function applySetupPlan(
   return {
     ...(baselineReport?.path === undefined ? {} : { baselinePath: baselineReport.path }),
     baselines,
+    formatterSuggestions,
     files,
     ...(git === undefined ? {} : { git }),
     importCandidates: importSurvey.candidates.filter((candidate) => nativeSource === undefined || candidate.path !== "AGENTS.md"),

@@ -1,3 +1,4 @@
+import { formatFormatterIgnoreSuggestions } from "./formatter-ignore-suggestions";
 import { resolve } from "node:path";
 
 import { normalizeKnownSkillsetIdentity } from "@skillset/core";
@@ -317,6 +318,7 @@ export async function interactiveRepositoryDisplay(
 export function formatInteractiveInitPlan(plan: InteractiveInitPlan): string {
   return [
     `Initialize Skillset in ${plan.location}`,
+    ...(plan.report.formatterSuggestions?.length ? [formatFormatterIgnoreSuggestions(plan.report.formatterSuggestions)] : []),
     ...(plan.adoptionCandidates.length === 0
       ? plan.discoveredCandidates.length === 0
         ? []
