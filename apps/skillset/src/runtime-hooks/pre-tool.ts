@@ -20,18 +20,20 @@ export async function preToolOutput(options: {
     if (input?.hook_event_name !== "PreToolUse") return "";
     const paths = editedPaths(input, options.env.SKILLSET_PROVIDER);
     if (paths === undefined) return "";
-    for (const path of paths) {
+    const warnings: string[] = [];
+    for (const path of new Set(paths)) {
       const ownership = await inspectGeneratedEditOwnership(options.rootPath, path);
       if (ownership.kind !== "managed") continue;
       const guidance = `Skillset manages ${JSON.stringify(ownership.outputPath)}. Its source ${ownership.sourceKind === "directory" ? "scope" : "unit"} is ${JSON.stringify(ownership.sourcePath)}. Use skillset explain for the source mapping, edit the source, then rebuild generated output.`;
-      return `${JSON.stringify({ hookSpecificOutput: {
+      if (policy === "block") return `${JSON.stringify({ hookSpecificOutput: {
         hookEventName: "PreToolUse",
-        ...(policy === "block"
-          ? { permissionDecision: "deny", permissionDecisionReason: guidance }
-          : { additionalContext: guidance }),
+        permissionDecision: "deny", permissionDecisionReason: guidance,
       } })}\n`;
+      warnings.push(guidance);
     }
-    return "";
+    return warnings.length === 0 ? "" : `${JSON.stringify({ hookSpecificOutput: {
+      hookEventName: "PreToolUse", additionalContext: warnings.join("\n"),
+    } })}\n`;
   } catch {
     return "";
   }
