@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, readFile, readdir } from "node:fs/promises";
+import { lstat, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -31,7 +31,7 @@ describe("portable MCP import", () => {
         const original = await readFile(join(external, sourceName), "utf8");
         await expect(importSource({ kind: "plugin", provider, rootPath: root, sourcePath: external })).rejects.toThrow(/declare type|transport/);
         expect(await readFile(join(external, sourceName), "utf8")).toBe(original);
-        expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
+        await expect(lstat(join(root, ".skillset/plugins"))).rejects.toMatchObject({ code: "ENOENT" });
       }
     }
   );
@@ -313,7 +313,7 @@ test.each([
   const original = await readFile(path, "utf8");
   await expect(importSource({ kind: "plugin", provider: "claude", rootPath: root, sourcePath: external })).rejects.toThrow("cwd" in server ? "unmappable field cwd" : "literal or shell meaning cannot be mapped automatically; review the source before importing");
   expect(await readFile(path, "utf8")).toBe(original);
-  expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
+  await expect(lstat(join(root, ".skillset/plugins"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
  test.each(["$CLAUDE_PLUGIN_ROOTED", "$CLAUDE_PLUGIN_DATASET", "$CLAUDE_PLUGIN_ROOT_OLD", "$CLAUDE_PLUGIN_DATA2"])(

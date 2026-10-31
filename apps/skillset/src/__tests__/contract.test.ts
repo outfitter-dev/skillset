@@ -1,4 +1,4 @@
-import { chmod, mkdir, readdir, readFile, realpath, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir, readFile, realpath, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -1762,7 +1762,7 @@ test("SET-10: failed imports do not leave source target directories", async () =
   ).rejects.toThrow("importing a file is only supported");
 
   expect(await Bun.file(join(root, ".skillset/skills/partial-import")).exists()).toBe(false);
-  expect(await readdir(join(root, ".skillset/skills"))).toEqual([]);
+  await expect(lstat(join(root, ".skillset/skills"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 // SET-9: explain, diff, and doctor authoring commands (local-only, read-only).
