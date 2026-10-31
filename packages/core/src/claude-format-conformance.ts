@@ -119,6 +119,7 @@ export function checkClaudeMarketplace(
     );
   }
   if (Array.isArray(parsed.value.plugins)) {
+    const nameIndexes = new Map<string, number>();
     for (const [index, plugin] of parsed.value.plugins.entries()) {
       const prefix = `plugins[${index}]`;
       if (!isJsonRecord(plugin)) {
@@ -132,6 +133,14 @@ export function checkClaudeMarketplace(
           )
         );
         continue;
+      }
+      if (typeof plugin.name === "string") {
+        const firstIndex = nameIndexes.get(plugin.name);
+        if (firstIndex === undefined) nameIndexes.set(plugin.name, index);
+        else issues.push(issue(
+          file, "claude", "claude-marketplace-schema", "invalid-shape",
+          `destination field ${prefix}.name duplicates plugins[${firstIndex}].name: ${plugin.name}`
+        ));
       }
       issues.push(...checkClaudeMarketplacePlugin(file, plugin, prefix));
       if (isJsonRecord(plugin.author)) {

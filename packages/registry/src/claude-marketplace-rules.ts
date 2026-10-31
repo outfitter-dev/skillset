@@ -57,6 +57,12 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [{"pointer": "/properties/plugins/items/properties/name/type", "value": "string"}, {"pointer": "/properties/plugins/items/properties/name/minLength", "value": 1}],
   },
   {
+    id: "marketplace.entry.name.unique", parser: "entry-name-unique", owners: ["checkClaudeMarketplace"],
+    predicate: "Plugin names must be unique by exact string equality within the marketplace",
+    qualification: "Pinned 2.1.269 static validator records duplicate names as errors after schema parsing. Core reports later occurrences against the first rather than every duplicate-group member. No provider execution or runtime acceptance is established.",
+    schema: [],
+  },
+  {
     id: "marketplace.entry.name.pattern", parser: "entry-name-strict", owners: ["checkClaudeMarketplacePlugin"],
     predicate: "Name must start alphanumeric, contain only alphanumeric/dot/underscore/hyphen and be at most 128 characters",
     qualification: "Pinned 2.1.269 static validator evidence: this pattern produces a Desktop compatibility warning that fails --strict. Core reports invalid shape; ordinary Claude Code runtime rejection and actual execution are not established.",

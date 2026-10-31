@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:81c82c540c2f6263d6379a32ac3d416119e26ac22f63b02ae905eda210d18bc3",
+  "evidenceHash": "sha256:154474f54c1a016a2a8335904be6f3db61fb388637a0fba010f1ae05149ffb44",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -47,12 +47,13 @@
     },
     {
       "name": "function:checkClaudeMarketplace",
-      "hash": "sha256:d7cc3d5eaaacddcdf85217587a021902ce6082c340fa841e5231e61145ff4827",
+      "hash": "sha256:6be5de8ab8b7aab492557edf9bd4a52b5cbd7f7ccf0d19b32b0decea396ce906",
       "ruleIds": [
         "marketplace.metadata.fields",
         "marketplace.metadata.closed",
         "marketplace.renames.values",
-        "marketplace.entry.object"
+        "marketplace.entry.object",
+        "marketplace.entry.name.unique"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -361,11 +362,12 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:34e351647c81de9f302582b61168e1adccb87c9a4acc2a9d64685b18a83ab25a",
+      "hash": "sha256:dd57a5edc1b693317e83e978bb683b984129c4ad46c8f4f04a6ee6fb1b4a0183",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
-        "marketplace.entry.name.pattern"
+        "marketplace.entry.name.pattern",
+        "marketplace.entry.name.unique"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     }

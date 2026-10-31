@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict";
+export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -15,7 +15,7 @@ export interface ClaudeMarketplaceParserEvidence {
   readonly member: { readonly path: string; readonly bytes: number; readonly contentHash: string };
   readonly windows: readonly { readonly id: string; readonly start: number; readonly end: number; readonly contentHash: string }[];
   readonly predicates: Readonly<Record<ClaudeMarketplaceParserPredicateId, {
-    readonly stage: "schema-predicate" | "strict-warning"; readonly ruleId: string; readonly windows: readonly string[]; readonly claim: string;
+    readonly stage: "schema-predicate" | "strict-warning" | "validator-error"; readonly ruleId: string; readonly windows: readonly string[]; readonly claim: string;
   }>>;
   readonly limitation: string;
 }
@@ -129,6 +129,12 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
       "start": 208260989,
       "end": 208261077,
       "contentHash": "sha256:49cc01ab308ded5c73adaa63f178d53e1fdfa0c154ea496e7c2482e547a93a72"
+    },
+    {
+      "id": "marketplace-duplicate-names",
+      "start": 208266450,
+      "end": 208266950,
+      "contentHash": "sha256:e6f14085d3f61922f7c71c41daa43f389509d8feb1477199038d8576c3d1ff51"
     }
   ],
   "predicates": {
@@ -171,6 +177,20 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
         "strict-name-pattern"
       ],
       "claim": "The marketplace validator tests nonempty plugin entry names against ze: ASCII alphanumeric first, then ASCII alphanumeric/dot/underscore/hyphen, at most 128 characters. A mismatch is a Claude Desktop compatibility warning. K8n makes warnings fail only under --strict; oa uses that aggregate for CLI status. This is a static condition, not observed execution or ordinary Claude Code runtime rejection."
+    },
+    "entry-name-unique": {
+      "stage": "validator-error",
+      "ruleId": "marketplace.entry.name.unique",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-duplicate-names",
+        "marketplace-validator-return"
+      ],
+      "claim": "After schema parsing succeeds, the marketplace validator compares plugin names with exact equality and records duplicate names as errors. Core diagnoses each later occurrence against the first, while the pinned validator diagnoses every member of a duplicate group. Static inspection does not establish observed execution or runtime behavior."
     }
   },
   "limitation": "Embedded bundled JavaScript inspection only. Schema-predicate records do not establish command exit status because entry recovery and later validation stages differ. The strict-warning record traces one warning-to-status condition; it does not establish whole-command acceptance, installation, trust or runtime behavior. No provider code was executed."
@@ -191,11 +211,11 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     ids.add(window.id);
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
-  for (const id of ["archive-digest", "command-limits", "entry-name-strict"] as const) {
+  for (const id of ["archive-digest", "command-limits", "entry-name-strict", "entry-name-unique"] as const) {
     const predicate = evidence.predicates[id];
-    if (predicate === undefined || predicate.stage !== (id === "entry-name-strict" ? "strict-warning" : "schema-predicate") || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
+    if (predicate === undefined || predicate.stage !== (id === "entry-name-strict" ? "strict-warning" : id === "entry-name-unique" ? "validator-error" : "schema-predicate") || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 3) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 4) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {

@@ -830,3 +830,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Traced the exact pinned 2.1.269 exported validation handler through marketplace dispatch, name compatibility warning and strict success aggregation. The ledger now records a strict-warning stage separately from schema predicates; Core's diagnostic severity and behavior stay unchanged.
 - Independently verified the full member and all 15 source windows. The affected 37-test corpus / 243 assertions and fast gate pass. All Core declarations and other dependency fingerprints were asserted unchanged before updating only the reviewed parser evidence and name qualification.
 - Archive-host differences remain unresolved; no provider code was executed. Exact review and full immutable verification follow the commit.
+
+### SET-800 duplicate marketplace plugin names
+
+- Reproduced public conformance accepting repeated names across distinct sources; now diagnose each later exact-string duplicate against the first entry. Unique and case-distinct names pass; malformed values remain diagnostic without coercion.
+- Registered the pinned 2.1.269 post-parse validator error separately from schema predicates and strict warnings. The provider diagnoses every duplicate-group member; Core intentionally points later entries to the first. No provider code was executed.
+- All 58 focused tests / 302 assertions and the fast gate pass. The exact member and all 16 evidence windows verify. Coverage updates were constrained to the changed marketplace function, the new rule and reviewed parser evidence; unrelated declarations and dependencies were asserted unchanged. Exact review and full immutable verification follow the commit.
