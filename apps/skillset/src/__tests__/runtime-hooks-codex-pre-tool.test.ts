@@ -111,3 +111,19 @@ test("Codex CLI emits only the native decision and never applies the patch", asy
   expect(JSON.parse(stdout).hookSpecificOutput.permissionDecision).toBe("deny");
   expect(await Bun.file(join(root, managed)).text()).toBe(before);
 });
+
+test("Codex warn mode reports every managed patch path without duplicate mappings", async () => {
+  const root = await fixture();
+  await Bun.write(join(root, ".skillset/skills/second/SKILL.md"), "---\nname: second\ndescription: Another managed skill.\n---\nBody.\n");
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  const second = ".agents/skills/second/SKILL.md";
+  const command = patch("*** Delete File: authored.md", "*** Delete File: " + managed, "*** Delete File: ./" + managed, "*** Delete File: " + second);
+  const result = await run(root, command, "warn");
+  const context = JSON.parse(result.output).hookSpecificOutput.additionalContext;
+  expect(context).toContain(".skillset/skills/demo/SKILL.md");
+  expect(context).toContain(".skillset/skills/second/SKILL.md");
+  expect(context.match(/Skillset manages/gu)).toHaveLength(2);
+  expect(result.output).not.toContain("permissionDecision");
+  expect(result.ranCommands).toEqual([]);
+  expect(JSON.parse((await run(root, command)).output).hookSpecificOutput.permissionDecision).toBe("deny");
+});
