@@ -52,3 +52,25 @@ test("CLI emits only the Claude wire decision for Write and leaves output unchan
   expect(JSON.parse(stdout).hookSpecificOutput.permissionDecision).toBe("deny");
   expect(await Bun.file(target).text()).toBe(before);
 });
+
+test("CLI discovers event workspace from nested cwd while explicit root remains authoritative", async () => {
+  const root = await fixture();
+  const { mkdir } = await import("node:fs/promises");
+  const nested = join(root, "src/deep");
+  const unrelated = await createTestFixtureRoot("unrelated-hook-root-");
+  await mkdir(nested, { recursive: true });
+  const target = join(root, ".agents/skills/demo/SKILL.md");
+  for (const [args, shouldDeny] of [[[], true], [["--root", unrelated], false]] as const) {
+    const child = Bun.spawn([process.execPath, join(import.meta.dir, "../cli.ts"), "hooks", "run", "pre-tool-use", ...args], {
+      cwd: unrelated,
+      env: { ...process.env, SKILLSET_PROVIDER: "claude", SKILLSET_GENERATED_EDIT_POLICY: "block" },
+      stdin: new Blob([JSON.stringify({ hook_event_name: "PreToolUse", cwd: nested, tool_name: "Write", tool_input: { file_path: target } })]),
+      stdout: "pipe", stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+    expect(code).toBe(0);
+    expect(stderr).toBe("");
+    if (shouldDeny) expect(JSON.parse(stdout).hookSpecificOutput.permissionDecision).toBe("deny");
+    else expect(stdout).toBe("");
+  }
+});

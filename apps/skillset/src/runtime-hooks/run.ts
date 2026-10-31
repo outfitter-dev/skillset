@@ -4,6 +4,8 @@ import {
   type SkillsetWriteSummary,
 } from "@skillset/core";
 
+import { getGeneratedEditHookProtocol } from "@skillset/registry";
+import { discoverHookWorkspace } from "./workspace-root";
 import { preToolOutput } from "./pre-tool";
 import { readHookRuntimeContext, type HookRuntimeContext } from "./context";
 import { readHookRunEvent, type HookRunEvent } from "./events";
@@ -11,6 +13,7 @@ import { readHookSourceGate, type HookSourceGateResult } from "./source-gate";
 import { runSkillsetCommand, type RunSkillsetCommand } from "./commands";
 
 export interface HookRunOptions {
+  readonly discoverWorkspace?: boolean;
   readonly commandRunner?: RunSkillsetCommand;
   readonly env?: Record<string, string | undefined>;
   readonly rootPath?: string;
@@ -59,7 +62,10 @@ export async function runHookEvent(
   event: HookRunEvent,
   options: HookRunOptions = {}
 ): Promise<HookRunResult> {
-  const rootPath = options.rootPath ?? process.cwd();
+  const shouldDiscover = event === "pre-tool-use" && options.discoverWorkspace === true;
+  const discovered = shouldDiscover && getGeneratedEditHookProtocol((options.env ?? process.env).SKILLSET_PROVIDER)
+    ? await discoverHookWorkspace(options.stdinText) : undefined;
+  const rootPath = discovered ?? options.rootPath ?? process.cwd();
   const context = await readHookRuntimeContext({
     event,
     ...(options.env === undefined ? {} : { env: options.env }),
@@ -70,7 +76,7 @@ export async function runHookEvent(
     return result({
       context, event, exitCode: 0, ranCommands: [],
       gate: { changed: false, exitCode: 0, ok: true, paths: [], stdout: "" },
-      output: await preToolOutput({
+      output: shouldDiscover && discovered === undefined ? "" : await preToolOutput({
         rootPath, env: options.env ?? process.env,
         ...(options.stdinText === undefined ? {} : { stdinText: options.stdinText }),
         ...(options.stderr === undefined ? {} : { stderr: options.stderr }),

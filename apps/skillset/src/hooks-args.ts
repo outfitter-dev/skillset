@@ -410,6 +410,7 @@ export const parseHooksCommandRequest = (
     throw new CliUsageError("skillset: new options are only supported with new");
   }
   return {
+    ...(hookRunEvent === "pre-tool-use" && !rootExplicit ? { hookDiscoverWorkspace: true as const } : {}),
     hookAgentRuntime,
     hookContextEvent,
     hookContextFields,

@@ -16,6 +16,7 @@ import type {
 } from "./runtime-hooks";
 
 export interface HooksCommandRequest {
+  readonly hookDiscoverWorkspace?: true;
   readonly hookAgentRuntime: boolean;
   readonly hookContextEvent: string | undefined;
   readonly hookContextFields: readonly HookRuntimeContextField[] | undefined;
@@ -30,6 +31,7 @@ export interface HooksCommandRequest {
 }
 
 export async function runHooksCommand({
+  hookDiscoverWorkspace,
   hookAgentRuntime,
   hookContextEvent,
   hookContextFields,
@@ -58,6 +60,7 @@ export async function runHooksCommand({
     const stdinText = await readHookStdin();
     const result = await dispatchHookRun(hookRunEvent, {
       rootPath,
+      ...(hookDiscoverWorkspace ? { discoverWorkspace: true } : {}),
       stderr: process.stderr,
       ...(stdinText === undefined ? {} : { stdinText }),
     });
