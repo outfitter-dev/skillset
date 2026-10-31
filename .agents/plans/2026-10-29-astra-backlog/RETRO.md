@@ -812,3 +812,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Added a typed marketplace-schema-linked ledger with exact nested schema facts and explicitly unresolved external authority. Core consumes unchanged registry-owned field/source inventories; declaration and delegated-helper fingerprints require evidence review on changes.
 - Provider maintenance inspects the same fetched bytes for schema and nested evidence, detects drift independently of schema refresh, and exposes unresolved rules. Feature linkage stays maintenance-only to preserve render evidence and generated lock bytes.
 - Focused affected corpus: 110 tests and 1,194 assertions; fast gate passes. Live self-hosted diff has no added/changed/missing/removed output. Independent exact review and immutable full verification follow the commit. No provider execution or runtime-equivalence claim; stricter rule provenance remains open.
+
+### SET-488 versioned static parser predicates
+
+- Qualified archive-digest and command-source limits using the integrity-verified Claude 2.1.269 Linux member, exact source windows and traced schema use sites. Added a local byte verifier that never invokes provider code. Schema-backed, static-parser and unresolved authority remain distinct.
+- Provider maintenance detects validation-lane version/artifact drift. Existing implementation fingerprints were asserted unchanged before adding the reviewed parser dependency and updating only the two rule qualifications; no blind refresh.
+- Focused affected corpus: 87 tests and 419 assertions pass; fast gate passes. The actual pinned 219,651,568-byte member and all six source windows verify. Exact independent review and full immutable verification follow the commit.

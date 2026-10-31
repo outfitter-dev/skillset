@@ -6,13 +6,29 @@ description: Maintainer ownership, qualification and drift checks for Claude mar
 
 The registry owns the nested marketplace evidence in `packages/registry/src/claude-marketplace-evidence.ts`, the rule ledger in `claude-marketplace-rules.ts`, and the shared inventories in `claude-marketplace-inventories.ts`. Core consumes the field and source inventories. Its algorithms remain in `packages/core/src/claude-format-conformance.ts`. The `marketplaces` feature links this evidence specifically to `claude-marketplace-schema`; it is not a standalone plugin-format overlay. The link is maintenance metadata on feature support, rather than additional rendering provenance, so it does not rewrite generated lock bytes.
 
-Each rule group names its local implementation owners, exact predicate and provenance qualification. A nonempty `schema` list retains JSON pointers and values from the recorded SchemaStore source hash. Those facts establish what that third-party schema says. They do not establish behavior in an installed Claude version. An empty list means external authority remains unresolved; related local tests do not turn that gap into provider proof. The existing hosted exact-provider validation lane remains the runtime backstop.
+Each rule group names its local implementation owners, exact predicate and provenance qualification. A nonempty `schema` list retains JSON pointers and values from the recorded SchemaStore source hash. Those facts establish what that third-party schema says. They do not establish behavior in an installed Claude version. An empty list without a `parser` reference means external authority remains unresolved; related local tests do not turn that gap into provider proof. The existing hosted exact-provider validation lane remains the runtime backstop.
 
 ## Maintenance
 
 Run `bun run providers:check` or `bun run providers:diff` to fetch the selected schema sources. The marketplace evidence inspects the same fetched bytes as the schema snapshot check. It reports changed pointer values, source-hash drift, the affected schema rule IDs and the unresolved rules requiring manual review. A schema refresh cannot silently refresh this separate evidence record: a subsequent check still fails until its changed facts and qualifications are reviewed.
 
 `providers:update` updates schema snapshots only. Review the corresponding evidence, provider documentation and relevant tests before deliberately editing the rule ledger. Retain unresolved qualifications when a precise source or version is unavailable. Never broaden the compiler contract just to match rolling documentation.
+
+## Static Parser Qualification
+
+`claude-marketplace-parser-evidence.ts` records the existing validation lane's Claude 2.1.269 Linux archive integrity, its exact `package/claude` member digest, and zero-based byte windows with exclusive ends. It qualifies only the archive SHA-256 string format and command-source mode, timeout and text limits. Each rule references its own inspected predicate and the source-schema use sites. The embedded parser recovers invalid entries, and later strict-validator stages were not traced; these facts do not establish CLI exit status, installation or runtime acceptance.
+
+Provider maintenance reports static rules separately from schema-backed and unresolved rules. It checks that the recorded version, lane identity and archive integrity still match the canonical validation lane. A pin change makes `providers:check` fail pending evidence review. It does not download or execute the binary during ordinary maintenance.
+
+To reproduce byte identity, acquire the exact archive named in the record, verify its recorded integrity, and extract only its regular `package/claude` member into a disposable location without executable permissions. Then run:
+
+```bash
+bun scripts/verify-claude-marketplace-parser.ts /path/to/extracted/member
+```
+
+This command reads the member and checks its length, full digest and every referenced window. It never invokes provider code. Passing byte checks identifies the inspected bytes; it does not independently prove the human interpretation of them. Review the predicate and its call sites before changing the record or its coverage fingerprint.
+
+The inspected archive-host and plugin-name predicates differ from Core at this parser layer. They retain unresolved qualifications until their relevant strict-validation stages are traced; the static observations alone do not change the offline validation contract.
 
 ## Implementation Coverage
 

@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:a961fb90fb7483c376a45652577d8de9c4852097803057212dbc641a9ffcee8c",
+  "evidenceHash": "sha256:092cb2d3f58fff8c8b2c76cf8657118969b1523882b4c8e1c6889fbc12db734a",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -357,6 +357,16 @@
         "marketplace.entry.field_types"
       ],
       "reason": "Shared manifest contract re-exports the one registry inventory; guards against a parallel local copy."
+    },
+    {
+      "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
+      "declarations": [],
+      "hash": "sha256:f181b4863ab9c771ef09bf43df91c768a255cb8d1aac69b58a347035ea2338a0",
+      "ruleIds": [
+        "marketplace.source.archive.digest",
+        "marketplace.source.command.limits"
+      ],
+      "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     }
   ]
 }
