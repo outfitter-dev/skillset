@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:b3751e1912d6f0ab404129c6feaface99f852d90a7848fe2b2b456bc0a1ffa77",
+  "evidenceHash": "sha256:08d3b528b473ee21c1508a2b28aa8cc29cb59d0f35d0ead9e23e185ba76eea58",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,7 +108,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:92db6976ab892821a4a7fccb9b8e1632ad87eca91edd9cd0a33680f3f56ec12d",
+      "hash": "sha256:09b2b6edde9d1293d0b403d626fa398fedbfedd15e8a0871d9d3c2c056bb81c2",
       "ruleIds": [
         "marketplace.components.paths",
         "marketplace.components.mcp_reference",
@@ -137,15 +137,6 @@
         "marketplace.monitors.required",
         "marketplace.monitors.closed_when",
         "marketplace.experimental"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkClaudeCommandMap",
-      "hash": "sha256:c4b14f9b74acf7075166d44fae77c82641f6c6efd09621dd887e5b18d8483e33",
-      "ruleIds": [
-        "marketplace.commands.object",
-        "marketplace.commands.source"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -273,6 +264,12 @@
       "hash": "sha256:4ff5b9eff08a0c123a9eb0831d270925caee3bf8c8025ce4e6c05dfe50eeaf7f",
       "ruleIds": [],
       "reason": "Delegates marketplace-only archive header validation."
+    },
+    {
+      "name": "import:\"./claude-command-map-conformance\"",
+      "hash": "sha256:9af649af6a8a53a54e582b9f4781fd2bb2ecfb04df2fac4e43c1dee5ac56d1e6",
+      "ruleIds": [],
+      "reason": "Shared command-map validator wiring; predicates owned by the dependency below."
     }
   ],
   "dependencies": [
@@ -372,7 +369,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:4b248236cfec1d8555b10f45963e4882d71684cb8b9ad9a97bffc199861c1085",
+      "hash": "sha256:b408f5e61da6d36a28af085465fd865384b0bb927943c2f3177e6136e752be1b",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -383,7 +380,9 @@
         "marketplace.headers.shape",
         "marketplace.headers.helper_strict",
         "marketplace.headers.source_digest",
-        "marketplace.headers.restricted"
+        "marketplace.headers.restricted",
+        "marketplace.commands.object",
+        "marketplace.commands.source"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -398,6 +397,16 @@
         "marketplace.headers.restricted"
       ],
       "reason": "Reviewed marketplace-only header map, helper text, post-parse conditions and restricted key checks. No execution or runtime filtering."
+    },
+    {
+      "path": "packages/core/src/claude-command-map-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:e1ebddbee297c757eea850b87f8785c67e949da70b33d6e9a62f4ed0b1c5d925",
+      "ruleIds": [
+        "marketplace.commands.object",
+        "marketplace.commands.source"
+      ],
+      "reason": "Shared Kd known-field types, source prefix and truthiness XOR; unknown fields accepted. Reviewed against exact static parser windows and paired contexts."
     }
   ]
 }

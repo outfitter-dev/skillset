@@ -1,3 +1,4 @@
+import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkCodexLegacyInterface } from "./codex-legacy-interface-conformance";
 import {
   CURSOR_MARKETPLACE_METADATA_FIELD_TYPES,
@@ -514,6 +515,9 @@ function checkClaudePluginManifest(
         "author"
       )
     );
+  }
+  if (isJsonRecord(parsed.value.commands)) {
+    issues.push(...checkClaudeCommandMap(file, parsed.value.commands, "commands", "claude-plugin-manifest-schema"));
   }
   if (isJsonRecord(parsed.value.experimental)) {
     issues.push(

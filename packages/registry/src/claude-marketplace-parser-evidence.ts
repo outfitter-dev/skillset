@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,42 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "shared-command-path",
+  "start": 181275990,
+  "end": 181276550,
+  "contentHash": "sha256:068daeff493f00ca01204887497649ad085fe16aa7195f335f9313f6dcf0e5b8"
+},
+{
+  "id": "shared-command-map",
+  "start": 181281186,
+  "end": 181282512,
+  "contentHash": "sha256:be916aa965d324c9ff2f0787f361de0855c9bf7fed79f0ae322a61453eceb845"
+},
+{
+  "id": "shared-plugin-base",
+  "start": 181293791,
+  "end": 181294400,
+  "contentHash": "sha256:50afe06e4df777bc5486a5da5a4d46dfd29abe589cb4513011f3b622f09ff32c"
+},
+{
+  "id": "standalone-plugin-parser",
+  "start": 186903305,
+  "end": 186905500,
+  "contentHash": "sha256:4a26f29dd60e3f7c7e9a5b697d10a7cbb8f0cd715454956e1f9ef4d7fc32784c"
+},
+{
+  "id": "standalone-plugin-loader",
+  "start": 208256010,
+  "end": 208258650,
+  "contentHash": "sha256:95a3fc650ed46ce312ca233838779d841031621208257e844e23bec19e586cc9"
+},
+{
+  "id": "marketplace-shared-base",
+  "start": 181308616,
+  "end": 181309750,
+  "contentHash": "sha256:5b7a6bd60549bcc58b40e84692bce235a759ae67e945eb21b52e55515f7c4f7c"
+},
     {
       "id": "command-max-and-pattern",
       "start": 181272200,
@@ -180,6 +216,32 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"command-map-fields": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.commands.object",
+  "windows": [
+    "shared-command-path",
+    "shared-command-map",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Shared Kd command-map entries are objects with optional string source/content/description/argumentHint/model and string-array allowedTools. Kd uses default object stripping, not strict unknown-key rejection. He calls sQ, which parses mwe; marketplace H$t extends mwe. These static call paths establish shared field parsing, not runtime behavior."
+},
+"command-map-source": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.commands.source",
+  "windows": [
+    "shared-command-path",
+    "shared-command-map",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Kd requires exactly one truthy source/content value. Source uses vn (An or fe), requiring ./ prefix; an empty content alongside a valid source is accepted. This is schema input validation only."
+},
     "archive-digest": {
       "ruleId": "marketplace.source.archive.digest",
       "windows": [
@@ -342,6 +404,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["command-map-fields", "schema-predicate"], ["command-map-source", "schema-predicate"],
     ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
     ["entry-name-strict", "strict-warning"], ["entry-name-unique", "validator-error"],
     ["metadata-closed-strict", "strict-warning"], ["rename-values", "validator-error"],
@@ -351,7 +414,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 10) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 12) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {

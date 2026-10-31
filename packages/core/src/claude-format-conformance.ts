@@ -1,3 +1,4 @@
+import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
 import { CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
@@ -481,7 +482,7 @@ function checkClaudeMarketplacePluginArrays(
     }
   }
   if (isJsonRecord(plugin.commands)) {
-    issues.push(...checkClaudeCommandMap(file, plugin.commands, `${prefix}.commands`));
+    issues.push(...checkClaudeCommandMap(file, plugin.commands, `${prefix}.commands`, "claude-marketplace-schema"));
   }
   if (isJsonRecord(plugin.hooks)) {
     issues.push(...checkClaudeHookMap(file, plugin.hooks, `${prefix}.hooks`));
@@ -728,60 +729,6 @@ function checkClaudeMonitor(
         `destination field ${prefix}.when must be always or start with on-skill-invoke:`
       )
     );
-  }
-  return issues;
-}
-
-function checkClaudeCommandMap(
-  file: ProviderFormatConformanceFile,
-  commands: JsonRecord,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [name, command] of Object.entries(commands)) {
-    const commandPrefix = `${prefix}.${name}`;
-    if (!isJsonRecord(command)) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-field-type", `destination field ${commandPrefix} must be an object`));
-      continue;
-    }
-    issues.push(
-      ...checkFieldTypes(file, command, "claude", "claude-marketplace-schema", {
-        allowedTools: "string-array",
-        argumentHint: "string",
-        content: "string",
-        description: "string",
-        model: "string",
-        source: "string",
-      }, commandPrefix),
-      ...checkUnknownFields(file, command, "claude", "claude-marketplace-schema", [
-        "allowedTools", "argumentHint", "content", "description", "model", "source",
-      ], commandPrefix)
-    );
-    if (
-      typeof command.source === "string" &&
-      !command.source.startsWith("./")
-    ) {
-      issues.push(
-        issue(
-          file,
-          "claude",
-          "claude-marketplace-schema",
-          "invalid-shape",
-          `destination field ${commandPrefix}.source must start with ./`
-        )
-      );
-    }
-    if (command.source !== undefined && command.content !== undefined) {
-      issues.push(
-        issue(
-          file,
-          "claude",
-          "claude-marketplace-schema",
-          "invalid-shape",
-          `destination field ${commandPrefix} must not define both source and content`
-        )
-      );
-    }
   }
   return issues;
 }

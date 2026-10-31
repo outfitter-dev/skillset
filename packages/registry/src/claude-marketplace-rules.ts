@@ -302,15 +302,15 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.commands.object", owners: ["checkClaudeCommandMap"],
-    predicate: "Command map entries are objects with typed allowedTools/argumentHint/content/description/model/source and no other fields",
-    qualification: "Need map-specific pointers or qualified documentation.",
+    id: "marketplace.commands.object", parser: "command-map-fields", owners: ["checkClaudeCommandMap"],
+    predicate: "Command map entries are objects with typed allowedTools/argumentHint/content/description/model/source; unknown keys are accepted by the pinned parser",
+    qualification: "Shared Kd schema and both manifest call paths inspected in pinned 2.1.269 bytes; no provider execution.",
     schema: [],
   },
   {
-    id: "marketplace.commands.source", owners: ["checkClaudeCommandMap"],
-    predicate: "Command source starts ./ and source/content cannot both appear",
-    qualification: "Need per-predicate provenance.",
+    id: "marketplace.commands.source", parser: "command-map-source", owners: ["checkClaudeCommandMap"],
+    predicate: "Command source starts ./ and exactly one of source/content must be nonempty",
+    qualification: "Pinned 2.1.269 Kd truthiness refinement and vn path union inspected; empty content with valid source is accepted.",
     schema: [],
   },
   {

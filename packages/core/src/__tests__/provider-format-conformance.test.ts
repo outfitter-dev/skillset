@@ -1024,7 +1024,7 @@ describe("provider format conformance", () => {
     for (const expected of [
       "destination field plugins[0].channels[0].userConfig.token.type must be a string",
       "destination field plugins[0].commands.bar.source must start with ./",
-      "destination field plugins[0].commands.bar must not define both source and content",
+      "destination field plugins[0].commands.bar must define exactly one nonempty source or content",
       "destination field plugins[0].commands.foo.source must be a string",
       "destination field plugins[0].dependencies[0] must be a valid plugin dependency identifier",
       "destination field plugins[0].dependencies[1].marketplace must not be empty",
