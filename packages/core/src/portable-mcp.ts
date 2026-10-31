@@ -1,4 +1,4 @@
-import { readFile, realpath, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "./workspace-fs";
 import { posix, resolve } from "node:path";
 
 import {

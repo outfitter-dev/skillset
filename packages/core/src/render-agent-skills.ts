@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir } from "./workspace-fs";
 import path from "node:path";
 
 import type { StandardProfileId } from "@skillset/registry";

@@ -1,5 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
-
+import { readFile, stat } from "./workspace-fs";
 import {
   type AtomicFilePublicationTestHooks,
   publishAtomicFile,

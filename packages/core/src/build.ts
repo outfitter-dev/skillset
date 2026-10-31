@@ -1,8 +1,9 @@
+import { readdir, readFile, stat, existsSync } from "./workspace-fs";
 import { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_LOCK_ITEM_KEYS } from "@skillset/schema";
 import { assertNativeRootRuleSource, type NativeRootRuleSource } from "./native-root-rules";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+
 import { dirname, join, posix, relative, sep } from "node:path";
 import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
 

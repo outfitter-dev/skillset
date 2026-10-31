@@ -1,5 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { readdirSync, readFileSync, readdir, readFile, realpath, stat } from "./workspace-fs";
 import {
   basename,
   dirname,

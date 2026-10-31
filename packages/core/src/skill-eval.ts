@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile } from "./workspace-fs";
 import { join, relative, sep } from "node:path";
 
 import { validateSkillEval } from "@skillset/schema";

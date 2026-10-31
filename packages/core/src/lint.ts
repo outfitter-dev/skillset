@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat } from "./workspace-fs";
 import { basename, dirname, join } from "node:path";
 
 import { type LintDiagnostic, type LintSubject, runLintRules } from "@skillset/lint";

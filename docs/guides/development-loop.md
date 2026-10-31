@@ -22,6 +22,8 @@ The comprehensive check includes source and generated-output readiness, so it ma
 
 Use `skillset explain <path>` when you need the source, [target](../glossary.md#target), ownership, or provenance behind one file. Use `skillset status` for a broader repository summary. Exact syntax belongs to the generated [CLI reference](../reference/cli/README.md).
 
+For workspace file reads, `status` accepts a symbolic link used to select the workspace root, but does not follow links beneath that root. If inspection needs such a path, it reports an incomplete inspection and exits nonzero; it does not treat the unread path as absent or ready. Source discovery continues to skip symbolic-link entries that it does not normally inspect. Other commands retain their existing resource-resolution rules.
+
 ## Watch while you work
 
 `skillset dev` is a foreground, preview-only loop. It watches [workspace](../glossary.md#workspace) configuration and canonical source, reruns diagnostics, and reports pending output changes.

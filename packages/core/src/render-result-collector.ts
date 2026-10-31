@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync } from "node:fs";
+import { lstatSync, readdirSync } from "./workspace-fs";
 import { join, posix, relative } from "node:path";
 
 import {

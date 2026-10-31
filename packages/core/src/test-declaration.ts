@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath } from "node:fs/promises";
+import { readdir, readFile, realpath } from "./workspace-fs";
 import { extname, join, relative } from "node:path";
 
 import {

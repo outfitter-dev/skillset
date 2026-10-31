@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-
+import { readFile } from "./workspace-fs";
 import { readString } from "./config";
 import { InputValidationError } from "./input-validation-error";
 import { resolveInside } from "./path";

@@ -1,7 +1,8 @@
+import { lstat, realpath } from "./workspace-fs";
 /* eslint-disable no-await-in-loop -- Parent components must be inspected and created in ancestry order. */
 
 import type { Stats } from "node:fs";
-import { lstat, mkdir, realpath } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import {
   dirname,
   isAbsolute,

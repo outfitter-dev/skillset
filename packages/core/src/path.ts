@@ -1,4 +1,4 @@
-import { realpath } from "node:fs/promises";
+import { realpath } from "./workspace-fs";
 import nodePath from "node:path";
 
 /**

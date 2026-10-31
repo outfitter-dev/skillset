@@ -1,10 +1,11 @@
+import { readFile } from "./workspace-fs";
 /**
  * Fail-closed on-disk JSON reads. Only `ENOENT` may mean absence, and only
  * when the caller opts into that. Invalid JSON and every other filesystem
  * error stay errors.
  */
 
-import { readFile } from "node:fs/promises";
+
 
 export type OnDiskJsonMissingPolicy = "absent" | "error";
 

@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir } from "./workspace-fs";
 import { posix } from "node:path";
 
 import { jsonlTailTimestamp } from "./change-ledger-write";

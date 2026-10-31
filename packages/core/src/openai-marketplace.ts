@@ -1,4 +1,4 @@
-import { realpathSync, statSync } from "node:fs";
+import { realpathSync, statSync } from "./workspace-fs";
 import { resolve } from "node:path";
 import { OPENAI_MARKETPLACE_PATH_RULES } from "@skillset/registry";
 

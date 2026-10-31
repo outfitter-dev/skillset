@@ -1,4 +1,5 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "./workspace-fs";
+import { writeFile } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 
 import {

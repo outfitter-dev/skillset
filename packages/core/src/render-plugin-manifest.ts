@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync, statSync } from "./workspace-fs";
 import { basename, join, resolve } from "node:path";
 
 import {
