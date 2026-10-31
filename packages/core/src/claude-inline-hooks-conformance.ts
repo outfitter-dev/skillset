@@ -1,3 +1,4 @@
+import { containsMisplacedGuard } from "./claude-hook-guard-scan";
 import { CLAUDE_INLINE_HOOK_EVENTS, CLAUDE_INLINE_HOOK_HANDLERS } from "@skillset/registry";
 import { checkFieldTypes, checkRequiredFields, checkUnknownFields, issue, type ProviderFormatConformanceFile, type ProviderFormatConformanceIssue } from "./provider-format-conformance-validation";
 import { isJsonRecord } from "./yaml";
@@ -62,15 +63,4 @@ function checkClaudeInlineHookHandler(file: ProviderFormatConformanceFile, handl
     }
   }
   return issues;
-}
-
-/** Nne with Tt's fixed matchersCount:false and empty exclusions; As runs before either stop. */
-function containsMisplacedGuard(value: unknown, depth: number, inHooksList = false): boolean {
-  if (isJsonRecord(value) && Object.entries(value).some(([key, entry]) =>
-    (key === "PreToolUse" || key === "PermissionRequest") && entry !== null && entry !== undefined && !(Array.isArray(entry) && entry.length === 0)
-  )) return true;
-  if (depth === 0 || value === null || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.some(entry => containsMisplacedGuard(entry, depth - 1, inHooksList));
-  if (inHooksList && "type" in value && typeof value.type === "string") return false;
-  return Object.entries(value).some(([key, entry]) => containsMisplacedGuard(entry, depth - 1, key === "hooks" && Array.isArray(entry)));
 }

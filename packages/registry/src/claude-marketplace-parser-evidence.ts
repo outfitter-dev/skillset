@@ -953,3 +953,11 @@ export function verifyClaudeMarketplaceParserMember(
 }
 
 assertClaudeMarketplaceParserEvidence(CLAUDE_MARKETPLACE_PARSER_EVIDENCE);
+
+/** Separate from marketplace raw parsing: the standalone sQ preflight emits validator errors. */
+export const CLAUDE_STANDALONE_HOOK_PREFLIGHT_EVIDENCE = {
+  parserEvidenceId: CLAUDE_MARKETPLACE_PARSER_EVIDENCE.id,
+  stage: "validator-error",
+  windows: ["inline-hook-events", "inline-hook-guard-detector", "inline-hook-guard-recovery", "inline-hook-standalone-preprocessing"],
+  claim: "Standalone sQ applies cU to the manifest and a synthetic unlifted experimental object. Nne checks immediate guards and optional matcher shapes before depth-three and typed-handler stops, excluding metadata/mcpServers/lspServers/experimental recursively. cU skips hooks; sQ separately applies Fne to nested hook arrays. Fne descends arrays only. Each aggregate is attributed to hooks. This is a read-only conformance observation, not provider execution or a marketplace raw-parser predicate.",
+} as const;

@@ -1,3 +1,4 @@
+import { checkClaudeMisplacedHooks } from "./claude-hook-guard-scan";
 import { checkClaudeInlineHooks } from "./claude-inline-hooks-conformance";
 import { checkClaudeHookReferences } from "./claude-hook-reference-conformance";
 import { checkClaudeExperimental } from "./claude-experimental-conformance";
@@ -527,6 +528,7 @@ function checkClaudePluginManifest(
       )
     );
   }
+  issues.push(...checkClaudeMisplacedHooks(file, parsed.value));
   issues.push(...checkClaudeHookReferences(file, parsed.value.hooks, "hooks", "claude-plugin-manifest-schema"));
   issues.push(...checkClaudeInlineHooks(file, parsed.value.hooks, "hooks", "claude-plugin-manifest-schema"));
   issues.push(...checkClaudeComponentReferences(file, parsed.value, "", "claude-plugin-manifest-schema"));
