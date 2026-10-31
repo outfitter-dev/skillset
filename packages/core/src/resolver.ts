@@ -772,17 +772,16 @@ async function loadRules(
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
   const canonicalFrontPage = join(sourceRootPath, ROOT_RULES_FILE);
   if (nativeAgents && await exists(canonicalFrontPage)) {
-    throw new Error("skillset: native AGENTS.md and RULES.md are mutually exclusive; keep one front-page source");
+    throw new InputValidationError("skillset: native AGENTS.md and RULES.md are mutually exclusive; keep one front-page source");
   }
   const rootRulesPath = nativeAgents ? join(rootPath, "AGENTS.md") : canonicalFrontPage;
-  if (nativeAgents && !(await exists(rootRulesPath))) {
-    throw new Error("skillset: workspace.nativeAgents requires authored root AGENTS.md");
-  }
   if (nativeAgents && canonicalFiles.some((path) => dirname(path) === canonicalPath)) {
-    throw new Error("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
+    throw new InputValidationError("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
   }
   if (nativeAgents) externalInputPaths.add(rootRulesPath);
-  const rootRulesFiles = (await exists(rootRulesPath)) ? [rootRulesPath] : [];
+  // Native guidance was already observed by resolveNativeRootRuleSource. Read
+  // it again below so disappearance remains an operational error, not absence.
+  const rootRulesFiles = nativeAgents || await exists(rootRulesPath) ? [rootRulesPath] : [];
   if (canonicalFiles.length === 0 && rootRulesFiles.length === 0) {
     return { rules: [], rulesDir: join(sourceRootDir, RULES_DIR) };
   }
@@ -808,7 +807,7 @@ async function loadRules(
     // The filename is the rule's topic; brackets belong only to directory
     // segments, where they are literal names or reserved scopes.
     if (/[[\]]/u.test(basename(sourcePath))) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: ${sourceLabel} has [ or ] in its filename; brackets are only valid in rule directory names`
       );
     }
@@ -818,7 +817,7 @@ async function loadRules(
     const sourceRootRelative = relative(rootPath, sourceRootPath).replaceAll("\\", "/");
     const scopeDirectory = scopeSegments.join("/");
     if (scopeDirectory === sourceRootRelative || scopeDirectory.startsWith(`${sourceRootRelative}/`)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: ${sourceLabel} governs ${scopeDirectory}/, inside the ${sourceRootRelative}/ source root; rules cannot scope to Skillset source`
       );
     }
@@ -865,7 +864,7 @@ function classifyRuleSegments(
   if (relativeDirectory === "." || relativeDirectory.length === 0) return [];
   return relativeDirectory.split(/[\\/]/u).map((value) => {
     if (value === "[…]") {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: ${logicalDiagnosticPath(rootPath, sourcePath)} uses Unicode rule segment […]; rename it to [...]`
       );
     }
@@ -890,7 +889,7 @@ function readDialect(frontmatter: JsonRecord, label: string): SourceDialect | un
   const value = frontmatter.dialect;
   if (value === undefined) return undefined;
   if (value === "claude") return "claude";
-  throw new Error(
+  throw new InputValidationError(
     `skillset: ${label} declares unsupported dialect ${JSON.stringify(value)}; only "claude" is supported`
   );
 }
@@ -1767,7 +1766,7 @@ function validateSourceFrontmatter(
 ): void {
   if (diagnostics.length === 0) return;
   const message = diagnostics.map((diagnostic) => sourceFrontmatterSchemaMessage(diagnostic, frontmatter)).join("; ");
-  throw new Error(`skillset: ${label} frontmatter failed schema validation: ${message}`);
+  throw new InputValidationError(`skillset: ${label} frontmatter failed schema validation: ${message}`);
 }
 
 function sourceFrontmatterSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, frontmatter: JsonRecord): string {

@@ -1,6 +1,8 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { InputValidationError } from "./input-validation-error";
+
 import { parseGeneratedLock } from "./generated-lock";
 import { readCurrentGeneratedLockFromDisk } from "./generated-lock-read";
 import { updateYamlSourceDocument } from "./source-document";
@@ -37,7 +39,7 @@ export async function resolveNativeRootRuleSource(
     throw error;
   });
   if (entry === undefined) {
-    if (declared) throw new Error("skillset: workspace.nativeAgents requires authored root AGENTS.md");
+    if (declared) throw new InputValidationError("skillset: workspace.nativeAgents requires authored root AGENTS.md");
     return undefined;
   }
   const lockContent = await readOptional(join(rootPath, "skillset.lock"));
@@ -49,7 +51,7 @@ export async function resolveNativeRootRuleSource(
     const { lock, raw: rawLock } = inspected;
     const owned = lock.items.some((item) => item.files.includes("AGENTS.md"));
     if (owned) {
-      if (declared) throw new Error("skillset: native AGENTS.md is still claimed by skillset.lock; reconcile its managed ownership before selecting native mode");
+      if (declared) throw new InputValidationError("skillset: native AGENTS.md is still claimed by skillset.lock; reconcile its managed ownership before selecting native mode");
       return undefined;
     }
     // Unhashed v4 locks retain the build's one-time integrity migration path.
@@ -59,17 +61,17 @@ export async function resolveNativeRootRuleSource(
     }
   }
   if (!entry.isFile() || entry.isSymbolicLink()) {
-    throw new Error("skillset: native root AGENTS.md must be a regular file, not a symlink or directory");
+    throw new InputValidationError("skillset: native root AGENTS.md must be a regular file, not a symlink or directory");
   }
   if (await readOptional(join(rootPath, ".skillset/RULES.md")) !== undefined) {
-    throw new Error("skillset: native AGENTS.md and RULES.md are mutually exclusive; keep one front-page source");
+    throw new InputValidationError("skillset: native AGENTS.md and RULES.md are mutually exclusive; keep one front-page source");
   }
   const rootRules = await readdir(join(rootPath, ".skillset/rules"), { withFileTypes: true }).catch((error: unknown) => {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return [];
     throw error;
   });
   if (rootRules.some((entry) => (entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith(".md"))) {
-    throw new Error("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
+    throw new InputValidationError("skillset: native mode rejects unscoped root rules; put that guidance in AGENTS.md");
   }
   const sourceContent = await readFile(path, "utf8");
   const effectiveConfigContent = declared ? configContent : updateYamlSourceDocument(
