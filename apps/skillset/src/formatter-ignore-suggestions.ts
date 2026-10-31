@@ -32,8 +32,8 @@ export async function formatterIgnoreSuggestions(
   }
   const names = entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort();
   const detected = [
-    { formatter: "oxfmt" as const, files: names.filter((name) => /^\.oxfmtrc(?:\.(?:json|jsonc))?$/.test(name)), destination: ".oxfmtrc.json" },
-    { formatter: "prettier" as const, files: names.filter((name) => name === ".prettierignore" || /^\.prettierrc(?:\.(?:json|json5|yaml|yml|toml|js|cjs|mjs|ts|cts|mts))?$/.test(name)), destination: ".prettierignore" },
+    { formatter: "oxfmt" as const, files: names.filter((name) => /^(?:\.oxfmtrc(?:\.(?:json|jsonc))?|oxfmt\.config\.(?:ts|mts))$/.test(name)), destination: ".oxfmtrc.json" },
+    { formatter: "prettier" as const, files: names.filter((name) => name === ".prettierignore" || /^prettier\.config\.(?:js|cjs|mjs|ts|cts|mts)$/.test(name) || /^\.prettierrc(?:\.(?:json|json5|yaml|yml|toml|js|cjs|mjs|ts|cts|mts))?$/.test(name)), destination: ".prettierignore" },
     { formatter: "biome" as const, files: names.filter((name) => /^biome\.jsonc?$/.test(name)), destination: "biome.json" },
   ].filter((item) => item.files.length > 0);
   if (detected.length === 0) return [];
@@ -48,7 +48,7 @@ export async function formatterIgnoreSuggestions(
       : JSON.stringify(formatter === "oxfmt" ? { ignorePatterns: patterns } : { files: { includes: ["**", ...patterns.map((pattern) => `!${pattern}`)] } }, null, 2),
     notes: [
       formatter === "prettier" ? "Append to .prettierignore; retain existing entries." : formatter === "oxfmt"
-        ? "Merge these ignorePatterns into the existing JSON/JSONC config; retain existing entries."
+        ? "Merge these ignorePatterns into the existing config object (JSON/JSONC or TypeScript); retain existing entries."
         : "Biome 2: append only the negations to existing files.includes; retain its positive patterns. Use the sample ** only when creating files.includes. This excludes files from all Biome tools.",
       ...notes,
     ],

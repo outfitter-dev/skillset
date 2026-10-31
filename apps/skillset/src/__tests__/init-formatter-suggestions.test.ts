@@ -24,10 +24,13 @@ async function fixture(files: Record<string, string> = {}) {
 for (const [file, formatter] of [
   [".oxfmtrc.json", "oxfmt"], [".oxfmtrc.jsonc", "oxfmt"],
   [".prettierrc", "prettier"], [".prettierrc.js", "prettier"],
+  ["prettier.config.js", "prettier"], ["prettier.config.mjs", "prettier"], ["prettier.config.cjs", "prettier"],
+  ["prettier.config.ts", "prettier"], ["prettier.config.mts", "prettier"], ["prettier.config.cts", "prettier"],
+  ["oxfmt.config.ts", "oxfmt"], ["oxfmt.config.mts", "oxfmt"],
   [".prettierignore", "prettier"], ["biome.json", "biome"], ["biome.jsonc", "biome"],
 ] as const) {
   test(`init offers ${formatter} entries when ${file} exists without editing it`, async () => {
-    const content = "// Preserve literal config bytes.\r\n";
+    const content = "throw new Error(\"formatter config must not execute\"); // Preserve bytes.\r\n";
     const root = await fixture({ [file]: content });
     const before = await stat(join(root, file));
     for (const write of [false, true]) {
