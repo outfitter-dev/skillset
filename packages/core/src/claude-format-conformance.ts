@@ -1,3 +1,4 @@
+import { checkClaudeExperimental } from "./claude-experimental-conformance";
 import { checkClaudeMonitors } from "./claude-monitor-conformance";
 import { checkClaudeLspServers } from "./claude-lsp-conformance";
 import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
@@ -475,33 +476,7 @@ function checkClaudeMarketplacePluginArrays(
   }
 
   if (isJsonRecord(plugin.experimental)) {
-    issues.push(
-      ...checkFieldTypes(
-        file,
-        plugin.experimental,
-        "claude",
-        "claude-marketplace-schema",
-        { monitors: "string-or-array", themes: "string-or-string-array" },
-        `${prefix}.experimental`
-      ),
-      ...checkUnknownFields(
-        file,
-        plugin.experimental,
-        "claude",
-        "claude-marketplace-schema",
-        ["monitors", "themes"],
-        `${prefix}.experimental`
-      )
-    );
-    issues.push(
-      ...checkClaudeMonitors(file, plugin.experimental.monitors, `${prefix}.experimental.monitors`, "claude-marketplace-schema"),
-      ...checkClaudeComponentPaths(
-        file,
-        plugin.experimental.themes,
-        `${prefix}.experimental.themes`
-      )
-    );
-
+    issues.push(...checkClaudeExperimental(file, plugin.experimental, `${prefix}.experimental`, "claude-marketplace-schema"));
   }
   return issues;
 }

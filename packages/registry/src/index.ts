@@ -1,3 +1,4 @@
+export { CLAUDE_EXPERIMENTAL_FIELD_TYPES, CLAUDE_SYNTAX_LANGUAGE_STRING_RULES } from "./claude-experimental-contract";
 export { CLAUDE_LSP_FIELD_TYPES } from "./claude-lsp-contract";
 export { CLAUDE_COMPONENT_REFERENCE_POLICY } from "./claude-component-reference-contract";
 export * from "./claude-dependency-contract";
