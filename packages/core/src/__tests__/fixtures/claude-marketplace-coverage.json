@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:154474f54c1a016a2a8335904be6f3db61fb388637a0fba010f1ae05149ffb44",
+  "evidenceHash": "sha256:72d671e4272b738172ea70e25518d4ff32d078947da166eb6b6f8e55f307a456",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -362,12 +362,14 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:dd57a5edc1b693317e83e978bb683b984129c4ad46c8f4f04a6ee6fb1b4a0183",
+      "hash": "sha256:f41e3c6f016692e0cf19a7d6074ef07404f5c0d2c23d37d6db8d34841e0e0def",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
         "marketplace.entry.name.pattern",
-        "marketplace.entry.name.unique"
+        "marketplace.entry.name.unique",
+        "marketplace.metadata.closed",
+        "marketplace.renames.values"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     }

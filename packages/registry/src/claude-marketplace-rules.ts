@@ -27,15 +27,15 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [{"pointer": "/properties/metadata/properties", "value": {"pluginRoot": {"description": "Base path for relative plugin sources", "type": "string"}, "version": {"description": "Marketplace version", "type": "string"}, "description": {"description": "Marketplace description", "type": "string"}}}],
   },
   {
-    id: "marketplace.metadata.closed", owners: ["checkClaudeMarketplace"],
+    id: "marketplace.metadata.closed", parser: "metadata-closed-strict", owners: ["checkClaudeMarketplace"],
     predicate: "Reject metadata fields beyond description/pluginRoot/version",
-    qualification: "No closed-object constraint in pinned schema.",
+    qualification: "Pinned 2.1.269 static strict-validator metadata keys match exactly. Unknown keys produce warnings failing --strict; Core reports unknown fields. No ordinary non-strict or runtime equivalence is claimed.",
     schema: [],
   },
   {
-    id: "marketplace.renames.values", owners: ["checkClaudeMarketplace"],
+    id: "marketplace.renames.values", parser: "rename-values", owners: ["checkClaudeMarketplace"],
     predicate: "renames object values must be string or null",
-    qualification: "renames absent from pinned schema.",
+    qualification: "Pinned 2.1.269 validator overrides the loader catch with optional string-or-null record validation. Only member value shape is qualified; additional chain resolution and target-name checks are separate.",
     schema: [],
   },
   {
@@ -77,7 +77,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   {
     id: "marketplace.entry.closed", owners: ["checkClaudeMarketplacePlugin"],
     predicate: "Reject unknown plugin entry keys beyond shared field inventory plus name/source",
-    qualification: "Pinned entry has no additionalProperties false.",
+    qualification: "Pinned static validator entry keys differ: provider-only binaries, headers and headersHelper are absent from the Core inventory. Keep this rule unresolved; strict warning severity also differs from Core.",
     schema: [],
   },
   {
