@@ -7,8 +7,8 @@ import { normalizeImportedAgentPluginPackage, agentPluginUnitObservation } from 
 import { importedListing, hasListingConflict } from "./import-plugin-listing";
 import { manifestIdentityObservations, manifestNormalizationObservations } from "./import-manifest-observations";
 import { recordMcpNormalizations } from "@skillset/core/internal/import-normalization-evidence";
-import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { chmod, cp, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
@@ -279,7 +279,27 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
   };
 }
 
+export interface PreparedImportSource {
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  /** Private normalized snapshot; callers must dispose it after use. */
+  readonly stagingPath: string;
+  /** Claims these prepared bytes once. Multi-input planners must revalidate their inputs separately. */
+  commit(): Promise<ImportReport>;
+  dispose(): Promise<void>;
+}
+
 export async function importSource(options: ImportOptions): Promise<ImportReport> {
+  const prepared = await prepareImportSource(options);
+  try {
+    return await prepared.commit();
+  } finally {
+    await prepared.dispose();
+  }
+}
+
+/** Normalize in private storage without creating workspace source or release state. */
+export async function prepareImportSource(options: ImportOptions): Promise<PreparedImportSource> {
   const sourcePath = resolve(options.sourcePath);
   const sourceDir = await resolveImportSourceDir(options.rootPath, options.sourceDir);
   const sourceRoot = sourceDir;
@@ -307,18 +327,14 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     throw importTargetAlreadyExistsError(targetPath);
   }
 
-  const targetParent = dirname(targetPath);
-  await prepareRepositoryMutationPath(options.rootPath, targetPath);
-  const stagingPath = await mkdtemp(join(targetParent, `.${basename(targetPath)}.tmp-`));
-  let committed = false;
-  let mergedOriginal: string | undefined;
-  let retainedReport: ImportReport | undefined;
+  const stagingPath = await mkdtemp(join(tmpdir(), "skillset-import-prepared-"));
 
   try {
     const copied = await copyImportSource({
       kind: options.kind,
       name,
       rootPath: options.rootPath,
+      mutationRootPath: stagingPath,
       sourcePath,
       targetPath: stagingPath,
       nameSource: identity.manifestSource,
@@ -340,7 +356,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     let copiedFiles = mcpImport.files;
     const nativeHookTargets = options.kind === "plugin" ? await importedNativeHookTargets(options, stagingPath) : [];
     const nativeHookBoundary = options.kind === "plugin"
-      ? await scopeImportedNativeHooks({ rootPath: options.rootPath, stagingPath, files: copiedFiles, targets: nativeHookTargets, synthesizedConfig: copied.synthesizedConfig })
+      ? await scopeImportedNativeHooks({ rootPath: stagingPath, stagingPath, files: copiedFiles, targets: nativeHookTargets, synthesizedConfig: copied.synthesizedConfig })
       : undefined;
     if (nativeHookBoundary !== undefined) copiedFiles = nativeHookBoundary.files;
     const hookSourceProviders = importProviders(options) === undefined
@@ -393,128 +409,149 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       ...assessImportedNormalizations([...copied.normalizations, ...mcpImport.normalizations]),
     ];
 
-    if (mayMergeTargetNativeSkill && (await exists(targetPath))) {
-      mergedOriginal = await mergeImportedProviderSkill(options.rootPath, targetPath, stagingPath);
-      await rm(stagingPath, { force: true, recursive: true });
-    } else {
-      await options.testHooks?.beforeClaim?.();
-      claimImportedSourceDirectory(stagingPath, targetPath, options.testHooks);
-    }
-    committed = true;
-    const fieldClassifications = [classification, ...pluginSkillFrontmatter.map((skill) => skill.classification)];
-    const committedReport: ImportReport = {
-      baselines: [], copiedFiles, files: copiedFiles.length,
-      inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
-      kind: options.kind, renderResults: [], name,
-      normalizations: [...copied.normalizations, ...mcpImport.normalizations],
-      capabilityAssessments,
-      frontmatterSources,
-      manifestIdentityCandidates: copied.manifestIdentityCandidates,
-      mcpDependencySources,
-      ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
-      nextChecks: importChecksAtRoot(options.rootPath),
-      preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
-      sourcePath, targetPath,
-      unsupportedFields: [...new Set(fieldClassifications.flatMap((item) => item.unsupported))].sort(compareStrings),
-      warnings: [
-        ...importWarnings(classification, scopedPolicyProviders),
-        ...pluginSkillFrontmatter.flatMap((skill) => importWarnings(skill.classification, scopedPolicyProviders)),
-        ...frontmatterSources.filter((source) => source.metadataCompatibility === true).map((source) => `${source.path}: preserved non-string metadata; review Agent Skills standard compatibility before cutover.`),
-        ...copied.warnings,
-      ],
-    };
-    retainedReport = committedReport;
-    let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
-    try {
-      await options.testHooks?.beforeBaselineSeed?.();
-      baselineReport = await seedImportedBaselines(options.rootPath, {
-        ...(copied.baselineVersion === undefined
-          ? {}
-          : { baselineVersion: copied.baselineVersion }),
-        kind: options.kind,
-        name,
-        sourceDir,
-      });
-    } catch (error) {
-      if (mergedOriginal === undefined) {
-        throw new ImportBatchError(
-          `skillset: import baseline failed for ${targetPath}: ${errorMessage(error)}. ` +
-            "Inspect the destination; after fixing the baseline error, remove it and rerun only if it is the intended import.",
-          [committedReport]
-        );
-      } else {
-        const targetSkillPath = join(targetPath, SKILL_FILE);
+    let used = false;
+    return {
+      sourcePath, targetPath, stagingPath,
+      async dispose() {
+        used = true;
+        await rm(stagingPath, { force: true, recursive: true });
+      },
+      async commit() {
+        if (used) throw new Error("skillset: prepared import already committed or disposed");
+        used = true;
+        let mergedOriginal: string | undefined;
+        let retainedReport: ImportReport | undefined;
         try {
-          await prepareRepositoryMutationPath(options.rootPath, targetSkillPath);
-          await writeFile(targetSkillPath, mergedOriginal);
-          retainedReport = undefined;
-        } catch (restoreError) {
-          throw new Error(
-            `skillset: import baseline failed and restoring ${targetSkillPath} failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
-            { cause: error }
-          );
+          if (mayMergeTargetNativeSkill && (await exists(targetPath))) {
+            mergedOriginal = await mergeImportedProviderSkill(options.rootPath, targetPath, stagingPath);
+            await rm(stagingPath, { force: true, recursive: true });
+          } else {
+            await prepareRepositoryMutationPath(options.rootPath, targetPath);
+            const claimPath = await mkdtemp(join(dirname(targetPath), `.${basename(targetPath)}.tmp-`));
+            try {
+              await cp(stagingPath, claimPath, { recursive: true, force: false });
+              await options.testHooks?.beforeClaim?.();
+              claimImportedSourceDirectory(claimPath, targetPath, options.testHooks);
+            } finally {
+              await rm(claimPath, { force: true, recursive: true });
+            }
+          }
+          const fieldClassifications = [classification, ...pluginSkillFrontmatter.map((skill) => skill.classification)];
+          const committedReport: ImportReport = {
+            baselines: [], copiedFiles, files: copiedFiles.length,
+            inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
+            kind: options.kind, renderResults: [], name,
+            normalizations: [...copied.normalizations, ...mcpImport.normalizations],
+            capabilityAssessments,
+            frontmatterSources,
+            manifestIdentityCandidates: copied.manifestIdentityCandidates,
+            mcpDependencySources,
+            ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
+            nextChecks: importChecksAtRoot(options.rootPath),
+            preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
+            sourcePath, targetPath,
+            unsupportedFields: [...new Set(fieldClassifications.flatMap((item) => item.unsupported))].sort(compareStrings),
+            warnings: [
+              ...importWarnings(classification, scopedPolicyProviders),
+              ...pluginSkillFrontmatter.flatMap((skill) => importWarnings(skill.classification, scopedPolicyProviders)),
+              ...frontmatterSources.filter((source) => source.metadataCompatibility === true).map((source) => `${source.path}: preserved non-string metadata; review Agent Skills standard compatibility before cutover.`),
+              ...copied.warnings,
+            ],
+          };
+          retainedReport = committedReport;
+          let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
+          try {
+            await options.testHooks?.beforeBaselineSeed?.();
+            baselineReport = await seedImportedBaselines(options.rootPath, {
+              ...(copied.baselineVersion === undefined
+                ? {}
+                : { baselineVersion: copied.baselineVersion }),
+              kind: options.kind,
+              name,
+              sourceDir,
+            });
+          } catch (error) {
+            if (mergedOriginal === undefined) {
+              throw new ImportBatchError(
+                `skillset: import baseline failed for ${targetPath}: ${errorMessage(error)}. ` +
+                  "Inspect the destination; after fixing the baseline error, remove it and rerun only if it is the intended import.",
+                [committedReport]
+              );
+            } else {
+              const targetSkillPath = join(targetPath, SKILL_FILE);
+              try {
+                await prepareRepositoryMutationPath(options.rootPath, targetSkillPath);
+                await writeFile(targetSkillPath, mergedOriginal);
+                retainedReport = undefined;
+              } catch (restoreError) {
+                throw new Error(
+                  `skillset: import baseline failed and restoring ${targetSkillPath} failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
+                  { cause: error }
+                );
+              }
+            }
+            throw error;
+          }
+
+          retainedReport = {
+            ...committedReport,
+            baselines: baselineReport.entries,
+            ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
+          };
+          await options.testHooks?.afterBaselineSeed?.();
+          const renderResults = await importRenderResults({
+            classification,
+            copiedFiles,
+            kind: options.kind,
+            name,
+            pluginSkillFrontmatter,
+            ...(nativeHookBoundary === undefined ? {} : { nativeHookBoundary }),
+            ...(options.provider === undefined ? {} : { provider: options.provider }),
+            ...(providers === undefined ? {} : { providers }),
+            rootPath: options.rootPath,
+            targetPath,
+          });
+
+          retainedReport = { ...retainedReport, renderResults };
+          const frontmatterFindings = (await Promise.all(frontmatterSources.map(async (source) =>
+            importedFrontmatterFindings(source, await readFile(join(options.rootPath, source.path), "utf8"))
+          ))).flat();
+          const unresolvedSources = frontmatterSources.filter((source) => source.providers.length === 0 && source.fields.length > 0);
+          // The marker was installed before claim, so even a failed ledger transaction
+          // leaves a preserved source that cannot be projected accidentally.
+          let persisted: { readonly flags: readonly MigrationFlag[]; readonly writtenPaths: readonly string[] } = { flags: [], writtenPaths: [] };
+          let findingError: string | undefined;
+          try {
+            if (unresolvedSources.length > 0) {
+              await options.testHooks?.beforeFindings?.();
+              persisted = await recordImportedFindings(options.rootPath, { frontmatter: unresolvedSources });
+            }
+          } catch (error) {
+            findingError = `skillset: imported source is preserved with unresolved frontmatter, but recording review findings failed: ${errorMessage(error)}`;
+          }
+          const report: ImportReport = {
+            ...committedReport,
+            ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
+            baselines: baselineReport.entries,
+            renderResults,
+            frontmatterSources,
+            frontmatterFindings,
+            migrationFlags: persisted.flags,
+            migrationWritePaths: persisted.writtenPaths,
+          };
+          if (findingError !== undefined) throw new ImportBatchError(findingError, [report]);
+          return report;
+        } catch (error) {
+          if (retainedReport !== undefined && !(error instanceof ImportBatchError)) {
+            throw new ImportBatchError(errorMessage(error), [retainedReport]);
+          }
+          throw error;
         }
-      }
-      throw error;
-    }
-
-    retainedReport = {
-      ...committedReport,
-      baselines: baselineReport.entries,
-      ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
+      },
     };
-    await options.testHooks?.afterBaselineSeed?.();
-    const renderResults = await importRenderResults({
-      classification,
-      copiedFiles,
-      kind: options.kind,
-      name,
-      pluginSkillFrontmatter,
-      ...(nativeHookBoundary === undefined ? {} : { nativeHookBoundary }),
-      ...(options.provider === undefined ? {} : { provider: options.provider }),
-      ...(providers === undefined ? {} : { providers }),
-      rootPath: options.rootPath,
-      targetPath,
-    });
-
-    retainedReport = { ...retainedReport, renderResults };
-    const frontmatterFindings = (await Promise.all(frontmatterSources.map(async (source) =>
-      importedFrontmatterFindings(source, await readFile(join(options.rootPath, source.path), "utf8"))
-    ))).flat();
-    const unresolvedSources = frontmatterSources.filter((source) => source.providers.length === 0 && source.fields.length > 0);
-    // The marker was installed before claim, so even a failed ledger transaction
-    // leaves a preserved source that cannot be projected accidentally.
-    let persisted: { readonly flags: readonly MigrationFlag[]; readonly writtenPaths: readonly string[] } = { flags: [], writtenPaths: [] };
-    let findingError: string | undefined;
-    try {
-      if (unresolvedSources.length > 0) {
-        await options.testHooks?.beforeFindings?.();
-        persisted = await recordImportedFindings(options.rootPath, { frontmatter: unresolvedSources });
-      }
-    } catch (error) {
-      findingError = `skillset: imported source is preserved with unresolved frontmatter, but recording review findings failed: ${errorMessage(error)}`;
-    }
-    const report: ImportReport = {
-      ...committedReport,
-      ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
-      baselines: baselineReport.entries,
-      renderResults,
-      frontmatterSources,
-      frontmatterFindings,
-      migrationFlags: persisted.flags,
-      migrationWritePaths: persisted.writtenPaths,
-    };
-    if (findingError !== undefined) throw new ImportBatchError(findingError, [report]);
-    return report;
   } catch (error) {
-    if (retainedReport !== undefined && !(error instanceof ImportBatchError)) {
-      throw new ImportBatchError(errorMessage(error), [retainedReport]);
-    }
+    await rm(stagingPath, { force: true, recursive: true });
     throw error;
-  } finally {
-    if (!committed) {
-      await rm(stagingPath, { force: true, recursive: true });
-    }
   }
 }
 
@@ -1171,6 +1208,7 @@ async function copyImportSource(options: {
   readonly kind: SingularImportKind;
   readonly name: string;
   readonly rootPath: string;
+  readonly mutationRootPath: string;
   readonly sourcePath: string;
   readonly targetPath: string;
   readonly configDestination: string;
@@ -1208,7 +1246,7 @@ async function copyImportSource(options: {
   for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
     const destination = resolveImportDestination(targetPath, relativePath);
-    await prepareRepositoryMutationPath(rootPath, destination);
+    await prepareRepositoryMutationPath(options.mutationRootPath, destination);
     await writeFile(destination, await readFile(file));
     if (supportsGeneratedFileModes()) {
       await chmod(destination, normalizeGeneratedFileMode((await stat(file)).mode));
