@@ -15,12 +15,13 @@ Homebrew, Bun, and per-repository installs are covered in the [installation guid
 
 ## What the skill covers
 
-The `skillset` router selects the workflow. `skillset-init` owns repository setup and adoption/import; `skillset-maintain` owns build/check/drift and recovery. Each bundles its own shared preflight and references. Together they explain how to:
+The `skillset` router selects the workflow. `skillset-init` owns repository setup and adoption/import; `skillset-maintain` owns build/check/drift and recovery. Setup and maintenance bundle shared preflight and references. `skillset-provider-capabilities` compares semantic concepts and native terminology using structured lookup or its generated bundled reference without requiring a CLI installation. The family explains how to:
 
 - set up a workspace with `skillset init` and add skills, rules, agents, hooks, and plugins with `skillset new`;
 - preview and write generated output with `skillset build` and `skillset build --yes`, and verify it with `skillset check`;
 - repair stale, missing, or hand-edited generated files with `skillset build --repair`, `skillset resolve`, and `skillset restore`;
 - record changes and cut releases with `skillset change` and `skillset release`;
-- import existing provider skills and plugins, and check marketplace catalogs.
+- import existing provider skills and plugins, and check marketplace catalogs;
+- compare provider realizations, fidelity limits and canonical source boundaries without inventing support.
 
 The plugin never installs, trusts, or enables anything in your user-level agent config.

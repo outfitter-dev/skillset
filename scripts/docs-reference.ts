@@ -564,7 +564,7 @@ async function listCliMarkdown(root: string): Promise<readonly string[]> {
   return discovered.toSorted();
 }
 
-async function assertNoSymlinkComponents(
+export async function assertNoSymlinkComponents(
   root: string,
   relativePath: string
 ): Promise<void> {

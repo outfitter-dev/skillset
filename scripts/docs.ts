@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { checkFeatureRegistryDrift } from "../packages/core/src";
+import { generatePublicCapabilityReference } from "./public-capability-reference";
 import { generateDocsReferenceArtifacts } from "./docs-reference";
 import {
   checkDocumentation,
@@ -33,6 +34,7 @@ export async function runDocsCommand(
   if (command === "generate") {
     await withWorkingDirectory(root, () => generateSchemaArtifacts());
     await generateDocsReferenceArtifacts(resolve(root));
+    await generatePublicCapabilityReference(resolve(root));
     await assertFeatureRegistryClean(resolve(root));
     process.stdout.write("skillset: generated documentation projections\n");
     return 0;
@@ -50,6 +52,7 @@ export async function runDocsCommand(
     generateSchemaArtifacts({ check: true })
   );
   await generateDocsReferenceArtifacts(resolve(root), { check: true });
+  await generatePublicCapabilityReference(resolve(root), { check: true });
   await assertFeatureRegistryClean(resolve(root));
   await assertReadmeFrontDoorClean(resolve(root));
   await runDocsGoldenPath(resolve(root));
