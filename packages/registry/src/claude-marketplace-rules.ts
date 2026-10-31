@@ -89,7 +89,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   {
     id: "marketplace.source.discriminator", owners: ["checkClaudeMarketplacePlugin"],
     predicate: "Object source requires supported string discriminator archive/command/github/git-subdir/npm/url",
-    qualification: "Pin has npm/url/github/git-subdir; archive/command require separate evidence.",
+    qualification: "Pin has npm/url/github/git-subdir; archive/command require separate evidence. Lookup accepts only own inventory keys; inherited prototype members are not source variants.",
     schema: [],
   },
   {

@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:092cb2d3f58fff8c8b2c76cf8657118969b1523882b4c8e1c6889fbc12db734a",
+  "evidenceHash": "sha256:f10c2f2a3d6a428f46b92d672046c5be50ebb8f57c0921c5d91cd8d4949865f1",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -58,7 +58,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePlugin",
-      "hash": "sha256:d76c5cb16d0b0da43c5d3090a6ab720aff602c32e037700e79e13e793aaf6ebe",
+      "hash": "sha256:d4ff70d61d47a53a0605ce30618a87a97241b669fc593859c4aaf71abbb9af16",
       "ruleIds": [
         "marketplace.entry.required",
         "marketplace.entry.name.minimum",
