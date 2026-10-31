@@ -1,4 +1,5 @@
 import {
+  GeneratedLockValidationError,
   parseCurrentGeneratedLock,
   parseGeneratedLock,
   type ParsedCurrentGeneratedLock,
@@ -182,19 +183,53 @@ function lockIdentityPath(logicalPath: string): string {
     : normalized;
 }
 
+export type GeneratedLockFailureKind = OnDiskJsonFailure["kind"] | "schema";
+
+/** Recovery context without erasing whether reading or validating failed. */
+export class GeneratedLockReadError extends Error {
+  readonly kind: GeneratedLockFailureKind;
+  readonly logicalPath: string;
+  readonly code?: string;
+  readonly path?: string;
+
+  constructor(
+    logicalPath: string,
+    reason: string,
+    kind: GeneratedLockFailureKind,
+    cause?: unknown,
+    workspace = isWorkspaceLockPath(logicalPath)
+  ) {
+    super(
+      `skillset: ${workspace ? "workspace" : "generated"} lock ${logicalPath} cannot guard generated state because ${reason}. ` +
+        (workspace
+          ? "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+          : "Fix or remove the lock before running build, check, or diff."),
+      { cause }
+    );
+    this.name = "GeneratedLockReadError";
+    this.kind = kind;
+    this.logicalPath = logicalPath;
+    if (cause instanceof OnDiskJsonError) {
+      this.path = cause.failure.path;
+      if (cause.failure.code !== undefined) this.code = cause.failure.code;
+    }
+  }
+}
+
 export function corruptManagedLock(logicalPath: string, reason: string): Error {
-  return isWorkspaceLockPath(logicalPath)
-    ? corruptWorkspaceLock(logicalPath, reason)
-    : corruptGeneratedLock(logicalPath, reason);
+  return new GeneratedLockReadError(logicalPath, reason, "schema");
 }
 
 export function corruptWorkspaceLock(
   displayLockPath: string,
   reason: string
 ): Error {
-  return new Error(
-    `skillset: workspace lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
-      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+  return new GeneratedLockReadError(
+    displayLockPath,
+    reason,
+    "schema",
+    undefined,
+    true
   );
 }
 
@@ -202,9 +237,12 @@ export function corruptGeneratedLock(
   displayLockPath: string,
   reason: string
 ): Error {
-  return new Error(
-    `skillset: generated lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
-      "Fix or remove the lock before running build, check, or diff."
+  return new GeneratedLockReadError(
+    displayLockPath,
+    reason,
+    "schema",
+    undefined,
+    false
   );
 }
 
@@ -231,25 +269,30 @@ function assertExpectedOutputRoot(
   );
 }
 
-function lockReadError(logicalPath: string, error: unknown): Error {
-  if (isCorruptLockError(error, logicalPath)) return error as Error;
-  const wrapped = corruptManagedLock(
-    logicalPath,
-    reasonFromReadError(logicalPath, error)
-  );
-  if (!(error instanceof OnDiskJsonError)) return wrapped;
-  return Object.assign(wrapped, {
-    ...(error.failure.code === undefined ? {} : { code: error.failure.code }),
-    path: error.failure.path,
-  });
-}
-
-function reasonFromReadError(logicalPath: string, error: unknown): string {
-  if (error instanceof OnDiskJsonError) {
-    return reasonFromJsonFailure(error.failure);
+function lockReadError(logicalPath: string, error: unknown): unknown {
+  if (
+    error instanceof GeneratedLockReadError &&
+    error.logicalPath === logicalPath
+  ) {
+    return error;
   }
-  const message = error instanceof Error ? error.message : String(error);
-  return stripLockLabel(logicalPath, message);
+  if (error instanceof OnDiskJsonError) {
+    return new GeneratedLockReadError(
+      logicalPath,
+      reasonFromJsonFailure(error.failure),
+      error.failure.kind,
+      error
+    );
+  }
+  if (error instanceof GeneratedLockValidationError) {
+    return new GeneratedLockReadError(
+      logicalPath,
+      stripLockLabel(logicalPath, error.message),
+      "schema",
+      error
+    );
+  }
+  return error;
 }
 
 function reasonFromJsonFailure(failure: OnDiskJsonFailure): string {
@@ -265,14 +308,6 @@ function stripLockLabel(logicalPath: string, message: string): string {
   return message
     .replace(/^skillset: /, "")
     .replace(new RegExp(`^${escapeRegExp(logicalPath)} `), "");
-}
-
-function isCorruptLockError(error: unknown, logicalPath: string): boolean {
-  if (!(error instanceof Error)) return false;
-  const prefix = isWorkspaceLockPath(logicalPath)
-    ? `skillset: workspace lock ${logicalPath} cannot guard generated state because `
-    : `skillset: generated lock ${logicalPath} cannot guard generated state because `;
-  return error.message.startsWith(prefix);
 }
 
 function causeMessage(cause: unknown): string {
