@@ -1,3 +1,4 @@
+import { checkClaudeMonitors } from "./claude-monitor-conformance";
 import { checkClaudeLspServers } from "./claude-lsp-conformance";
 import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
 import { checkClaudeDependencies } from "./claude-dependency-conformance";
@@ -433,7 +434,6 @@ function checkClaudeMarketplacePluginArrays(
   };
   for (const [field, extension] of [
     ["hooks", ".json"],
-    ["monitors", ".json"],
   ] as const) {
     issues.push(
       ...checkClaudeComponentPaths(file, plugin[field], `${prefix}.${field}`, extension)
@@ -453,7 +453,6 @@ function checkClaudeMarketplacePluginArrays(
       issues.push(...checkClaudeHookMap(file, hookEntry, `${prefix}.hooks[${index}]`));
     }
   }
-  checkItems("monitors", isJsonRecord, "an object");
   if (Array.isArray(plugin.dependencies)) {
     issues.push(...checkClaudeDependencies(file, plugin.dependencies, `${prefix}.dependencies`, "claude-marketplace-schema"));
   }
@@ -470,12 +469,7 @@ function checkClaudeMarketplacePluginArrays(
   if (isJsonRecord(plugin.userConfig)) {
     issues.push(...checkClaudeUserConfig(file, plugin.userConfig, `${prefix}.userConfig`, "claude-marketplace-schema", "identifier"));
   }
-  if (Array.isArray(plugin.monitors)) {
-    for (const [index, monitor] of plugin.monitors.entries()) {
-      if (!isJsonRecord(monitor)) continue;
-      issues.push(...checkClaudeMonitor(file, monitor, `${prefix}.monitors[${index}]`));
-    }
-  }
+  issues.push(...checkClaudeMonitors(file, plugin.monitors, `${prefix}.monitors`, "claude-marketplace-schema"));
   if (Array.isArray(plugin.channels)) {
     issues.push(...checkClaudeChannels(file, plugin.channels, `${prefix}.channels`, "claude-marketplace-schema"));
   }
@@ -500,37 +494,14 @@ function checkClaudeMarketplacePluginArrays(
       )
     );
     issues.push(
-      ...checkClaudeComponentPaths(
-        file,
-        plugin.experimental.monitors,
-        `${prefix}.experimental.monitors`,
-        ".json"
-      ),
+      ...checkClaudeMonitors(file, plugin.experimental.monitors, `${prefix}.experimental.monitors`, "claude-marketplace-schema"),
       ...checkClaudeComponentPaths(
         file,
         plugin.experimental.themes,
         `${prefix}.experimental.themes`
       )
     );
-    if (Array.isArray(plugin.experimental.monitors)) {
-      for (const [index, monitor] of plugin.experimental.monitors.entries()) {
-        if (isJsonRecord(monitor)) continue;
-        report(
-          "invalid-field-type",
-          `destination field ${prefix}.experimental.monitors[${index}] must be an object`
-        );
-      }
-      for (const [index, monitor] of plugin.experimental.monitors.entries()) {
-        if (!isJsonRecord(monitor)) continue;
-        issues.push(
-          ...checkClaudeMonitor(
-            file,
-            monitor,
-            `${prefix}.experimental.monitors[${index}]`
-          )
-        );
-      }
-    }
+
   }
   return issues;
 }
@@ -562,67 +533,6 @@ function checkClaudeComponentPaths(
     if (extension !== undefined && !path.endsWith(extension)) {
       issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${label} must end with ${extension}`));
     }
-  }
-  return issues;
-}
-
-function checkClaudeMonitor(
-  file: ProviderFormatConformanceFile,
-  monitor: JsonRecord,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  const issues = [
-    ...checkRequiredFields(
-      file,
-      monitor,
-      "claude",
-      "claude-marketplace-schema",
-      ["command", "description", "name"],
-      prefix
-    ),
-    ...checkFieldTypes(
-      file,
-      monitor,
-      "claude",
-      "claude-marketplace-schema",
-      { command: "string", description: "string", name: "string", when: "string" },
-      prefix
-    ),
-    ...checkUnknownFields(
-      file,
-      monitor,
-      "claude",
-      "claude-marketplace-schema",
-      ["command", "description", "name", "when"],
-      prefix
-    ),
-  ];
-  for (const field of ["command", "description", "name"] as const) {
-    if (monitor[field] !== "") continue;
-    issues.push(
-      issue(
-        file,
-        "claude",
-        "claude-marketplace-schema",
-        "invalid-shape",
-        `destination field ${prefix}.${field} must not be empty`
-      )
-    );
-  }
-  if (
-    typeof monitor.when === "string" &&
-    monitor.when !== "always" &&
-    !monitor.when.startsWith("on-skill-invoke:")
-  ) {
-    issues.push(
-      issue(
-        file,
-        "claude",
-        "claude-marketplace-schema",
-        "invalid-shape",
-        `destination field ${prefix}.when must be always or start with on-skill-invoke:`
-      )
-    );
   }
   return issues;
 }

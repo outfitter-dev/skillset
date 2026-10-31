@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:cb9166fd8ebc5eb10992733976eb497b0d1e4fbec90bf427c1fb5382697a15d6",
+  "evidenceHash": "sha256:d56e440309049c310191852187d2fd08ec587ad5171f1f8c117798a9eac6120e",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,7 +108,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:bd4d974f377ec352037dbd1fd390c48bd82c71b0b02d88391dbc61963cd73bb4",
+      "hash": "sha256:f297050bcbeb09428a28d24041d67b43ef229f9be47b9011ef6ba4ff8e28f42c",
       "ruleIds": [
         "marketplace.components.paths",
         "marketplace.components.array_types",
@@ -121,16 +121,6 @@
       "hash": "sha256:4081bbaa2d653f6dd4a755347a901eff63b7f73c2c5efc0d8c76aa3b6743f03e",
       "ruleIds": [
         "marketplace.components.paths",
-        "marketplace.experimental"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkClaudeMonitor",
-      "hash": "sha256:98ac6b64dccddc52863d5f6567db48528197ce02b10be6f3f0e9d5da66b7b035",
-      "ruleIds": [
-        "marketplace.monitors.required",
-        "marketplace.monitors.closed_when",
         "marketplace.experimental"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
@@ -249,6 +239,12 @@
       "hash": "sha256:98fea2cb590fdb2383643cc164e76a85a525913c161a7a9b5b51fb9ea06f6731",
       "ruleIds": [],
       "reason": "Shared LSP input validator wiring."
+    },
+    {
+      "name": "import:\"./claude-monitor-conformance\"",
+      "hash": "sha256:7df002cb6caf8ca60714065ff371ae2aa2e30f452239115d19fb6c408d68338f",
+      "ruleIds": [],
+      "reason": "Shared monitor validator wiring."
     }
   ],
   "dependencies": [
@@ -348,7 +344,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:18866a87f282a2d8acbd833888abe1d508d3d05fe2814914ba813fff91b266fd",
+      "hash": "sha256:7c0aed365d41886954aeb0c974095c04597047b998abf83bdcd5b293836909e3",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -375,7 +371,11 @@
         "marketplace.lsp.references",
         "marketplace.lsp.required",
         "marketplace.lsp.fields",
-        "marketplace.lsp.values"
+        "marketplace.lsp.values",
+        "marketplace.monitors.references",
+        "marketplace.monitors.required",
+        "marketplace.monitors.closed_when",
+        "marketplace.monitors.unique"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -506,6 +506,18 @@
         "marketplace.lsp.values"
       ],
       "reason": "Reviewed strict shared tut/tc input contracts and Qe strictness; no filesystem or runtime claim."
+    },
+    {
+      "path": "packages/core/src/claude-monitor-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:c812685b006e760415147439771a50c093bd8376d1233ddaa4feb21e2022110a",
+      "ruleIds": [
+        "marketplace.monitors.references",
+        "marketplace.monitors.required",
+        "marketplace.monitors.closed_when",
+        "marketplace.monitors.unique"
+      ],
+      "reason": "Reviewed shared ec/Tzn/Ns monitor input contracts, strict fields and unique names; no runtime claim."
     }
   ]
 }

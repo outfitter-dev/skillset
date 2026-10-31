@@ -39,7 +39,7 @@ test("SET-488: coverage detects inline predicates, new declarations, imports and
     `${source}\nfunction unreviewedRule() { return true; }`,
     `${source}\nconst unreviewedLimit = 900;`,
     source.replace('from "./hooks"', 'from "./unreviewed-hooks"'),
-    source.replace("function checkClaudeMonitor(", "function renamedClaudeMonitor("),
+    source.replace("function checkClaudeComponentPaths(", "function renamedClaudeComponentPaths("),
   ]) {
     expect(changed).not.toBe(source);
     expect(marketplaceDeclarations(changed)).not.toEqual(baseline);

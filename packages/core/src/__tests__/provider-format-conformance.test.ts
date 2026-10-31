@@ -1037,7 +1037,7 @@ describe("provider format conformance", () => {
       "destination field plugins[0].mcpServers[0].x.command must be a string",
       "destination field plugins[0].mcpServers[0].x.env.X must be a string",
       "destination field plugins[0].mcpServers[0].invalid.type must be a supported Claude MCP transport",
-      "destination field plugins[0].monitors[0].when must be always or start with on-skill-invoke:",
+      "destination field plugins[0].monitors[0].when must be always or start with on-skill-invoke: followed by a nonempty suffix",
       "destination field plugins[0].userConfig.bad-key.default must be a string, number, boolean, or array of strings",
       "destination field plugins[0].userConfig.bad-key must use an identifier key",
       "destination field plugins[0].userConfig.token.type must be a string",

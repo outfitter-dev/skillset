@@ -213,7 +213,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   },
   {
     id: "marketplace.components.paths", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths"],
-    predicate: "Residual hooks/monitors string paths use ./ and .json; experimental themes use ./",
+    predicate: "Residual hooks string paths use ./ and .json; experimental themes use ./",
     qualification: "Map per-field per-alternative patterns individually; no blanket pointer for exact entire list.",
     schema: [],
   },
@@ -296,15 +296,27 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.monitors.required", owners: ["checkClaudeMonitor"],
-    predicate: "Monitor requires nonempty string command, description and name",
-    qualification: "Exact source needs nested pointer or qualified validator evidence.",
+    id: "marketplace.monitors.references", parser: "monitor-references", owners: ["checkClaudeMonitors"],
+    predicate: "Monitors are a relative JSON reference or an array of strict records",
+    qualification: "Pinned 2.1.269 shared Ns input; no filesystem or runtime claim.",
     schema: [],
   },
   {
-    id: "marketplace.monitors.closed_when", owners: ["checkClaudeMonitor"],
-    predicate: "Monitor only command/description/name/when; when equals always or begins on-skill-invoke:",
-    qualification: "Exact closed set and trigger predicate unresolved.",
+    id: "marketplace.monitors.unique", parser: "monitor-unique", owners: ["checkClaudeMonitors"],
+    predicate: "Monitor names are unique by exact case-sensitive equality",
+    qualification: "Pinned 2.1.269 Tzn refinement; malformed record error cardinality is not claimed.",
+    schema: [],
+  },
+  {
+    id: "marketplace.monitors.required", parser: "monitor-required", owners: ["checkClaudeMonitorRecord"],
+    predicate: "Monitor requires nonempty string command, description and name",
+    qualification: "Pinned 2.1.269 shared ec schema; no provider execution.",
+    schema: [],
+  },
+  {
+    id: "marketplace.monitors.closed_when", parser: "monitor-closed-when", owners: ["checkClaudeMonitorRecord"],
+    predicate: "Monitor only command/description/name/when; when equals always or begins on-skill-invoke: with a nonempty suffix",
+    qualification: "Pinned 2.1.269 Qe strict object and ec trigger predicate; no provider execution.",
     schema: [],
   },
   {
@@ -380,7 +392,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.experimental", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths", "checkClaudeMonitor"],
+    id: "marketplace.experimental", owners: ["checkClaudeMarketplacePluginArrays", "checkClaudeComponentPaths", "checkClaudeMonitorRecord"],
     predicate: "experimental permits only monitors/themes; validates types, path shape, and monitor entries",
     qualification: "experimental not present in pinned marketplace entry.",
     schema: [],

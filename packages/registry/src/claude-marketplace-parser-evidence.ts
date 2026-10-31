@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "monitor-references" | "monitor-required" | "monitor-closed-when" | "monitor-unique" | "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -289,6 +289,58 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"monitor-references": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.monitors.references",
+  "windows": [
+    "strict-object-helper",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Shared Ns input accepts a relative ./ JSON reference or an array of strict monitor records. No filesystem or runtime claim."
+},
+"monitor-required": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.monitors.required",
+  "windows": [
+    "strict-object-helper",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Strict ec requires nonempty name, command and description strings without trimming."
+},
+"monitor-closed-when": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.monitors.closed_when",
+  "windows": [
+    "strict-object-helper",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Strict ec allows only name/command/description/when. Optional when equals always or begins on-skill-invoke: with length greater than 16."
+},
+"monitor-unique": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.monitors.unique",
+  "windows": [
+    "strict-object-helper",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Tzn requires exact case-sensitive unique monitor names. Core reports duplicate string names independently of other invalid entries; provider error cardinality on malformed records is not claimed."
+},
 "lsp-references": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.lsp.references",
@@ -669,6 +721,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["monitor-references", "schema-predicate"], ["monitor-required", "schema-predicate"], ["monitor-closed-when", "schema-predicate"], ["monitor-unique", "schema-predicate"],
     ["lsp-references", "schema-predicate"], ["lsp-required", "schema-predicate"], ["lsp-fields", "schema-predicate"], ["lsp-values", "schema-predicate"],
     ["component-references", "schema-predicate"], ["dependency-extra-fields", "schema-predicate"], ["mcp-references", "schema-predicate"], ["mcp-variants", "schema-predicate"], ["mcp-records", "schema-predicate"], ["mcp-oauth-fields", "schema-predicate"], ["mcp-oauth-values", "schema-predicate"],
     ["channel-shape", "schema-predicate"], ["user-config-types", "schema-predicate"], ["user-config-closed", "schema-predicate"],
@@ -682,7 +735,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 26) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 30) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {
