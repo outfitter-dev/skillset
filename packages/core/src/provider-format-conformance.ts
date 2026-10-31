@@ -589,6 +589,13 @@ function checkChatGptPluginManifest(
     version: "string",
   }));
   issues.push(...checkUnknownFields(file, parsed.value, "codex", providerRef, agentPluginFields.allowed));
+  if (isJsonRecord(parsed.value.author)) {
+    // The portable standard leaves every author member optional, including name.
+    issues.push(...checkFieldTypes(file, parsed.value.author, "codex", providerRef,
+      Object.fromEntries(agentPluginFields.authorFields.map((field) => [field, "string" as const])), "author"));
+    issues.push(...checkUnknownFields(file, parsed.value.author, "codex", providerRef,
+      agentPluginFields.authorFields, "author"));
+  }
   if (
     typeof parsed.value.$schema === "string" &&
     parsed.value.$schema !== AGENT_PLUGIN_MANIFEST_SCHEMA

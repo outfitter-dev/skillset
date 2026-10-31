@@ -51,12 +51,15 @@ export const CHATGPT_MARKETPLACE_POLICY = {
 export function agentPluginManifestFields(): {
   readonly allowed: readonly string[];
   readonly required: readonly string[];
+  readonly authorFields: readonly string[];
 } {
   for (const snapshot of listStandardProfileSchemaSnapshots("agent-plugins-1.0")) {
     const schema: unknown = JSON.parse(snapshot.body);
     if (!isJsonRecord(schema) || schema.$id !== AGENT_PLUGIN_MANIFEST_SCHEMA) continue;
     if (!isJsonRecord(schema.properties) || !Array.isArray(schema.required)) break;
+    if (!isJsonRecord(schema.properties.author) || !isJsonRecord(schema.properties.author.properties)) break;
     return {
+      authorFields: Object.keys(schema.properties.author.properties),
       allowed: Object.keys(schema.properties),
       required: schema.required.filter((field): field is string => typeof field === "string"),
     };
