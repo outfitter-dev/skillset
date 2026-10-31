@@ -66,6 +66,10 @@ Use plain git for a single branch. For stacked work, use [`gh stack`](https://gi
 
 ### Review acceptance evidence
 
+Any issue changing CLI commands, flags, semantics, or vocabulary must include a **skill family updated** acceptance check before closing: inspect the public `skillset`, `skillset-init`, and `skillset-maintain` skills, their plugin-shared references, and relevant internal `skillset-dev*`, `skillset-fix`, and `skillset-adrs` guidance. Update canonical `.skillset/` source and regenerate output, or explicitly record why the change has no family impact. This includes changed exit codes and other prose promises.
+
+`bun run cli-surface:guard` runs in ordinary CI and compares literal top-level command and long-flag references in canonical family Markdown against the current CLI contract. It reads single-line inline code and shell/console fences, including backslash continuations and the direct repository Bun invocation. It checks vocabulary, not route compatibility or semantics. Dynamic commands, wrappers, prose, usage placeholders/alternatives, and shell syntax after a command boundary remain reviewer-owned; inspect those manually. The inventory includes Git-tracked and staged files, not unstaged new files. Run generation checks after source changes; generated provider copies are verified through output consistency.
+
 Apply the [absolute-claim checklist](fixtures/README.md#absolute-acceptance-claims) to new or changed promises of exactness, completeness, required inputs, blocked states, corruption handling, idempotence, or Bun-free execution. Identify the nearby wrong state and the test that would fail if it slipped through. Check that executable examples use the real public API. This convention applies when the affected behavior or tests are next touched; it does not require a retrospective rewrite of existing tests.
 
 ### Review transform recognition and output together

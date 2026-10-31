@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
 import { RETIRED_CLI_COMMANDS, RETIRED_CLI_FLAGS } from "./cli-contract";
+import { scanSkillFamilyCli } from "./skill-family-cli";
 import { validateCliContractParity } from "./cli-contract-parity";
 
 export interface CliSurfaceViolation {
@@ -97,9 +98,9 @@ function allowedRetiredFlagUse(file: string, text: string): boolean {
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
-async function gitFiles(): Promise<readonly string[]> {
+async function gitFiles(root: string): Promise<readonly string[]> {
   const proc = Bun.spawn(["git", "ls-files"], {
-    cwd: rootDir,
+    cwd: root,
     env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
@@ -113,17 +114,23 @@ async function gitFiles(): Promise<readonly string[]> {
   return stdout.split("\n").filter(Boolean);
 }
 
-async function main(): Promise<void> {
-  const files = (await gitFiles()).filter(isCliSurfacePath);
+export async function collectCliSurfaceViolations(root: string): Promise<readonly CliSurfaceViolation[]> {
+  const files = (await gitFiles(root)).filter(isCliSurfacePath);
   const violations: CliSurfaceViolation[] = [];
   for (const file of files) {
-    const path = `${rootDir}/${file}`;
+    const path = `${root}/${file}`;
     if (!existsSync(path)) continue;
-    violations.push(...scanCliSurface(file, await Bun.file(path).text()));
+    const content = await Bun.file(path).text();
+    violations.push(...scanCliSurface(file, content), ...scanSkillFamilyCli(file, content));
   }
+  return violations;
+}
+
+async function main(): Promise<void> {
+  const violations = await collectCliSurfaceViolations(rootDir);
   const parityViolations = validateCliContractParity();
   if (violations.length > 0) {
-    console.error(`skillset: CLI surface guard found ${violations.length} retired surface use(s):`);
+    console.error(`skillset: CLI surface guard found ${violations.length} surface violation(s):`);
     for (const violation of violations) {
       console.error(`  ${violation.file}:${violation.line}: ${violation.text}`);
     }
@@ -137,7 +144,7 @@ async function main(): Promise<void> {
   if (violations.length > 0 || parityViolations.length > 0) {
     process.exit(1);
   }
-  console.error(`skillset: CLI surface guard scanned ${files.length} files; final vocabulary and contract parity are clean`);
+  console.error(`skillset: CLI surface guard scanned tracked files; final vocabulary and contract parity are clean`);
 }
 
 if (import.meta.main) main().catch((error) => {
