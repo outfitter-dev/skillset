@@ -2392,6 +2392,8 @@ test("SET-534: a command build mode does not become generated lock provenance", 
     "skillset.yaml": `
 skillset:
   name: ephemeral-build-mode
+compile:
+  session_start_hook: off
 claude: true
 codex: false
 `,
@@ -8136,6 +8138,7 @@ test("SET-83: explain and doctor surface render results in text and JSON", async
 skillset:
   name: outcome-root
 compile:
+  session_start_hook: off
   unsupportedDestination: warn
 claude: true
 codex: true

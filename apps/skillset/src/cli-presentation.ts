@@ -361,7 +361,7 @@ const PRESENTATION = {
   },
   status: {
     group: "Inspect",
-    summary: "Inspect workspace readiness; completed observations exit zero even when output has diverged. Automatic session-hook placement remains unobserved when it requires Git ignore evidence.",
+    summary: "Inspect workspace readiness; completed observations exit zero even when output has diverged.",
     synopses: ["status [--activation] [--json] [--root <path>]"],
   },
   test: {
