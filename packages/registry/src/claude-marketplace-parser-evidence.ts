@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,12 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "shared-user-config-channels",
+  "start": 181286350,
+  "end": 181288550,
+  "contentHash": "sha256:83a7bd378c5cdf2f8828bac93ff7199d3635407f7d3a4d8487d14d02428f1313"
+},
 {
   "id": "shared-command-path",
   "start": 181275990,
@@ -216,6 +222,42 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"channel-shape": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.channels.shape",
+  "windows": [
+    "shared-user-config-channels",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Shared Qd accepts arrays of strict objects with nonempty string server, optional string displayName and string-keyed userConfig records of Ls. Channel config keys have no identifier restriction; no server-reference existence check is established by this schema."
+},
+"user-config-types": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.userconfig.types",
+  "windows": [
+    "shared-user-config-channels",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Shared Ls requires object entries with type enum string/number/boolean/directory/file and string title/description; optional required/multiple/sensitive booleans, min/max numbers and default string/number/boolean/string-array. Empty strings and uncorrelated min/max/default are accepted. Zd applies identifier keys at root only."
+},
+"user-config-closed": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.userconfig.closed",
+  "windows": [
+    "shared-user-config-channels",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Ls is strict: only type/title/description/required/default/multiple/sensitive/min/max are accepted in the pinned 2.1.269 schema. This version-specific predicate does not resolve changes in newer provider versions."
+},
 "command-map-fields": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.commands.object",
@@ -404,6 +446,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["channel-shape", "schema-predicate"], ["user-config-types", "schema-predicate"], ["user-config-closed", "schema-predicate"],
     ["command-map-fields", "schema-predicate"], ["command-map-source", "schema-predicate"],
     ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
     ["entry-name-strict", "strict-warning"], ["entry-name-unique", "validator-error"],
@@ -414,7 +457,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 12) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 15) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {
