@@ -2297,7 +2297,7 @@ Family: skills. Exact aliases: `implicit_invocation`, `disable-model-invocation`
 - Realization: Lowers canonical skill invocation eligibility into provider-native policy.
 - Destination support: transformed; fidelity: **equivalent**; evidence: **current**.
 - Semantic scope: The resolved implicit_invocation boolean is inverted into disable-model-invocation; false eligibility becomes true disablement and vice versa.
-- Authority pin: `sha256:8ef90765af35eee69eabc5d166e12f82afe0b6b72859a2e7d7cd2bb41b523bce`.
+- Authority pin: `sha256:3ccf08d22e06fd85be924d62cd10109b0f278ae01eb441698d13e64f73b7a1fc`.
 - Standards: none recorded.
 - Provider-native destination: `claude-skill`.
 
@@ -2345,7 +2345,7 @@ Limitations:
 - Realization: Lowers canonical skill invocation eligibility into provider-native policy.
 - Destination support: transformed; fidelity: **exact**; evidence: **current**.
 - Semantic scope: The resolved implicit_invocation boolean is represented directly as policy.allow_implicit_invocation in agents/openai.yaml.
-- Authority pin: `sha256:86162871ff9d4e0de5c9cddf498cdeb564cd5adb90018a8e60eb809a4f1bb4d7`.
+- Authority pin: `sha256:e3737a857433eb9363a7a9b501654fced5ba375b382178896f19027d73d36104`.
 - Standards: none recorded.
 - Provider-native destination: `codex-skill`.
 
@@ -2386,7 +2386,7 @@ Limitations:
 - Realization: Lowers canonical skill invocation eligibility into provider-native policy.
 - Destination support: transformed; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:61f618390d3ae32a2f3bed08a1baebadba32e289e374f21b799c7c545c5e013d`.
+- Authority pin: `sha256:4d4c467f8966a440844b412174f1c1930065253f89b12fc2d9c67b77ee7f7c9e`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-skill`.
 
@@ -2435,7 +2435,7 @@ Family: skills. Exact aliases: `skill`, `SKILL.md`.
 - Realization: Preserves plugin-scoped skills inside each target plugin boundary.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:f36335eb72fce6e9b9b0e3830e3d292d03fcf57f36784b003c135d43424be2c5`.
+- Authority pin: `sha256:d1c67ef39fb6fc39d91140e53e2f2fa2c808edd4b0bf242fd3c780f73240a23f`.
 - Standards: agent-skills.
 - Provider-native destination: `claude-skill`.
 
@@ -2483,7 +2483,7 @@ Limitations:
 - Realization: Preserves plugin-scoped skills inside each target plugin boundary.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:3efa4d76dd574586e592720c347f62ca6b69f81f949bd9c93509e21c698585a4`.
+- Authority pin: `sha256:e3fe14d7621adbe9e34cc82849d332861ddac41f6c710c7a8f1f740ec7d65171`.
 - Standards: agent-skills.
 - Provider-native destination: `codex-skill`.
 
@@ -2524,7 +2524,7 @@ Limitations:
 - Realization: Preserves plugin-scoped skills inside each target plugin boundary.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:e7f8c3faab8f3252f295a8679b49681d97f33b4b78d5d1cd9d442cb62f6e731f`.
+- Authority pin: `sha256:7c14b8d0716f1fe5bfd596936155a497ede1c65393d6c91dde2bde2915e31e48`.
 - Standards: agent-skills.
 - Provider-native destination: `cursor-skill`.
 
@@ -2569,7 +2569,7 @@ Limitations:
 - Realization: Projects standalone repo skills into configured target skill roots.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:998e75a20bc0b0cb49b42d8a392734b170e16a3d6b86b7c46285a861384e571b`.
+- Authority pin: `sha256:09a629f6e6bca31f5f88927d584fd4ff5984e800fabc3e58f0ad6d033639a6c7`.
 - Standards: agent-skills.
 - Provider-native destination: `claude-skill`.
 
@@ -2617,7 +2617,7 @@ Limitations:
 - Realization: Projects standalone repo skills into configured target skill roots.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:77a68bdd1c12b638b8191b2be87ab9499740b6d1d77588c2a8ee65005f8fef61`.
+- Authority pin: `sha256:42f6022d597d1af806156b37e4e86c88b06c6adc0401b6d411cc6072ce8ca150`.
 - Standards: agent-skills.
 - Provider-native destination: `codex-skill`.
 
@@ -2658,7 +2658,7 @@ Limitations:
 - Realization: Projects standalone repo skills into configured target skill roots.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:ecd6b6c05ac90158682f8dba1b4f7781143a634ac93395046245cf5520299acc`.
+- Authority pin: `sha256:64ea8e6c1529138c0c4cc480ae98328fcff4969c4c489666ceb32bdaaae4a238`.
 - Standards: agent-skills.
 - Provider-native destination: `cursor-skill`.
 

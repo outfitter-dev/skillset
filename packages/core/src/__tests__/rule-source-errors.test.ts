@@ -124,3 +124,10 @@ test("native source disappearing after discovery remains an operational failure"
   expect(new TextDecoder().decode(child.stderr)).toBe("");
   expect(child.exitCode).toBe(0);
 });
+
+test.each(["name", "version"])("nested skillset.%s uses shared typed validation with actionable guidance", async (field) => {
+  const root = await fixture({ ".skillset/skills/demo/SKILL.md": `---\nname: demo\ndescription: Useful skill\nskillset:\n  ${field}: ${field === "name" ? "demo" : "1.0.0"}\n---\nBody\n` });
+  const error = await caught(root);
+  expect(error).toBeInstanceOf(InputValidationError);
+  expect(error.message).toContain(`uses unsupported skillset.${field}; use top-level ${field}`);
+});

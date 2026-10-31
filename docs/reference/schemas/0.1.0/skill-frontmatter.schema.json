@@ -619,10 +619,6 @@
         "marketplace": {
           "type": "object"
         },
-        "name": {
-          "minLength": 1,
-          "type": "string"
-        },
         "origin": {
           "additionalProperties": false,
           "dependentRequired": {
@@ -738,10 +734,6 @@
           "minItems": 1,
           "type": "array",
           "uniqueItems": true
-        },
-        "version": {
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
-          "type": "string"
         }
       },
       "type": "object"

@@ -1646,15 +1646,6 @@ async function loadSkillsFromDirectory(
     await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourceLabel);
     validateVersionField(parts.frontmatter, `${sourceLabel}.version`);
-    if (metadata.name !== undefined) {
-      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.name; use top-level name`);
-    }
-    if (metadata.id !== undefined) {
-      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.id; use top-level name`);
-    }
-    if (metadata.version !== undefined) {
-      throw new Error(`skillset: ${sourceLabel} uses unsupported skillset.version; use top-level version`);
-    }
     const sourceOrigin = readSourceOrigin(metadata, sourceLabel);
     const id = validateSlug(
       readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)),
@@ -1787,6 +1778,9 @@ function sourceFrontmatterSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, fr
   }
   if (diagnostic.code === "schema/skill-frontmatter/implicit-invocation-key") {
     return `target map to contain only ${TARGET_LIST_TEXT} keys`;
+  }
+  if (diagnostic.code === "schema/skill-frontmatter/metadata-identity") {
+    return diagnostic.message.replace(" is unsupported in skills", "").replace("skillset.", "uses unsupported skillset.");
   }
   if (diagnostic.code === "schema/skill-frontmatter/version") {
     return `expected ${diagnostic.path} to be a semantic version`;
