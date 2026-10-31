@@ -434,6 +434,14 @@ describe("preprocess reference grammar", () => {
     expect(markdownCodeRanges(prefix + code)).toEqual([[prefix.length, prefix.length + code.length]]);
   });
 
+  test("scans a large backtick line without exceeding the argument limit", () => {
+    const count = 1_000_000;
+    const ranges = markdownCodeRanges("` ".repeat(count));
+    expect(ranges).toHaveLength(count / 2);
+    expect(ranges[0]).toEqual([0, 3]);
+    expect(ranges.at(-1)).toEqual([count * 2 - 4, count * 2 - 1]);
+  });
+
   test("ends a fence that closes on the last line at the end of content", () => {
     const content = "```\n@{{shared:references/a.md}}\n```";
 

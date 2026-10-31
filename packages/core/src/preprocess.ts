@@ -963,7 +963,10 @@ export function markdownCodeRanges(content: string): CodeRange[] {
     } else {
       const block = markdownLineBlock(line, lines[index + 1], state);
       if (block !== "continuation") flush();
-      if (block !== "blank") runs.push(...backtickRuns(line, lineStart));
+      if (block !== "blank") {
+        // A single authored line can exceed the runtime's function argument limit.
+        for (const run of backtickRuns(line, lineStart)) runs.push(run);
+      }
       if (block === "row" || block === "single") flush();
       trackListItems(line, block, state);
       state.inParagraph = block === "continuation" || block === "start";
