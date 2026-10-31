@@ -332,15 +332,15 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.hooks.events", owners: ["checkClaudeHookMap"],
-    predicate: "Reject hook event keys outside CLAUDE_HOOK_EVENTS",
-    qualification: "Exact enum equality must be proven against nested alternative and independent hook evidence.",
+    id: "marketplace.hooks.events", parser: "inline-hook-events", owners: ["checkClaudeInlineHooks"],
+    predicate: "Inline hook maps use the 33 pinned input-parser events and arrays of matcher groups",
+    qualification: "Wq/PKe/Im static parser inventory; compiler render capability metadata remains independent.",
     schema: [],
   },
   {
-    id: "marketplace.hooks.definition", owners: ["checkClaudeHookMap", "validateHookDefinition", "validateProviderHooks", "hookProviderCapabilities"],
-    predicate: "Delegate nested Claude hook definition validation to shared validator",
-    qualification: "Refer to hook-evidence with explicit scoped transitive dependency; this ledger does not enumerate or prove its runtime predicates.",
+    id: "marketplace.hooks.definition", parser: "inline-hook-definitions", owners: ["checkClaudeInlineHooks", "checkClaudeInlineHookHandler", "containsMisplacedGuard"],
+    predicate: "Inline matcher and five handler shapes follow branch-owned native fields, caught cloud values and stripping unknown fields",
+    qualification: "Marketplace raw strict parser checks only. Shared leaf separately observes standalone Tt guards and blocks strict-fatal recovery shapes; outside-hooks sQ scans, file existence and runtime acceptance remain unmodeled.",
     schema: [],
   },
   {

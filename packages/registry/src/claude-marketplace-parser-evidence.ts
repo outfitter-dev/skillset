@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "hook-reference-paths" | "hook-reference-array" | "experimental-warning-inventory" | "experimental-child-types" | "experimental-syntax" | "monitor-references" | "monitor-required" | "monitor-closed-when" | "monitor-unique" | "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "inline-hook-events" | "inline-hook-definitions" | "hook-reference-paths" | "hook-reference-array" | "experimental-warning-inventory" | "experimental-child-types" | "experimental-syntax" | "monitor-references" | "monitor-required" | "monitor-closed-when" | "monitor-unique" | "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,48 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "inline-hook-events",
+  "start": 181234800,
+  "end": 181235500,
+  "contentHash": "sha256:5e639d408e764ad769c0515a0eea374ceb4dda50d3bfb8f2c7ac6877dc555c06"
+},
+{
+  "id": "inline-hook-handlers",
+  "start": 181258000,
+  "end": 181264750,
+  "contentHash": "sha256:6dd0eef2ce88f7403c0b1250d0342810453d86f558b8602240e3024acfde4e45"
+},
+{
+  "id": "inline-hook-partial-record",
+  "start": 181150500,
+  "end": 181150980,
+  "contentHash": "sha256:232d970107265a6d5ae52a286014e989cb6cbc4cb77043388aeaabf61b7c041d"
+},
+{
+  "id": "inline-hook-matcher-record",
+  "start": 181264100,
+  "end": 181265100,
+  "contentHash": "sha256:d55e06a03663146a492f915dc6ef1ebbbf089687902c09fb83e12e939a0ba8e3"
+},
+{
+  "id": "inline-hook-guard-detector",
+  "start": 181265600,
+  "end": 181267900,
+  "contentHash": "sha256:4b0e0aabc0d2e460464df737b9443b51cf884a9e1528a7a22ed4352e5320c215"
+},
+{
+  "id": "inline-hook-guard-recovery",
+  "start": 181267400,
+  "end": 181271700,
+  "contentHash": "sha256:61efcb14c4b9b38413622c974fb59f68b3964480e5eaeed7d9e53593b58862ec"
+},
+{
+  "id": "inline-hook-standalone-preprocessing",
+  "start": 186902800,
+  "end": 186905550,
+  "contentHash": "sha256:c7904bb887653998c7b15535c5aaa1b893630e88556b27099f5341c0c8fac42d"
+},
 {
   "id": "hook-reference-union",
   "start": 181278016,
@@ -319,6 +361,44 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"inline-hook-events": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.hooks.events",
+  "windows": [
+    "inline-hook-events",
+    "inline-hook-handlers",
+    "inline-hook-partial-record",
+    "inline-hook-matcher-record",
+    "inline-hook-guard-detector",
+    "inline-hook-guard-recovery",
+    "inline-hook-standalone-preprocessing",
+    "hook-reference-union",
+    "shared-plugin-base",
+    "standalone-experimental-warning",
+    "experimental-warning-inventory",
+    "marketplace-shared-base"
+  ],
+  "claim": "Wq uses PKe partial record of 33 exact Im events and matcher arrays; this parser inventory is distinct from compiler render capabilities."
+},
+"inline-hook-definitions": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.hooks.definition",
+  "windows": [
+    "inline-hook-events",
+    "inline-hook-handlers",
+    "inline-hook-partial-record",
+    "inline-hook-matcher-record",
+    "inline-hook-guard-detector",
+    "inline-hook-guard-recovery",
+    "inline-hook-standalone-preprocessing",
+    "hook-reference-union",
+    "shared-plugin-base",
+    "standalone-experimental-warning",
+    "experimental-warning-inventory",
+    "marketplace-shared-base"
+  ],
+  "claim": "Rt requires a hooks array and optional string matcher. Rd/PMe has five stripping handler branches with branch-owned fields, positive decimal timeout and caught command/http cloud. Raw marketplace strict parsing does not apply sQ/Tt. Standalone malformed ordinary entries can instead be recovered with strict-fatal warnings; Core reports blocking local shape issues, not claimed provider schema errors. For otherwise schema-valid standalone groups Tt Nne scans misplaced guards with depth 3, no exclusions and matchersCount false; As precedes depth and typed-handler stops. Outside-hooks sQ scans and runtime acceptance are not covered."
+},
 "hook-reference-paths": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.components.paths",
@@ -813,6 +893,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["inline-hook-events", "schema-predicate"], ["inline-hook-definitions", "schema-predicate"],
     ["hook-reference-paths", "schema-predicate"], ["hook-reference-array", "schema-predicate"],
     ["experimental-warning-inventory", "strict-warning"], ["experimental-child-types", "schema-predicate"], ["experimental-syntax", "schema-predicate"],
     ["monitor-references", "schema-predicate"], ["monitor-required", "schema-predicate"], ["monitor-closed-when", "schema-predicate"], ["monitor-unique", "schema-predicate"],
@@ -829,7 +910,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 35) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 37) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {
