@@ -16,51 +16,7 @@ import { isJsonRecord } from "./yaml";
  * but not types. Tests assert every hand-typed key exists in its pin.
  */
 
-/**
- * Claude plugin manifest field types, shared by `plugin.json` and marketplace
- * plugin entries: a marketplace entry may carry any manifest field, so the
- * same content must validate the same way in either file. Types follow the
- * Claude Code plugin manifest reference.
- */
-export const CLAUDE_PLUGIN_FIELD_TYPES = {
-  $schema: "string",
-  agents: "string-or-string-array",
-  author: "object",
-  category: "string",
-  channels: "array",
-  commands: "string-object-or-array",
-  defaultEnabled: "boolean",
-  dependencies: "array",
-  description: "string",
-  displayName: "string",
-  experimental: "object",
-  homepage: "string",
-  hooks: "string-object-or-array",
-  keywords: "string-array",
-  license: "string",
-  lspServers: "string-object-or-array",
-  mcpServers: "string-object-or-array",
-  metadata: "object",
-  monitors: "string-or-array",
-  outputStyles: "string-or-string-array",
-  relevance: "object",
-  repository: "string",
-  settings: "object",
-  skills: "string-or-string-array",
-  strict: "boolean",
-  tags: "string-array",
-  themes: "string-or-string-array",
-  userConfig: "object",
-  version: "string",
-  workflows: "string-or-string-array",
-} as const satisfies Readonly<Record<string, FieldType>>;
-
-/**
- * Claude fields the docs accept but no pinned snapshot lists yet: the
- * `experimental` container (for `monitors` and `themes`) and `workflows`.
- * Refresh the Claude snapshots through provider maintenance to retire these.
- */
-export const CLAUDE_UNPINNED_PLUGIN_FIELDS = ["experimental", "workflows"] as const;
+export { CLAUDE_PLUGIN_FIELD_TYPES, CLAUDE_UNPINNED_PLUGIN_FIELDS } from "@skillset/registry";
 
 /** ChatGPT `extensions.com.openai.interface` fields, from the pinned OpenAI marketplace evidence. */
 export const CHATGPT_INTERFACE_FIELDS: readonly string[] = OPENAI_MARKETPLACE_FIELD_MATRIX.pluginInterface;

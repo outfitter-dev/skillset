@@ -1,0 +1,362 @@
+{
+  "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
+  "path": "packages/core/src/claude-format-conformance.ts",
+  "evidenceHash": "sha256:a961fb90fb7483c376a45652577d8de9c4852097803057212dbc641a9ffcee8c",
+  "declarations": [
+    {
+      "name": "import:\"@skillset/registry\"",
+      "hash": "sha256:e8c686d3801a6f5049c628e1c7478addb3edadf06332376a6308a67ae6c71076",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./hooks\"",
+      "hash": "sha256:0780b85b34fc2b052ed5110d9851e42762d65454f347cbb46f1d7a680ddb49f1",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./manifest-field-contracts\"",
+      "hash": "sha256:e7728a3587aa3dc2c1a65c0997a5707446a85f1dbe0185162bba21bfd33b03f5",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./provider-format-conformance-validation\"",
+      "hash": "sha256:397d3c90ce9822dfdcdcec59b92090cecc8fa2c83d5aede88f5e9cd44237e900",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./types\"",
+      "hash": "sha256:4aa211f7d106f21a13010e24dff83c44a1906afa42a43b7b76b2105afbfbd110",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./yaml\"",
+      "hash": "sha256:f4f392f9c74c92b0a5846a6070b0a133ba621a1766ca6402fa15e9366fbb2f77",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./plugin-output\"",
+      "hash": "sha256:eb242fa98f807999f2d97fc960968d99655cc5f7a674cddb9bff98caad12bfbd",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "function:checkClaudeMarketplace",
+      "hash": "sha256:d7cc3d5eaaacddcdf85217587a021902ce6082c340fa841e5231e61145ff4827",
+      "ruleIds": [
+        "marketplace.metadata.fields",
+        "marketplace.metadata.closed",
+        "marketplace.renames.values",
+        "marketplace.entry.object"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeMarketplacePlugin",
+      "hash": "sha256:d76c5cb16d0b0da43c5d3090a6ab720aff602c32e037700e79e13e793aaf6ebe",
+      "ruleIds": [
+        "marketplace.entry.required",
+        "marketplace.entry.name.minimum",
+        "marketplace.entry.name.pattern",
+        "marketplace.entry.field_types",
+        "marketplace.entry.closed",
+        "marketplace.source.relative.schema",
+        "marketplace.source.relative",
+        "marketplace.source.discriminator",
+        "marketplace.source.npm.fields.schema",
+        "marketplace.source.npm.fields",
+        "marketplace.source.url.fields.schema",
+        "marketplace.source.url.fields",
+        "marketplace.source.github.fields.schema",
+        "marketplace.source.github.fields",
+        "marketplace.source.git-subdir.fields.schema",
+        "marketplace.source.git-subdir.fields",
+        "marketplace.source.archive.fields",
+        "marketplace.source.command.fields",
+        "marketplace.source.required_nonempty",
+        "marketplace.source.git_sha",
+        "marketplace.source.archive.digest",
+        "marketplace.source.archive.url",
+        "marketplace.source.command.limits",
+        "marketplace.source.npm.registry",
+        "marketplace.source.git_subdir.path",
+        "marketplace.source.git_sha.invalid_kind"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "variable:CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES",
+      "hash": "sha256:30a3208fa6ef5eb67aa68d89e6b27a786c3f734ac2ba8c7e16302833af714daa",
+      "ruleIds": [
+        "marketplace.entry.field_types"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "variable:CLAUDE_MARKETPLACE_PLUGIN_FIELDS",
+      "hash": "sha256:1c24abd8a1b9e82332afba1ad0ac261d0b12633957ed65715822aa990c74c345",
+      "ruleIds": [
+        "marketplace.entry.closed"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeMarketplacePluginArrays",
+      "hash": "sha256:92db6976ab892821a4a7fccb9b8e1632ad87eca91edd9cd0a33680f3f56ec12d",
+      "ruleIds": [
+        "marketplace.components.paths",
+        "marketplace.components.mcp_reference",
+        "marketplace.components.array_types",
+        "marketplace.dependencies.string_pattern",
+        "marketplace.dependencies.object_fields",
+        "marketplace.dependencies.object_closed_version",
+        "marketplace.channels.shape",
+        "marketplace.experimental"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeComponentPaths",
+      "hash": "sha256:4081bbaa2d653f6dd4a755347a901eff63b7f73c2c5efc0d8c76aa3b6743f03e",
+      "ruleIds": [
+        "marketplace.components.paths",
+        "marketplace.experimental"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeMonitor",
+      "hash": "sha256:98ac6b64dccddc52863d5f6567db48528197ce02b10be6f3f0e9d5da66b7b035",
+      "ruleIds": [
+        "marketplace.monitors.required",
+        "marketplace.monitors.closed_when",
+        "marketplace.experimental"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeCommandMap",
+      "hash": "sha256:c4b14f9b74acf7075166d44fae77c82641f6c6efd09621dd887e5b18d8483e33",
+      "ruleIds": [
+        "marketplace.commands.object",
+        "marketplace.commands.source"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeHookMap",
+      "hash": "sha256:86651b14d522926d321e63d7edcf77aa8447003ab2bec733cf8977da6a110fa7",
+      "ruleIds": [
+        "marketplace.hooks.events",
+        "marketplace.hooks.definition"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeConfigMapVariants",
+      "hash": "sha256:1b092167683536d37569ac60e84635edb4978810099a9574935f1e981ee793ac",
+      "ruleIds": [
+        "marketplace.lsp.required",
+        "marketplace.lsp.fields",
+        "marketplace.lsp.values",
+        "marketplace.mcp.variants",
+        "marketplace.mcp.records"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeMcpOauth",
+      "hash": "sha256:11f502d7c0ece8e43282c1d1f8621fa28cc8faf2ad4b03f85a6c22c6c12ce311",
+      "ruleIds": [
+        "marketplace.mcp.oauth.fields",
+        "marketplace.mcp.oauth.values"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkStringRecordValues",
+      "hash": "sha256:9dc7fba116e4a218d3f1b63451178ca406a48ad9d57cc6c17c0325bbd76d6fe6",
+      "ruleIds": [
+        "marketplace.lsp.values",
+        "marketplace.mcp.records"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeUserConfig",
+      "hash": "sha256:060b14ca3e241237d77fdf71e17dd8dd1f90650e7503123abbbbef915ee49e37",
+      "ruleIds": [
+        "marketplace.userconfig.name",
+        "marketplace.userconfig.required",
+        "marketplace.userconfig.types.schema",
+        "marketplace.userconfig.types",
+        "marketplace.userconfig.enum",
+        "marketplace.userconfig.closed.schema",
+        "marketplace.userconfig.closed"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:hasParentPathSegment",
+      "hash": "sha256:58f76e2067cf2167964b055b75ecd23a5d711157911d5bb12093464675f00a9b",
+      "ruleIds": [
+        "marketplace.source.git_subdir.path"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:parseAbsoluteUrl",
+      "hash": "sha256:a62a400547d6b83ad3bee6d4b2de687c140a74095b0a5a7d0cf54b37971e25be",
+      "ruleIds": [
+        "marketplace.source.archive.url",
+        "marketplace.mcp.oauth.values"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:isAbsoluteUrl",
+      "hash": "sha256:e8bce65334fd56426049a78db7c1e5cf0339565a64b9916f468459265dd1086d",
+      "ruleIds": [
+        "marketplace.source.npm.registry",
+        "marketplace.components.mcp_reference"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:isBlockedArchiveHost",
+      "hash": "sha256:b276ca8acb8a73304cd88c0e9e443a3565b3a8f5043041efa98100973598ae53",
+      "ruleIds": [
+        "marketplace.source.archive.url"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:isBlockedIpv4Host",
+      "hash": "sha256:d59ce488c2fee233dce52679599300fa53794f8ca19031ec53b814a69a423f19",
+      "ruleIds": [
+        "marketplace.source.archive.url"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:ipv4MappedIpv6Address",
+      "hash": "sha256:b674592d6e35017b62dfab5b6214c8e145b6f42c30d7a8caed68d171c436486c",
+      "ruleIds": [
+        "marketplace.source.archive.url"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:checkClaudeAuthorObject",
+      "hash": "sha256:c1dac138602128a9c07c30be60c4eb5c7f9969fa8e3508cecca234846cc9bee3",
+      "ruleIds": [
+        "marketplace.owner.name",
+        "marketplace.author.fields",
+        "marketplace.author.closed"
+      ],
+      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
+    },
+    {
+      "name": "function:isClaudeMarketplacePath",
+      "hash": "sha256:d94516abdb1658bfc28aed54f9af738906d7bda30eda9bda591d5db48afb3c6d",
+      "ruleIds": [],
+      "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "packages/core/src/hooks.ts",
+      "declarations": [],
+      "hash": "sha256:1159301325fd318a787631a8e3373805596392b2ab14a42ed3b9531ca459d8fe",
+      "ruleIds": [
+        "marketplace.hooks.definition"
+      ],
+      "reason": "Complete delegated hook validator, including target branches; authority remains qualified by hook evidence."
+    },
+    {
+      "path": "packages/core/src/hook-capabilities.ts",
+      "declarations": [],
+      "hash": "sha256:42e6d5f26baa43d47a1012873b26d08dee2d3aa3943a6f25961180401e38590a",
+      "ruleIds": [
+        "marketplace.hooks.events",
+        "marketplace.hooks.definition"
+      ],
+      "reason": "Delegated hook capability projection and lookup helpers."
+    },
+    {
+      "path": "packages/registry/src/hook-evidence.ts",
+      "declarations": [],
+      "hash": "sha256:2984cc8e5726acf536b72ead9074d3c4b2101a52fa3451fcbb6c51a097bd186e",
+      "ruleIds": [
+        "marketplace.hooks.events",
+        "marketplace.hooks.definition"
+      ],
+      "reason": "Existing provider hook evidence owner; full source guarded, including non-Claude portions to avoid a synthetic call graph."
+    },
+    {
+      "path": "packages/core/src/provider-format-conformance-validation.ts",
+      "declarations": [],
+      "hash": "sha256:cf2cbfe75c1af222e5146c4e63a59acfef99d8f9a548a755db23fc2fca216558",
+      "ruleIds": [
+        "marketplace.shared.validation"
+      ],
+      "reason": "Shared field/type/required checks, parsing and diagnostic construction; full helper module is the review boundary."
+    },
+    {
+      "path": "packages/core/src/yaml.ts",
+      "declarations": [
+        "function:isJsonRecord"
+      ],
+      "hash": "sha256:db37d603ef0b5463d7260212c98a878dadb514be1b8749e53cfe5467c4ab001b",
+      "ruleIds": [
+        "marketplace.shared.validation"
+      ],
+      "reason": "Pure object predicate used by all nested validation; unrelated YAML parsing excluded."
+    },
+    {
+      "path": "packages/registry/src/claude-marketplace-inventories.ts",
+      "declarations": [],
+      "hash": "sha256:59f9eb0ad6e2eb682060e82111d2903bc26da459936b1e72b88f969b569a7489",
+      "ruleIds": [
+        "marketplace.entry.field_types",
+        "marketplace.entry.closed",
+        "marketplace.source.relative.schema",
+        "marketplace.source.relative",
+        "marketplace.source.discriminator",
+        "marketplace.source.npm.fields.schema",
+        "marketplace.source.npm.fields",
+        "marketplace.source.url.fields.schema",
+        "marketplace.source.url.fields",
+        "marketplace.source.github.fields.schema",
+        "marketplace.source.github.fields",
+        "marketplace.source.git-subdir.fields.schema",
+        "marketplace.source.git-subdir.fields",
+        "marketplace.source.archive.fields",
+        "marketplace.source.command.fields",
+        "marketplace.source.required_nonempty",
+        "marketplace.source.git_sha",
+        "marketplace.source.archive.digest",
+        "marketplace.source.archive.url",
+        "marketplace.source.command.limits",
+        "marketplace.source.npm.registry",
+        "marketplace.source.git_subdir.path",
+        "marketplace.source.git_sha.invalid_kind"
+      ],
+      "reason": "Directly consumed field/type/source inventories; new inventory values require evidence review."
+    },
+    {
+      "path": "packages/core/src/manifest-field-contracts.ts",
+      "declarations": [],
+      "hash": "sha256:14df1e8391c054e8b76aa7bc5ce2fddd3353930fe094f3af74d87735f002da81",
+      "ruleIds": [
+        "marketplace.entry.field_types"
+      ],
+      "reason": "Shared manifest contract re-exports the one registry inventory; guards against a parallel local copy."
+    }
+  ]
+}

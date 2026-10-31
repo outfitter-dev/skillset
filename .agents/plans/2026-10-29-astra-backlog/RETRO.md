@@ -806,3 +806,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Preserve nonempty-ledger recovery for every previously rejected cache content shape, legacy optional-field permissiveness, valid cache merge priority, and move semantics. No claim of reconstructing absent cache-only history.
 - New regression tests initially exposed 26 failures with 17 passing controls. Final focused release/cache/move/CLI suite: 69 tests, 224 assertions; fast repository gate passes. Review/full immutable verification follow the commit.
 - Supports layer 8552b13e full verification: 4808 pass, 3 skip, 4 todo, 3 failures, all deferred native-size limits; no receipt.
+
+### SET-488 marketplace evidence ownership
+
+- Added a typed marketplace-schema-linked ledger with exact nested schema facts and explicitly unresolved external authority. Core consumes unchanged registry-owned field/source inventories; declaration and delegated-helper fingerprints require evidence review on changes.
+- Provider maintenance inspects the same fetched bytes for schema and nested evidence, detects drift independently of schema refresh, and exposes unresolved rules. Feature linkage stays maintenance-only to preserve render evidence and generated lock bytes.
+- Focused affected corpus: 110 tests and 1,194 assertions; fast gate passes. Live self-hosted diff has no added/changed/missing/removed output. Independent exact review and immutable full verification follow the commit. No provider execution or runtime-equivalence claim; stricter rule provenance remains open.

@@ -39,6 +39,15 @@ export function renderProviderMaintenanceReport(
       for (const change of result.summaryChanges) lines.push(`    ${change}`);
     }
   }
+  for (const review of report.marketplaceReviews) {
+    lines.push(`  ? evidence ${review.id} [${review.schemaSnapshotId}]: ${review.status}; ${review.unresolvedRuleIds.length} rules require manual review`);
+    if (review.sourceChanged) lines.push(`    source changed: ${review.sourceUrl}; review schema rules: ${review.schemaRuleIds.join(", ")}`);
+    if (review.changedRuleIds.length > 0) lines.push(`    nested facts changed: ${review.changedRuleIds.join(", ")}`);
+    if (report.command === "diff") {
+      lines.push(`    last reviewed: ${review.reviewedAt}; schema evidence is not provider runtime proof`);
+      lines.push(`    unresolved authority: ${review.unresolvedRuleIds.join(", ")}`);
+    }
+  }
   lines.push(
     `skillset: ${report.schemaMatched} matched, ${report.schemaChanged} changed, ${report.errors} failed; ` +
       `${report.destinationReviews.length} destination format snapshots require manual review`

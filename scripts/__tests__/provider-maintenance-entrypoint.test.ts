@@ -87,6 +87,7 @@ test("SET-335: provider maintenance terminal reports remain exact", () => {
   const checkReport = {
     command: "check",
     destinationReviews: [],
+    marketplaceReviews: [],
     errors: 0,
     ok: false,
     schemaChanged: 1,
@@ -104,6 +105,7 @@ test("SET-335: provider maintenance terminal reports remain exact", () => {
   const updateReport = {
     command: "update",
     destinationReviews: [],
+    marketplaceReviews: [],
     errors: 1,
     ok: false,
     schemaChanged: 0,

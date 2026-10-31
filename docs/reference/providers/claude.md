@@ -70,4 +70,6 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 
 Implemented provider claims are backed by checked-in destination-format snapshots, schema snapshots or manual overlays, and rendering tests. The generated table reports registry status; it does not replace provider-specific review when Claude changes a native format.
 
+Nested marketplace constraints have a [qualified evidence ledger](../../development/claude-marketplace-evidence.md). It distinguishes exact third-party schema facts from unresolved external authority and detects independent evidence drift during provider maintenance.
+
 Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
