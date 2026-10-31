@@ -11,7 +11,9 @@ const cli = join(import.meta.dir, "..", "cli.ts");
 
 test("SET-554 status exposes coherent project-use provenance in JSON and human output", async () => {
   const root = await fixture({
-    "skillset.yaml": `skillset:
+    "skillset.yaml": `compile:
+  session_start_hook: off
+skillset:
   name: project-use-status
 claude: true
 codex: true
@@ -58,7 +60,9 @@ Use this skill.
 
 test("SET-555 status and explain expose coherent project-draft provenance", async () => {
   const root = await fixture({
-    "skillset.yaml": `skillset:
+    "skillset.yaml": `compile:
+  session_start_hook: off
+skillset:
   name: project-draft-status
 claude: false
 codex: true
@@ -203,7 +207,9 @@ Draft this skill.
 
 test("SET-659 status reports a whole-plugin selection with no live skills", async () => {
   const root = await fixture({
-    "skillset.yaml": `skillset:
+    "skillset.yaml": `compile:
+  session_start_hook: off
+skillset:
   name: whole-plugin-status
 claude: false
 codex: true

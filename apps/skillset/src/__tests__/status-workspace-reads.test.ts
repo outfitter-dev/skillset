@@ -11,7 +11,7 @@ async function fixture() {
   const root = join(parent, "workspace");
   const outside = join(parent, "outside");
   await mkdir(outside);
-  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n  session_start_hook: off\n");
   await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo skill\n---\n\nBody.\n");
   await Bun.write(join(root, ".skillset/changes/example.md"), "Pending reason.\n");
   await Bun.write(join(root, ".skillset/changes/ledger.jsonl"), "");

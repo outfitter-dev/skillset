@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { quoteShellArgument } from "../recovery-guidance";
 import { validateCliResult } from "@skillset/schema";
@@ -11,13 +11,13 @@ const source = ".skillset/skills/demo/SKILL.md";
 const output = ".agents/skills/demo/SKILL.md";
 async function fixture(empty = false): Promise<string> {
   const root = await createTestFixtureRoot("status-informational-");
-  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n  session_start_hook: off\n");
   if (!empty) await Bun.write(join(root, source), "---\nname: demo\ndescription: Demo skill\n---\n\nBody.\n");
   else await Bun.write(join(root, ".skillset/.keep"), "");
   return root;
 }
-async function run(root: string, json = true) {
-  const child = Bun.spawn([process.execPath, cli, "status", "--root", root, ...(json ? ["--json"] : [])], { stdout: "pipe", stderr: "pipe" });
+async function run(root: string, json = true, env = process.env) {
+  const child = Bun.spawn([process.execPath, cli, "status", "--root", root, ...(json ? ["--json"] : [])], { stdout: "pipe", stderr: "pipe", env });
   const [stdout, stderr, exitCode] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
   return { stdout, stderr, exitCode };
 }
@@ -221,7 +221,7 @@ test("empty source retains independently observed corrupt lock blockers", async 
 test("suggested commands preserve roots containing spaces and apostrophes", async () => {
   const parent = await fixture(true);
   const root = join(parent, "author's workspace");
-  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n");
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n  session_start_hook: off\n");
   await Bun.write(join(root, source), "---\nname: demo\ndescription: Demo skill\n---\n\nBody.\n");
   const result = await run(root);
   const command = JSON.parse(result.stdout).data.conclusion.nextAction.command;
@@ -229,4 +229,25 @@ test("suggested commands preserve roots containing spaces and apostrophes", asyn
   const parsed = Bun.spawnSync(["sh", "-c", `set -- ${command}; printf '%s' "$4"`], { stdout: "pipe", stderr: "pipe" });
   expect(parsed.exitCode).toBe(0);
   expect(new TextDecoder().decode(parsed.stdout)).toBe(root);
+});
+
+
+test("automatic hooks leave output unobserved without invoking external Git", async () => {
+  const root = await fixture();
+  await writeFile(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n");
+  const bin = join(root, "fake-bin");
+  await mkdir(bin);
+  const marker = join(root, "git-was-called");
+  await writeFile(join(bin, "git"), '#!/bin/sh\nprintf invoked > "$GIT_PROBE_MARKER"\nexit 0\n');
+  await chmod(join(bin, "git"), 0o755);
+  const result = await run(root, true, { ...process.env, PATH: bin, GIT_PROBE_MARKER: marker });
+  expect(await Bun.file(marker).exists()).toBe(false);
+  expect(result.exitCode).not.toBe(0);
+  const envelope = JSON.parse(result.stdout);
+  expect(envelope.data).toMatchObject({
+    conclusion: { state: "inspection-failed", ready: false },
+    source: { state: "observed" },
+    release: { pendingEntries: 0 },
+  });
+  expect(result.stdout).toContain("automatic session hook placement requires Git ignore evidence");
 });
