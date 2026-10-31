@@ -487,8 +487,10 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         repo: "https://github.com/example/team-skillset",
       },
       outputs: {
-        claude: "plugins",
-        codex: "plugins",
+        plugins: {
+          claude: "plugins",
+          codex: "plugins",
+        },
       },
       preprocess: false,
       unresolved_frontmatter: ["unknown-provider-field"],

@@ -1917,6 +1917,11 @@ function sourceOutputsSchema(): SchemaJsonRecord {
   return {
     additionalProperties: true,
     properties: {
+      plugins: {
+        additionalProperties: true,
+        properties: Object.fromEntries(TARGET_NAMES.map((target) => [target, { type: "string", pattern: "\\S" }])),
+        type: "object",
+      },
       skills: {
         additionalProperties: true,
         allOf: TARGET_NAMES.map((target) => ({ not: { required: [target] } })),

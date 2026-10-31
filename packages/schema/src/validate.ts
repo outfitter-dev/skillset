@@ -3551,7 +3551,14 @@ function checkSourceOutputs(
 ): void {
   const code = "schema/source-metadata/outputs";
   checkOptionalObject(value, path, code, diagnostics);
-  if (!isSchemaRecord(value) || value.skills === undefined) return;
+  if (!isSchemaRecord(value)) return;
+  checkOptionalObject(value.plugins, `${path}.plugins`, code, diagnostics);
+  if (isSchemaRecord(value.plugins)) {
+    for (const target of TARGET_NAMES) {
+      checkOptionalNonEmptyString(value.plugins[target], `${path}.plugins.${target}`, code, diagnostics);
+    }
+  }
+  if (value.skills === undefined) return;
   const skillsPath = `${path}.skills`;
   if (!isSchemaRecord(value.skills)) {
     diagnostics.push(diagnostic(skillsPath, code, `${skillsPath} must be an object`));

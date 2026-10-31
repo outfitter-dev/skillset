@@ -873,6 +873,24 @@
             "outputs": {
               "additionalProperties": true,
               "properties": {
+                "plugins": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "claude": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "codex": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "skills": {
                   "additionalProperties": true,
                   "allOf": [
@@ -1927,6 +1945,24 @@
             "outputs": {
               "additionalProperties": true,
               "properties": {
+                "plugins": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "claude": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "codex": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "skills": {
                   "additionalProperties": true,
                   "allOf": [
@@ -2395,6 +2431,24 @@
             "outputs": {
               "additionalProperties": true,
               "properties": {
+                "plugins": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "claude": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "codex": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "skills": {
                   "additionalProperties": true,
                   "allOf": [
@@ -3306,6 +3360,24 @@
             "outputs": {
               "additionalProperties": true,
               "properties": {
+                "plugins": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "claude": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "codex": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "skills": {
                   "additionalProperties": true,
                   "allOf": [
@@ -3705,6 +3777,24 @@
         "outputs": {
           "additionalProperties": true,
           "properties": {
+            "plugins": {
+              "additionalProperties": true,
+              "properties": {
+                "claude": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "codex": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "cursor": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
             "skills": {
               "additionalProperties": true,
               "allOf": [
@@ -5407,6 +5497,24 @@
             "outputs": {
               "additionalProperties": true,
               "properties": {
+                "plugins": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "claude": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "codex": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    "cursor": {
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
                 "skills": {
                   "additionalProperties": true,
                   "allOf": [

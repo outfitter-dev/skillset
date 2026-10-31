@@ -13,6 +13,7 @@ import {
   SPLIT_WORKSPACE_CONFIG_KEYS as SCHEMA_SPLIT_WORKSPACE_CONFIG_KEYS,
   UNSUPPORTED_DESTINATION_POLICIES as SCHEMA_UNSUPPORTED_DESTINATION_POLICIES,
   validatePluginConfig,
+  validateSourceMetadata,
   validateRootSourceManifest,
   validateSingleFileRootConfig,
   validateSplitWorkspaceConfig,
@@ -488,6 +489,10 @@ export function readOutputConfig(
 ): OutputConfig {
   rejectProviderSkillOutputRoots(record);
   rejectLegacySkillOutputRoots(metadata);
+  const outputValidation = validateSourceMetadata({ outputs: metadata.outputs });
+  if (!outputValidation.ok) {
+    throw new InputValidationError(`skillset: ${outputValidation.diagnostics.map((item) => item.message).join("; ")}`);
+  }
   const outputs = readRecord(metadata, "outputs") ?? {};
   const pluginOutputs = readRecord(outputs, "plugins") ?? {};
   const claudePlugins = readTargetOutputSetting(record.claude, "plugins", "claude.plugins");
