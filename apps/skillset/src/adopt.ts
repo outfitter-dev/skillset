@@ -1,3 +1,5 @@
+import { preflightAdoptionSkills, type SkillCoalescingDecision } from "./adopt-skill-preflight";
+import type { PreparedImportBatch } from "./import-prepared-batch";
 import { qualifyMcpDependencySources, type McpDependencySource } from "@skillset/core/internal/adoption-mcp-dependencies";
 import { manifestIdentityComparison, qualifyManifestIdentityRoundTrips, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
 import { buildSkillsetResultWithAuthority } from "@skillset/core/internal/build";
@@ -118,6 +120,8 @@ export interface TransformPreview {
 }
 
 export interface AdoptReport {
+  readonly skillCoalescing?: readonly SkillCoalescingDecision[];
+  readonly skillPreparationErrors?: readonly { readonly path: string; readonly message: string }[];
   readonly acquisition: AdoptAcquisition;
   readonly alreadyAdopted: boolean;
   readonly baselinePath?: string;
@@ -309,6 +313,19 @@ async function adoptResolvedRoot(
     ...(targets === undefined ? {} : { targets }),
   });
   const candidates = selectAdoptCandidates(survey.importCandidates, selectedCandidates);
+  const preflight = await preflightAdoptionSkills(resolvedRoot, candidates, async (candidate) => {
+    const providers = await providersForAdoptCandidate(resolvedRoot, candidate);
+    return {
+      kind: candidate.kind, rootPath: resolvedRoot, sourcePath: join(resolvedRoot, candidate.path),
+      mergeTargetNativeSkill: providers.length > 0,
+      ...(providers.length === 0 ? {} : { providers }),
+      sourceOrigin: (sourcePath, copiedFile) => ({ path: relativeOriginPath(resolvedRoot, sourcePath, copiedFile) }),
+    };
+  });
+  try {
+  const skillPreflightBlocked = preflight.decisions.some((decision) => decision.status === "conflict") || preflight.errors.length > 0;
+  await preflight.assertUnchanged();
+
 
   if (!writeMode) {
     return {
@@ -318,11 +335,13 @@ async function adoptResolvedRoot(
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
+      skillCoalescing: preflight.decisions,
+      skillPreparationErrors: preflight.errors,
       cutover: [],
       imports: [],
       lintIssues: [],
       renderResults: surveySkipRenderResults(survey.surveySkips),
-      ok: !hasBlockingSurveyDiagnostic(survey.surveyDiagnostics),
+      ok: !skillPreflightBlocked && !hasBlockingSurveyDiagnostic(survey.surveyDiagnostics),
       rootPath: survey.rootPath,
       setupFiles: survey.files,
       surveyDiagnostics: survey.surveyDiagnostics,
@@ -333,7 +352,7 @@ async function adoptResolvedRoot(
     };
   }
 
-  if (hasBlockingSurveyDiagnostic(survey.surveyDiagnostics)) {
+  if (skillPreflightBlocked || hasBlockingSurveyDiagnostic(survey.surveyDiagnostics)) {
     const report: AdoptReport = {
       acquisition,
       alreadyAdopted,
@@ -341,6 +360,8 @@ async function adoptResolvedRoot(
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
+      skillCoalescing: preflight.decisions,
+      skillPreparationErrors: preflight.errors,
       cutover: [],
       imports: [],
       lintIssues: [],
@@ -376,7 +397,8 @@ async function adoptResolvedRoot(
         init.rootPath,
         candidate,
         survey.importCandidates,
-        previewSources
+        previewSources,
+        preflight.batches.get(candidate)
       )
     );
   }
@@ -494,6 +516,8 @@ async function adoptResolvedRoot(
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
     candidates,
+    skillCoalescing: preflight.decisions,
+    skillPreparationErrors: preflight.errors,
     cutover: [...new Set(cutover)].sort(),
     ...(cutoverError === undefined ? {} : { cutoverError }),
     imports,
@@ -516,6 +540,9 @@ async function adoptResolvedRoot(
   };
 
   return report;
+  } finally {
+    await preflight.dispose();
+  }
 }
 
 function hasBlockingSurveyDiagnostic(
@@ -561,10 +588,12 @@ async function importCandidate(
   rootPath: string,
   candidate: SetupImportCandidate,
   allCandidates: readonly SetupImportCandidate[],
-  previewSources: string[]
+  previewSources: string[],
+  prepared?: PreparedImportBatch | Error
 ): Promise<AdoptImportResult> {
   try {
-    const batch = await importCandidateSources(rootPath, candidate, allCandidates);
+    if (prepared instanceof Error) throw prepared;
+    const batch = prepared === undefined ? await importCandidateSources(rootPath, candidate, allCandidates) : await prepared.commit();
     const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
       for (const file of importedPrimarySkillFiles(report)) {
@@ -785,7 +814,7 @@ export function renderAdoptReportMarkdown(
   const importWarnings = report.imports.flatMap((result) =>
     result.warnings.map((warning) => ({ result, warning }))
   );
-  const blockedBeforeWrite = !report.write && hasBlockingSurveyDiagnostic(report.surveyDiagnostics);
+  const blockedBeforeWrite = !report.write && (hasBlockingSurveyDiagnostic(report.surveyDiagnostics) || report.skillCoalescing?.some((decision) => decision.status === "conflict") === true || (report.skillPreparationErrors?.length ?? 0) > 0);
 
   const lines: string[] = ["# Skillset adoption report", ""];
 
@@ -815,6 +844,12 @@ export function renderAdoptReportMarkdown(
 
   lines.push(...renderImportNormalizations([...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])]));
   lines.push(...renderImportCapabilityAssessments(report.imports.flatMap((entry) => entry.capabilityAssessments ?? [])));
+  if ((report.skillCoalescing?.length ?? 0) > 0 || (report.skillPreparationErrors?.length ?? 0) > 0) {
+    lines.push("## Skill candidate preflight", "");
+    for (const decision of report.skillCoalescing ?? []) lines.push(`- ${decision.status}: ${decision.sources.join(", ")} → ${decision.destination}. ${decision.reason}${decision.selectedSource === undefined ? "" : ` Retained source: ${decision.selectedSource}.`}`);
+    for (const error of report.skillPreparationErrors ?? []) lines.push(`- blocked: ${error.path}: ${error.message}`);
+    lines.push("");
+  }
   lines.push("## Acquisition", "");
   lines.push(
     "- source: local path",
@@ -955,7 +990,7 @@ export function renderAdoptReportMarkdown(
 
   lines.push("## Build (isolated)", "");
   if (blockedBeforeWrite) {
-    lines.push("Not run. Adoption stopped before source writes because plugin candidate diagnostics must be resolved.", "");
+    lines.push("Not run. Adoption stopped before source writes because candidate diagnostics must be resolved.", "");
   } else if (migrationBlockedBuild) {
     lines.push("Not run because migration finding recording failed.", "");
   } else if (report.buildError === undefined) {

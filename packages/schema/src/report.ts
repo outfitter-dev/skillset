@@ -453,6 +453,7 @@ function checkAdoptionPayload(
     [
       "capabilityAssessments",
       "normalizations",
+      "skillCoalescing",
       "alreadyAdopted",
       "candidateIds",
       "cutover",
@@ -485,6 +486,19 @@ function checkAdoptionPayload(
     checkRelativeIdList(value.cutover.paths, `${path}.cutover.paths`, diagnostics);
     checkBoundedCount(value.cutover.total, `${path}.cutover.total`, diagnostics);
     checkRetainedListCounts({ paths: value.cutover.total }, { paths: value.cutover.paths }, `${path}.cutover`, diagnostics);
+  }
+  if (value.skillCoalescing !== undefined) {
+    if (!Array.isArray(value.skillCoalescing)) diagnostics.push(diagnostic(`${path}.skillCoalescing`, "schema/report/list", "skillCoalescing must be an array"));
+    else value.skillCoalescing.forEach((entry, index) => {
+      const itemPath = `${path}.skillCoalescing[${index}]`;
+      if (!checkRecord(entry, itemPath, diagnostics)) return;
+      checkShape(entry, ["destination", "sources", "selectedSource", "status", "reason"], ["destination", "sources", "status", "reason"], itemPath, diagnostics);
+      checkRelativeId(entry.destination, `${itemPath}.destination`, diagnostics);
+      checkRelativeIdList(entry.sources, `${itemPath}.sources`, diagnostics);
+      if (entry.selectedSource !== undefined) checkRelativeId(entry.selectedSource, `${itemPath}.selectedSource`, diagnostics);
+      checkEnum(entry.status, ["compatible", "conflict"], `${itemPath}.status`, diagnostics);
+      checkBoundedString(entry.reason, `${itemPath}.reason`, "reason", diagnostics, 1024);
+    });
   }
   checkBoolean(value.alreadyAdopted, `${path}.alreadyAdopted`, diagnostics);
   checkRelativeIdList(value.candidateIds, `${path}.candidateIds`, diagnostics);

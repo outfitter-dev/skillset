@@ -163,6 +163,7 @@ export type {
   SkillsetSchemaContractId,
   SkillsetAdoptionReport,
   SkillsetAdoptionReportPayload,
+  SkillCoalescingDecision,
   SkillsetExternalFixtureReport,
   SkillsetExternalFixturePhase,
   SkillsetExternalFixtureReportPayload,

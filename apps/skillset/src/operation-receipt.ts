@@ -82,6 +82,8 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
     report.surveyDiagnostics.map((diagnostic) => diagnostic.code)
   );
   if ((report.marketplace?.warnings.length ?? 0) > 0) diagnosticCodes.add("adopt.marketplace-warning");
+  if (report.skillCoalescing?.some((entry) => entry.status === "conflict")) diagnosticCodes.add("adopt.skill-source-conflict");
+  if ((report.skillPreparationErrors?.length ?? 0) > 0) diagnosticCodes.add("adopt.skill-preparation-failed");
   if (failedImports > 0) diagnosticCodes.add("adopt.import-failed");
   if (lintErrors > 0) diagnosticCodes.add("adopt.lint-failed");
   if (report.buildError !== undefined)
@@ -106,13 +108,14 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
 
   const cutover = boundedUniqueSorted(report.cutover);
   return {
-    ...(report.cutoverError === undefined && report.migrationError === undefined
+    ...(!blockedBeforeWrite && report.cutoverError === undefined && report.migrationError === undefined
       ? { cutover: { paths: cutover.items, total: cutover.total } }
       : {}),
     guidancePaths: report.surveySkips.filter((skip) => skip.surface === "guided-root-guidance").map((skip) => skip.path),
     normalizations: [...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])],
     capabilityAssessments: report.imports.flatMap((entry) => entry.capabilityAssessments ?? []),
     alreadyAdopted: report.alreadyAdopted,
+    ...(report.skillCoalescing === undefined ? {} : { skillCoalescing: report.skillCoalescing }),
     candidateIds: candidateIds.items,
     destinations: destinations.items,
     diagnosticCodes: boundedUniqueSorted(diagnosticCodes).items,
@@ -148,9 +151,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
       ),
       setup: phase(
         report.setupFiles.length,
-        report.surveyDiagnostics.some(
-          (diagnostic) => diagnostic.severity === "error"
-        )
+        blockedBeforeWrite && !report.ok
           ? "failed"
           : "passed"
       ),

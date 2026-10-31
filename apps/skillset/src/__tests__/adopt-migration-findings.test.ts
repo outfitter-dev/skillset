@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { readFile, rm } from "node:fs/promises";
+import { lstat, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { createOperationalPathContext, ISOLATED_OUT_ROOT, resolveOperationalPath } from "@skillset/core";
 import { inspectMigrationMarkers } from "@skillset/core/internal/migration-markers";
@@ -104,7 +104,7 @@ test("an existing decision prevents guessed replacement and records skipped buil
   expect(stored.report.payload).not.toHaveProperty("cutover");
 });
 
-test("a later batch collision does not omit review findings for successfully imported units", async () => {
+test("a later batch collision blocks all source and review-finding writes", async () => {
   const root = await createTestFixtureRoot("skillset-adopt-partial-findings-");
   const original = "---\nname: a\ndescription: Imported first.\n---\n\nAsk @alice.\n";
   await Bun.write(join(root, ".claude/skills/a/SKILL.md"), original);
@@ -113,12 +113,10 @@ test("a later batch collision does not omit review findings for successfully imp
   await Bun.write(join(root, ".skillset/skills/b/SKILL.md"), existing);
   const report = await adoptSkillset(root, { write: true });
   expect(report.ok).toBe(false);
-  expect(report.imports.some((entry) => !entry.ok)).toBe(true);
-  const { state } = await readMigrationState(root);
-  expect(state.flags).toHaveLength(1);
-  expect(state.flags[0]?.source.path).toBe(".skillset/skills/a/SKILL.md");
-  expect(report.writtenPaths).toContain(MIGRATION_STATE_PATH);
-  expect(report.writtenPaths).toContain(".skillset/skills/a");
+  expect(report.imports).toEqual([]);
+  expect(report.writtenPaths).toEqual([]);
+  await expect(lstat(join(root, ".skillset/skills/a"))).rejects.toMatchObject({ code: "ENOENT" });
+  await expect(lstat(join(root, MIGRATION_STATE_PATH))).rejects.toMatchObject({ code: "ENOENT" });
   expect(await readFile(join(root, ".claude/skills/a/SKILL.md"), "utf8")).toBe(original);
   expect(await readFile(join(root, ".skillset/skills/b/SKILL.md"), "utf8")).toBe(existing);
 });
@@ -128,13 +126,16 @@ test("a removed landed source returns a failed receipt with the partial write in
   const root = await createTestFixtureRoot("skillset-adopt-removed-finding-");
   const original = "---\nname: demo\ndescription: Review.\n---\n\nAsk @alice.\n";
   await Bun.write(join(root, ".claude/skills/demo/SKILL.md"), original);
-  const importSources = sourceImport.importSources;
+  const prepareImportSource = sourceImport.prepareImportSource;
   let removed = false;
-  const imported = spyOn(sourceImport, "importSources").mockImplementation(async (...args) => {
-    const report = await importSources(...args);
-    await rm(join(root, sourcePath));
-    removed = true;
-    return report;
+  const imported = spyOn(sourceImport, "prepareImportSource").mockImplementation(async (...args) => {
+    const prepared = await prepareImportSource(...args);
+    return { ...prepared, async commit() {
+      const report = await prepared.commit();
+      await rm(join(root, sourcePath));
+      removed = true;
+      return report;
+    } };
   });
   try {
     const report = await adoptSkillset(root, { write: true });
