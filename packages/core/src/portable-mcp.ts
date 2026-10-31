@@ -7,6 +7,7 @@ import {
 } from "@skillset/registry";
 import type { ProviderMcpEvidence } from "@skillset/registry";
 
+import { InputValidationError } from "./input-validation-error";
 import { compareStrings, isPathInside } from "./path";
 import { targetNames } from "./targets";
 import type { JsonRecord, JsonValue, TargetName } from "./types";
@@ -115,29 +116,31 @@ export async function parsePortableMcpSource(
   assertPinnedMcpSchemaContract();
   const { pluginRoot, sourcePath } = options;
   const label = sourcePath;
+  const content = await readFile(sourcePath, "utf-8");
   let parsed: JsonValue;
   try {
-    parsed = JSON.parse(await readFile(sourcePath, "utf-8")) as JsonValue;
+    parsed = JSON.parse(content) as JsonValue;
   } catch (error) {
-    throw new Error(
+    if (!(error instanceof SyntaxError)) throw error;
+    throw new InputValidationError(
       `skillset: MCP source ${label} is not valid JSON: ${errorMessage(error)}`,
       { cause: error }
     );
   }
   if (!isJsonRecord(parsed)) {
-    throw new Error(`skillset: MCP source ${label} must contain a JSON object`);
+    throw new InputValidationError(`skillset: MCP source ${label} must contain a JSON object`);
   }
   rejectUnknownFields(parsed, ROOT_FIELDS, `MCP source ${label}`, "root");
   if (
     parsed.$schema !== undefined &&
     parsed.$schema !== AGENT_PLUGINS_MCP_SCHEMA
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP source ${label} uses unsupported MCP schema ${JSON.stringify(parsed.$schema)}; use ${AGENT_PLUGINS_MCP_SCHEMA}`
     );
   }
   if (!isJsonRecord(parsed.mcpServers)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP source ${label}.mcpServers must be an object`
     );
   }
@@ -149,7 +152,7 @@ export async function parsePortableMcpSource(
   for (const name of Object.keys(parsed.mcpServers).toSorted(compareStrings)) {
     const raw = parsed.mcpServers[name];
     if (!isJsonRecord(raw)) {
-      throw new Error(`skillset: MCP server ${name} must be an object`);
+      throw new InputValidationError(`skillset: MCP server ${name} must be an object`);
     }
     const type = readOptionalString(raw, "type", name);
     if (
@@ -157,7 +160,7 @@ export async function parsePortableMcpSource(
       type === "streamable_http" ||
       type === "streamableHttp"
     ) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name}: replace provider transport ${JSON.stringify(type)} with "streamable-http"`
       );
     }
@@ -167,12 +170,12 @@ export async function parsePortableMcpSource(
       type !== "streamable-http" &&
       type !== "sse"
     ) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} declares unsupported transport ${JSON.stringify(type)}; use stdio, streamable-http, or sse`
       );
     }
     if (raw.http_headers !== undefined) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name}: use headers instead of provider field http_headers`
       );
     }
@@ -317,12 +320,12 @@ async function parsePortableServer(
 ): Promise<PortableMcpServer> {
   if (type === undefined) {
     if (raw.command === undefined && raw.url !== undefined) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} URL entries must declare type: streamable-http or type: sse`
       );
     }
     if (raw.command === undefined) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} must declare a transport type`
       );
     }
@@ -414,12 +417,12 @@ async function parseStdioServer(
   const command = readRequiredString(raw, "command", name);
   rejectProviderPlaceholder(command, `${name}.command`);
   if (command.includes("${")) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name}: placeholders are not allowed in command`
     );
   }
   if (!isBareCommand(command) && !isPortablePluginPath(command)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name} command must be a bare executable name or a contained ./ path`
     );
   }
@@ -451,7 +454,7 @@ async function parseStdioServer(
     rejectAnyPlaceholder(key, `${name}.env key`);
     const normalizedKey = key.toUpperCase();
     if (normalizedKey === "PLUGIN_ROOT" || normalizedKey === "PLUGIN_DATA") {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} env cannot override reserved variable ${normalizedKey}`
       );
     }
@@ -487,13 +490,13 @@ function parseRemoteServer(
   for (const [header, value] of Object.entries(headers ?? {})) {
     const normalized = header.toLowerCase();
     if (seen.has(normalized)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} has duplicate case-insensitive header ${header}`
       );
     }
     seen.add(normalized);
     if (!HTTP_HEADER_NAME.test(header)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} has invalid HTTP header name ${JSON.stringify(header)}`
       );
     }
@@ -503,14 +506,14 @@ function parseRemoteServer(
         return (code < 32 && code !== 9) || code === 127;
       })
     ) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} has invalid HTTP header value for ${header}`
       );
     }
     rejectAnyPlaceholder(header, `${name}.headers.${header}`);
     rejectAnyPlaceholder(value, `${name}.headers.${header}`);
     if (CLIENT_OWNED_HTTP_HEADERS.has(normalized)) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP server ${name} cannot configure client-owned header ${header}`
       );
     }
@@ -544,27 +547,28 @@ async function validateCwd(
   } else if (cwd.startsWith("${PLUGIN_DATA}/")) {
     const dataPath = cwd.slice("${PLUGIN_DATA}/".length);
     if (!isContainedPortablePath(dataPath)) {
-      throw new Error(`skillset: MCP server ${name} cwd escapes PLUGIN_DATA`);
+      throw new InputValidationError(`skillset: MCP server ${name} cwd escapes PLUGIN_DATA`);
     }
     return;
   } else {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name} cwd must be a contained ./, \${PLUGIN_ROOT}, or \${PLUGIN_DATA} path`
     );
   }
   if (!isContainedPortablePath(relativePath)) {
-    throw new Error(`skillset: MCP server ${name} cwd escapes the plugin root`);
+    throw new InputValidationError(`skillset: MCP server ${name} cwd escapes the plugin root`);
   }
   assertStandardSupportPath(relativePath, `${name}.cwd`);
   const source = resolve(pluginRoot, relativePath);
   let sourceStat;
   try {
     sourceStat = await stat(source);
-  } catch {
-    throw new Error(`skillset: MCP server ${name} cwd ${cwd} does not exist`);
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+    throw new InputValidationError(`skillset: MCP server ${name} cwd ${cwd} does not exist`, { cause: error });
   }
   if (!sourceStat.isDirectory()) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name} cwd ${cwd} must be a directory`
     );
   }
@@ -580,17 +584,18 @@ async function validatePluginFile(
 ): Promise<void> {
   const relativePath = value.slice(2);
   if (!isContainedPortablePath(relativePath)) {
-    throw new Error(`skillset: MCP server ${label} escapes the plugin root`);
+    throw new InputValidationError(`skillset: MCP server ${label} escapes the plugin root`);
   }
   const source = resolve(pluginRoot, relativePath);
   let sourceStat;
   try {
     sourceStat = await stat(source);
-  } catch {
-    throw new Error(`skillset: MCP server ${label} ${value} does not exist`);
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+    throw new InputValidationError(`skillset: MCP server ${label} ${value} does not exist`, { cause: error });
   }
   if (!sourceStat.isFile()) {
-    throw new Error(`skillset: MCP server ${label} ${value} must be a file`);
+    throw new InputValidationError(`skillset: MCP server ${label} ${value} must be a file`);
   }
   await assertRealPathInside(source, pluginRealRoot, label);
 }
@@ -605,24 +610,25 @@ async function collectPluginRootArgumentSupportPath(
   const marker = "${PLUGIN_ROOT}/";
   if (!value.includes(marker)) return;
   if (!value.startsWith(marker) || value.indexOf(marker, marker.length) !== -1) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${label} must use a standalone \${PLUGIN_ROOT}/<path> reference so its support files can be packaged`
     );
   }
   const relativePath = value.slice(marker.length);
   if (!isContainedPortablePath(relativePath)) {
-    throw new Error(`skillset: MCP server ${label} escapes the plugin root`);
+    throw new InputValidationError(`skillset: MCP server ${label} escapes the plugin root`);
   }
   assertStandardSupportPath(relativePath, label);
   const source = resolve(pluginRoot, relativePath);
   let sourceStat;
   try {
     sourceStat = await stat(source);
-  } catch {
-    throw new Error(`skillset: MCP server ${label} ${value} does not exist`);
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+    throw new InputValidationError(`skillset: MCP server ${label} ${value} does not exist`, { cause: error });
   }
   if (!sourceStat.isFile() && !sourceStat.isDirectory()) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${label} ${value} must be a file or directory`
     );
   }
@@ -639,36 +645,34 @@ async function assertRealPathInside(
   if (isPathInside(pluginRealRoot, actual, { allowEqual: true })) {
     return;
   }
-  throw new Error(
+  throw new InputValidationError(
     `skillset: MCP server ${label} resolves outside the plugin root`
   );
 }
 
 function validateRemoteUrl(name: string, value: string): void {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(
+  if (!URL.canParse(value)) {
+    throw new InputValidationError(
       `skillset: MCP server ${name} URL must be absolute HTTP or HTTPS`
     );
   }
+  const url = new URL(value);
   if (
     value.trim() !== value ||
     (url.protocol !== "http:" && url.protocol !== "https:") ||
     url.hostname === ""
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name} URL must be absolute HTTP or HTTPS`
     );
   }
   if (url.username !== "" || url.password !== "" || url.hash !== "") {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name} URL must not contain user information or a fragment`
     );
   }
   if (url.protocol === "http:" && !isLoopbackHost(url.hostname)) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name}: non-loopback MCP endpoints must use HTTPS`
     );
   }
@@ -695,12 +699,12 @@ function validateExpandableString(value: string, label: string): void {
     .replaceAll("${PLUGIN_DATA}", "");
   const unsupported = /\$\{([^}]*)\}/u.exec(remainder);
   if (unsupported !== null) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP ${label} uses unsupported placeholder \${${unsupported[1]}}; use \${PLUGIN_ROOT} or \${PLUGIN_DATA}`
     );
   }
   if (remainder.includes("${")) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP ${label} contains an unterminated placeholder`
     );
   }
@@ -714,7 +718,7 @@ function rejectProviderPlaceholder(value: string, label: string): void {
     const unbraced = `$${providerName}`;
     const hasUnbraced = value.match(/\$[A-Za-z_][A-Za-z0-9_]*/gu)?.includes(unbraced) ?? false;
     if (value.includes(braced) || hasUnbraced) {
-      throw new Error(
+      throw new InputValidationError(
         `skillset: MCP ${label}: use \${${portableName}} instead of ${value.includes(braced) ? braced : unbraced}`
       );
     }
@@ -725,14 +729,14 @@ function rejectAnyPlaceholder(value: string, label: string): void {
   rejectProviderPlaceholder(value, label);
   rejectUnbracedPortablePlaceholder(value, label);
   if (value.includes("${")) {
-    throw new Error(`skillset: MCP ${label} cannot contain placeholders`);
+    throw new InputValidationError(`skillset: MCP ${label} cannot contain placeholders`);
   }
 }
 
 function rejectUnbracedPortablePlaceholder(value: string, label: string): void {
   const match = /\$(PLUGIN_ROOT|PLUGIN_DATA)\b/u.exec(value);
   if (match?.[1] !== undefined) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP ${label}: use \${${match[1]}} instead of $${match[1]}`
     );
   }
@@ -773,7 +777,7 @@ function assertStandardSupportPath(value: string, label: string): void {
   if (root !== undefined && STANDARD_SUPPORT_ROOTS.has(root)) {
     return;
   }
-  throw new Error(
+  throw new InputValidationError(
     `skillset: MCP server ${label} must reference assets/, bin/, scripts/, or src/`
   );
 }
@@ -803,7 +807,7 @@ function rejectVariantFields(
     .filter((field) => !allowed.has(field))
     .toSorted(compareStrings);
   if (wrong.length > 0) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name} ${type} entry cannot contain ${wrong.join(", ")}`
     );
   }
@@ -819,7 +823,7 @@ function rejectUnknownFields(
     .filter((field) => !allowed.has(field))
     .toSorted(compareStrings);
   if (unknown !== undefined) {
-    throw new Error(`skillset: ${label} has unknown ${kind} field ${unknown}`);
+    throw new InputValidationError(`skillset: ${label} has unknown ${kind} field ${unknown}`);
   }
 }
 
@@ -830,7 +834,7 @@ function readRequiredString(
 ): string {
   const value = raw[field];
   if (typeof value !== "string" || value === "") {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name}.${field} must be a non-empty string`
     );
   }
@@ -847,7 +851,7 @@ function readOptionalString(
     return undefined;
   }
   if (typeof value !== "string" || value === "") {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name}.${field} must be a non-empty string`
     );
   }
@@ -867,7 +871,7 @@ function readOptionalStringArray(
     !Array.isArray(value) ||
     value.some((entry) => typeof entry !== "string")
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name}.${field} must be an array of strings`
     );
   }
@@ -887,7 +891,7 @@ function readOptionalStringMap(
     !isJsonRecord(value) ||
     Object.values(value).some((entry) => typeof entry !== "string")
   ) {
-    throw new Error(
+    throw new InputValidationError(
       `skillset: MCP server ${name}.${field} must be an object of strings`
     );
   }
