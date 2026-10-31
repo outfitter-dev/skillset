@@ -58,7 +58,7 @@ export async function preprocessText(
 
   const escapedTokens: string[] = [];
   let expanded = escapeTripleBraceTokens(normalizeText(content), escapedTokens);
-  expanded = await expandPartials(expanded, context);
+  expanded = await expandPartialsAtBoundary(expanded, context);
   expanded = escapeTripleBraceTokens(expanded, escapedTokens);
   expanded = await expandVariables(expanded, context);
   return restoreTripleBraceTokens(expanded, escapedTokens);
@@ -77,7 +77,7 @@ export async function resolveMarkedPathReferences(
     normalizeText(content),
     escapedTokens
   );
-  const expanded = await expandPartials(normalized, context, "references-only");
+  const expanded = await expandPartialsAtBoundary(normalized, context, "references-only");
   return restoreTripleBraceTokens(expanded, escapedTokens);
 }
 
@@ -142,6 +142,25 @@ export function isPreprocessDisabled(frontmatter: JsonRecord): boolean {
     !Array.isArray(skillset) &&
     skillset.preprocess === false
   );
+}
+
+// Callback failures must cross every recursive partial context without being
+// mistaken for source failures. Unwrap only when returning to the public caller.
+class PreprocessCallbackFailure {
+  constructor(readonly original: unknown) {}
+}
+
+async function expandPartialsAtBoundary(
+  content: string,
+  context: PreprocessContext,
+  mode: "all" | "references-only" = "all"
+): Promise<string> {
+  try {
+    return await expandPartials(content, context, mode);
+  } catch (error) {
+    if (error instanceof PreprocessCallbackFailure) throw error.original;
+    throw error;
+  }
 }
 
 async function expandPartials(
@@ -319,8 +338,13 @@ async function renderPathReference(
       ...(scheme === undefined ? {} : { scheme }),
       specifier,
     };
-    return await (context.renderPathReference?.(reference) ?? specifier);
+    try {
+      return await (context.renderPathReference?.(reference) ?? specifier);
+    } catch (error) {
+      throw new PreprocessCallbackFailure(error);
+    }
   } catch (error) {
+    if (error instanceof PreprocessCallbackFailure) throw error;
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
       `skillset: failed to resolve path reference ${specifier} in ${source}: ${message}`
@@ -364,13 +388,19 @@ async function readPartial(
     );
     assertNoPartialCycle(canonical, specifier, context);
     const raw = normalizeText(await readFile(canonical, "utf8"));
-    const content = context.transformPartialContent?.(raw) ?? raw;
+    let content: string;
+    try {
+      content = context.transformPartialContent?.(raw) ?? raw;
+    } catch (error) {
+      throw new PreprocessCallbackFailure(error);
+    }
     return await expandPartials(content, {
       ...context,
       partialBasePath: canonical,
       partialStack: [...(context.partialStack ?? []), canonical],
     });
   } catch (error) {
+    if (error instanceof PreprocessCallbackFailure) throw error;
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`skillset: failed to read partial ${specifier} in ${source}: ${message}`);
   }
