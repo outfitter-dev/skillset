@@ -167,7 +167,7 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  const allRendered = await renderBuildGraph(graph);
+  const allRendered = await renderBuildGraph(graph, undefined, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(
@@ -386,7 +386,7 @@ export async function listGeneratedEntries(
   options: SkillsetOptions = {}
 ): Promise<readonly GeneratedEntry[]> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph, undefined, options.scopes), options.scopes);
   return collectLockItems(rendered).map((item) => item.entry);
 }
 
@@ -466,7 +466,7 @@ export async function suggestSource(
   const graph = await loadBuildGraph(rootPath, options);
   const expectedGenerated = scopedRenderedFiles(
     graph,
-    await renderBuildGraph(graph),
+    await renderBuildGraph(graph, undefined, options.scopes),
     options.scopes
   ).find((file) => file.path === generatedPath);
   if (expectedGenerated === undefined) {

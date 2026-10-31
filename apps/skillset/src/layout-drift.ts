@@ -34,7 +34,7 @@ export async function layoutOnlyDriftPaths(
   if (candidates.length === 0 || options.isolated === true) return [];
   const graph = await loadBuildGraph(rootPath, options);
   const expected = new Map(
-    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes)
+    scopedRenderedFiles(graph, await renderBuildGraph(graph, undefined, options.scopes), options.scopes)
       .map((file) => [file.path, textDecoder.decode(file.content)])
   );
   const layoutOnly: string[] = [];

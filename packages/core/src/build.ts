@@ -476,7 +476,7 @@ async function runBuildProjection(
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
   const repair = normalizeRepairOptions(options.repair, outPath);
-  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes);
   await inspectionOptions.afterRender?.(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
@@ -1487,7 +1487,7 @@ export async function diffSkillsetResult(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
-  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
@@ -1588,7 +1588,7 @@ export async function verifySkillsetResult(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
-  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
