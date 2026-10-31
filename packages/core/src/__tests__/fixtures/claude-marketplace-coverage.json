@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:53bde5c6226a399a0604414aef811d532d6569747f56ad3c322e6771f82593dd",
+  "evidenceHash": "sha256:7c238457d3018c7d8b80102073f21723538c3201e2ddfb77f0a704f7b23868e0",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,10 +108,9 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:7788509f719e8fd5871d0d56d5f8cb415b6d637f5329b227a590352bc3333ad4",
+      "hash": "sha256:e9e0f5032a66938220f4b0d353508fdf306db09c83abbc43b39f479078247710",
       "ruleIds": [
         "marketplace.components.paths",
-        "marketplace.components.mcp_reference",
         "marketplace.components.array_types",
         "marketplace.dependencies.string_pattern",
         "marketplace.dependencies.object_fields",
@@ -149,32 +148,10 @@
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
     {
-      "name": "function:checkClaudeConfigMapVariants",
-      "hash": "sha256:1b092167683536d37569ac60e84635edb4978810099a9574935f1e981ee793ac",
-      "ruleIds": [
-        "marketplace.lsp.required",
-        "marketplace.lsp.fields",
-        "marketplace.lsp.values",
-        "marketplace.mcp.variants",
-        "marketplace.mcp.records"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkClaudeMcpOauth",
-      "hash": "sha256:11f502d7c0ece8e43282c1d1f8621fa28cc8faf2ad4b03f85a6c22c6c12ce311",
-      "ruleIds": [
-        "marketplace.mcp.oauth.fields",
-        "marketplace.mcp.oauth.values"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
       "name": "function:checkStringRecordValues",
       "hash": "sha256:9dc7fba116e4a218d3f1b63451178ca406a48ad9d57cc6c17c0325bbd76d6fe6",
       "ruleIds": [
-        "marketplace.lsp.values",
-        "marketplace.mcp.records"
+        "marketplace.lsp.values"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -190,8 +167,7 @@
       "name": "function:parseAbsoluteUrl",
       "hash": "sha256:a62a400547d6b83ad3bee6d4b2de687c140a74095b0a5a7d0cf54b37971e25be",
       "ruleIds": [
-        "marketplace.source.archive.url",
-        "marketplace.mcp.oauth.values"
+        "marketplace.source.archive.url"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -199,8 +175,7 @@
       "name": "function:isAbsoluteUrl",
       "hash": "sha256:e8bce65334fd56426049a78db7c1e5cf0339565a64b9916f468459265dd1086d",
       "ruleIds": [
-        "marketplace.source.npm.registry",
-        "marketplace.components.mcp_reference"
+        "marketplace.source.npm.registry"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -261,6 +236,22 @@
       "hash": "sha256:a1dab37da6ae443f646e5c9681d5baafe90da7aabf75321d28edea5377da9899",
       "ruleIds": [],
       "reason": "Shared config and channel validator wiring; dependency below owns the predicates."
+    },
+    {
+      "name": "import:\"./claude-mcp-conformance\"",
+      "hash": "sha256:682f863e9ef8962eaf0a890a869a80526ee54ffcbf126b1691a00e6bc08316c1",
+      "ruleIds": [],
+      "reason": "Shared pinned MCP validator wiring."
+    },
+    {
+      "name": "function:checkClaudeLspMapVariants",
+      "hash": "sha256:11015865566eca6fb1d58f019e4843925bdc0adb1ec2000df8a0caafee3f074f",
+      "ruleIds": [
+        "marketplace.lsp.required",
+        "marketplace.lsp.fields",
+        "marketplace.lsp.values"
+      ],
+      "reason": "Existing LSP branch retained with the obsolete MCP dispatch removed; LSP predicates unchanged."
     }
   ],
   "dependencies": [
@@ -360,7 +351,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:e6bfeea34ba798d3ef99053c27f026b89a14f9a8c8fa14e911727eda482414b1",
+      "hash": "sha256:d4183703722109ff3fccc263b89581f8c22210549a5b5c94425aeb7a5fecc50e",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -376,7 +367,12 @@
         "marketplace.commands.source",
         "marketplace.channels.shape",
         "marketplace.userconfig.types",
-        "marketplace.userconfig.closed"
+        "marketplace.userconfig.closed",
+        "marketplace.components.mcp_reference",
+        "marketplace.mcp.variants",
+        "marketplace.mcp.records",
+        "marketplace.mcp.oauth.fields",
+        "marketplace.mcp.oauth.values"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -417,6 +413,32 @@
         "marketplace.channels.shape"
       ],
       "reason": "Shared Ls strict member schema and Qd channels; identifier restriction only for root Zd. Reviewed static member bytes, paired public tests and unchanged other predicates."
+    },
+    {
+      "path": "packages/core/src/claude-mcp-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:c4f3823a5dfcaeeeeb139031e95e33e365c1ebceb3155a4bf5181a1f568ca4f7",
+      "ruleIds": [
+        "marketplace.components.mcp_reference",
+        "marketplace.mcp.variants",
+        "marketplace.mcp.records",
+        "marketplace.mcp.oauth.fields",
+        "marketplace.mcp.oauth.values"
+      ],
+      "reason": "Reviewed qd/w6 static input shapes and transport-specific fields, including tolerant unknown/caught values. No runtime or transformation claim."
+    },
+    {
+      "path": "packages/registry/src/claude-mcp-contract.ts",
+      "declarations": [],
+      "hash": "sha256:5135b8fd123447ecb0b03635706b24c9f99bfed5d980a270f8e19026d8fd53f1",
+      "ruleIds": [
+        "marketplace.components.mcp_reference",
+        "marketplace.mcp.variants",
+        "marketplace.mcp.records",
+        "marketplace.mcp.oauth.fields",
+        "marketplace.mcp.oauth.values"
+      ],
+      "reason": "Reviewed qd/w6 static input shapes and transport-specific fields, including tolerant unknown/caught values. No runtime or transformation claim."
     }
   ]
 }

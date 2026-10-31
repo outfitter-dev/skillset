@@ -923,13 +923,14 @@ describe("provider format conformance", () => {
       rendered(".claude-plugin/marketplace.json", oauthMarketplace("http://example.com")),
     ]);
     expect(insecure.issues.map(({ message }) => message)).toEqual([
-      "destination field plugins[0].mcpServers.remote.oauth.authServerMetadataUrl must use HTTPS",
+      "destination field plugins[0].mcpServers.remote.oauth.authServerMetadataUrl must start with https://",
     ]);
 
     const uppercase = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", oauthMarketplace("HTTPS://example.com")),
     ]);
-    expect(uppercase.issues.map(({ message }) => message)).toEqual([]);
+    expect(uppercase.ok).toBe(false);
+    expect(checkProviderFormatConformance([rendered(".claude-plugin/marketplace.json", oauthMarketplace("https://example.com"))]).ok).toBe(true);
   });
 
   it("rejects malformed structured Claude marketplace overrides", () => {
@@ -966,7 +967,8 @@ describe("provider format conformance", () => {
                 type: "http",
                 url: "https://example.com",
               },
-              x: { args: [1], command: 1, env: { X: 1 }, type: "bogus", unknown: true },
+              x: { args: [1], command: 1, env: { X: 1 }, unknown: true },
+              invalid: { type: "bogus" },
             }],
             monitors: [{ command: "watch", description: "Watch.", name: "watch", when: "sometimes" }],
             name: "components",
@@ -1035,7 +1037,7 @@ describe("provider format conformance", () => {
       "destination field plugins[0].lspServers[0].ts.transport must be socket or stdio",
       "destination field plugins[0].mcpServers[0].x.command must be a string",
       "destination field plugins[0].mcpServers[0].x.env.X must be a string",
-      "destination field plugins[0].mcpServers[0].x.type must be http, sse, stdio, or ws",
+      "destination field plugins[0].mcpServers[0].invalid.type must be a supported Claude MCP transport",
       "destination field plugins[0].monitors[0].when must be always or start with on-skill-invoke:",
       "destination field plugins[0].userConfig.bad-key.default must be a string, number, boolean, or array of strings",
       "destination field plugins[0].userConfig.bad-key must use an identifier key",
@@ -1055,7 +1057,7 @@ describe("provider format conformance", () => {
       "destination field plugins[7].experimental.monitors must start with ./",
       "destination field plugins[7].hooks must start with ./",
       "destination field plugins[7].lspServers must start with ./",
-      "destination field plugins[7].mcpServers must start with ./ or be an absolute URL",
+      "destination field plugins[7].mcpServers must be a ./ JSON or MCP bundle path, or an absolute MCP bundle URL",
       "destination field plugins[7].monitors must start with ./",
       "destination field plugins[7].skills[0] must start with ./",
     ]) {
@@ -1289,7 +1291,7 @@ skillset:
     ]);
   });
 
-  it("rejects Claude marketplace mcpServers array references that are neither ./ nor absolute URLs", () => {
+  it("rejects Claude marketplace MCP references outside the pinned path and bundle forms", () => {
     const report = checkProviderFormatConformance([
       rendered(".claude-plugin/marketplace.json", {
         name: "example",
@@ -1298,7 +1300,7 @@ skillset:
           {
             mcpServers: [
               "./mcp/config.json",
-              "https://example.com/mcp.json",
+              "https://example.com/mcp.mcpb",
               "not-relative",
               { local: { command: "node" } },
             ],
@@ -1313,7 +1315,7 @@ skillset:
       {
         code: "invalid-shape",
         message:
-          "destination field plugins[0].mcpServers[2] must start with ./ or be an absolute URL",
+          "destination field plugins[0].mcpServers[2] must be a ./ JSON or MCP bundle path, or an absolute MCP bundle URL",
       },
     ]);
   });

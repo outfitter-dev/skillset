@@ -1,3 +1,4 @@
+import { checkClaudeMcpServers } from "./claude-mcp-conformance";
 import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkCodexLegacyInterface } from "./codex-legacy-interface-conformance";
@@ -526,6 +527,7 @@ function checkClaudePluginManifest(
   if (Array.isArray(parsed.value.channels)) {
     issues.push(...checkClaudeChannels(file, parsed.value.channels, "channels", "claude-plugin-manifest-schema"));
   }
+  issues.push(...checkClaudeMcpServers(file, parsed.value.mcpServers, "mcpServers", "claude-plugin-manifest-schema"));
   if (isJsonRecord(parsed.value.experimental)) {
     issues.push(
       ...checkUnknownFields(file, parsed.value.experimental, "claude", "claude-plugin", [

@@ -1,3 +1,4 @@
+import { checkClaudeMcpServers } from "./claude-mcp-conformance";
 import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
@@ -442,20 +443,8 @@ function checkClaudeMarketplacePluginArrays(
       ...checkClaudeComponentPaths(file, plugin[field], `${prefix}.${field}`, extension)
     );
   }
-  const checkMcpServerReference = (path: string, label: string): void => {
-    if (path.startsWith("./") || isAbsoluteUrl(path)) return;
-    report("invalid-shape", `destination field ${label} must start with ./ or be an absolute URL`);
-  };
-  if (typeof plugin.mcpServers === "string") {
-    checkMcpServerReference(plugin.mcpServers, `${prefix}.mcpServers`);
-  } else if (Array.isArray(plugin.mcpServers)) {
-    for (const [index, entry] of plugin.mcpServers.entries()) {
-      if (typeof entry !== "string") continue;
-      checkMcpServerReference(entry, `${prefix}.mcpServers[${index}]`);
-    }
-  }
   checkItems("commands", (value) => typeof value === "string", "a string");
-  for (const field of ["hooks", "lspServers", "mcpServers"] as const) {
+  for (const field of ["hooks", "lspServers"] as const) {
     checkItems(
       field,
       (value) => typeof value === "string" || isJsonRecord(value),
@@ -489,8 +478,8 @@ function checkClaudeMarketplacePluginArrays(
     issues.push(...checkClaudeHookMap(file, plugin.hooks, `${prefix}.hooks`));
   }
   issues.push(
-    ...checkClaudeConfigMapVariants(file, plugin.lspServers, `${prefix}.lspServers`, "lsp"),
-    ...checkClaudeConfigMapVariants(file, plugin.mcpServers, `${prefix}.mcpServers`, "mcp")
+    ...checkClaudeLspMapVariants(file, plugin.lspServers, `${prefix}.lspServers`),
+    ...checkClaudeMcpServers(file, plugin.mcpServers, `${prefix}.mcpServers`, "claude-marketplace-schema")
   );
   if (isJsonRecord(plugin.userConfig)) {
     issues.push(...checkClaudeUserConfig(file, plugin.userConfig, `${prefix}.userConfig`, "claude-marketplace-schema", "identifier"));
@@ -730,11 +719,10 @@ function checkClaudeHookMap(
   return issues;
 }
 
-function checkClaudeConfigMapVariants(
+function checkClaudeLspMapVariants(
   file: ProviderFormatConformanceFile,
   value: unknown,
-  prefix: string,
-  kind: "lsp" | "mcp"
+  prefix: string
 ): readonly ProviderFormatConformanceIssue[] {
   const maps: readonly (readonly [string, JsonRecord])[] = isJsonRecord(value)
     ? [[prefix, value]]
@@ -751,119 +739,54 @@ function checkClaudeConfigMapVariants(
         issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-field-type", `destination field ${configPrefix} must be an object`));
         continue;
       }
-      if (kind === "lsp") {
-        issues.push(
-          ...checkRequiredFields(file, config, "claude", "claude-marketplace-schema", ["command", "extensionToLanguage"], configPrefix),
-          ...checkFieldTypes(file, config, "claude", "claude-marketplace-schema", {
-            args: "string-array", command: "string", diagnostics: "boolean", env: "object",
-            extensionToLanguage: "object", maxRestarts: "number", restartOnCrash: "boolean",
-            shutdownTimeout: "number", startupTimeout: "number", transport: "string",
-            workspaceFolder: "string",
-          }, configPrefix),
-          ...checkUnknownFields(file, config, "claude", "claude-marketplace-schema", [
-            "args", "command", "diagnostics", "env", "extensionToLanguage", "initializationOptions",
-            "maxRestarts", "restartOnCrash", "settings", "shutdownTimeout",
-            "startupTimeout", "transport", "workspaceFolder",
-          ], configPrefix)
-        );
-        if (config.transport !== undefined && config.transport !== "socket" && config.transport !== "stdio") {
-          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.transport must be socket or stdio`));
-        }
-        if (isJsonRecord(config.env)) {
-          issues.push(...checkStringRecordValues(file, config.env, `${configPrefix}.env`));
-        }
-        if (isJsonRecord(config.extensionToLanguage)) {
-          issues.push(...checkStringRecordValues(file, config.extensionToLanguage, `${configPrefix}.extensionToLanguage`));
-          for (const [extension, language] of Object.entries(config.extensionToLanguage)) {
-            if (extension.length < 2) {
-              issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.extensionToLanguage.${extension} must use an extension of at least two characters`));
-            }
-            if (language === "") {
-              issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.extensionToLanguage.${extension} must not be empty`));
-            }
+      issues.push(
+        ...checkRequiredFields(file, config, "claude", "claude-marketplace-schema", ["command", "extensionToLanguage"], configPrefix),
+        ...checkFieldTypes(file, config, "claude", "claude-marketplace-schema", {
+          args: "string-array", command: "string", diagnostics: "boolean", env: "object",
+          extensionToLanguage: "object", maxRestarts: "number", restartOnCrash: "boolean",
+          shutdownTimeout: "number", startupTimeout: "number", transport: "string",
+          workspaceFolder: "string",
+        }, configPrefix),
+        ...checkUnknownFields(file, config, "claude", "claude-marketplace-schema", [
+          "args", "command", "diagnostics", "env", "extensionToLanguage", "initializationOptions",
+          "maxRestarts", "restartOnCrash", "settings", "shutdownTimeout",
+          "startupTimeout", "transport", "workspaceFolder",
+        ], configPrefix)
+      );
+      if (config.transport !== undefined && config.transport !== "socket" && config.transport !== "stdio") {
+        issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.transport must be socket or stdio`));
+      }
+      if (isJsonRecord(config.env)) {
+        issues.push(...checkStringRecordValues(file, config.env, `${configPrefix}.env`));
+      }
+      if (isJsonRecord(config.extensionToLanguage)) {
+        issues.push(...checkStringRecordValues(file, config.extensionToLanguage, `${configPrefix}.extensionToLanguage`));
+        for (const [extension, language] of Object.entries(config.extensionToLanguage)) {
+          if (extension.length < 2) {
+            issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.extensionToLanguage.${extension} must use an extension of at least two characters`));
           }
-        }
-        if (Array.isArray(config.args)) {
-          for (const [index, argument] of config.args.entries()) {
-            if (argument !== "") continue;
-            issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.args[${index}] must not be empty`));
+          if (language === "") {
+            issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.extensionToLanguage.${extension} must not be empty`));
           }
-        }
-        for (const field of ["shutdownTimeout", "startupTimeout"] as const) {
-          const timeout = config[field];
-          if (typeof timeout === "number" && (!Number.isInteger(timeout) || timeout <= 0)) {
-            issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.${field} must be a positive integer`));
-          }
-        }
-        if (typeof config.maxRestarts === "number" && (!Number.isInteger(config.maxRestarts) || config.maxRestarts < 0)) {
-          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.maxRestarts must be a nonnegative integer`));
-        }
-      } else {
-        const remote = config.type === "http" || config.type === "sse" || config.type === "ws";
-        const required = remote ? ["type", "url"] : ["command"];
-        const allowed = remote
-          ? ["headers", "headersHelper", "oauth", "type", "url"]
-          : ["args", "command", "env", "type"];
-        issues.push(
-          ...checkRequiredFields(file, config, "claude", "claude-marketplace-schema", required, configPrefix),
-          ...checkFieldTypes(file, config, "claude", "claude-marketplace-schema", {
-            args: "string-array", command: "string", env: "object", headers: "object",
-            headersHelper: "string", oauth: "object", type: "string", url: "string",
-          }, configPrefix),
-          ...checkUnknownFields(file, config, "claude", "claude-marketplace-schema", allowed, configPrefix)
-        );
-        if (
-          config.type !== undefined &&
-          config.type !== "http" && config.type !== "sse" &&
-          config.type !== "stdio" && config.type !== "ws"
-        ) {
-          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.type must be http, sse, stdio, or ws`));
-        }
-        if (isJsonRecord(config.env)) {
-          issues.push(...checkStringRecordValues(file, config.env, `${configPrefix}.env`));
-        }
-        if (isJsonRecord(config.headers)) {
-          issues.push(...checkStringRecordValues(file, config.headers, `${configPrefix}.headers`));
-        }
-        if (isJsonRecord(config.oauth)) {
-          issues.push(...checkClaudeMcpOauth(file, config.oauth, `${configPrefix}.oauth`));
         }
       }
-    }
-  }
-  return issues;
-}
+      if (Array.isArray(config.args)) {
+        for (const [index, argument] of config.args.entries()) {
+          if (argument !== "") continue;
+          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.args[${index}] must not be empty`));
+        }
+      }
+      for (const field of ["shutdownTimeout", "startupTimeout"] as const) {
+        const timeout = config[field];
+        if (typeof timeout === "number" && (!Number.isInteger(timeout) || timeout <= 0)) {
+          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.${field} must be a positive integer`));
+        }
+      }
+      if (typeof config.maxRestarts === "number" && (!Number.isInteger(config.maxRestarts) || config.maxRestarts < 0)) {
+        issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.maxRestarts must be a nonnegative integer`));
+      }
 
-function checkClaudeMcpOauth(
-  file: ProviderFormatConformanceFile,
-  oauth: JsonRecord,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  const issues = [
-    ...checkFieldTypes(file, oauth, "claude", "claude-marketplace-schema", {
-      authServerMetadataUrl: "string", callbackPort: "number", clientId: "string",
-      scopes: "string", xaa: "boolean",
-    }, prefix),
-    ...checkUnknownFields(file, oauth, "claude", "claude-marketplace-schema", [
-      "authServerMetadataUrl", "callbackPort", "clientId", "scopes", "xaa",
-    ], prefix),
-  ];
-  if (typeof oauth.callbackPort === "number" && (!Number.isInteger(oauth.callbackPort) || oauth.callbackPort <= 0)) {
-    issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.callbackPort must be a positive integer`));
-  }
-  if (typeof oauth.authServerMetadataUrl === "string") {
-    // A prefix test accepts values such as `https://[bad` that `URL` cannot
-    // parse and rejects an equivalent `HTTPS://` spelling, so the URL is
-    // parsed first and its normalized protocol is what the scheme check reads.
-    const parsed = parseAbsoluteUrl(oauth.authServerMetadataUrl);
-    if (parsed === undefined) {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.authServerMetadataUrl must be a parsable absolute URL`));
-    } else if (parsed.protocol !== "https:") {
-      issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.authServerMetadataUrl must use HTTPS`));
     }
-  }
-  if (oauth.scopes === "") {
-    issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${prefix}.scopes must not be empty`));
   }
   return issues;
 }

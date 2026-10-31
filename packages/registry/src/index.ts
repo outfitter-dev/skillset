@@ -1,3 +1,4 @@
+export * from "./claude-mcp-contract";
 import { CODEX_LEGACY_INTERFACE_FIELDS } from "./codex-legacy-interface";
 export * from "./codex-legacy-interface";
 export * from "./claude-marketplace-evidence";
