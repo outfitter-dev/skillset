@@ -1,0 +1,5 @@
+skillset:
+  name: distribution-example
+  description: Build one shared plugin package for multiple providers.
+compile:
+  targets: [claude, codex, cursor]

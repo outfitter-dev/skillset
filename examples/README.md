@@ -5,3 +5,5 @@ checked with the local Skillset CLI.
 
 - [Minimal](minimal/README.md): a minimal root-layout source repo
   with one skill and one rule that builds to Claude and Codex.
+- [Distribution](distribution/README.md): one canonical plugin skill built into a
+  shared package for Claude, Codex, and Cursor, ready for an explicit distribution workflow.

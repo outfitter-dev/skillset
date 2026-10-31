@@ -508,6 +508,8 @@ function renderSupportMatrix(support: SupportReference): string {
     "",
     "> Generated from Skillset's feature registry. See the [documentation system](../development/documentation-system.md).",
     "",
+    "Adopted standards provide the portable floor; provider renderers can add native refinements. Read the [projection chart](../start/how-rendering-works.md) for that model before interpreting individual support cells.",
+    "",
     "Statuses are emitted verbatim from the registry. Open a feature's linked page for its evidence, qualifications, and provider-specific detail.",
     "",
     `| ${columns.map(escapeTable).join(" | ")} |`,

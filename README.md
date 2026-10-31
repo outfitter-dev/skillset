@@ -40,6 +40,8 @@ Agent platforms overlap, but their file layouts and native capabilities do not. 
 
 Skillset keeps one adaptive source where meanings genuinely match, preserves provider-native escape hatches where they do not, and makes unsupported destinations visible before output ships. Read [Why Skillset](docs/why-skillset.md) for the design tradeoffs.
 
+Adopted standards provide the portable floor; provider renderers can add native refinements beyond it. Follow the [projection chart](docs/start/how-rendering-works.md) before the detailed support matrix, or build the [multi-provider distribution example](examples/distribution/README.md).
+
 ## The model
 
 ```text

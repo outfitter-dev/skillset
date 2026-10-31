@@ -6,6 +6,8 @@ description: Explains Skillset's provider vocabulary and routes to canonical tar
 
 A Skillset [target](../../glossary.md#target) is an enabled provider adapter selected for a compiler run. It receives [provider-native](../../glossary.md#provider-native) output produced by a [render](../../glossary.md#render), which a [build](../../glossary.md#build) can write. A runtime is a concrete application or harness that may consume that output. Adding a runtime does not add a target, and rendering provider output does not prove [activation](../../glossary.md#activation).
 
+Start with the [projection chart](../../start/how-rendering-works.md): adopted standards supply the portable floor, and provider renderers preserve supported native refinements. The [distribution example](../../../examples/distribution/README.md) shows how several provider manifests can accompany one shared skill tree.
+
 Use the [feature support matrix](../support-matrix.md) for the exhaustive registry-owned view of feature status across every canonical target. The authored provider pages explain how to interpret those facts: native output shapes, important unsupported or provider-native boundaries, and the evidence behind current claims. Status terms are defined once in the [feature-reference support vocabulary](../features/README.md#support-vocabulary).
 
 ## Providers
