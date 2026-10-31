@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values";
+export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -153,6 +153,30 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
       "start": 208254850,
       "end": 208255195,
       "contentHash": "sha256:debad8fffcd9f1ccd97a117fb53b6b2294878011a880a6529ac9704e666f83da"
+    },
+    {
+      "id": "entry-fields",
+      "start": 181308616,
+      "end": 181309750,
+      "contentHash": "sha256:5b7a6bd60549bcc58b40e84692bce235a759ae67e945eb21b52e55515f7c4f7c"
+    },
+    {
+      "id": "marketplace-conditional-checks",
+      "start": 208266550,
+      "end": 208268250,
+      "contentHash": "sha256:cf9c0ab18dca3c2099bbe72d578a757382dd4be9c05a62d8462f56af38d875e3"
+    },
+    {
+      "id": "helper-nonempty",
+      "start": 185055450,
+      "end": 185055750,
+      "contentHash": "sha256:c12c95bbc069509283886c1700125a9d3713f37cfa99f94c5f16cde078a02a0a"
+    },
+    {
+      "id": "restricted-headers",
+      "start": 185062050,
+      "end": 185063350,
+      "contentHash": "sha256:00a3fe69908947e6152dea56c112e1078dd3a85463a8082b865bb96eb74e5e00"
     }
   ],
   "predicates": {
@@ -239,6 +263,64 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
         "marketplace-metadata-shape"
       ],
       "claim": "The validator overrides the base loader renames schema with an optional string-keyed record of string-or-null values and sends parse failures to errors. This qualifies JSON object member value shape only. The base loader catches invalid renames; additional validator rename-chain resolution and target-name checks are separate and not claimed as Core behavior."
+    },
+    "header-shape": {
+      "stage": "schema-predicate",
+      "ruleId": "marketplace.headers.shape",
+      "windows": [
+        "entry-fields",
+        "command-max-and-pattern",
+        "marketplace-schema-caller"
+      ],
+      "claim": "Optional marketplace headers is a string-valued record; headersHelper is a string of at most 500 printable ASCII code units with no four consecutive spaces. Empty helper is permitted. Standalone plugin fields are not broadened."
+    },
+    "header-helper-strict": {
+      "stage": "validator-error",
+      "ruleId": "marketplace.headers.helper_strict",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-validator-return",
+        "entry-fields",
+        "helper-nonempty",
+        "marketplace-conditional-checks"
+      ],
+      "claim": "After parsing, an archive entry with a nonempty helper and strict not false produces an error. Omitted entry strict defaults true. No helper is executed by this evidence."
+    },
+    "header-source-digest": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.headers.source_digest",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-validator-return",
+        "strict-success-policy",
+        "helper-nonempty",
+        "marketplace-conditional-checks"
+      ],
+      "claim": "After parsing, present headers or an active helper on nonarchive sources produces one warning attributed to the helper when active. An archive active helper without sha256 produces a warning. Warnings fail strict validation; Core uses invalid-shape diagnostics."
+    },
+    "header-restricted": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.headers.restricted",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-validator-return",
+        "strict-success-policy",
+        "restricted-headers",
+        "marketplace-conditional-checks"
+      ],
+      "claim": "For archive entries the validator checks header keys after lowercase and underscore-to-hyphen normalization against 21 exact routing/identity names and three prefixes. Matches warn and fail strict validation. Runtime syntax/value filtering is a separate path and is not asserted here."
     }
   },
   "limitation": "Embedded bundled JavaScript inspection only. Schema-predicate records do not establish command exit status because entry recovery and later validation stages differ. The strict-warning record traces one warning-to-status condition; it does not establish whole-command acceptance, installation, trust or runtime behavior. No provider code was executed."
@@ -263,11 +345,13 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
     ["entry-name-strict", "strict-warning"], ["entry-name-unique", "validator-error"],
     ["metadata-closed-strict", "strict-warning"], ["rename-values", "validator-error"],
+    ["header-shape", "schema-predicate"], ["header-helper-strict", "validator-error"],
+    ["header-source-digest", "strict-warning"], ["header-restricted", "strict-warning"],
   ] as const) {
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 6) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 10) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {
