@@ -164,6 +164,7 @@ export type {
   SkillsetAdoptionReport,
   SkillsetAdoptionReportPayload,
   SkillCoalescingDecision,
+  PluginCoalescingDecision,
   SkillsetExternalFixtureReport,
   SkillsetExternalFixturePhase,
   SkillsetExternalFixtureReportPayload,

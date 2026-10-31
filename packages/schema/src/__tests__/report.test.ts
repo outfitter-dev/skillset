@@ -654,3 +654,13 @@ it("validates adoption coalescing decisions without accepting outside paths or u
   for (const path of ["/outside", "C:/outside", "a/../outside", ".git/config", "a//b", "a\\b", "a\nb"]) expect(validates({ ...decision, destination: path })).toBe(false);
   for (const bad of [{ destination: "../outside" }, { sources: ["/outside"] }, { selectedSource: "../outside" }, { status: "assumed" }, { reason: "" }, { extra: true }]) expect(validates({ ...decision, ...bad })).toBe(false);
 });
+
+it("validates plugin coalescing decisions without accepting outside paths or unknown statuses", () => {
+  const decision = { destination: ".skillset/skills/demo", sources: [".agents/skills/demo", ".claude/skills/demo"], selectedSource: ".claude/skills/demo", status: "compatible", reason: "Matching portable content and resources." };
+  const validates = (entry: unknown) => validateSkillsetReport({ ...report, kind: "adoption", payload: { ...adoptionPayload, pluginCoalescing: [entry] }, result: { command: "init.adopt", exitCode: 0, ok: true } }).ok;
+  expect(validates(decision)).toBe(true);
+  expect(validates({ ...decision, status: "conflict" })).toBe(true);
+  expect(validates({ ...decision, destination: ".skillset/skills/_drafts/(group)/demo", selectedSource: ".skillset/skills/(group)/demo", sources: [".agents/skills/draft-demo", ".skillset/skills/_drafts/(group)/demo"] })).toBe(true);
+  for (const path of ["/outside", "C:/outside", "a/../outside", ".git/config", "a//b", "a\\b", "a\nb"]) expect(validates({ ...decision, destination: path })).toBe(false);
+  for (const bad of [{ destination: "../outside" }, { sources: ["/outside"] }, { selectedSource: "../outside" }, { status: "assumed" }, { reason: "" }, { extra: true }]) expect(validates({ ...decision, ...bad })).toBe(false);
+});

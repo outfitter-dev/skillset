@@ -82,9 +82,9 @@ test("plugin-qualified project copies retain their actual grouped source identit
   expect((await buildSkillsetResult(root)).ok).toBe(true);
   const result = await adoptSkillset(root);
   expect(result.skillPreparationErrors).toEqual([]);
-  // Shared-package discovery is a separate open acceptance slice; do not hide its refusal.
-  expect(result.ok).toBe(false);
-  expect(result.surveyDiagnostics).toContainEqual(expect.objectContaining({ code: "agent-plugin-import-blocked" }));
+  expect(result.ok).toBe(true);
+  expect(result.pluginCoalescing).toHaveLength(2);
+  expect((await adoptSkillset(root, { write: true })).ok).toBe(true);
   for (const [name, path] of [["alpha-demo", ".skillset/plugins/alpha/skills/(group)/demo"], ["beta-demo", ".skillset/plugins/beta/skills/demo"]]) {
     expect(result.skillCoalescing).toContainEqual(expect.objectContaining({ sources: expect.arrayContaining([`.agents/skills/${name}`]), selectedSource: path }));
   }

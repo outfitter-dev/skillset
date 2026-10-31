@@ -1,3 +1,5 @@
+import { inspectAdoptionPluginPackages } from "@skillset/core/internal/adoption-managed-plugins";
+import type { PluginCoalescingDecision } from "@skillset/schema";
 import { applyWorkspaceTransaction } from "@skillset/core/internal/workspace-transaction";
 import { resolveNativeRootRuleSource } from "@skillset/core/internal/native-root-rules";
 import { readSkillsetWorkspaceConfig } from "@skillset/core/internal/xdg";
@@ -84,6 +86,7 @@ export interface SetupGit {
 }
 
 export interface SetupReport {
+  readonly pluginCoalescing?: readonly PluginCoalescingDecision[];
   readonly nativeAgents?: true;
   readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
@@ -288,7 +291,7 @@ async function applySetupPlan(
   const baselines = baselineReport?.entries ?? [];
   const importSurvey = kind === "init"
     ? await detectImportCandidates(rootPath)
-    : { candidates: [], diagnostics: [] };
+    : { candidates: [], diagnostics: [], pluginCoalescing: [] };
   const surveySkips = kind === "init" ? await detectSurveySkips(rootPath) : [];
   const nextSteps = await setupNextSteps(
     rootPath,
@@ -307,6 +310,7 @@ async function applySetupPlan(
     nextSteps,
     rootPath,
     sourceDir: ORDINARY_WORKSPACE_DIR,
+    pluginCoalescing: importSurvey.pluginCoalescing,
     surveyDiagnostics: importSurvey.diagnostics,
     surveySkips,
     write: options.write === true,
@@ -458,6 +462,7 @@ async function detectImportCandidates(
 ): Promise<{
   readonly candidates: readonly SetupImportCandidate[];
   readonly diagnostics: readonly PluginAdoptionDiagnostic[];
+  readonly pluginCoalescing: readonly PluginCoalescingDecision[];
 }> {
   const candidates: SetupImportCandidate[] = [];
   const pluginPaths: string[] = [];
@@ -484,7 +489,17 @@ async function detectImportCandidates(
       agentPluginPaths.push(path);
     }
   }
-  const pluginClassification = await classifyPluginAdoptionCandidates(rootPath, pluginPaths);
+  const ownership = await inspectAdoptionPluginPackages(rootPath, [...new Set([...pluginPaths, ...agentPluginPaths])]);
+  const excluded = new Set(ownership.filter((entry) => entry.kind !== "unmanaged").map((entry) => entry.path));
+  const pluginCoalescing: PluginCoalescingDecision[] = ownership.flatMap((entry) => entry.kind !== "managed" ? [] : [{
+    destination: entry.sourcePath, sources: [entry.path], selectedSource: entry.sourcePath, status: "compatible" as const,
+    reason: `Retained authored plugin after verified current ownership of the complete package via ${entry.lockPaths.join(", ")}.`,
+  }]);
+  const ownershipDiagnostics: PluginAdoptionDiagnostic[] = ownership.flatMap((entry) => entry.kind !== "unknown" ? [] : [{
+    code: "managed-plugin-ownership-unknown" as const, evidence: [entry.reason], message: `Cannot establish generated package ownership at ${entry.path}: ${entry.reason}`,
+    paths: [entry.path], providers: [], severity: "error" as const, recommendation: "Repair generated output and its provenance, or isolate unowned package material before adoption.",
+  }]);
+  const pluginClassification = await classifyPluginAdoptionCandidates(rootPath, pluginPaths.filter((path) => !excluded.has(path)));
   const nativeGroups = pluginClassification.groups.map((group) => ({
     ...group,
     identity: nativePluginImportIdentity(rootPath, group.identity, group.primaryPath),
@@ -507,7 +522,7 @@ async function detectImportCandidates(
   }
   const agentPluginClassification = await classifyAgentPluginImportCandidates(
     rootPath,
-    agentPluginPaths
+    agentPluginPaths.filter((path) => !excluded.has(path))
   );
   candidates.push(...agentPluginClassification.candidates);
   const crossSourceDiagnostics = competingAgentPluginIdentityDiagnostics(
@@ -515,8 +530,10 @@ async function detectImportCandidates(
     agentPluginClassification.declaredIdentities
   );
   return {
+    pluginCoalescing,
     candidates: candidates.sort((left, right) => compareCandidate(left, right)),
     diagnostics: [
+      ...ownershipDiagnostics,
       ...pluginClassification.diagnostics,
       ...agentPluginClassification.diagnostics,
       ...crossSourceDiagnostics,
@@ -694,7 +711,6 @@ async function nestedPluginSources(rootPath: string): Promise<readonly string[]>
     if (!(await hasNativePluginManifest(absolutePath))) continue;
     const realSource = await realpath(absolutePath);
     if (!isPathInside(realRoot, realSource, { allowEqual: true })) continue;
-    if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
     sources.push(path);
@@ -717,7 +733,6 @@ async function nestedAgentPluginSources(
     if (!(await hasAgentPluginManifest(absolutePath))) continue;
     const realSource = await realpath(absolutePath);
     if (!isPathInside(realRoot, realSource, { allowEqual: true })) continue;
-    if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
     sources.push(path);
@@ -942,10 +957,8 @@ async function marketplacePluginSources(rootPath: string): Promise<readonly stri
     if (absolutePath === resolve(rootPath)) continue;
     if (!(await pathExists(absolutePath))) continue;
     if (!(await stat(absolutePath)).isDirectory()) continue;
-    if (await isManagedPluginOutputCandidate(rootPath, absolutePath)) continue;
     const realSource = await realpath(absolutePath);
     if (!isPathInside(realRoot, realSource, { allowEqual: true })) continue;
-    if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
     sources.push(path);
@@ -996,18 +1009,6 @@ async function maybeRootSkillsCandidate(
 async function isManagedCandidate(path: string): Promise<boolean> {
   if (await pathExists(join(path, "skillset.lock"))) return true;
   return basename(path) === "plugins" && (await pathExists(join(dirname(path), "skillset.lock")));
-}
-
-async function isManagedPluginOutputCandidate(rootPath: string, absolutePath: string): Promise<boolean> {
-  const outputRoot = join(rootPath, "plugins");
-  const resolvedOutputRoot = resolve(outputRoot);
-  const resolvedPath = resolve(absolutePath);
-  if (!isPathInside(resolvedOutputRoot, resolvedPath, { allowEqual: true })) return false;
-  if (!(await pathExists(join(outputRoot, "skillset.lock")))) return false;
-  const relativePath = relative(resolvedOutputRoot, resolvedPath).replaceAll("\\", "/");
-  if (relativePath.length === 0) return true;
-  const parts = relativePath.split("/");
-  return parts.length >= 2 && isTargetName(parts[1]);
 }
 
 function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidate): number {
