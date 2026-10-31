@@ -119,3 +119,36 @@ test("conflict receipts retain decisions and mark unexecuted phases", async () =
     phases: { setup: { status: "failed" }, import: { status: "not-run" }, lint: { status: "not-run" }, build: { status: "not-run" } },
   } });
 });
+
+test("compatible provider-neutral roots commit the same plan reported by preview", async () => {
+  const root = await createTestFixtureRoot("skillset-adopt-neutral-duplicates-");
+  await Bun.write(join(root, ".agents/skills/demo/SKILL.md"), skill("Same."));
+  await Bun.write(join(root, "skills/demo/SKILL.md"), skill("Same."));
+  const preview = await adoptSkillset(root);
+  expect(preview.skillCoalescing?.[0]?.status).toBe("compatible");
+  const applied = await adoptSkillset(root, { write: true });
+  expect(applied.ok).toBe(true);
+  expect(applied.imports.every((entry) => entry.ok)).toBe(true);
+  expect(applied.skillCoalescing).toEqual(preview.skillCoalescing);
+});
+
+test("provider-neutral roots preserve a compatible existing authored destination", async () => {
+  const root = await createTestFixtureRoot("skillset-adopt-neutral-existing-");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), skill("Same."));
+  await Bun.write(join(root, "skills/demo/SKILL.md"), skill("Same."));
+  const applied = await adoptSkillset(root, { write: true });
+  expect(applied.ok).toBe(true);
+  expect(applied.skillCoalescing?.[0]?.selectedSource).toBe(".skillset/skills/demo");
+  expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).toBe(skill("Same."));
+});
+
+test("different source preprocessing policy is not discarded as origin metadata", async () => {
+  const root = await fixture("Same.", "Same.");
+  for (const [directory, preprocess] of [[".agents", true], [".claude", false]] as const) {
+    await Bun.write(join(root, directory, "skills/demo/SKILL.md"), skill("Same.").replace("description: Demo.", `description: Demo.\nskillset:\n  preprocess: ${preprocess}`));
+  }
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(false);
+  expect(report.skillCoalescing?.[0]?.status).toBe("conflict");
+  await expect(lstat(join(root, ".skillset"))).rejects.toMatchObject({ code: "ENOENT" });
+});

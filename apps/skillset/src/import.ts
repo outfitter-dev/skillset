@@ -1041,11 +1041,15 @@ async function mergeImportedProviderSkill(rootPath: string, targetPath: string, 
 
 function portableImportedSkillFrontmatter(frontmatter: JsonRecord): JsonRecord {
   const targetKeys = new Set<string>(targetNames());
-  return Object.fromEntries(
-    Object.entries(frontmatter).filter(
-      ([key]) => key !== "skillset" && !targetKeys.has(key)
-    )
+  const portable = Object.fromEntries(
+    Object.entries(frontmatter).filter(([key]) => key !== "skillset" && !targetKeys.has(key))
   );
+  const metadata = readRecord(frontmatter, "skillset");
+  if (metadata !== undefined) {
+    const sourcePolicy = Object.fromEntries(Object.entries(metadata).filter(([key]) => key !== "origin"));
+    if (Object.keys(sourcePolicy).length > 0) portable.skillset = sourcePolicy;
+  }
+  return portable;
 }
 
 async function assertMatchingImportedSkillResources(

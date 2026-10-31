@@ -317,7 +317,7 @@ async function adoptResolvedRoot(
     const providers = await providersForAdoptCandidate(resolvedRoot, candidate);
     return {
       kind: candidate.kind, rootPath: resolvedRoot, sourcePath: join(resolvedRoot, candidate.path),
-      mergeTargetNativeSkill: providers.length > 0,
+      mergeTargetNativeSkill: true,
       ...(providers.length === 0 ? {} : { providers }),
       sourceOrigin: (sourcePath, copiedFile) => ({ path: relativeOriginPath(resolvedRoot, sourcePath, copiedFile) }),
     };
