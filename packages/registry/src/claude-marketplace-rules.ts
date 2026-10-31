@@ -1,6 +1,6 @@
 import type { ClaudeMarketplaceRuleEvidence } from "./claude-marketplace-evidence";
 
-/** Reviewed local rule inventory. Empty schema lists deliberately mean unresolved authority. */
+/** Reviewed local rule inventory. Empty schema lists without a parser reference deliberately mean unresolved authority. */
 export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = [
   {
     id: "marketplace.owner.name", owners: ["checkClaudeAuthorObject"],
@@ -165,9 +165,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [{"pointer": "/properties/plugins/items/properties/source/anyOf/2/properties/sha/pattern", "value": "^[a-f0-9]{40}$"}, {"pointer": "/properties/plugins/items/properties/source/anyOf/3/properties/sha/pattern", "value": "^[a-f0-9]{40}$"}, {"pointer": "/properties/plugins/items/properties/source/anyOf/4/properties/sha/pattern", "value": "^[a-f0-9]{40}$"}],
   },
   {
-    id: "marketplace.source.archive.digest", owners: ["checkClaudeMarketplacePlugin"],
+    id: "marketplace.source.archive.digest", parser: "archive-digest", owners: ["checkClaudeMarketplacePlugin"],
     predicate: "archive sha256 must have 64 hexadecimal characters",
-    qualification: "Archive source absent from pin.",
+    qualification: "Archive source is absent from the schema pin. The 2.1.269 embedded parser provides static evidence for this digest predicate; validation outcome and runtime behavior remain outside the claim.",
     schema: [],
   },
   {
@@ -177,9 +177,9 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.source.command.limits", owners: ["checkClaudeMarketplacePlugin"],
+    id: "marketplace.source.command.limits", parser: "command-limits", owners: ["checkClaudeMarketplacePlugin"],
     predicate: "command source mode is copy/link, timeout integer 1..600, command at most 500 printable ASCII characters and no four consecutive spaces",
-    qualification: "Exact bounds require qualified runtime evidence.",
+    qualification: "The 2.1.269 embedded source schema and its call sites establish these static predicates only; recovery and later strict-validation stages remain outside this claim.",
     schema: [],
   },
   {

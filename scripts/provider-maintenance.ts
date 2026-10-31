@@ -43,6 +43,10 @@ export function renderProviderMaintenanceReport(
     lines.push(`  ? evidence ${review.id} [${review.schemaSnapshotId}]: ${review.status}; ${review.unresolvedRuleIds.length} rules require manual review`);
     if (review.sourceChanged) lines.push(`    source changed: ${review.sourceUrl}; review schema rules: ${review.schemaRuleIds.join(", ")}`);
     if (review.changedRuleIds.length > 0) lines.push(`    nested facts changed: ${review.changedRuleIds.join(", ")}`);
+    if (review.parserReview !== undefined) {
+      lines.push(`    static parser ${review.parserReview.id}: ${review.parserReview.status}; ${review.parserRuleIds.join(", ")}; not runtime acceptance`);
+      lines.push(`    expected version ${review.parserReview.expectedVersion}; validation lane ${review.parserReview.actualVersion}: ${review.parserReview.reason}`);
+    }
     if (report.command === "diff") {
       lines.push(`    last reviewed: ${review.reviewedAt}; schema evidence is not provider runtime proof`);
       lines.push(`    unresolved authority: ${review.unresolvedRuleIds.join(", ")}`);

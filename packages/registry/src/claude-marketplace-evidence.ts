@@ -1,3 +1,10 @@
+import {
+  CLAUDE_MARKETPLACE_PARSER_EVIDENCE,
+  inspectClaudeMarketplaceParserPin,
+  type ClaudeMarketplaceParserPinReview,
+  type ClaudeMarketplaceParserPredicateId,
+} from "./claude-marketplace-parser-evidence";
+import type { ProviderValidationLane } from "./provider-validation";
 import { createHash } from "node:crypto";
 import { claudeMarketplaceRules } from "./claude-marketplace-rules";
 import type { ProviderSchemaJsonValue } from "./schema-snapshots";
@@ -7,6 +14,7 @@ export interface ClaudeMarketplaceRuleEvidence {
   readonly owners: readonly string[];
   readonly predicate: string;
   readonly qualification: string;
+  readonly parser?: ClaudeMarketplaceParserPredicateId;
   /** Exact facts from the third-party schema pin, never provider runtime proof. */
   readonly schema: readonly { readonly pointer: string; readonly value: ProviderSchemaJsonValue }[];
 }
@@ -46,6 +54,10 @@ export function assertClaudeMarketplaceEvidence(evidence: ClaudeMarketplaceEvide
     ids.add(rule.id);
     if (rule.owners.length === 0 || rule.owners.some((owner) => owner.trim() === "")) invalid(`${rule.id} requires an implementation owner`);
     if (rule.predicate.trim() === "" || rule.qualification.trim() === "") invalid(`${rule.id} requires a predicate and provenance qualification`);
+    if (rule.parser !== undefined) {
+      const predicate = CLAUDE_MARKETPLACE_PARSER_EVIDENCE.predicates[rule.parser];
+      if (predicate === undefined || predicate.ruleId !== rule.id) invalid(`${rule.id} has invalid static parser linkage`);
+    }
     const pointers = new Set<string>();
     for (const fact of rule.schema) {
       if (!/^\/(?:[^~]|~[01])*$/u.test(fact.pointer) || pointers.has(fact.pointer) || fact.value === undefined) invalid(`${rule.id} has an invalid or duplicate schema pointer`);
@@ -64,20 +76,27 @@ export interface ClaudeMarketplaceEvidenceReview {
   readonly schemaRuleIds: readonly string[];
   readonly changedRuleIds: readonly string[];
   readonly unresolvedRuleIds: readonly string[];
+  readonly parserRuleIds: readonly string[];
+  readonly parserReview?: ClaudeMarketplaceParserPinReview;
 }
 
 /** Missing authority stays visible even when the fetched schema bytes match. */
 export function inspectClaudeMarketplaceEvidence(
   evidence: ClaudeMarketplaceEvidence,
-  sourceBody: string | undefined
+  sourceBody: string | undefined,
+  parserLane?: ProviderValidationLane
 ): ClaudeMarketplaceEvidenceReview {
   assertClaudeMarketplaceEvidence(evidence);
   const schemaRules = evidence.rules.filter((rule) => rule.schema.length > 0);
+  const parserRuleIds = evidence.rules.filter((rule) => rule.parser !== undefined).map((rule) => rule.id);
+  const parserReview = parserRuleIds.length === 0 ? undefined : inspectClaudeMarketplaceParserPin(CLAUDE_MARKETPLACE_PARSER_EVIDENCE, parserLane);
   const base = {
+    parserRuleIds,
+    ...(parserReview === undefined ? {} : { parserReview }),
     id: evidence.id, schemaSnapshotId: evidence.schemaSnapshotId,
     reviewedAt: evidence.reviewedAt, sourceUrl: evidence.source.url,
     schemaRuleIds: schemaRules.map((rule) => rule.id),
-    unresolvedRuleIds: evidence.rules.filter((rule) => rule.schema.length === 0).map((rule) => rule.id),
+    unresolvedRuleIds: evidence.rules.filter((rule) => rule.schema.length === 0 && rule.parser === undefined).map((rule) => rule.id),
   };
   let document: unknown;
   try {
@@ -91,7 +110,7 @@ export function inspectClaudeMarketplaceEvidence(
   const changedRuleIds = schemaRules.filter((rule) => rule.schema.some((fact) =>
     JSON.stringify(readPointer(document, fact.pointer)) !== JSON.stringify(fact.value)
   )).map((rule) => rule.id);
-  return { ...base, changedRuleIds, sourceChanged, status: sourceChanged || changedRuleIds.length > 0 ? "changed" : "matched" };
+  return { ...base, changedRuleIds, sourceChanged, status: sourceChanged || changedRuleIds.length > 0 || parserReview?.status === "pin-changed" ? "changed" : "matched" };
 }
 
 function readPointer(document: unknown, pointer: string): unknown {
