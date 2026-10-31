@@ -7,6 +7,7 @@ import {
   PROVIDER_SCHEMA_SNAPSHOT_SCHEMA,
   PROVIDER_SCHEMA_TARGETS,
   assertProviderSchemaSnapshots,
+  claudeInstructionsFormat,
   cursorParityClaims,
   cursorParitySources,
   cursorPluginComponentsObservation,
@@ -75,6 +76,7 @@ describe("@skillset/registry snapshots", () => {
     expect(listProviderDestinationFormatSnapshots()).toBe(providerDestinationFormatSnapshots);
     expect(providerDestinationFormatSnapshots.map((snapshot) => snapshot.id)).toEqual([
       "claude-hooks",
+      "claude-instructions",
       "claude-plugin",
       "claude-skill",
       "claude-subagent",
@@ -90,6 +92,7 @@ describe("@skillset/registry snapshots", () => {
     ]);
     expect(providerDestinationFormatSnapshots.map((snapshot) => `${snapshot.target}:${snapshot.destination}`)).toEqual([
       "claude:hooks",
+      "claude:instructions",
       "claude:plugin",
       "claude:skill",
       "claude:agent",
@@ -107,7 +110,7 @@ describe("@skillset/registry snapshots", () => {
     for (const snapshot of providerDestinationFormatSnapshots) {
       expect(snapshot.schema).toBe(PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA);
       expect(snapshot.provenance.fetchedAt).toMatch(
-        /^2026-(?:06-23|08-14|09-11|09-16)T/u
+        /^2026-(?:06-23|08-14|09-11|09-16|10-31)T/u
       );
       expect(snapshot.provenance.sources.length).toBeGreaterThan(0);
       expect(snapshot.provenance.contentHash).toBe(hashProviderDestinationFormatSnapshot(snapshot));
@@ -491,4 +494,12 @@ describe("@skillset/registry hook evidence", () => {
       expect.objectContaining({ type: "prompt" }),
     ]));
   });
+});
+
+
+it("pins Claude project instruction filename and both documented project placements", () => {
+  const snapshot = getProviderDestinationFormatSnapshot("claude-instructions");
+  expect(snapshot?.provenance.sources).toContainEqual(expect.objectContaining({ url: "https://code.claude.com/docs/en/memory" }));
+  expect(snapshot?.provenance.fetchedAt).toBe("2026-10-31T17:38:00Z");
+  expect(claudeInstructionsFormat()).toEqual({ fileName: "CLAUDE.md", projectPaths: ["CLAUDE.md", ".claude/CLAUDE.md"] });
 });

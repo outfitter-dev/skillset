@@ -58,6 +58,7 @@ const PROVIDER_FORMAT_MIGRATION_SNAPSHOTS: Record<
   { readonly provider: ProviderDestinationFormatTarget; readonly surface: string }
 > = {
   "claude-hooks": { provider: "claude", surface: "hooks" },
+  "claude-instructions": { provider: "claude", surface: "instructions" },
   "claude-plugin": { provider: "claude", surface: "plugin" },
   "claude-skill": { provider: "claude", surface: "skill" },
   "claude-subagent": { provider: "claude", surface: "agent" },

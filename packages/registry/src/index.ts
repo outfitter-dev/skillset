@@ -31,6 +31,7 @@ const DEFAULT_PLUGIN_HOOKS_PATH = "hooks/hooks.json";
 
 export type ProviderDestinationFormatSnapshotId =
   | "claude-hooks"
+  | "claude-instructions"
   | "claude-plugin"
   | "claude-skill"
   | "claude-subagent"
@@ -77,6 +78,30 @@ const FETCHED_AT = "2026-06-23T09:31:27-04:00";
 const validatedDestinationSnapshotHashes = new WeakMap<ProviderDestinationFormatSnapshot, string>();
 
 const snapshots = [
+  snapshot({
+  "destination": "instructions",
+  "format": {
+    "filePattern": "CLAUDE.md",
+    "projectPaths": [
+      "CLAUDE.md",
+      ".claude/CLAUDE.md"
+    ],
+    "serialization": "markdown"
+  },
+  "id": "claude-instructions",
+  "provenance": {
+    "fetchedAt": "2026-10-31T17:38:00Z",
+    "sources": [
+      {
+        "url": "https://code.claude.com/docs/en/memory",
+        "note": "Pins the filename and both documented project placements, not an exhaustive runtime discovery policy."
+      }
+    ],
+    "contentHash": "sha256:290d2c556a57c59e9b752e9dd533f05788b9f308557bf0b4024edebf066cc2c4"
+  },
+  "target": "claude",
+  "title": "Claude Project Instructions Destination Format"
+}),
   snapshot({
     destination: "plugin",
     format: {
@@ -542,6 +567,19 @@ export function getProviderDestinationFormatSnapshot(
   id: ProviderDestinationFormatSnapshotId
 ): ProviderDestinationFormatSnapshot | undefined {
   return providerDestinationFormatSnapshots.find((snapshot) => snapshot.id === id);
+}
+
+/** Documented Claude filename and project placements; does not infer discovery precedence. */
+export function claudeInstructionsFormat(): {
+  readonly fileName: string;
+  readonly projectPaths: readonly string[];
+} {
+  const format = getProviderDestinationFormatSnapshot("claude-instructions")?.format;
+  if (!isFormatRecord(format) || typeof format.filePattern !== "string" ||
+      !Array.isArray(format.projectPaths) || !format.projectPaths.every((path) => typeof path === "string")) {
+    throw new Error("skillset: pinned claude-instructions format is missing its filename or project paths");
+  }
+  return { fileName: format.filePattern, projectPaths: format.projectPaths as readonly string[] };
 }
 
 /**

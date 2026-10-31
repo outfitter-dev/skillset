@@ -32,6 +32,7 @@ import {
   inspectAgentPluginImport,
 } from "./agent-plugin-import";
 import {
+  claudeInstructionsFormat,
   LEGACY_CODEX_SKILLS_DIRECTORY,
   providerSkillsDirectory,
   SKILL_FILE,
@@ -742,7 +743,7 @@ async function isImportableInstructionFile(path: string): Promise<boolean> {
  */
 async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[]> {
   const skips: SurveySkip[] = [];
-  for (const path of ["CLAUDE.md", ".claude/CLAUDE.md"]) {
+  for (const path of claudeInstructionsFormat().projectPaths) {
     if (await isImportableInstructionFile(join(rootPath, path))) {
       skips.push({
         path,
