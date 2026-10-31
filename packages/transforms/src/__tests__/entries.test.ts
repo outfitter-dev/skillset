@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 
 import {
+  claudeInstructionsFormat,
   codexAgentsMdFormat,
   providerProjectConfigDirectory,
   providerSkillsDirectory,
@@ -19,7 +20,7 @@ test("registry-pinned paths are recognized without inferring equivalent destinat
     [`see ${providerSkillsDirectory("claude")}/demo`, "claude"],
     [`edit ${providerProjectConfigDirectory("claude")}/settings.json`, "claude"],
     [`read ${codexAgentsMdFormat().fileName}`, "codex"],
-    ["read CLAUDE.md", "claude"],
+    [`read ${claudeInstructionsFormat().fileName}`, "claude"],
   ] as const) {
     const matches = recognizeTransforms(body, dialect);
     expect(matches).toHaveLength(1);
@@ -46,7 +47,7 @@ test("every built-in entry is registered, evidence-backed, and flagged correctly
   for (const entry of builtinTransformEntries) {
     expect(entry.evidence.length).toBeGreaterThan(0);
     for (const evidence of entry.evidence) {
-      expect(evidence.verified).toBe("2026-06-11");
+      expect(evidence.verified).toBe(evidence.source === "https://code.claude.com/docs/en/memory" ? "2026-10-31" : "2026-06-11");
       expect(evidence.source.length).toBeGreaterThan(0);
     }
     if (entry.lowering === "none") {
@@ -137,4 +138,14 @@ test("dynamic recognizers stay aligned with skillset lint's CLAUDE_DYNAMIC_PATTE
   expect(recognizeTransforms("echo $2", "claude")).toEqual([]);
   expect(recognizeTransforms("${CODEX_HOME} is not a Claude var", "claude")).toEqual([]);
   expect(recognizeTransforms("mid-line !`cmd` is not a placeholder", "claude")).toEqual([]);
+});
+
+
+test("Claude instruction recognition consumes the pinned filename without lowering", () => {
+  const name = claudeInstructionsFormat().fileName;
+  const [match] = recognizeTransforms(`Read ${name}.`, "claude");
+  expect(match?.text).toBe(name);
+  expect(match?.lowering).toBe("none");
+  expect(lowerTransform(match!, "codex")).toBeUndefined();
+  expect(recognizeTransforms("Read CLAUDEXmd or XCLAUDE.md.", "claude")).toEqual([]);
 });
