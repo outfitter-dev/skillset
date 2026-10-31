@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { listProviderPluginManifestFields } from "@skillset/registry";
+import { listStandardProfileSchemaSnapshots, listProviderPluginManifestFields } from "@skillset/registry";
 
 import { checkProviderFormatConformance } from "../provider-format-conformance";
 import {
@@ -40,6 +40,15 @@ describe("SET-541: one manifest field contract per provider", () => {
   it("reads Agent Plugins root fields from the pinned schema", () => {
     const fields = agentPluginManifestFields();
     expect(fields.required).toEqual(expect.arrayContaining(["$schema", "name"]));
+    const snapshot = listStandardProfileSchemaSnapshots("agent-plugins-1.0")
+      .map((entry) => JSON.parse(entry.body))
+      .find((schema) => schema.$id === "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json");
+    expect(snapshot.properties.author).toEqual({
+      type: "object",
+      properties: { name: { type: "string" }, email: { type: "string" }, url: { type: "string" } },
+      additionalProperties: false,
+    });
+    expect(fields.authorFields.toSorted()).toEqual(["email", "name", "url"]);
     expect(fields.allowed).toEqual(expect.arrayContaining(["$schema", "extensions", "name", "version"]));
   });
 
