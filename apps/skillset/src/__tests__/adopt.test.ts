@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -756,22 +756,12 @@ test("SET-522: provider skill adoption refuses a conflicting portable body", asy
   });
 
   expect(report.ok).toBe(false);
-  expect(report.imports.find((result) => result.ok === false)?.detail).toContain(
-    "requires matching portable skill content and resources"
-  );
-  const source = parseMarkdown(
-    await readFile(
-      join(root, ".skillset/skills/shared-native/SKILL.md"),
-      "utf8"
-    ),
-    "conflicting provider skill source"
-  );
-  expect(source.body).toContain("Claude body.");
-  expect(source.frontmatter).toHaveProperty(
-    "claude.frontmatter.disable-model-invocation",
-    true
-  );
-  expect(source.frontmatter).not.toHaveProperty("cursor");
+  expect(report.imports).toEqual([]);
+  expect(report.skillCoalescing?.[0]?.status).toBe("conflict");
+  expect(report.writtenPaths).toEqual([]);
+  await expect(lstat(join(root, ".skillset"))).rejects.toMatchObject({ code: "ENOENT" });
+  expect(await readFile(join(root, ".claude/skills/shared-native/SKILL.md"), "utf8")).toBe(`${frontmatter}Claude body.\n`);
+  expect(await readFile(join(root, ".cursor/skills/shared-native/SKILL.md"), "utf8")).toBe(`${frontmatter}Cursor body.\n`);
 });
 
 test("adopt carries native hook lift diagnostics into its domain report", async () => {
@@ -864,7 +854,7 @@ test("adopt preserves existing rules while routing Claude guidance to review", a
   expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("guided-root-guidance");
 });
 
-test("adopt reports source written before a later batch import fails", async () => {
+test("adopt refuses divergent identities within one root before any source write", async () => {
   const root = await fixture({
     ".agents/skills/first/SKILL.md": "---\nname: duplicate\ndescription: First.\n---\n\nFirst.\n",
     ".agents/skills/second/SKILL.md": "---\nname: duplicate\ndescription: Second.\n---\n\nSecond.\n",
@@ -873,13 +863,10 @@ test("adopt reports source written before a later batch import fails", async () 
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(false);
-  const failed = report.imports.find((result) => result.candidate.path === ".agents/skills");
-  expect(failed?.ok).toBe(false);
-  expect(failed?.units).toEqual([
-    expect.objectContaining({ kind: "skill", name: "duplicate" }),
-  ]);
-  expect(report.writtenPaths).toContain(".skillset/skills/duplicate");
-  expect(await exists(join(root, ".skillset/skills/duplicate/SKILL.md"))).toBe(true);
+  expect(report.imports).toEqual([]);
+  expect(report.skillCoalescing?.[0]?.status).toBe("conflict");
+  expect(report.writtenPaths).toEqual([]);
+  await expect(lstat(join(root, ".skillset"))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 test("adopt fails on lint errors and the CLI exits nonzero", async () => {
