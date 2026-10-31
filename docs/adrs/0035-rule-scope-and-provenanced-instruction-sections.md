@@ -34,8 +34,10 @@ therefore expresses the same locality as the rendered instruction tree.
 Only `[.]` and `[...]` are reserved path segments. `[.]` matches one directory
 level and `[...]` matches any depth. Every other segment, including `[slug]`,
 `[...slug]`, and `(marketing)`, is a literal source directory name. A wildcard
-scope is an unsupported destination until SET-574 can expand it against the
-repository tree; it never falls back to root.
+scope expands against existing eligible directories for instruction output.
+`[...]` includes zero levels; no matches warns without a root fallback. Claude
+and Cursor retain one mirrored provider-glob file. Their runtime matches may
+include future or compiler-excluded directories; that difference is degraded.
 
 Claude and Cursor outputs mirror literal names below `.claude/rules/` and
 `.cursor/rules/`. Claude escapes literal brackets only in its derived glob and

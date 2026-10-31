@@ -2247,7 +2247,7 @@ Limitations:
 
 Limitations:
 
-- This judgment excludes paths narrowing, which is degraded, and wildcard scopes, which are unsupported. Native root AGENTS.md is read in place and is outside this synthesis judgment. Native context limits and AGENTS.override.md shadowing still apply.
+- This judgment excludes paths narrowing, which is degraded, and wildcard scopes, whose tree expansion and provider glob differences have separate render results. Native root AGENTS.md is read in place and is outside this synthesis judgment. Native context limits and AGENTS.override.md shadowing still apply.
 - Reviewed implementation evidence is tracked with this capability; contributor locations are not bundled.
 - Fidelity is scoped to the pinned registry contract and reviewed implementation. The regression gate requires re-review when cited implementation files change; lookup does not inspect source files in an installed package.
 - Destination support and build output do not prove runtime activation or effectiveness.

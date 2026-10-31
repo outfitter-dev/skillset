@@ -1,3 +1,4 @@
+import { hasWildcardRuleScope, ruleAtConcreteScope } from "./rule-scope-expansion";
 import type { LogicalOutputProjection, OutputConsumer } from "./output-plan";
 import { compareStrings } from "./path";
 import { selectorForRule } from "./source-unit-selector";
@@ -73,7 +74,10 @@ async function rulesByDestination(
     if (graph.root.workspace.nativeAgents === true && rule.rootFrontPage) continue;
     for (const destination of await destinationsForRule(graph, rule)) {
       const existing = destinations.get(destination) ?? [];
-      destinations.set(destination, [...existing, rule]);
+      const contextualRule = hasWildcardRuleScope(rule)
+        ? ruleAtConcreteScope(rule, destination === "AGENTS.md" ? "" : destination.slice(0, -"/AGENTS.md".length))
+        : rule;
+      destinations.set(destination, [...existing, contextualRule]);
     }
   }
   return destinations;

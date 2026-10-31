@@ -640,9 +640,6 @@ Second.
       "skillset.yaml": `
 skillset:
   name: rule-segments
-compile:
-  # Wildcard scopes stay unsupported until SET-574.
-  unsupportedDestination: warn
 claude: true
 codex: false
 cursor: true
@@ -690,7 +687,7 @@ cursor: true
     ).toBe(true);
     expect(
       await exists(join(root, ".claude/rules/apps/[...]/any.md"))
-    ).toBe(false);
+    ).toBe(true);
     expect(
       await exists(join(root, ".cursor/rules/app/[...slug]/catchall.mdc"))
     ).toBe(true);

@@ -406,6 +406,8 @@ export interface SourceRule {
   /** `scopeDir` split into its literal directory names; empty when unscoped. */
   readonly scopeSegments: readonly string[];
   readonly segments?: readonly SourceRuleSegment[];
+  /** Sorted concrete directory snapshot for a wildcard scope, resolved once per graph load. */
+  readonly expandedScopes?: readonly string[];
   readonly rootFrontPage?: boolean;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
