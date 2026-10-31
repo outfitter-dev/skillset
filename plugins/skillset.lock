@@ -266,29 +266,37 @@
         "skillset/skills/skillset-provider-capabilities/LICENSE.txt": "0644",
         "skillset/skills/skillset-provider-capabilities/SKILL.md": "0644",
         "skillset/skills/skillset-provider-capabilities/evals/evals.json": "0644",
+        "skillset/skills/skillset-provider-capabilities/references/capability-design.md": "0644",
+        "skillset/skills/skillset-provider-capabilities/references/commands-and-checks.md": "0644",
+        "skillset/skills/skillset-provider-capabilities/references/preflight-and-recovery.md": "0644",
         "skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md": "0644",
         "skillset/skills/skillset-provider-capabilities/references/public-handoffs.md": "0644",
+        "skillset/skills/skillset-provider-capabilities/references/root-guidance-adoption.md": "0644",
         "skillset/skills/skillset-provider-capabilities/references/source-authoring.md": "0644"
       },
       "files": [
         "skillset/skills/skillset-provider-capabilities/LICENSE.txt",
         "skillset/skills/skillset-provider-capabilities/SKILL.md",
         "skillset/skills/skillset-provider-capabilities/evals/evals.json",
+        "skillset/skills/skillset-provider-capabilities/references/capability-design.md",
+        "skillset/skills/skillset-provider-capabilities/references/commands-and-checks.md",
+        "skillset/skills/skillset-provider-capabilities/references/preflight-and-recovery.md",
         "skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md",
         "skillset/skills/skillset-provider-capabilities/references/public-handoffs.md",
+        "skillset/skills/skillset-provider-capabilities/references/root-guidance-adoption.md",
         "skillset/skills/skillset-provider-capabilities/references/source-authoring.md"
       ],
       "kind": "plugin-skill",
       "name": "skillset-provider-capabilities",
-      "outputHash": "sha256:bfd3a1b5354aec64c77dbaa3539909d0be9b7f265bbd149b07ca51bc97cb422d",
+      "outputHash": "sha256:eb97cfd911919d227651a8933d0cadf3b42e1543704317f067ab007cdad6a324",
       "outputPath": "skillset/skills/skillset-provider-capabilities/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:133886b2574805874683b1b6d98e72209b3545f2a92c1afec0061cff2174db6b",
+      "provenanceHash": "sha256:4cc51c6e965f8d33aa4bdcc64b42aa85d94742d5c1805747ab7aeeed266d6d31",
       "role": "standard",
-      "sourceHash": "sha256:2e0d6af0481c42e72e570e4f8061a73bb6fa2b283b683002c7daad4b4c100f0b",
+      "sourceHash": "sha256:e8d17def5efbd1f302d71f8fecfb36da9f73df0365a6ddebe558be36f2f93015",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
       "version": "0.1.1"
     },
@@ -1506,11 +1514,27 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
@@ -1558,11 +1582,27 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
@@ -1611,11 +1651,27 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
@@ -1658,11 +1714,27 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset-provider-capabilities/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",

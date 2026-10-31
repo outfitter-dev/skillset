@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { mkdir, readFile, symlink, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { extractInlineMarkdownLinks } from "../docs/markdown";
 import { TARGET_NAMES } from "@skillset/schema";
 import { compareCapability, findCapabilities, listCapabilities } from "@skillset/core/internal/capability-crosswalk";
 import { buildPublicCapabilityCatalog, generatePublicCapabilityReference, projectCapabilityComparison, PUBLIC_CAPABILITY_REFERENCE } from "../public-capability-reference";
@@ -51,4 +52,31 @@ test("SET-448: generation rejects unmanaged contents and symlink write targets",
   await unlink(path);
   await symlink(join(other, "reference.md"), path);
   await expect(generatePublicCapabilityReference(root)).rejects.toThrow("symbolic link");
+});
+
+test("SET-448: every local link in the generated specialist resolves without a CLI", async () => {
+  const skill = join(
+    import.meta.dir,
+    "../../plugins/skillset/skills/skillset-provider-capabilities"
+  );
+  const pending = [join(skill, "SKILL.md")];
+  const seen = new Set<string>();
+  while (pending.length > 0) {
+    const path = pending.pop()!;
+    if (seen.has(path)) continue;
+    seen.add(path);
+    const contents = await readFile(path, "utf8");
+    for (const link of extractInlineMarkdownLinks(contents)) {
+      if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(link.destination)) continue;
+      const target = join(dirname(path), link.destination.split("#")[0]!);
+      expect(
+        await Bun.file(target).exists(),
+        `${path}: ${link.destination}`
+      ).toBe(true);
+      if (target.endsWith(".md")) pending.push(target);
+    }
+  }
+  expect(seen.has(join(skill, "references/provider-capabilities.md"))).toBe(
+    true
+  );
 });

@@ -8,6 +8,10 @@ resources:
     - plugin:references/provider-capabilities.md
     - plugin:references/source-authoring.md
     - plugin:references/public-handoffs.md
+    - plugin:references/preflight-and-recovery.md
+    - plugin:references/capability-design.md
+    - plugin:references/commands-and-checks.md
+    - plugin:references/root-guidance-adoption.md
 ---
 
 # Skillset Provider Capabilities
