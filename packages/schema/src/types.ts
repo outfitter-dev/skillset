@@ -99,7 +99,16 @@ export interface SkillsetReportRenderResultCounts {
   readonly unsupported: number;
 }
 
+export interface SkillCoalescingDecision {
+  readonly destination: string;
+  readonly sources: readonly string[];
+  readonly selectedSource?: string;
+  readonly status: "compatible" | "conflict";
+  readonly reason: string;
+}
+
 export interface SkillsetAdoptionReportPayload {
+  readonly skillCoalescing?: readonly SkillCoalescingDecision[];
   readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly guidancePaths?: readonly string[];

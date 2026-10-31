@@ -2083,12 +2083,21 @@ function reportListCountsSchema(keys: readonly string[]): SchemaJsonRecord {
   );
 }
 
+function reportSkillCoalescingSchema(): SchemaJsonRecord {
+  return arraySchema(requiredObjectSchema({
+    destination: reportRelativeIdSchema(), sources: reportIdListSchema(),
+    selectedSource: reportRelativeIdSchema(), status: { enum: ["compatible", "conflict"] },
+    reason: { type: "string", minLength: 1, maxLength: 1024 },
+  }, ["destination", "sources", "status", "reason"]));
+}
+
 function reportAdoptionPayloadSchema(): SchemaJsonRecord {
   return requiredObjectSchema(
     {
       capabilityAssessments: arraySchema(importCapabilityAssessmentSchema(TARGET_NAMES)),
       normalizations: arraySchema(importNormalizationSchema(TARGET_NAMES)),
       alreadyAdopted: { type: "boolean" },
+      skillCoalescing: reportSkillCoalescingSchema(),
       candidateIds: reportIdListSchema(),
       cutover: requiredObjectSchema({ paths: reportIdListSchema(), total: reportBoundedCountSchema() }, ["paths", "total"]),
       destinations: reportIdListSchema(),

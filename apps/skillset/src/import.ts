@@ -990,11 +990,11 @@ async function scopeSkillPolicyFrontmatter(
   await writeFile(skillPath, scopeImportedSkillFrontmatter(source, skillPath, providers, fields));
 }
 
-async function mergeImportedProviderSkill(
+export async function composeImportedProviderSkill(
   rootPath: string,
   targetPath: string,
   stagingPath: string
-): Promise<string> {
+): Promise<{ readonly original: string; readonly merged: string }> {
   await prepareRepositoryMutationPath(rootPath, join(targetPath, SKILL_FILE), { createParents: false });
   await assertMatchingImportedSkillResources(targetPath, stagingPath);
   const targetSkillPath = join(targetPath, SKILL_FILE);
@@ -1022,28 +1022,34 @@ async function mergeImportedProviderSkill(
     }
     return [[target, staged] as const];
   });
-  // The skill directory was prepared by the caller; its SKILL.md leaf was not.
-  await prepareRepositoryMutationPath(rootPath, targetSkillPath);
-  await writeFile(
-    targetSkillPath,
-    updateMarkdownSourceDocument(targetSource, targetSkillPath, (parts) => ({
+  return {
+    original: targetSource,
+    merged: updateMarkdownSourceDocument(targetSource, targetSkillPath, (parts) => ({
       ...parts,
-      frontmatter: {
-        ...parts.frontmatter,
-        ...Object.fromEntries(stagedTargets),
-      },
-    }))
-  );
-  return targetSource;
+      frontmatter: { ...parts.frontmatter, ...Object.fromEntries(stagedTargets) },
+    })),
+  };
+}
+
+async function mergeImportedProviderSkill(rootPath: string, targetPath: string, stagingPath: string): Promise<string> {
+  const composed = await composeImportedProviderSkill(rootPath, targetPath, stagingPath);
+  const targetSkillPath = join(targetPath, SKILL_FILE);
+  await prepareRepositoryMutationPath(rootPath, targetSkillPath);
+  await writeFile(targetSkillPath, composed.merged);
+  return composed.original;
 }
 
 function portableImportedSkillFrontmatter(frontmatter: JsonRecord): JsonRecord {
   const targetKeys = new Set<string>(targetNames());
-  return Object.fromEntries(
-    Object.entries(frontmatter).filter(
-      ([key]) => key !== "skillset" && !targetKeys.has(key)
-    )
+  const portable = Object.fromEntries(
+    Object.entries(frontmatter).filter(([key]) => key !== "skillset" && !targetKeys.has(key))
   );
+  const metadata = readRecord(frontmatter, "skillset");
+  if (metadata !== undefined) {
+    const sourcePolicy = Object.fromEntries(Object.entries(metadata).filter(([key]) => key !== "origin"));
+    if (Object.keys(sourcePolicy).length > 0) portable.skillset = sourcePolicy;
+  }
+  return portable;
 }
 
 async function assertMatchingImportedSkillResources(
@@ -1640,7 +1646,7 @@ function defaultProviderSkillRoot(provider: ImportProvider): string {
   return join(home, ".skillset");
 }
 
-async function planImports(sourcePath: string, requestedKind: ImportKind | undefined): Promise<ImportPlan> {
+export async function planImports(sourcePath: string, requestedKind: ImportKind | undefined): Promise<ImportPlan> {
   if (requestedKind === "skill") {
     if (!(await isSkillSource(sourcePath))) {
       throw new Error(`skillset: expected a skill directory or SKILL.md file: ${sourcePath}`);
