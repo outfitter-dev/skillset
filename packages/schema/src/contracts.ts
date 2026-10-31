@@ -1,6 +1,6 @@
 import { importCapabilityAssessmentSchema } from "./import-capability-assessment";
 import { importNormalizationSchema } from "./import-normalization";
-import { migrationStateSchema } from "./migration-state-contract";
+import { MIGRATION_LOCATION_PATTERN, migrationStateSchema } from "./migration-state-contract";
 export { MIGRATION_STATE_SCHEMA_VERSION, MIGRATION_FLAG_STATES, MIGRATION_FLAG_SEVERITIES, MIGRATION_FLAG_DISPOSITIONS, MIGRATION_MARKER_LABELS } from "./migration-state-contract";
 import { sortSchemaRecord } from "./json";
 import { RETIRED_RULE_IMPORT_KIND } from "./retired-vocabulary";
@@ -2084,9 +2084,10 @@ function reportListCountsSchema(keys: readonly string[]): SchemaJsonRecord {
 }
 
 function reportSkillCoalescingSchema(): SchemaJsonRecord {
+  const path = { type: "string", pattern: MIGRATION_LOCATION_PATTERN, maxLength: 256 };
   return arraySchema(requiredObjectSchema({
-    destination: reportRelativeIdSchema(), sources: reportIdListSchema(),
-    selectedSource: reportRelativeIdSchema(), status: { enum: ["compatible", "conflict"] },
+    destination: path, sources: arraySchema(path, { maxItems: 200, uniqueItems: true }),
+    selectedSource: path, status: { enum: ["compatible", "conflict"] },
     reason: { type: "string", minLength: 1, maxLength: 1024 },
   }, ["destination", "sources", "status", "reason"]));
 }

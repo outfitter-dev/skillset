@@ -376,7 +376,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/build.ts", contentHash: "sha256:442cef0d9919d2105d64fdc6d339c66e8b957d843fbedad590117a667930d216" },
   { path: "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", contentHash: "sha256:e7be2ba62a564c10f5fd37ea4106b776d84de25695a0e740716bbccf55a8ea46" },
   { path: "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", contentHash: "sha256:1b15aefb0d36f4e8352c978e30219fff4ea6ba6c094aa41e007ede6cfc9f3f6c" },
-  { path: "docs/guides/importing.md", contentHash: "sha256:f8b760977c584fa702c217cb6a516b3e3cb56bd73be2af5578d2272c300b5744" },
+  { path: "docs/guides/importing.md", contentHash: "sha256:10707422c3621bc307ef0c812e86847602900ac701ab1ca5233e19e558c69b1c" },
 
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:cddc2c7f379fe7701416805437167525ce71383e5589973a86bbcf685fb769c0" },

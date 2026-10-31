@@ -963,7 +963,6 @@ async function maybeCandidate(
   if (!(await pathExists(absolutePath))) return;
   const stats = await stat(absolutePath);
   if (!stats.isDirectory()) return;
-  if (await isManagedCandidate(absolutePath)) return;
   const entries = await readdir(absolutePath);
   if (entries.filter((entry) => entry !== ".DS_Store").length === 0) return;
   candidates.push({ kind, path: relative(rootPath, absolutePath).replaceAll("\\", "/") });
@@ -983,7 +982,6 @@ async function maybeRootSkillsCandidate(
   const absolutePath = join(rootPath, path);
   if (!(await pathExists(absolutePath))) return;
   if (!(await stat(absolutePath)).isDirectory()) return;
-  if (await isManagedCandidate(absolutePath)) return;
   for (const entry of (await readdir(absolutePath)).sort()) {
     if (entry === ".DS_Store") continue;
     const skillPath = join(absolutePath, entry);

@@ -7843,7 +7843,7 @@ Body.
   expect(await fileExists(join(root, ".skillset/skills/demo/SKILL.md"))).toBe(false);
 });
 
-test("SET-43: init does not report managed output roots as import candidates", async () => {
+test("SET-43: a lock alone cannot hide skill roots or authorize adoption", async () => {
   const root = await contractFixture({
     ".agents/skills/skillset.lock": "{}",
     ".agents/skills/demo/SKILL.md": `
@@ -7860,8 +7860,13 @@ Body.
 
   const preview = await runSkillsetCli("init", "--root", root);
   expect(preview.exitCode).toBe(0);
-  expect(preview.stdout).not.toContain("? import candidate skills .agents/skills");
+  expect(preview.stdout).toContain("? import candidate skills .agents/skills");
   expect(preview.stdout).not.toContain("? import candidate plugins plugins/");
+  const adopted = await runSkillsetCli("init", "--root", root, "--adopt", "all", "--yes", "--json");
+  expect(adopted.exitCode).toBe(1);
+  expect(adopted.stdout).toContain("skillPreparationErrors");
+  expect(await fileExists(join(root, "skillset.yaml"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/skills/demo/SKILL.md"))).toBe(false);
 });
 
 test("SET-43: init rejects version conflicts with existing release state", async () => {

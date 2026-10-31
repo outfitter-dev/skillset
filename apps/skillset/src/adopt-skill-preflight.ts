@@ -1,8 +1,10 @@
 import { lstat, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { hashSkillDirectory } from "@skillset/core/internal/source-tree-identity";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
-import { composeImportedProviderSkill, type ImportSourcesOptions } from "./import";
+import { inspectAdoptionSkillRoots, type AdoptionSkillRoot } from "@skillset/core/internal/adoption-managed-skills";
+import { isDeepStrictEqual } from "node:util";
+import { composeImportedProviderSkill, planImports, type ImportSourcesOptions } from "./import";
 import { prepareImportBatch, type PreparedImportBatch } from "./import-prepared-batch";
 import type { SetupImportCandidate } from "./setup";
 
@@ -22,13 +24,32 @@ export async function preflightAdoptionSkills(
   const display = (path: string) => relative(rootPath, path).replaceAll("\\", "/");
   const dispose = async () => { for (const batch of batches.values()) if (!(batch instanceof Error)) await batch.dispose(); };
   try {
+    const roots: AdoptionSkillRoot[] = [];
     for (const candidate of candidates) {
       if (candidate.kind !== "skills") continue;
+      try {
+        const source = join(rootPath, candidate.path);
+        await prepareRepositoryMutationPath(rootPath, join(source, "SKILL.md"), { createParents: false });
+        const plan = await planImports(source, "skills");
+        roots.push({ path: candidate.path, units: plan.items.map((item) => display(item.sourcePath)) });
+      } catch (error) { batches.set(candidate, error instanceof Error ? error : new Error(String(error))); }
+    }
+    const ownership = await inspectAdoptionSkillRoots(rootPath, roots);
+    const managed = ownership.filter((entry) => entry.kind === "managed");
+    const excludeSources = new Set(managed.map((entry) => resolve(rootPath, entry.path)));
+    for (const entry of managed) {
+      const source = resolve(rootPath, entry.sourcePath);
+      await prepareRepositoryMutationPath(rootPath, join(source, "SKILL.md"), { createParents: false });
+      fingerprints.set(source, await hashSkillDirectory(source));
+      decisions.push({ destination: entry.sourcePath, sources: [entry.path, entry.sourcePath], selectedSource: entry.sourcePath, status: "compatible", reason: `Authored source retained: verified current ownership in ${entry.lockPath}, fresh rendering, and complete output bytes/modes agree.` });
+    }
+    for (const candidate of candidates) {
+      if (candidate.kind !== "skills" || batches.has(candidate)) continue;
       try {
         const sourcePath = join(rootPath, candidate.path);
         await prepareRepositoryMutationPath(rootPath, join(sourcePath, "SKILL.md"), { createParents: false });
         fingerprints.set(sourcePath, await hashSkillDirectory(sourcePath));
-        batches.set(candidate, await prepareImportBatch(await optionsFor(candidate)));
+        batches.set(candidate, await prepareImportBatch({ ...await optionsFor(candidate), excludeSources }));
       } catch (error) { batches.set(candidate, error instanceof Error ? error : new Error(String(error))); }
     }
     const destinations = new Map<string, PreparedImportBatch["units"][number][]>();
@@ -60,8 +81,9 @@ export async function preflightAdoptionSkills(
     }
     return {
       batches, decisions, dispose,
-      errors: [...batches.entries()].flatMap(([candidate, batch]) => batch instanceof Error ? [{ path: candidate.path, message: batch.message }] : []),
+      errors: [...ownership.flatMap((entry) => entry.kind === "unknown" ? [{ path: entry.path, message: entry.reason }] : []), ...[...batches.entries()].flatMap(([candidate, batch]) => batch instanceof Error ? [{ path: candidate.path, message: batch.message }] : [])],
       async assertUnchanged() {
+        if (!isDeepStrictEqual(ownership, await inspectAdoptionSkillRoots(rootPath, roots))) throw new Error("skillset: managed skill ownership changed after preflight; rerun the preview");
         for (const path of absentDestinations) {
           const present = await lstat(path).then(() => true, (error) => { if (error.code === "ENOENT") return false; throw error; });
           if (present) throw new Error(`skillset: adoption destination appeared after preflight: ${display(path)}; rerun the preview`);
