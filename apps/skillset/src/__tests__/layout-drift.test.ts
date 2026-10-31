@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { isLayoutOnlyDifference } from "../layout-drift";
+import { join } from "node:path";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { isLayoutOnlyDifference, layoutOnlyDriftPaths } from "../layout-drift";
 
 const SKILL = [
   "---",
@@ -90,4 +92,15 @@ test("compares frontmatter raw while preserving prose and newline layout rules",
   ]) expect(isLayoutOnlyDifference("SKILL.md", expected!, actual!)).toBe(false);
   expect(isLayoutOnlyDifference("SKILL.md", "Prose line  \nnext\n", "Prose line   \nnext\n")).toBe(true);
   expect(isLayoutOnlyDifference("SKILL.md", SKILL, SKILL.replaceAll("\n", "\r\n"))).toBe(true);
+});
+
+
+test("SET-627: layout inspection excludes broken plugin links in repo scope", async () => {
+  const root = await createTestFixtureRoot("layout-link-scope-");
+  await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: layout\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\nBody.\n");
+  await Bun.write(join(root, ".skillset/plugins/other/skillset.yaml"), "skillset:\n  name: other\n");
+  await Bun.write(join(root, ".skillset/plugins/other/skills/other/SKILL.md"), "---\nname: other\ndescription: Other.\n---\n[missing](absent.md)\n");
+  await expect(layoutOnlyDriftPaths(root, [".agents/skills/demo/SKILL.md"], { scopes: ["repo"] })).resolves.toEqual([]);
+  await expect(layoutOnlyDriftPaths(root, ["plugins/other/skills/other/SKILL.md"], { scopes: ["plugins"] })).rejects.toThrow("absent.md");
 });

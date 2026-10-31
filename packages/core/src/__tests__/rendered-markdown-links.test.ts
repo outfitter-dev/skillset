@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { TARGET_NAMES } from "@skillset/schema";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { listGeneratedEntries, explainPath } from "../authoring";
 import { buildSkillsetResult, diffSkillsetResult } from "../build";
 import { assertRenderedMarkdownLinks } from "../rendered-markdown-links";
 import type { LockRoot } from "../render-support";
@@ -137,6 +138,9 @@ test("SET-627: excluded plugin links do not block repo-scoped build or diff", as
   await Bun.write(join(root, ".skillset/plugins/other/skills/other/SKILL.md"), "---\nname: other\ndescription: Other.\n---\n[missing](absent.md)\n");
   expect((await buildSkillsetResult(root, { scopes: ["repo"], isolated: true })).ok).toBe(true);
   await expect(diffSkillsetResult(root, { scopes: ["repo"] })).resolves.toBeDefined();
+  await expect(listGeneratedEntries(root, { scopes: ["repo"] })).resolves.toBeDefined();
+  await expect(explainPath(root, ".agents/skills/demo/SKILL.md", { scopes: ["repo"] })).resolves.toBeDefined();
+  await expect(listGeneratedEntries(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
   await expect(buildSkillsetResult(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
   await expect(diffSkillsetResult(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
 });
