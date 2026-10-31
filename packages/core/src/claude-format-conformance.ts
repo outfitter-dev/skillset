@@ -1,3 +1,4 @@
+import { checkClaudeDependencies } from "./claude-dependency-conformance";
 import { checkClaudeMcpServers } from "./claude-mcp-conformance";
 import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
@@ -459,17 +460,7 @@ function checkClaudeMarketplacePluginArrays(
   }
   checkItems("monitors", isJsonRecord, "an object");
   if (Array.isArray(plugin.dependencies)) {
-    for (const [index, dependency] of plugin.dependencies.entries()) {
-      if (
-        typeof dependency === "string" &&
-        !/^[A-Za-z0-9][-A-Za-z0-9._]*(@[A-Za-z0-9][-A-Za-z0-9._]*)?(@\^[^@]*)?$/u.test(dependency)
-      ) {
-        report(
-          "invalid-shape",
-          `destination field ${prefix}.dependencies[${index}] must be a valid plugin dependency identifier`
-        );
-      }
-    }
+    issues.push(...checkClaudeDependencies(file, plugin.dependencies, `${prefix}.dependencies`, "claude-marketplace-schema"));
   }
   if (isJsonRecord(plugin.commands)) {
     issues.push(...checkClaudeCommandMap(file, plugin.commands, `${prefix}.commands`, "claude-marketplace-schema"));
@@ -494,53 +485,6 @@ function checkClaudeMarketplacePluginArrays(
     issues.push(...checkClaudeChannels(file, plugin.channels, `${prefix}.channels`, "claude-marketplace-schema"));
   }
 
-  if (Array.isArray(plugin.dependencies)) {
-    for (const [index, dependency] of plugin.dependencies.entries()) {
-      const dependencyPrefix = `${prefix}.dependencies[${index}]`;
-      if (typeof dependency === "string") continue;
-      if (!isJsonRecord(dependency)) {
-        report(
-          "invalid-field-type",
-          `destination field ${dependencyPrefix} must be a string or an object`
-        );
-        continue;
-      }
-      if (dependency.name === undefined) {
-        report("missing-required-field", `missing required destination field ${dependencyPrefix}.name`);
-      } else if (typeof dependency.name !== "string") {
-        report("invalid-field-type", `destination field ${dependencyPrefix}.name must be a string`);
-      } else if (dependency.name === "") {
-        report("invalid-shape", `destination field ${dependencyPrefix}.name must not be empty`);
-      } else if (!/^[A-Za-z0-9][-A-Za-z0-9._]*$/u.test(dependency.name)) {
-        report("invalid-shape", `destination field ${dependencyPrefix}.name must be a valid plugin name`);
-      }
-      if (dependency.marketplace !== undefined && typeof dependency.marketplace !== "string") {
-        report("invalid-field-type", `destination field ${dependencyPrefix}.marketplace must be a string`);
-      } else if (dependency.marketplace === "") {
-        report("invalid-shape", `destination field ${dependencyPrefix}.marketplace must not be empty`);
-      } else if (
-        typeof dependency.marketplace === "string" &&
-        !/^[A-Za-z0-9][-A-Za-z0-9._]*$/u.test(dependency.marketplace)
-      ) {
-        report("invalid-shape", `destination field ${dependencyPrefix}.marketplace must be a valid marketplace name`);
-      }
-      if (dependency.version !== undefined && typeof dependency.version !== "string") {
-        report("invalid-field-type", `destination field ${dependencyPrefix}.version must be a string`);
-      } else if (dependency.version === "") {
-        report("invalid-shape", `destination field ${dependencyPrefix}.version must not be empty`);
-      }
-      issues.push(
-        ...checkUnknownFields(
-          file,
-          dependency,
-          "claude",
-          "claude-marketplace-schema",
-          ["marketplace", "name", "version"],
-          dependencyPrefix
-        )
-      );
-    }
-  }
   if (isJsonRecord(plugin.experimental)) {
     issues.push(
       ...checkFieldTypes(
