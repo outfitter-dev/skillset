@@ -3,6 +3,8 @@ import { CLI_COMMANDS } from "./cli-commands";
 export { CLI_COMMANDS };
 
 export const CLI_ENVIRONMENT = {
+  SKILLSET_GENERATED_EDIT_POLICY:
+    "Choose block (default) or warn for verified generated-file edits through the explicit Claude pre-tool-use hook.",
   SKILLSET_HOOK_COMMAND:
     "Override the Skillset executable and optional arguments used by an explicitly installed hook integration. Quote executable paths that contain spaces; shell syntax and quoted shell expansions run through /bin/sh on POSIX and %ComSpec% on Windows.",
   SKILLSET_HOOK_EVENT:

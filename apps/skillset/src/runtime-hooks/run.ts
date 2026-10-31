@@ -4,6 +4,7 @@ import {
   type SkillsetWriteSummary,
 } from "@skillset/core";
 
+import { preToolOutput } from "./pre-tool";
 import { readHookRuntimeContext, type HookRuntimeContext } from "./context";
 import { readHookRunEvent, type HookRunEvent } from "./events";
 import { readHookSourceGate, type HookSourceGateResult } from "./source-gate";
@@ -65,6 +66,17 @@ export async function runHookEvent(
     rootPath,
     ...(options.stdinText === undefined ? {} : { stdinText: options.stdinText }),
   });
+  if (event === "pre-tool-use") {
+    return result({
+      context, event, exitCode: 0, ranCommands: [],
+      gate: { changed: false, exitCode: 0, ok: true, paths: [], stdout: "" },
+      output: await preToolOutput({
+        rootPath, env: options.env ?? process.env,
+        ...(options.stdinText === undefined ? {} : { stdinText: options.stdinText }),
+        ...(options.stderr === undefined ? {} : { stderr: options.stderr }),
+      }),
+    });
+  }
   if (event === "session-start") {
     return runSessionStart(context, rootPath, options);
   }

@@ -46,7 +46,7 @@ export const parseHooksCommandRequest = (
     const event = args[index];
     if (!isHookRunEvent(event)) {
       throw new CliUsageError(
-        "skillset: expected hooks run event post-tool-use, session-start, or stop"
+        "skillset: expected hooks run event pre-tool-use, post-tool-use, session-start, or stop"
       );
     }
     hookRunEvent = event;

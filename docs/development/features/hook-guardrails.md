@@ -12,7 +12,7 @@ description: Hook guardrails define how maintainers change, verify, and troubles
 
 Support vocabulary: [Feature Reference](../../reference/features/README.md#support-vocabulary)
 
-Hook guardrails connect repository and agent-runtime events to existing Skillset checks. They print reviewed configuration snippets and dispatch two runtime events; they do not install hooks or create [source truth](../../glossary.md#canonical-source). Portable and [provider-native](../../glossary.md#provider-native) plugin hooks have a separate [feature contract](../../reference/features/hooks.md).
+Hook guardrails connect repository and agent-runtime events to existing Skillset checks. They print reviewed configuration snippets and dispatch explicit runtime events; they do not install hooks or create [source truth](../../glossary.md#canonical-source). Portable and [provider-native](../../glossary.md#provider-native) plugin hooks have a separate [feature contract](../../reference/features/hooks.md).
 
 ## Ownership and Inputs
 
@@ -39,9 +39,42 @@ Runner snippets call `skillset change check --staged` at pre-commit and `skillse
 | `stop` | Runs `skillset change check --root .`, then `skillset check --root .` | Blocking; stops after the first failure. |
 | Skillset runtime context | Normalized `provider`, `hook.event`, and `session.id` fields | Provider input is permissively normalized at the boundary. |
 
-Both runtime events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
+The `post-tool-use` and `stop` events first inspect `skillset.yaml`, `.skillset/`, and the retired root `skillset/` migration marker, including untracked files. No relevant change produces a successful no-op. A source-gate failure blocks `stop` but remains non-blocking for `post-tool-use`.
 
 Nested commands strip repository-targeting `GIT_*` variables so inherited hook-runner state cannot redirect the check. Resolution tries the local compiler checkout, then installed package runners on the hook's own PATH (`Bun.which`, not a login shell). `SKILLSET_HOOK_COMMAND` is the explicit reviewed override: quote an executable path that contains spaces; an executable plus optional arguments runs directly. Shell syntax runs through `/bin/sh -lc` on POSIX and `%ComSpec% /d /s /c "…"` on Windows. That includes expansions inside double quotes, a leading `NAME=value` assignment, and on POSIX `~`, globs, braces, comments, backslash escapes, and a leading reserved word, POSIX special built-in, or shell-state built-in such as `exec`, `exit`, `command`, `.`, `source`, `cd`, `export`, `if`, or `!`. Explicitly empty quoted arguments such as `""` stay in place. A missing override executable exits 127, and one that cannot execute (permission denied or not a program) exits 126. Discovered `.cmd` and `.bat` shims on Windows also use `ComSpec`. Git Bash is not required.
+
+## Generated-file pre-edit decisions
+
+`SKILLSET_PROVIDER=claude skillset hooks run pre-tool-use --root <workspace>`
+reads Claude's `PreToolUse` JSON from stdin. Only `Edit` and `Write` with an
+absolute `tool_input.file_path` are supported. The command returns a documented
+Claude `deny` decision for a verified managed file by default.
+`SKILLSET_GENERATED_EDIT_POLICY=warn` emits `additionalContext` without a
+permission decision. Claude delivers this context alongside the tool result;
+warning mode does not promise to prevent the edit. See the
+[Claude hook contract](https://code.claude.com/docs/en/hooks#pretooluse-decision-control).
+
+Ownership requires one full-file claim in both the current in-memory projection
+and the stored current lock, with valid provenance and identical parsed item
+facts. An already edited or missing output remains owned when those facts agree.
+Stale source or placement, missing or invalid evidence, ambiguous claims,
+partially owned settings, project hook settings, authored native root guidance,
+and inspection errors produce successful empty output. Other providers and tools
+also receive no decision. This is a conservative guard, not exhaustive protection
+against every generated-file write; shell commands are outside its scope.
+
+The message identifies the source unit or directory scope recorded in the lock;
+`skillset explain` provides further mapping. The inspection reads within the
+selected workspace, rejects pre-existing symlinks below its root, and performs
+no writes or subprocesses. It does not protect against concurrent path swaps.
+The ownership render disables session-hook placement and excludes hook settings
+so it does not run the automatic Git-ignore probe.
+
+This command does not install or register a hook, and `hooks print` does not yet
+emit its configuration. An integration must call an already installed executable
+with explicit provider and workspace selection. It does not use the nested
+command resolver or download a missing CLI. Installed-provider behavior and
+public-plugin packaging remain separate validation work.
 
 ## Changing or Regenerating Guardrails
 
