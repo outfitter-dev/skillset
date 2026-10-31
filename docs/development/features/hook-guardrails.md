@@ -59,7 +59,7 @@ and the stored current lock, with valid provenance and identical parsed item
 facts. An already edited or missing output remains owned when those facts agree.
 Stale source or placement, missing or invalid evidence, ambiguous claims,
 partially owned settings, project hook settings, authored native root guidance,
-and inspection errors produce successful empty output. Other providers and tools
+and inspection errors produce successful empty output. Unsupported providers and tools
 also receive no decision. This is a conservative guard, not exhaustive protection
 against every generated-file write; shell commands are outside its scope.
 
@@ -111,3 +111,17 @@ Guardrails call commands that derive diagnostics from [canonical source](../../g
 - `packages/toolkit/src/runtime.ts` and its tests own cross-provider runtime-context normalization.
 - [Source Change, Release, and Dependency Provenance](../../adrs/0014-source-change-release-provenance.md) defines the provenance guardrail.
 - [Reviewed Settings Suggestions](../../adrs/drafts/20260604-reviewed-settings-suggestions.md) records why runtime configuration remains reviewed and opt-in.
+
+For Codex, select `SKILLSET_PROVIDER=codex` with the same command. The documented
+`PreToolUse` input reports `tool_name: "apply_patch"` (even for matcher aliases
+`Edit` or `Write`) and patch text in `tool_input.command`. The guard parses local
+add, update, delete, and move operations as data and checks every path, including
+both rename endpoints, relative to the event's absolute `cwd`. It never executes
+the patch. Malformed input, remote environment patches, URI paths, and other
+tools receive no decision. The same block-default and explicit warn policy
+apply. The shared ownership rules above still apply; the invocation must select
+the correct workspace root.
+
+The dated protocol facts live in the provider registry. This is deterministic
+protocol support, not provider installation, hook trust, or a runtime acceptance
+claim. See the [Codex hook contract](https://learn.chatgpt.com/docs/hooks).

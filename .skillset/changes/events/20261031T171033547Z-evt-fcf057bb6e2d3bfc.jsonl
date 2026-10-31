@@ -1,0 +1,1 @@
+{"createdAt":"2026-10-31T17:10:33.547Z","id":"evt-fcf057bb6e2d3bfc","payload":{"reasonId":"f1b978e55ab3","sourceUnits":[{"hashSchema":"skillset-source-unit-v3","selector":"plugin.skillset.skill:skillset-maintain","sourceHash":"sha256:8429bda4e104aa80eb4a89d1e6228f231ad619ba1772d60aca32535d23d4cf1b"}]},"schemaVersion":1,"type":"change.covered"}

@@ -1,3 +1,4 @@
+export * from "./generated-edit-hook-evidence";
 import { createHash } from "node:crypto";
 
 import { TARGET_NAMES } from "@skillset/schema";
