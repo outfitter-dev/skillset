@@ -83,7 +83,7 @@ projection runs the same check.
 Inline and reference-style links and images are parsed as CommonMark. Code
 examples and HTML comments are not links. Percent-encoded paths are decoded;
 query strings and fragments do not affect file lookup. Fragment anchors are not
-validated. A directory link requires an emitted descendant. External schemes,
+validated. A directory link requires an emitted descendant. Link dot segments (`.` and `..`) normalize before inventory lookup; this checks the resolved link target, not raw filesystem traversal of every spelled segment. External schemes,
 network URLs, and fragment-only destinations are outside this file check.
 Dynamic destinations containing substitutions are unvalidated; this check does
 not prove runtime paths. Copied resource Markdown (including a resource named

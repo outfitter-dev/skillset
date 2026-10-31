@@ -144,3 +144,25 @@ test("SET-627: excluded plugin links do not block repo-scoped build or diff", as
   await expect(buildSkillsetResult(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
   await expect(diffSkillsetResult(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
 });
+
+for (const destination of ["references/guide.md/", "references/guide.md%2F", "references/guide.md/#section", "references/guide.md/."]) {
+  test(`SET-627: a planned file cannot satisfy directory destination ${destination}`, async () => {
+    const root = await fixture(`[guide](${destination})`, "resources:\n  references:\n    - shared:references/guide.md\n");
+    await expect(buildSkillsetResult(root)).rejects.toThrow("bundle Markdown link");
+    expect(await Bun.file(join(root, ".agents/skills/demo/SKILL.md")).exists()).toBe(false);
+  });
+}
+
+test("SET-627: CommonMark normalizes literal invalid-percent syntax before bundle lookup", async () => {
+  const missing = await fixture("[guide](missing%ZZ.md)");
+  await expect(buildSkillsetResult(missing)).rejects.toThrow("bundle Markdown link");
+  const root = await fixture("[literal](references/literal%ZZ.md)", "resources:\n  references:\n    - shared:references/literal%ZZ.md\n");
+  await Bun.write(join(root, ".skillset/shared/references/literal%ZZ.md"), "Literal percent filename.\n");
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+});
+
+test("SET-627: link dot segments normalize before planned inventory lookup", async () => {
+  const root = await fixture("[directory](references/guide.md/..)\n[guide](missing/../references/guide.md)", "resources:\n  references:\n    - shared:references/guide.md\n");
+  expect(new URL("references/guide.md/..", "file:///bundle/SKILL.md").pathname).toBe("/bundle/references/");
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+});
