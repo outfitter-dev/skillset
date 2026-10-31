@@ -1,3 +1,4 @@
+import { checkClaudeMonitors } from "./claude-monitor-conformance";
 import { checkClaudeLspServers } from "./claude-lsp-conformance";
 import { CLAUDE_COMPONENT_REFERENCE_POLICY } from "@skillset/registry";
 import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
@@ -533,12 +534,15 @@ function checkClaudePluginManifest(
   if (Array.isArray(parsed.value.channels)) {
     issues.push(...checkClaudeChannels(file, parsed.value.channels, "channels", "claude-plugin-manifest-schema"));
   }
+  issues.push(...checkClaudeMonitors(file, parsed.value.monitors, "monitors", "claude-plugin-manifest-schema"));
   issues.push(...checkClaudeLspServers(file, parsed.value.lspServers, "lspServers", "claude-plugin-manifest-schema"));
   issues.push(...checkClaudeMcpServers(file, parsed.value.mcpServers, "mcpServers", "claude-plugin-manifest-schema"));
   if (Array.isArray(parsed.value.dependencies)) {
     issues.push(...checkClaudeDependencies(file, parsed.value.dependencies, "dependencies", "claude-plugin-manifest-schema"));
   }
   if (isJsonRecord(parsed.value.experimental)) {
+    issues.push(...checkFieldTypes(file, parsed.value.experimental, "claude", "claude-plugin-manifest-schema", { monitors: "string-or-array" }, "experimental"));
+    issues.push(...checkClaudeMonitors(file, parsed.value.experimental.monitors, "experimental.monitors", "claude-plugin-manifest-schema"));
     issues.push(
       ...checkUnknownFields(file, parsed.value.experimental, "claude", "claude-plugin", [
         "monitors",
