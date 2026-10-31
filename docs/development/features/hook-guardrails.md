@@ -72,7 +72,14 @@ so it does not run the automatic Git-ignore probe.
 
 This command does not install or register a hook, and `hooks print` does not yet
 emit its configuration. An integration must call an already installed executable
-with explicit provider and workspace selection. It does not use the nested
+with explicit provider selection. An explicit `--root` selects the workspace.
+Without `--root`, the pre-edit CLI uses the event’s absolute `cwd` and searches
+upward for the nearest regular `skillset.yaml` or `.skillset` directory. It stops
+at a Git repository marker (including linked-worktree `.git` files), the user
+home directory, or the filesystem root. It does not read Git metadata or home
+contents. Missing, unreadable, symlinked, or malformed markers and input yield no
+decision; discovery never falls back to a different process working directory.
+The other hook events retain their existing root selection. It does not use the nested
 command resolver or download a missing CLI. Installed-provider behavior and
 public-plugin packaging remain separate validation work.
 
