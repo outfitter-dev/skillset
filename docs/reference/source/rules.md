@@ -36,7 +36,7 @@ Where a rule sits under `.skillset/rules/` is its scope. `rules/<topic>.md` is u
 
 `paths` narrows files within that scope and is relative to the rule's directory: in `rules/docs/`, `"*.md"` means `docs/*.md`. A `paths` entry that starts with its own scope directory, such as `docs/**` inside `rules/docs/`, warns with `rule-scope-path-double-prefix`, because it now means `docs/docs/**`.
 
-Directory names are literal except for two reserved segments: `[.]` matches one level and `[...]` matches any depth. `app/[slug]/` and `app/(marketing)/` are ordinary directories. A rule under a wildcard scope such as `rules/apps/[.]/src/` renders nothing yet and records an `unsupported` render result (`rule-wildcard-scope-pending`) until wildcard expansion lands; it never falls back to the root `AGENTS.md`.
+Directory names are literal except for two reserved segments: `[.]` matches one level and `[...]` matches any depth. `app/[slug]/` and `app/(marketing)/` are ordinary directories. A wildcard scope such as `rules/apps/[.]/src/` expands against existing directories for Agent Instructions and Codex. Claude and Cursor each receive one mirrored rule file with a provider glob.
 
 A scope directory that does not exist yet still gets its `AGENTS.md`, with a `rule-scope-directory-missing` warning in case the name is a typo. A rule cannot scope to a directory inside the `.skillset/` source root, because its generated `AGENTS.md` would be read back as rule source.
 
@@ -61,7 +61,7 @@ Claude and Cursor [destinations](../../glossary.md#destination) follow the enabl
 | `.skillset/rules/**/*.md` | `.cursor/rules/**/*.mdc` | Mirrors the source path and writes the same derived globs, unescaped. A glob containing `[`, `]`, `(` or `)` records a `degraded` render result (`cursor-rule-glob-escaping-unverified`) because Cursor documents no escape. |
 | `.skillset/rules/**/*.md` | `<dir>/AGENTS.md` for a rule under `rules/<dir>/`, root `AGENTS.md` when unscoped (Agent Instructions baseline) | Strips source-only frontmatter and combines contributing rules deterministically. |
 
-A rule's `AGENTS.md` is always its scope directory's, whatever files exist in the working tree. Codex reads one instruction file per directory and cannot narrow below it, so a rule with `paths` still reaches all of its scope in the generated `AGENTS.md`; the narrowing is recorded as a `degraded` render result (`codex-rule-paths-not-enforceable`) that `skillset explain <dir>/AGENTS.md` shows.
+A literal rule's `AGENTS.md` is always its scope directory's, whatever files exist in the working tree. A wildcard rule has one destination per existing matching directory. Codex reads one instruction file per directory and cannot narrow below it, so a rule with `paths` still reaches all of its scope in the generated `AGENTS.md`; the narrowing is recorded as a `degraded` render result (`codex-rule-paths-not-enforceable`) that `skillset explain <dir>/AGENTS.md` shows.
 
 Generated paths mirror the literal source path, so quote them in a shell: brackets and parentheses are glob characters. Use `cat 'app/[slug]/AGENTS.md'`; zsh otherwise answers "no matches found", and PowerShell needs `-LiteralPath`.
 
@@ -83,6 +83,37 @@ A generated `AGENTS.md` wraps each rule in an XML section when it combines more 
 Source-only frontmatter never reaches the section. When two contributions to one `AGENTS.md` both carry a `## Code Review Rules` heading, the build warns with `codex-code-review-rules-duplicate`, naming both sources, and renders both sections unmerged.
 
 Codex may silently truncate an `AGENTS.md` beyond its configured project-document byte limit. Build and output checks warn when generated guidance exceeds the default 32 KiB limit. Move rules into directories under `rules/` so they land in nested `AGENTS.md` files, or deliberately adjust the provider's own configuration.
+
+## Wildcard scopes and shell paths
+
+`[.]` matches exactly one directory and `[...]` matches zero or more directories. For example, `rules/apps/[.]/src/testing.md` reaches `apps/api/src/AGENTS.md` and `apps/web/src/AGENTS.md`. `rules/[...]/packages/core/testing.md` reaches both top-level `packages/core/` and nested copies. An explicit zero-depth match is valid; a pattern with no matches emits `rule-wildcard-scope-no-match` and never invents a root destination.
+
+Each graph load observes directories once, sorts matches, and skips dot-directories, `node_modules`, configured source and output trees, and symlinks. A later build observes additions and removals through the ordinary output ownership and drift checks. `skillset explain` on the authored rule lists the concrete instruction outputs. Sections keep their authored `source` provenance while `applies_to` uses the concrete directory.
+
+| Output | Wildcard representation | Qualification |
+| --- | --- | --- |
+| Agent Instructions / Codex | One `AGENTS.md` per existing match | Sorted compiler directory expansion; no file-level `paths` enforcement |
+| Claude | One mirrored file; `[.]` becomes `*`, `[...]` becomes `**` | Literal glob characters retain Claude escaping |
+| Cursor | One mirrored file with the same wildcard conversions | Literal brackets and parentheses remain unverified and degraded |
+
+Provider globs can match future directories and do not enforce the compiler walk's hidden, source, output and symlink exclusions; `rule-wildcard-provider-glob` records that difference as degraded. A provider file has no single concrete directory from which to resolve a scope-relative Markdown link. Those links, including links in partials, fail with `rule-wildcard-relative-link`; use an explicit repository-root or source reference, or select directory-based instruction output only.
+
+Quote literal directory paths in bash, zsh and fish. Quoting stops shell expansion; Git also supports explicit literal pathspecs:
+
+```sh
+mkdir -p '.skillset/rules/apps/[.]/src'
+cat 'app/[slug]/AGENTS.md'
+git add -- ':(literal).skillset/rules/apps/[.]/src/testing.md'
+```
+
+In PowerShell, quote creation paths and use `-LiteralPath` for commands that interpret wildcard paths:
+
+```powershell
+New-Item -ItemType Directory -Path '.skillset/rules/apps/[.]/src' -Force
+Get-Content -LiteralPath 'app/[slug]/AGENTS.md'
+```
+
+The portability regression creates, commits and builds these directory shapes in the native smoke matrix. A local pass proves the local host only; Windows qualification requires the Windows job's result.
 
 ## Ownership and collisions
 

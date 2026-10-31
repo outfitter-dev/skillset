@@ -76,6 +76,11 @@ jobs:
           TEMP: ${{ runner.os == 'Windows' && runner.temp || '/tmp' }}
           TMP: ${{ runner.os == 'Windows' && runner.temp || '/tmp' }}
         run: bun scripts/test-sandbox.ts bun test packages/core/src/__tests__/workspace-transaction.test.ts --test-name-pattern "allows exactly one competing directory transaction"
+      - name: Prove literal rule path portability
+        env:
+          TEMP: ${{ runner.os == 'Windows' && runner.temp || '/tmp' }}
+          TMP: ${{ runner.os == 'Windows' && runner.temp || '/tmp' }}
+        run: bun scripts/test-sandbox.ts bun test scripts/__tests__/rule-path-portability.test.ts
       - name: Prove structured diagnostic paths on Windows
         if: runner.os == 'Windows'
         env:

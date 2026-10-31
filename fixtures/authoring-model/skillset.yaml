@@ -2,8 +2,8 @@ skillset:
   name: authoring-model
 compile:
   session_start_hook: on
-  # rules/apps/[.]/src/testing.md uses a wildcard scope, which stays an
-  # unsupported destination until SET-574; warn keeps this fixture building.
+  # Retained for project-use shared content and Cursor root instructions.
+  # Wildcard rules themselves build under the default error policy.
   unsupportedDestination: warn
 claude: true
 codex: true

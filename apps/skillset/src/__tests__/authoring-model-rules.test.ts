@@ -44,22 +44,17 @@ describe("rule scope from location [SET-557]", () => {
     );
     expect(await exists(join(root, "app/(marketing)/AGENTS.md"))).toBe(true);
 
-    // The wildcard rule writes nothing anywhere and never falls back to root.
-    expect(paths.some((path) => path.includes("[.]"))).toBe(false);
+    expect(paths).toContain("apps/api/src/AGENTS.md");
+    expect(paths).toContain("apps/web/src/AGENTS.md");
+    expect(paths).toContain("packages/core/AGENTS.md");
+    expect(paths).toContain("nested/packages/core/AGENTS.md");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).not.toContain("App testing");
     const wildcard = await explainPath(root, ".skillset/rules/apps/[.]/src/testing.md");
     expect(wildcard.renderResults).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        featureId: "rule-wildcard-scope-pending",
-        reason: expect.stringContaining("SET-574"),
-        status: "unsupported",
-      }),
-      // The Agent Instructions baseline renders rules regardless of provider
-      // toggles, so it records the gap too.
-      expect.objectContaining({
-        featureId: "rule-wildcard-scope-pending",
-        standardProfile: "agent-instructions",
-        status: "unsupported",
+        featureId: "rule-wildcard-scope-expanded",
+        outputs: [{ path: "apps/api/src/AGENTS.md" }, { path: "apps/web/src/AGENTS.md" }],
+        status: "transformed",
       }),
     ]));
 
@@ -94,7 +89,7 @@ describe("rule scope from location [SET-557]", () => {
     ]));
   });
 
-  test("destinations do not depend on the working tree", async () => {
+  test("unrelated directories do not change rule destinations", async () => {
     const root = await authoringModel();
     const before = (await buildSkillsetResult(root)).data.map((file) => file.path).sort();
     await mkdir(join(root, "docs/extra"), { recursive: true });

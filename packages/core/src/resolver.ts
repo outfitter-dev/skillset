@@ -1,3 +1,4 @@
+import { expandWildcardRuleScopes } from "./rule-scope-expansion";
 import { validateOpaqueIslandDirectories } from "./native-island-preprocess";
 import { createMigrationSourceReader, type MigrationSourceReader, type MigrationMarkdownParts } from "./migration-source";
 import { MIGRATION_STATE_PATH, readMigrationState } from "./migration-state";
@@ -278,7 +279,7 @@ export async function loadBuildGraph(
     metadataLabel
   ));
   const standaloneSkills = discoveredStandaloneSkills.filter((skill) => skill.status !== "draft");
-  const { rules, rulesDir } = await loadRules(
+  const { rules: authoredRules, rulesDir } = await loadRules(
     rootPath,
     sourceDir,
     sourceRootDir,
@@ -288,6 +289,13 @@ export async function loadBuildGraph(
     migration,
     workspaceConfig.nativeAgents === true
   );
+  const rules = await expandWildcardRuleScopes(rootPath, authoredRules, [
+    sourcePath,
+    sourceRootPath,
+    join(rootPath, sourceDir, rulesDir),
+    ...configuredOutputRoots(outputs, plugins).map(output => join(rootPath, output.path)),
+    ...targetNames().map(target => join(rootPath, readString(filteredTargets[target].options, "projectRoot") ?? targetDescriptor(target).projectRoot)),
+  ]);
   const projectAgents = await loadProjectAgents(
     rootPath,
     sourceDir,

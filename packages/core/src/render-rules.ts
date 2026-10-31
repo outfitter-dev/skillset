@@ -1,3 +1,4 @@
+import { hasWildcardRuleScope as hasWildcardScope, ruleAtConcreteScope } from "./rule-scope-expansion";
 import { createHash } from "node:crypto";
 import { dirname, join, posix, relative, resolve } from "node:path";
 
@@ -25,7 +26,7 @@ import {
   type LockItem,
   type LockRoot,
 } from "./render-support";
-import { defineRenderResult, type SkillsetRenderResult } from "./render-result";
+import { defineRenderResult, SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
 import { renderValidatedMarkdown } from "./structured-output";
 import { planAgentInstructionProjections } from "./render-standard-instructions";
 import { rebaseRuleLinks } from "./rule-links";
@@ -76,8 +77,7 @@ async function renderClaudeRules(
   for (const rule of graph.rules.filter(
     (sourceRule) =>
       sourceRule.targets.claude.enabled &&
-      !sourceRule.rootFrontPage &&
-      !hasWildcardScope(sourceRule)
+      !sourceRule.rootFrontPage
   )) {
     const targetFile = join(CLAUDE_RULES_OUTPUT_ROOT, rule.relativePath);
     const markdown = await renderClaudeRuleMarkdown(graph, rule, targetFile);
@@ -262,8 +262,7 @@ async function renderCursorRules(
   for (const rule of graph.rules.filter(
     (sourceRule) =>
       sourceRule.targets.cursor.enabled &&
-      !sourceRule.rootFrontPage &&
-      !hasWildcardScope(sourceRule)
+      !sourceRule.rootFrontPage
   )) {
     const targetFile = join(
       outputRoot,
@@ -317,7 +316,8 @@ async function renderClaudeRuleMarkdown(
     graph,
     rule,
     outputPath,
-    preprocessDependencies
+    preprocessDependencies,
+    "claude"
   );
   return {
     content: stringifyOptionalMarkdown(frontmatter, body),
@@ -349,7 +349,8 @@ async function renderCursorRuleMarkdown(
     graph,
     rule,
     outputPath,
-    preprocessDependencies
+    preprocessDependencies,
+    "cursor"
   );
   return {
     content: renderValidatedMarkdown(
@@ -438,14 +439,12 @@ async function renderCodexAgentsMarkdown(
   };
 }
 
-// Scope alone decides a rule's AGENTS.md, so no destination depends on which
-// files exist in the working tree. A wildcard scope has no destination until
-// SET-574 expands it against the tree.
+// Literal scope is direct; wildcard scope uses the graph's directory snapshot.
 async function codexRuleDestinations(
   _graph: BuildGraph,
   rule: SourceRule
 ): Promise<readonly string[]> {
-  if (hasWildcardScope(rule)) return [];
+  if (hasWildcardScope(rule)) return (rule.expandedScopes ?? []).map(scope => scope === "" ? "AGENTS.md" : `${scope}/AGENTS.md`);
   return [codexRuleDestination(rule)];
 }
 
@@ -522,11 +521,6 @@ function codexRuleDestination(rule: SourceRule): string {
   return rule.scopeDir === "" ? "AGENTS.md" : `${rule.scopeDir}/AGENTS.md`;
 }
 
-function hasWildcardScope(rule: SourceRule): boolean {
-  return (rule.segments ?? []).some(
-    (segment) => segment.classification !== "literal"
-  );
-}
 
 /**
  * Globs for providers that enforce rule scope natively. `paths:` is relative
@@ -541,7 +535,9 @@ function deriveRuleGlobs(
 ): readonly string[] {
   const paths = readRulePaths(rule);
   if (rule.scopeDir === "") return [...paths].sort(compareStrings);
-  const scope = escapeScope(rule.scopeDir);
+  const scope = (rule.segments ?? rule.scopeSegments.map(value => ({ classification: "literal", value })))
+    .map(segment => segment.classification === "one-level" ? "*" : segment.classification === "any-depth" ? "**" : escapeScope(segment.value))
+    .join("/");
   if (paths.length === 0) return [`${scope}/**`];
   return paths
     .map((path) => `${scope}/${path.replace(/^\.\//u, "")}`)
@@ -559,7 +555,7 @@ function escapeClaudeGlobLiteral(value: string): string {
 
 /**
  * Render results for rule scope that the rendered files cannot show: a
- * wildcard scope that writes nothing, `paths:` narrowing Codex cannot
+ * wildcard expansion and provider-glob differences, `paths:` narrowing Codex cannot
  * enforce, and Cursor globs whose literal punctuation has no verified escape.
  */
 export function ruleScopeRenderResults(
@@ -580,53 +576,58 @@ export function ruleScopeRenderResults(
     const sourcePath = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
     const sourceUnit = selectorForRule(rule.id);
     if (hasWildcardScope(rule)) {
-      const reason = `wildcard rule scope ${rule.scopeDir} renders nothing until SET-574 expands [.] and [...] against the repository tree`;
-      if (baselineActive) {
+      const scopes = rule.expandedScopes ?? [];
+      for (const consumer of consumers(rule)) {
         outcomes.push(defineRenderResult({
           destination: "AGENTS.md",
-          featureId: "rule-wildcard-scope-pending",
-          policy: "unsupported:error",
-          reason,
-          sourcePath,
-          sourceUnit,
-          standardProfile: "agent-instructions",
-          status: "unsupported",
+          featureId: scopes.length === 0 ? "rule-wildcard-scope-no-match" : "rule-wildcard-scope-expanded",
+          outputs: scopes.map(scope => ({ path: mapOutputPath(scope === "" ? "AGENTS.md" : `${scope}/AGENTS.md`) })),
+          reason: scopes.length === 0
+            ? `wildcard scope ${rule.scopeDir} matched no eligible directories; no AGENTS.md or root fallback was written`
+            : `wildcard scope ${rule.scopeDir} expanded to: ${scopes.map(scope => scope || ".").join(", ")}`,
+          sourcePath, sourceUnit,
+          status: scopes.length === 0 ? "intentionally_skipped" : "transformed",
+          ...consumer,
         }));
       }
       for (const target of targetNames()) {
         if (!rule.targets[target].enabled) continue;
+        let output: string;
+        switch (target) {
+          case "codex": continue;
+          case "claude": output = posix.join(CLAUDE_RULES_OUTPUT_ROOT, rule.relativePath); break;
+          case "cursor": output = posix.join(cursorRoot, cursorRuleRelativePath(rule.relativePath)); break;
+        }
         outcomes.push(defineRenderResult({
-          destination: "rule",
-          featureId: "rule-wildcard-scope-pending",
-          policy: "unsupported:error",
-          reason,
-          sourcePath,
-          sourceUnit,
-          status: "unsupported",
-          target,
+          destination: "rule", featureId: "rule-wildcard-provider-glob",
+          outputs: [{ path: mapOutputPath(output) }],
+          reason: "One provider glob scopes this rule at runtime, including future matches; it does not enforce the compiler directory walk's source, generated, hidden and symlink exclusions.",
+          sourcePath, sourceUnit, status: "degraded", target,
         }));
       }
-      continue;
     }
     const paths = readRulePaths(rule);
     if (paths.length > 0) {
-      const destination = codexRuleDestination(rule);
+      const scopedRules = hasWildcardScope(rule) ? (rule.expandedScopes ?? []).map(scope => ruleAtConcreteScope(rule, scope)) : [rule];
+      for (const scopedRule of scopedRules) {
+      const destination = codexRuleDestination(scopedRule);
       for (const consumer of consumers(rule)) {
         outcomes.push(defineRenderResult({
           destination: "AGENTS.md",
           featureId: "codex-rule-paths-not-enforceable",
           outputs: [{ path: mapOutputPath(destination) }],
-          reason: `${destination} applies to its whole directory, so paths: ${paths.join(", ")} cannot narrow it; the rule applies to all of ${rule.scopeDir === "" ? "the repository" : `${rule.scopeDir}/`}`,
+          reason: `${destination} applies to its whole directory, so paths: ${paths.join(", ")} cannot narrow it; the rule applies to all of ${scopedRule.scopeDir === "" ? "the repository" : `${scopedRule.scopeDir}/`}`,
           sourcePath,
           sourceUnit,
           status: "degraded",
           ...consumer,
         }));
       }
+      }
     }
     if (
       rule.targets.cursor.enabled &&
-      /[[\]()*?{}]/u.test(rule.scopeDir)
+      (rule.segments ?? rule.scopeSegments.map(value => ({ classification: "literal", value }))).some(segment => segment.classification === "literal" && /[[\]()*?{}]/u.test(segment.value))
     ) {
       outcomes.push(defineRenderResult({
         destination: "rule",
@@ -704,16 +705,30 @@ async function renderRuleBody(
   graph: BuildGraph,
   rule: SourceRule,
   outputPath: string,
-  preprocessDependencies: Set<string>
+  preprocessDependencies: Set<string>,
+  target?: TargetName
 ): Promise<string> {
   // Rebase authored links (and each included partial's links) before
   // preprocessing, so path tokens and variables that the preprocessor already
   // renders relative to the output are not rebased twice.
   const linkBase = { outputDir: outputDirectory(outputPath), scopeDir: rule.scopeDir };
-  const body = rebaseRuleLinks(normalizeRuleBody(rule.body), linkBase);
+  const transformLinks = (content: string): string => {
+    const rebased = rebaseRuleLinks(content, linkBase);
+    if (hasWildcardScope(rule) && rebased !== content) {
+      const sourcePath = normalizeWorkspacePath(relative(graph.rootPath, rule.sourcePath));
+      const reason = `${sourcePath} contains a scope-relative Markdown link that cannot be anchored to one wildcard provider file; use an explicit repository-root or source reference, or select only directory-based instruction output`;
+      throw new SkillsetRenderResultError(`skillset: ${reason}`, [defineRenderResult({
+        featureId: "rule-wildcard-relative-link", destination: "rule", sourcePath,
+        sourceUnit: selectorForRule(rule.id), status: "unsupported", reason,
+        ...(target === undefined ? {} : { target }),
+      })]);
+    }
+    return rebased;
+  };
+  const body = transformLinks(normalizeRuleBody(rule.body));
   if (graph.root.workspace.nativeAgents === true && rule.rootFrontPage) return body;
   return preprocessText(body, {
-    transformPartialContent: (content) => rebaseRuleLinks(content, linkBase),
+    transformPartialContent: transformLinks,
     frontmatter: rule.frontmatter,
     preprocessDependencies,
     rootPath: graph.rootPath,

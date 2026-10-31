@@ -275,7 +275,15 @@ function diagnoseRuleScopes(graph: BuildGraph, rendered: readonly RenderedFile[]
         severity: "warning",
       }));
     }
-    if (rule.segments?.some((segment) => segment.classification !== "literal") === true) continue;
+    if (rule.segments?.some((segment) => segment.classification !== "literal") === true) {
+      if (rule.expandedScopes?.length === 0) diagnostics.push(skillsetDiagnostic({
+        code: "rule-wildcard-scope-no-match",
+        featureId: "rule-wildcard-scope-no-match",
+        message: `${sourcePath} wildcard scope ${rule.scopeDir} matched no eligible directories; no AGENTS.md or root fallback was written`,
+        path: sourcePath, severity: "warning",
+      }));
+      continue;
+    }
     if (existsSync(join(graph.rootPath, rule.scopeDir))) continue;
     diagnostics.push(skillsetDiagnostic({
       code: "rule-scope-directory-missing",
