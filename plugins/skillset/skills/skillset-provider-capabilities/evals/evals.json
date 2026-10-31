@@ -1,0 +1,122 @@
+{
+  "skill_name": "skillset-provider-capabilities",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Compare disable-model-invocation in Claude with the canonical Skillset invocation setting and Codex. Treat this as a hypothetical design question; do not inspect a workspace or run a provider.",
+      "expected_output": "Identify the invocation concept, explain canonical representation and each recorded fidelity scope without promising model compliance.",
+      "expectations": [
+        "Identify the invocation concept, explain canonical representation and each recorded fidelity scope without promising model compliance.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "What happens to developer_instructions when a project agent moves between Codex and Claude? This is hypothetical; no file edits or provider runs.",
+      "expected_output": "Explain the project-agent mapping and partial limits from the catalog; separate native fields from advisory skill prefaces.",
+      "expectations": [
+        "Explain the project-agent mapping and partial limits from the catalog; separate native fields from advisory skill prefaces.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Does AGENTS.md mean the same thing everywhere? Compare its meaning without inspecting files.",
+      "expected_output": "Show the ambiguous exact alias matches and clarify scoped project rules versus the portable instructions standard.",
+      "expectations": [
+        "Show the ambiguous exact alias matches and clarify scoped project rules versus the portable instructions standard.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Can I port arbitrary native hooks/hooks.json behavior to every provider? Hypothetical comparison only.",
+      "expected_output": "Retain provider-only or unknown findings and avoid promising a portable transformation.",
+      "expectations": [
+        "Retain provider-only or unknown findings and avoid promising a portable transformation.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Can a plugin-packaged agent run in Codex just because the plugin builds? Do not run anything.",
+      "expected_output": "Report the catalog's plugin-agent destination/fidelity limitations and separate packaging from activation.",
+      "expectations": [
+        "Report the catalog's plugin-agent destination/fidelity limitations and separate packaging from activation.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Compare MCP server configuration across the available targets using the bundled evidence. Do not launch MCP servers.",
+      "expected_output": "Explain recorded source and destinations, preserve unknown semantic judgments and report evidence limitations.",
+      "expectations": [
+        "Explain recorded source and destinations, preserve unknown semantic judgments and report evidence limitations.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "How do Agent Skills and Agent Plugins standards relate to provider-native output? No repository setup needed.",
+      "expected_output": "Separate portable envelopes from provider behavior and do not equate standard conformance with runtime effectiveness.",
+      "expectations": [
+        "Separate portable envelopes from provider behavior and do not equate standard conformance with runtime effectiveness.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "I have no CLI and cannot execute shell commands. Explain skill-invocation using only the bundled reference.",
+      "expected_output": "Use the packaged reference without installing or invoking tooling; disclose snapshot provenance and scoped fidelity.",
+      "expectations": [
+        "Use the packaged reference without installing or invoking tooling; disclose snapshot provenance and scoped fidelity.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Is the fictional native field quantum_agent_mode portable? No network or filesystem inspection.",
+      "expected_output": "Report no matching catalog evidence as unknown, without inventing a canonical field.",
+      "expectations": [
+        "Report no matching catalog evidence as unknown, without inventing a canonical field.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "The capability evidence is stale. Can we still call the mapping exact because generated files look right?",
+      "expected_output": "Preserve unknown and explain why structural output does not restore semantic evidence.",
+      "expectations": [
+        "Preserve unknown and explain why structural output does not restore semantic evidence.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "My established Skillset workspace has generated drift. I want to rebuild and check it, not compare providers. Treat it as hypothetical and make no writes.",
+      "expected_output": "Hand off to skillset-maintain without taking over ordinary maintenance or inventing a comparison.",
+      "expectations": [
+        "Hand off to skillset-maintain without taking over ordinary maintenance or inventing a comparison.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "I want to initialize a new repository workspace. This is a hypothetical routing question; do not create files.",
+      "expected_output": "Route to skillset-init, preserving setup authority and avoiding unnecessary capability comparison.",
+      "expectations": [
+        "Route to skillset-init, preserving setup authority and avoiding unnecessary capability comparison.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "Change my provider account billing settings. Do not access any account; just identify the appropriate workflow.",
+      "expected_output": "Do not claim this skill owns account settings or require a Skillset workspace.",
+      "expectations": [
+        "Do not claim this skill owns account settings or require a Skillset workspace.",
+        "No installation, mutation, provider execution, or invented support claim."
+      ]
+    }
+  ]
+}
