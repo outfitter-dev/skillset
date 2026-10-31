@@ -65,3 +65,27 @@ Skillset validates source paths through the same declared-resource containment r
 ## Provenance
 
 The generated skill's `skillset.lock` entry records copied paths, normalized modes, content hashes, and preprocessing dependencies. [`skillset check --only outputs`](../cli/check.md) detects content-only and mode-only drift, and [`skillset explain`](../cli/explain.md) shows the declaring skill and effective mapping.
+
+## Ordinary links in emitted distributions
+
+Build validates ordinary Markdown links and images in each emitted primary
+`SKILL.md` against that skill's final distribution, after resource copying and
+marked-reference rewriting. A file existing only in source does not satisfy a
+link. Another skill's output cannot satisfy it either. Declare the resource or
+use a marked resource reference so the destination is bundled.
+
+The same check covers a plugin's root `README.md` and copied subagent Markdown
+with known source ownership, using the shared plugin package as the boundary.
+Missing or escaping destinations fail before output writes, with the source
+path, emitted Markdown path, and destination in the diagnostic. Portable-only
+projection runs the same check.
+
+Inline and reference-style links and images are parsed as CommonMark. Code
+examples and HTML comments are not links. Percent-encoded paths are decoded;
+query strings and fragments do not affect file lookup. Fragment anchors are not
+validated. A directory link requires an emitted descendant. External schemes,
+network URLs, and fragment-only destinations are outside this file check.
+Dynamic destinations containing substitutions are unvalidated; this check does
+not prove runtime paths. Copied resource Markdown (including a resource named
+`SKILL.md`) and opaque islands are not recursively checked. Their nested link
+graph remains outside this primary-file validation.

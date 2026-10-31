@@ -1,3 +1,4 @@
+import { assertRenderedMarkdownLinks } from "./rendered-markdown-links";
 import { readFileSync, statSync, readdir, readFile, stat } from "./workspace-fs";
 import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
@@ -336,9 +337,11 @@ export async function renderBuildGraph(
   }
   assertPluginPackagePathCompatibility(graph, rendered);
   rendered.push(...(await renderLockFiles(graph, lockRoots)));
-  return [...planRenderedFiles(rendered)]
+  const planned = [...planRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
     .map((file) => validateRenderedFile(file));
+  assertRenderedMarkdownLinks(graph, planned, lockRoots);
+  return planned;
 }
 
 
@@ -349,9 +352,11 @@ export async function renderStandardProjectionBuildGraph(
   await assertResolvedSourceFrontmatter(graph);
   const lockRoots = new Map<string, LockRoot>();
   const rendered = await renderStandardProjectionArtifacts(graph, lockRoots);
-  return [...planRenderedFiles(rendered)]
+  const planned = [...planRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
     .map((file) => validateRenderedFile(file));
+  assertRenderedMarkdownLinks(graph, planned, lockRoots);
+  return planned;
 }
 
 async function renderStandardProjectionArtifacts(
@@ -2300,7 +2305,11 @@ async function copyPluginCompanionFiles(
       candidate === "subagents"
         ? pluginComponentPath(target, "agents").replace(/^\.\//u, "").replace(/\/$/u, "")
         : candidate;
-    rendered.push(...(await copyPath(sourcePath, join(basePath, outputCandidate))));
+    const outputPath = join(basePath, outputCandidate);
+    const copies = await copyPath(sourcePath, outputPath);
+    rendered.push(...copies.map((file) => candidate === "subagents"
+      ? { ...file, sourcePath: join(sourcePath, relative(outputPath, file.path)) }
+      : file));
   }
 
   if (target === "codex") {
