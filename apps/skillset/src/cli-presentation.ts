@@ -170,6 +170,12 @@ const PRESENTATION = {
     summary: "Explain ownership and provenance for a path.",
     synopses: ["explain <path> [--activation] [--json] [--scope <scope>] [--root <path>]"],
   },
+  "hooks setup": {
+    group: "Integrate",
+    summary: "Preview or explicitly install/remove a local generated-edit guard.",
+    synopses: ["hooks setup --target <claude|codex> --scope <project|user> [--policy <block|warn>] [--remove] [--yes] [--json] [--root <path>]"],
+    flagMeanings: { "--scope": "Choose project-local or user configuration; required.", "--root": "Project root only; not accepted for user configuration." },
+  },
   "hooks context": {
     commandSummary: "Print and run explicit hook integrations.",
     group: "Integrate",

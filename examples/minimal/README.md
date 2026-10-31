@@ -59,7 +59,7 @@ AGENTS.md
 skillset.lock
 ```
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../docs/start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../docs/start/build-versus-activation.md).
 
 ## Edit The Source
 

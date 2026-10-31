@@ -4,6 +4,7 @@ import type {
   TargetName,
 } from "@skillset/core/internal/types";
 
+import { parseHooksSetupRequest } from "./hooks-setup-args";
 import { readChangeBump, setChangeReason } from "./change-args";
 import type { ChangeReasonInput } from "./change-workflow";
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
@@ -39,6 +40,7 @@ export const parseHooksCommandRequest = (
   args: readonly string[],
   context: CliParseContext
 ): HooksCommandRequest => {
+  if (args[1] === "setup") return parseHooksSetupRequest(args, context);
   const hookSubcommand = readHookSubcommand(args[1]);
   let index = 2;
   let hookRunEvent: HookRunEvent | undefined;

@@ -118,4 +118,4 @@ Contributor bootstrap and repository development require Bun; installing or runn
 
 Installing the compiler only makes the `skillset` command available. `skillset build --yes` writes reviewed provider-native files inside the repository; it still does not enable them in a provider or change user-level configuration.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

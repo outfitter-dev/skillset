@@ -11,7 +11,7 @@ export const CLI_LEAF_SUBCOMMANDS: Readonly<Partial<Record<CliCommand, readonly 
   change: ["add", "amend", "check", "history", "ignore", "list", "migrate", "reason", "refresh", "show", "status"],
   distribute: ["plan"],
   eval: ["list", "run", "status", "tail"],
-  hooks: ["context", "print", "run"],
+  hooks: ["context", "print", "run", "setup"],
   lookup: ["features"],
   marketplace: ["check", "update"],
   release: ["amend", "apply", "audit", "plan"],

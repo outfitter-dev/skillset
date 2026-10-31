@@ -26,4 +26,4 @@ Provider evidence is checked into the repository so ordinary builds stay determi
 
 The [hosted provider-validation record](../provider-validation.md) lists exact external pins, the surfaces each validator actually covers, negative canaries, and the internal-conformance fallback for uncovered provider behavior.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).

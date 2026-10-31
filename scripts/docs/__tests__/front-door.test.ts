@@ -136,7 +136,7 @@ test("distribution docs keep the global-first route and exact alternatives", () 
 
 test("the activation invariant links to its canonical concept page", () => {
   const invariant =
-    "Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration.";
+    "Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration.";
   const requiredPages = [
     "README.md",
     "docs/README.md",

@@ -15,7 +15,11 @@ import type {
   HookSubcommand,
 } from "./runtime-hooks";
 
-export interface HooksCommandRequest {
+import { runHooksSetup } from "./hooks-setup-cli";
+import type { HooksSetupRequest } from "./hooks-setup-args";
+export type HooksCommandRequest = RuntimeHooksCommandRequest | HooksSetupRequest;
+
+export interface RuntimeHooksCommandRequest {
   readonly hookDiscoverWorkspace?: true;
   readonly hookAgentRuntime: boolean;
   readonly hookContextEvent: string | undefined;
@@ -30,7 +34,9 @@ export interface HooksCommandRequest {
   readonly rootPath: string;
 }
 
-export async function runHooksCommand({
+export async function runHooksCommand(request: HooksCommandRequest): Promise<void> {
+  if (request.hookSubcommand === "setup") return runHooksSetup(request);
+  const {
   hookDiscoverWorkspace,
   hookAgentRuntime,
   hookContextEvent,
@@ -43,7 +49,7 @@ export async function runHooksCommand({
   hookSubcommand,
   hookTarget,
   rootPath,
-}: HooksCommandRequest): Promise<void> {
+} = request;
   if (hookSubcommand === "print") {
     process.stdout.write(
       renderHookPrint({

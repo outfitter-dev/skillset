@@ -206,7 +206,7 @@ The watcher observes workspace configuration and source—not generated output, 
 
 ## Generated files exist but the provider cannot see them
 
-A successful build proves repository output, not runtime [activation](glossary.md#activation). Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](start/build-versus-activation.md), then use the provider's own review and enablement workflow.
+A successful build proves repository output, not runtime [activation](glossary.md#activation). Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](start/build-versus-activation.md), then use the provider's own review and enablement workflow.
 
 ## CI and local checks disagree
 

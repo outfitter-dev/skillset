@@ -37,4 +37,4 @@ Shipping is a set of explicit workflows, not a side effect of build. Start with 
 2. [Publishing](../guides/publishing.md) — release source units and choose the correct external publication boundary.
 3. [Marketplaces](../guides/marketplaces.md) — verify curated plugin entries and write supported provider catalog indexes.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

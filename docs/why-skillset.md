@@ -26,7 +26,7 @@ One package can therefore share portable skills while carrying supported native 
 
 Skillset is not a runtime manager or a universal agent-file format. It does not make every provider feature portable, hide target-specific tradeoffs, or treat generated output as source truth.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. The [build-versus-activation boundary](start/build-versus-activation.md) keeps compilation reviewable and leaves runtime authority with the user and provider.
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. The [build-versus-activation boundary](start/build-versus-activation.md) keeps compilation reviewable and leaves runtime authority with the user and provider.
 
 ## When it fits
 

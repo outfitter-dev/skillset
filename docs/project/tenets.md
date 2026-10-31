@@ -62,7 +62,7 @@ The adopted open-standards floor is deliberately inherent rather than selectable
 
 ### Builds do not imply trust
 
-[Build](../glossary.md#build) and [activation](../glossary.md#activation) have different authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. The complete operational boundary lives in [Build Versus Activation](../start/build-versus-activation.md).
+[Build](../glossary.md#build) and [activation](../glossary.md#activation) have different authority. Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. The complete operational boundary lives in [Build Versus Activation](../start/build-versus-activation.md).
 
 Publication, installation, registry mutation, runtime trust, and enablement require their own explicit workflows and authority.
 

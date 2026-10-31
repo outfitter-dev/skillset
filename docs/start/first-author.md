@@ -97,4 +97,4 @@ skillset check --only outputs
 
 Continue with [How Rendering Works](how-rendering-works.md) for the model behind the loop, or the [development loop](../guides/development-loop.md) for everyday editing.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

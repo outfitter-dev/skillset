@@ -570,6 +570,11 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "hooks setup",
+      args: ["hooks", "setup", "--target", "codex", "--scope", "project", "--root", ROOT, "--json"],
+      expected: { command: "hooks", request: { hookSubcommand: "setup", target: "codex", scope: "project", policy: "block", rootPath: ROOT, remove: false, yes: false, jsonOutput: true } },
+    },
+    {
       route: "hooks run",
       args: ["hooks", "run", "session-start", "--root", ROOT],
       expected: {

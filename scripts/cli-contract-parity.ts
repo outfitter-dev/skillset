@@ -230,6 +230,8 @@ function runtimeRouteSeed(route: string, flag?: CliFlag): readonly string[] {
       return [...route.split(" "), "@example"];
     case "explain":
       return ["explain", "skill.md"];
+    case "hooks setup":
+      return ["hooks", "setup", "--target", "codex", "--scope", "project"];
     case "hooks context":
       return ["hooks", "context", "--event", "Stop"];
     case "build":
@@ -309,6 +311,8 @@ function runtimeFlagArgs(flag: CliFlag, route: string): readonly string[] {
         return "outputs";
       case "--preset":
         return "minimal";
+      case "--policy":
+        return "block";
       case "--provider":
         return "claude";
       case "--ref":
@@ -316,7 +320,7 @@ function runtimeFlagArgs(flag: CliFlag, route: string): readonly string[] {
       case "--runner":
         return "git";
       case "--scope":
-        return route === "new"
+        return route === "hooks setup" ? "project" : route === "new"
           ? "repo"
           : route === "change add"
             ? "plugin:example"
