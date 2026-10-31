@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,30 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "mcp-reference-forms",
+  "start": 181275990,
+  "end": 181276800,
+  "contentHash": "sha256:7452ce61ca0b51a8105d01b18a25b59b6e368ef685ab5a61f0cbdd1f87d6f039"
+},
+{
+  "id": "mcp-container-forms",
+  "start": 181285700,
+  "end": 181286370,
+  "contentHash": "sha256:b6156b87514d6f13b10bb5e86b82ea82abad0c7419fab1e4f01c280b70153506"
+},
+{
+  "id": "mcp-main-variants",
+  "start": 181222950,
+  "end": 181224900,
+  "contentHash": "sha256:ce63e3f70c42761c6b030a4bd4f190b4e5b0a07e03892636663eb5d56367f40f"
+},
+{
+  "id": "mcp-late-variants",
+  "start": 181227193,
+  "end": 181228015,
+  "contentHash": "sha256:13de2f79ed4ef1ab63ab5fbe1bb00c93938e5090113a2ef295019cbf8d0f7607"
+},
 {
   "id": "shared-user-config-channels",
   "start": 181286350,
@@ -222,6 +246,81 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"mcp-references": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.components.mcp_reference",
+  "windows": [
+    "mcp-reference-forms",
+    "mcp-container-forms",
+    "mcp-main-variants",
+    "mcp-late-variants",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "qd accepts a relative ./ JSON path, a relative or URL MCPB/DXT path, a string-keyed map of w6 configs, or an array of those forms. Bundle strings must end exactly .mcpb or .dxt; remote JSON references are not this union."
+},
+"mcp-variants": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.mcp.variants",
+  "windows": [
+    "mcp-reference-forms",
+    "mcp-container-forms",
+    "mcp-main-variants",
+    "mcp-late-variants",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "w6 accepts stdio (including absent type), sse, http/streamable-http, ws, sse-ide, ws-ide, sdk and claudeai-proxy. Required strings and optional fields are variant-specific; stdio command is nonempty, timeout is positive integer, tools and permission values use finite enums. Proxy response maps, eligible and ineligibleReason are nullish. role, request_timeout_ms and discoverSupport catch invalid values; objects strip unknown keys. Core validates inputs without reproducing transforms or promising runtime usability."
+},
+"mcp-records": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.mcp.records",
+  "windows": [
+    "mcp-reference-forms",
+    "mcp-container-forms",
+    "mcp-main-variants",
+    "mcp-late-variants",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "Declared env and headers records use arbitrary string keys and string values; toolPermissions values use allow/ask/blocked. Fields not declared by the chosen w6 branch are stripped rather than validated as another branch."
+},
+"mcp-oauth-fields": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.mcp.oauth.fields",
+  "windows": [
+    "mcp-reference-forms",
+    "mcp-container-forms",
+    "mcp-main-variants",
+    "mcp-late-variants",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "HTTP/SSE xo OAuth uses optional string clientId/authServerMetadataUrl/scopes, numeric callbackPort and boolean xaa. Unknown keys are stripped. ws and other branches do not declare oauth."
+},
+"mcp-oauth-values": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.mcp.oauth.values",
+  "windows": [
+    "mcp-reference-forms",
+    "mcp-container-forms",
+    "mcp-main-variants",
+    "mcp-late-variants",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "standalone-plugin-loader",
+    "marketplace-shared-base"
+  ],
+  "claim": "xo callbackPort is a positive integer; authServerMetadataUrl must pass URL parsing and start with literal lowercase https://; scopes is a nonempty string. Static schema predicates only."
+},
 "channel-shape": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.channels.shape",
@@ -446,6 +545,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["mcp-references", "schema-predicate"], ["mcp-variants", "schema-predicate"], ["mcp-records", "schema-predicate"], ["mcp-oauth-fields", "schema-predicate"], ["mcp-oauth-values", "schema-predicate"],
     ["channel-shape", "schema-predicate"], ["user-config-types", "schema-predicate"], ["user-config-closed", "schema-predicate"],
     ["command-map-fields", "schema-predicate"], ["command-map-source", "schema-predicate"],
     ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
@@ -457,7 +557,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 15) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 20) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {
