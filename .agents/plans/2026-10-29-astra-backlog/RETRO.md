@@ -842,3 +842,10 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Qualified exact metadata keys on the pinned 2.1.269 strict-warning path and string-or-null rename object values on the validator error path. Loader catch behavior and additional rename-chain/target checks remain distinct. Core declarations are unchanged.
 - Compared entry keys separately: provider-only binaries/headers/headersHelper remain unresolved and are tracked in SET-801, with public API probes confirming Core's unknown-field diagnostics. No permissive field additions were made.
 - All 37 focused tests / 250 assertions and the fast gate pass. Independently verified the member and all 19 windows. Only reviewed evidence fingerprints changed; unrelated declarations and dependencies were asserted unchanged. Exact review and full verification follow the commit.
+
+### SET-801 marketplace archive header validation
+
+- Recognizes marketplace-only header maps and helper text without expanding standalone manifests. Applies pinned post-parse archive/strict/digest conditions and normalized routing/identity restrictions; empty helpers stay inactive. Separate runtime header syntax filters are not inferred as offline validator policy.
+- New focused regression baseline exposed unknown-field behavior (39 failures, two passing controls; array cases corrected before final qualification). Final affected corpus: 131 tests / 458 assertions. The exact pinned member and all 23 windows verify without executing provider code. Four new predicate groups distinguish schema, error and strict-warning stages; unrelated implementation fingerprints were asserted unchanged before coverage updates.
+- `binaries` remains unsupported and entry-key parity unresolved because the provider filters/normalizes values; no arbitrary strict binary policy or whole-issue completion is claimed. Independent exact review and full immutable verification follow the commit.
+- Parent PRs #882 and #883 full runs each completed 5,213 pass, three skip, four todo, and only three deferred SET-419/420 native-size failures. No passing receipt; both stay draft.

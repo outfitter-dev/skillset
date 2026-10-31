@@ -64,3 +64,20 @@ export const CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES = {
   npm: { package: "string", registry: "string", version: "string" },
   url: { ref: "string", sha: "string", url: "string" },
 } as const;
+
+/** Marketplace-only archive fields; standalone plugin manifests do not inherit them. */
+export const CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES = {
+  headers: "object",
+  headersHelper: "string",
+} as const;
+
+/** Pinned strict-validator routing/identity header policy (not runtime syntax filtering). */
+export const CLAUDE_MARKETPLACE_RESTRICTED_HEADERS = [
+  "host", "cookie", "forwarded", "x-real-ip", "x-client-ip", "true-client-ip",
+  "client-ip", "cf-connecting-ip", "fastly-client-ip", "x-originating-ip",
+  "x-remote-ip", "x-remote-addr", "x-cluster-client-ip", "connection", "upgrade",
+  "transfer-encoding", "content-length", "te", "trailer", "expect", "via",
+] as const;
+export const CLAUDE_MARKETPLACE_RESTRICTED_HEADER_PREFIXES = [
+  "x-forwarded-", "x-original-", "proxy-",
+] as const;

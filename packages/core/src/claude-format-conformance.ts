@@ -1,4 +1,5 @@
-import { CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
+import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
+import { CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
 import { CLAUDE_PLUGIN_FIELD_TYPES } from "./manifest-field-contracts";
 import {
@@ -142,7 +143,8 @@ export function checkClaudeMarketplace(
           `destination field ${prefix}.name duplicates plugins[${firstIndex}].name: ${plugin.name}`
         ));
       }
-      issues.push(...checkClaudeMarketplacePlugin(file, plugin, prefix));
+      const pluginIssues = checkClaudeMarketplacePlugin(file, plugin, prefix);
+      issues.push(...pluginIssues, ...checkClaudeMarketplaceEntryHeaders(file, plugin, prefix, pluginIssues.length === 0));
       if (isJsonRecord(plugin.author)) {
         issues.push(
           ...checkClaudeAuthorObject(
@@ -391,7 +393,7 @@ function checkClaudeMarketplacePlugin(
   return issues;
 }
 
-const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = CLAUDE_PLUGIN_FIELD_TYPES;
+const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = { ...CLAUDE_PLUGIN_FIELD_TYPES, ...CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES };
 
 const CLAUDE_MARKETPLACE_PLUGIN_FIELDS = [
   ...Object.keys(CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES),

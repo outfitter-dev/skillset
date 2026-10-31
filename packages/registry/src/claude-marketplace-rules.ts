@@ -2,6 +2,11 @@ import type { ClaudeMarketplaceRuleEvidence } from "./claude-marketplace-evidenc
 
 /** Reviewed local rule inventory. Empty schema lists without a parser reference deliberately mean unresolved authority. */
 export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = [
+  {"id": "marketplace.headers.shape", "parser": "header-shape", "owners": ["checkClaudeMarketplaceEntryHeaders"], "predicate": "Optional marketplace headers is a string-valued record; headersHelper is a string of at most 500 printable ASCII code units with no four consecutive spaces. Empty helper is permitted. Standalone plugin fields are not broadened.", "qualification": "Pinned 2.1.269 static inspection only; no provider execution, installation or runtime acceptance. Core reports strict warnings as invalid shape.", "schema": []},
+  {"id": "marketplace.headers.helper_strict", "parser": "header-helper-strict", "owners": ["checkClaudeMarketplaceEntryHeaders"], "predicate": "After parsing, an archive entry with a nonempty helper and strict not false produces an error. Omitted entry strict defaults true. No helper is executed by this evidence.", "qualification": "Pinned 2.1.269 static inspection only; no provider execution, installation or runtime acceptance. Core reports strict warnings as invalid shape.", "schema": []},
+  {"id": "marketplace.headers.source_digest", "parser": "header-source-digest", "owners": ["checkClaudeMarketplaceEntryHeaders"], "predicate": "After parsing, present headers or an active helper on nonarchive sources produces one warning attributed to the helper when active. An archive active helper without sha256 produces a warning. Warnings fail strict validation; Core uses invalid-shape diagnostics.", "qualification": "Pinned 2.1.269 static inspection only; no provider execution, installation or runtime acceptance. Core reports strict warnings as invalid shape.", "schema": []},
+  {"id": "marketplace.headers.restricted", "parser": "header-restricted", "owners": ["checkClaudeMarketplaceEntryHeaders"], "predicate": "For archive entries the validator checks header keys after lowercase and underscore-to-hyphen normalization against 21 exact routing/identity names and three prefixes. Matches warn and fail strict validation. Runtime syntax/value filtering is a separate path and is not asserted here.", "qualification": "Pinned 2.1.269 static inspection only; no provider execution, installation or runtime acceptance. Core reports strict warnings as invalid shape.", "schema": []},
+
   {
     id: "marketplace.owner.name", owners: ["checkClaudeAuthorObject"],
     predicate: "Owner and plugin author require name, string and nonempty",
@@ -70,14 +75,14 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
   },
   {
     id: "marketplace.entry.field_types", owners: ["checkClaudeMarketplacePlugin"],
-    predicate: "Validate recognized plugin fields using CLAUDE_PLUGIN_FIELD_TYPES",
+    predicate: "Validate shared plugin field types; marketplace header types are qualified separately",
     qualification: "Shared inventory includes fields absent or different from marketplace pin; map each field and union separately.",
     schema: [],
   },
   {
     id: "marketplace.entry.closed", owners: ["checkClaudeMarketplacePlugin"],
-    predicate: "Reject unknown plugin entry keys beyond shared field inventory plus name/source",
-    qualification: "Pinned static validator entry keys differ: provider-only binaries, headers and headersHelper are absent from the Core inventory. Keep this rule unresolved; strict warning severity also differs from Core.",
+    predicate: "Reject unknown plugin entry keys beyond shared field inventory plus marketplace header fields and name/source",
+    qualification: "Pinned static validator entry keys differ: provider-only binaries is absent from the Core inventory. Keep this rule unresolved; strict warning severity also differs from Core.",
     schema: [],
   },
   {

@@ -1,11 +1,11 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:72d671e4272b738172ea70e25518d4ff32d078947da166eb6b6f8e55f307a456",
+  "evidenceHash": "sha256:b3751e1912d6f0ab404129c6feaface99f852d90a7848fe2b2b456bc0a1ffa77",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
-      "hash": "sha256:e8c686d3801a6f5049c628e1c7478addb3edadf06332376a6308a67ae6c71076",
+      "hash": "sha256:7dfda7704b1ecce402ea77f1c7ac8d5ee8c61daf9d551acc506a74d42233a9a1",
       "ruleIds": [],
       "reason": "Module wiring or marketplace path routing; not a provider predicate."
     },
@@ -47,7 +47,7 @@
     },
     {
       "name": "function:checkClaudeMarketplace",
-      "hash": "sha256:6be5de8ab8b7aab492557edf9bd4a52b5cbd7f7ccf0d19b32b0decea396ce906",
+      "hash": "sha256:2e50fe3f41e3c0c794a4c17efe13ba01daafd1542bca4b578b7b55caf130db7f",
       "ruleIds": [
         "marketplace.metadata.fields",
         "marketplace.metadata.closed",
@@ -92,7 +92,7 @@
     },
     {
       "name": "variable:CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES",
-      "hash": "sha256:30a3208fa6ef5eb67aa68d89e6b27a786c3f734ac2ba8c7e16302833af714daa",
+      "hash": "sha256:03d931bbc3b83d06aa2a6a32f6be7e6890687ce0d69fe8fca231bb13d68c8cc3",
       "ruleIds": [
         "marketplace.entry.field_types"
       ],
@@ -267,6 +267,12 @@
       "hash": "sha256:d94516abdb1658bfc28aed54f9af738906d7bda30eda9bda591d5db48afb3c6d",
       "ruleIds": [],
       "reason": "Module wiring or marketplace path routing; not a provider predicate."
+    },
+    {
+      "name": "import:\"./claude-marketplace-entry-fields\"",
+      "hash": "sha256:4ff5b9eff08a0c123a9eb0831d270925caee3bf8c8025ce4e6c05dfe50eeaf7f",
+      "ruleIds": [],
+      "reason": "Delegates marketplace-only archive header validation."
     }
   ],
   "dependencies": [
@@ -322,7 +328,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-inventories.ts",
       "declarations": [],
-      "hash": "sha256:59f9eb0ad6e2eb682060e82111d2903bc26da459936b1e72b88f969b569a7489",
+      "hash": "sha256:0ab1c0b85b9fefef00b82c2efac66e27b323160eab25912b5796229eecec05a8",
       "ruleIds": [
         "marketplace.entry.field_types",
         "marketplace.entry.closed",
@@ -346,7 +352,11 @@
         "marketplace.source.command.limits",
         "marketplace.source.npm.registry",
         "marketplace.source.git_subdir.path",
-        "marketplace.source.git_sha.invalid_kind"
+        "marketplace.source.git_sha.invalid_kind",
+        "marketplace.headers.shape",
+        "marketplace.headers.helper_strict",
+        "marketplace.headers.source_digest",
+        "marketplace.headers.restricted"
       ],
       "reason": "Directly consumed field/type/source inventories; new inventory values require evidence review."
     },
@@ -362,16 +372,32 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:f41e3c6f016692e0cf19a7d6074ef07404f5c0d2c23d37d6db8d34841e0e0def",
+      "hash": "sha256:4b248236cfec1d8555b10f45963e4882d71684cb8b9ad9a97bffc199861c1085",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
         "marketplace.entry.name.pattern",
         "marketplace.entry.name.unique",
         "marketplace.metadata.closed",
-        "marketplace.renames.values"
+        "marketplace.renames.values",
+        "marketplace.headers.shape",
+        "marketplace.headers.helper_strict",
+        "marketplace.headers.source_digest",
+        "marketplace.headers.restricted"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
+    },
+    {
+      "path": "packages/core/src/claude-marketplace-entry-fields.ts",
+      "declarations": [],
+      "hash": "sha256:f8ee6e708a7bf6b1c73c1603858c32ffe76e84e4ec0375f788f48be7956bc208",
+      "ruleIds": [
+        "marketplace.headers.shape",
+        "marketplace.headers.helper_strict",
+        "marketplace.headers.source_digest",
+        "marketplace.headers.restricted"
+      ],
+      "reason": "Reviewed marketplace-only header map, helper text, post-parse conditions and restricted key checks. No execution or runtime filtering."
     }
   ]
 }
