@@ -60,6 +60,13 @@ test("SET-458: CI collector rejects a staged new shared-reference fixture", asyn
   expect(await collectCliSurfaceViolations(repo)).toEqual([
     { file, line: 1, text: "unknown CLI flag: --synthetic-missing" },
   ]);
+  const developmentSkill = ".skillset/skills/skillset-dev-security/SKILL.md";
+  await mkdir(join(repo, ".skillset/skills/skillset-dev-security"), { recursive: true });
+  await Bun.write(join(repo, developmentSkill), "`skillset nonexistent`\n");
+  await runTestGit(repo, "add", developmentSkill);
+  expect(await collectCliSurfaceViolations(repo)).toContainEqual({
+    file: developmentSkill, line: 1, text: "unknown CLI command: nonexistent",
+  });
 });
 
 test("SET-458: continuations and mismatched fence delimiters retain shell context", () => {
@@ -72,4 +79,17 @@ test("SET-458: continuations and mismatched fence delimiters retain shell contex
 test("SET-458: root flags also use the shared vocabulary", () => {
   expect(scan("`skillset --missing`")).toEqual([{ file, line: 1, text: "unknown CLI flag: --missing" }]);
   expect(scan("`skillset --help` `skillset --version`")).toEqual([]);
+});
+
+test("SET-458: option values cannot swallow following unquoted flags", () => {
+  for (const command of ["skillset build --repair --not-real", "skillset build --targets --not-real"]) {
+    expect(scan(`\`${command}\``)).toEqual([{ file, line: 1, text: "unknown CLI flag: --not-real" }]);
+  }
+  expect(scan("`skillset build --repair --yes`")).toEqual([]);
+});
+
+test("SET-458: release history is excluded and new development skills are included", () => {
+  expect(scanSkillFamilyCli(".skillset/plugins/skillset/CHANGELOG.md", "Previously `skillset historical`.")).toEqual([]);
+  expect(scanSkillFamilyCli(".skillset/plugins/skillset/skills/skillset/CHANGELOG.md", "Previously `skillset historical`.")).toEqual([]);
+  expect(scanSkillFamilyCli(".skillset/skills/skillset-dev-security/SKILL.md", "`skillset nonexistent`")).toHaveLength(1);
 });

@@ -9,9 +9,9 @@ interface Vocabulary {
 }
 
 export function isSkillFamilyMarkdown(file: string): boolean {
-  return file.endsWith(".md") && (
-    file.startsWith(".skillset/plugins/skillset/") ||
-    /^\.skillset\/skills\/skillset(?:-dev(?:-compiler|-schema|-testing)?|-fix|-adrs)?\//u.test(file)
+  return file.endsWith(".md") && !file.endsWith("/CHANGELOG.md") && (
+    /^\.skillset\/plugins\/skillset\/(?:skills|shared)\//u.test(file) ||
+    /^\.skillset\/skills\/skillset(?:-dev(?:-[a-z0-9-]+)?|-fix|-adrs)?\//u.test(file)
   );
 }
 
@@ -93,8 +93,9 @@ function invocationViolations(text: string, vocabulary: Vocabulary): string[] {
     } else if (!token.includes("=") && contract.value !== "boolean") {
       // Consume values, including quoted strings that happen to begin with --.
       const saved = offset;
+      const quotedValue = /^\s*['"]/u.test(text.slice(offset));
       const value = next();
-      if (contract.value === "optional-value" && value?.startsWith("--")) offset = saved;
+      if (!quotedValue && value?.startsWith("--")) offset = saved;
     }
   }
   return violations;
