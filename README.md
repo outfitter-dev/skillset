@@ -58,7 +58,7 @@ skillset.yaml + .skillset/ authored source
 - `skillset build` previews a deterministic output plan.
 - `skillset build --yes` writes repo-local provider output and lock provenance.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. [Build and activation are separate workflows](docs/start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. [Build and activation are separate workflows](docs/start/build-versus-activation.md).
 
 ## What it can author
 

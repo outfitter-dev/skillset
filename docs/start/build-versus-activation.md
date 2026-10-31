@@ -4,7 +4,7 @@ description: Separates Skillset's deterministic repository builds from provider 
 
 # Build Versus Activation
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration.
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. The separate, explicit `hooks setup` workflow can configure one generated-edit guard after a preview and `--yes`; it never grants provider trust.
 
 That boundary is deliberate. A build is a deterministic repository operation: Skillset validates authored source, previews destination changes, and—after explicit confirmation—writes provider-native files plus provenance. Those changes can be inspected, tested, committed, and reviewed like other project files.
 
@@ -17,6 +17,10 @@ Activation gives those files runtime authority. Depending on the provider, activ
 - Preview deterministic repo-local destination changes.
 - Write confirmed generated files, lock provenance, and recoverable backups.
 - Report whether generated output is missing, stale, edited, or unsupported.
+
+## Explicit generated-edit hook setup
+
+Use `skillset hooks setup --target claude --scope project` (or `--target codex`) to preview the exact configuration and command. `--scope user` explicitly selects user configuration; `--yes` applies the plan. Removal uses the same selection with `--remove`, followed by `--yes` after review. See [Hooks](../reference/features/hooks.md#explicit-generated-edit-guard-setup) for ownership, environment overrides, supported platforms and trust requirements.
 
 ## What requires a separate decision
 

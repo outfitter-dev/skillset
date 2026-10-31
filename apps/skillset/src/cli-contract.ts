@@ -4,7 +4,7 @@ export { CLI_COMMANDS };
 
 export const CLI_ENVIRONMENT = {
   SKILLSET_GENERATED_EDIT_POLICY:
-    "Choose block (default) or warn for verified generated-file edits through the explicit Claude pre-tool-use hook.",
+    "Choose block (default) or warn for verified generated-file edits through the explicit Claude or Codex pre-tool-use hook.",
   SKILLSET_HOOK_COMMAND:
     "Override the Skillset executable and optional arguments used by an explicitly installed hook integration. Quote executable paths that contain spaces; shell syntax and quoted shell expansions run through /bin/sh on POSIX and %ComSpec% on Windows.",
   SKILLSET_HOOK_EVENT:
@@ -309,6 +309,8 @@ export const CLI_FLAGS = {
     meaning: "Show lookup schema facts.",
     value: "boolean",
   },
+  "--policy": { family: "mode", value: "value", meaning: "Select the default generated-edit hook policy." },
+  "--remove": { family: "mode", value: "boolean", meaning: "Remove only the unchanged generated-edit hook recorded by setup." },
   "--scope": {
     family: "selection",
     meaning:
@@ -446,6 +448,7 @@ export const CLI_ROUTE_FLAGS = {
   "distribute plan": ["--json", "--root"],
   draft: ["--json", "--root", "--yes"],
   explain: ["--activation", "--json", "--root", "--scope"],
+  "hooks setup": ["--target", "--scope", "--policy", "--remove", "--yes", "--json", "--root"],
   "hooks context": ["--context-fields", "--event", "--format", "--root"],
   "hooks print": [
     "--agent-runtime",
@@ -530,6 +533,7 @@ export const HIDDEN_CLI_ROUTES = {
 } as const;
 
 export const FINITE_JSON_ROUTES = [
+  "hooks setup",
   "create",
   "draft",
   "init",

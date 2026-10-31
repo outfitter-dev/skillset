@@ -74,4 +74,4 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 
 The local Cursor CLI can smoke-test isolated renderings, but runtime evidence remains separate from compile-target support. A successful [build](../../glossary.md#build) does not prove that Cursor trusted, discovered, or invoked the generated artifact. See the [Cursor provider ADR](../../adrs/0002-cursor-is-a-first-class-provider.md) and [runtime adapters](../../development/features/runtime-adapters.md).
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).

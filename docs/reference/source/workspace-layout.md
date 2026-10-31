@@ -84,7 +84,7 @@ An enabled [target](../../glossary.md#target) receives files in its native repos
 
 Nearby `skillset.lock` files record source paths, destination ownership, projection role, hashes, and render evidence. Current locks distinguish `standard`, `project-use`, and provider `bundle` roles. Each lock entry carries its own provenance hash and a header hash covers the configuration-derived fields, so branches that change different units edit different lock lines and merge as plain text ([ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md)). Generated paths are reviewable and may be committed, but edit `.skillset/` when the intent is portable. Use `skillset explain <path>` to trace one source or destination and its role, and `skillset check --only outputs` to detect [drift](../../glossary.md#drift). Exact flags belong to the generated [CLI reference](../cli/README.md).
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. [Build and activation are separate workflows](../../start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. [Build and activation are separate workflows](../../start/build-versus-activation.md).
 
 `skillset move <from> <to>` moves one shipped skill between
 `.skillset/skills/<leaf>` and

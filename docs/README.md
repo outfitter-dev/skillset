@@ -55,4 +55,4 @@ These pages cover common author and maintainer workflows:
 - [Interactive CLI](reference/features/interactive-cli.md) defines prompt eligibility and controlled-terminal behavior.
 - [Package ownership](development/package-ownership.md) explains the compiler package boundaries used by maintainers.
 
-Generated output does not grant runtime authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](start/build-versus-activation.md).
+Generated output does not grant runtime authority. Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](start/build-versus-activation.md).

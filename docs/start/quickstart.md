@@ -116,4 +116,4 @@ That is the core source-first loop: edit [canonical source](../glossary.md#canon
 - Use the [development loop](../guides/development-loop.md) for daily work.
 - If a command fails, start with [troubleshooting](../troubleshooting.md).
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

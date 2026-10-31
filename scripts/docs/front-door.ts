@@ -41,7 +41,7 @@ const RETIRED_DISTRIBUTION_NAMES = [
   ["@skillset/ci", /@skillset\/ci(?![\w.-])/u],
 ] as const;
 const ACTIVATION_INVARIANT =
-  "Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration.";
+  "Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration.";
 const ACTIVATION_PAGE = "docs/start/build-versus-activation.md";
 const REQUIRED_INVARIANT_PAGES = [
   "README.md",

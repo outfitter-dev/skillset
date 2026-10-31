@@ -55,4 +55,4 @@ Generated files remain reviewable and committable, but they are not source truth
 
 ## Stop at the repository boundary
 
-Deterministic files are not runtime authority. Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).
+Deterministic files are not runtime authority. Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](build-versus-activation.md).

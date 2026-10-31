@@ -132,6 +132,7 @@ describe("SET-275 final CLI contract", () => {
       "eval tail": "skillset eval tail ",
       "distribute plan": "skillset distribute plan ",
       explain: "skillset explain ",
+      "hooks setup": "skillset hooks setup ",
       import: "skillset import <path> ",
       init: "skillset init ",
       list: "skillset list ",

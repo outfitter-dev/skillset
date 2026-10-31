@@ -65,3 +65,25 @@ skillset hooks run <post-tool-use|session-start|stop> [--root <path>]
 | Option | Meaning |
 | --- | --- |
 | `--root <value>` | Select the repository root; defaults to cwd or Git root according to the route. |
+
+## `skillset hooks setup`
+
+Preview or explicitly install/remove a local generated-edit guard.
+
+### Usage
+
+```text
+skillset hooks setup --target <claude|codex> --scope <project|user> [--policy <block|warn>] [--remove] [--yes] [--json] [--root <path>]
+```
+
+### Options
+
+| Option | Meaning |
+| --- | --- |
+| `--target <value>` | Select one provider target for a route. |
+| `--scope <value>...` | Choose project-local or user configuration; required. |
+| `--policy <value>` | Select the default generated-edit hook policy. |
+| `--remove` | Remove only the unchanged generated-edit hook recorded by setup. |
+| `--yes` | Confirm a fully specified plan-first mutation without prompting. |
+| `--json` | Emit exactly one versioned finite JSON result document. |
+| `--root <value>` | Project root only; not accepted for user configuration. |

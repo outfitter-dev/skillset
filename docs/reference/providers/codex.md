@@ -72,4 +72,4 @@ With `compile.session_start_hook: on` (or eligible `auto`), Skillset composes on
 
 Implemented provider claims are backed by checked-in destination-format snapshots, the immutable released OpenAI marketplace-parser pin, current official package documentation, schema snapshots or manual overlays, and rendering tests. The generated table reports registry status; it does not make an app, plugin, or agent trusted by a Codex runtime.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).

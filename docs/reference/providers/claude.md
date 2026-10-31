@@ -70,4 +70,4 @@ For exact source and [destination](../../glossary.md#destination) behavior, use 
 
 Implemented provider claims are backed by checked-in destination-format snapshots, schema snapshots or manual overlays, and rendering tests. The generated table reports registry status; it does not replace provider-specific review when Claude changes a native format.
 
-Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).
+Build commands render files without installing, trusting, activating, symlinking, or mutating user-level provider configuration. See [Build Versus Activation](../../start/build-versus-activation.md).

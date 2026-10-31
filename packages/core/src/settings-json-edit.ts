@@ -17,6 +17,18 @@ export function composeSessionStartText(
   command: string,
   removeOnly: boolean
 ): string {
+  return composeHookEventText(source, "SessionStart", session, expected, command, removeOnly);
+}
+
+/** Same span-preserving composition for an explicitly selected runtime event. */
+export function composeHookEventText(
+  source: string,
+  event: string,
+  session: readonly JsonValue[],
+  expected: JsonRecord,
+  command: string,
+  removeOnly: boolean
+): string {
   const initialRoot = jsonRoot(source);
   assertUniqueObjectKeys(initialRoot);
   const ownedIndexes = session.flatMap((entry, index) =>
@@ -31,7 +43,7 @@ export function composeSessionStartText(
     const root = jsonRoot(next);
     const hooks = propertyValue(root, "hooks");
     if (hooks === undefined || hooks.type !== "object") throw new Error("skillset: invalid hooks object");
-    next = removeObjectProperty(next, hooks, "SessionStart");
+    next = removeObjectProperty(next, hooks, event);
     const updatedRoot = jsonRoot(next);
     const updatedHooks = propertyValue(updatedRoot, "hooks");
     if (updatedHooks?.children?.length === 0) next = removeObjectProperty(next, updatedRoot, "hooks");
@@ -39,19 +51,19 @@ export function composeSessionStartText(
     const indexesToRemove = removeOnly ? ownedIndexes : ownedIndexes.slice(1);
     for (const index of indexesToRemove.toReversed()) {
       const root = jsonRoot(next);
-      const array = propertyValue(propertyValue(root, "hooks")!, "SessionStart");
-      if (array === undefined || array.type !== "array") throw new Error("skillset: invalid SessionStart array");
+      const array = propertyValue(propertyValue(root, "hooks")!, event);
+      if (array === undefined || array.type !== "array") throw new Error(`skillset: invalid ${event} array`);
       next = removeArrayElement(next, array, index);
     }
     if (!removeOnly && ownedIndexes.length === 0) {
       const root = jsonRoot(next);
       const hooks = propertyValue(root, "hooks");
       if (hooks === undefined) {
-        next = insertObjectProperty(next, root, "hooks", JSON.stringify({ SessionStart: [expected] }));
+        next = insertObjectProperty(next, root, "hooks", JSON.stringify({ [event]: [expected] }));
       } else {
-        const array = propertyValue(hooks, "SessionStart");
+        const array = propertyValue(hooks, event);
         if (array === undefined) {
-          next = insertObjectProperty(next, hooks, "SessionStart", JSON.stringify([expected]));
+          next = insertObjectProperty(next, hooks, event, JSON.stringify([expected]));
         } else {
           next = insertArrayElement(next, array, JSON.stringify(expected));
         }
@@ -128,4 +140,16 @@ function insertArrayElement(source: string, array: JsonNode, value: string): str
 
 function spliceText(source: string, start: number, end: number, replacement: string): string {
   return source.slice(0, start) + replacement + source.slice(end);
+}
+
+export function readHookEventEntries(source: string, event: string): readonly JsonValue[] {
+  const value: unknown = JSON.parse(source);
+  assertUniqueObjectKeys(jsonRoot(source));
+  if (!isJsonRecord(value)) throw new Error("skillset: settings root must be an object");
+  if (value.hooks === undefined) return [];
+  if (!isJsonRecord(value.hooks)) throw new Error("skillset: invalid hooks object");
+  const entries = value.hooks[event];
+  if (entries === undefined) return [];
+  if (!Array.isArray(entries)) throw new Error(`skillset: invalid ${event} array`);
+  return entries;
 }

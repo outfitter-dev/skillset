@@ -74,6 +74,8 @@ The [CLI command reference](cli/README.md) documents which options each public r
 | `--root <value>` | `context` | `value` | Select the repository root; defaults to cwd or Git root according to the route. |
 | `--runner <value>` | `selection` | `value` | Select the hook runner syntax to print. |
 | `--schema` | `selection` | `boolean` | Show lookup schema facts. |
+| `--policy <value>` | `mode` | `value` | Select the default generated-edit hook policy. |
+| `--remove` | `mode` | `boolean` | Remove only the unchanged generated-edit hook recorded by setup. |
 | `--scope <value>...` | `selection` | `repeatable-value` | Select a route-owned source unit or generated destination scope; never changes workspace roots. |
 | `--script <value>` | `input` | `value` | Set the script action for a new adaptive hook. |
 | `--since <value>` | `selection` | `value` | Select the Git baseline for change-aware checks or ledgers. |
@@ -110,7 +112,7 @@ Environment overrides exist only for explicit runtime-test and installed-hook in
 <!-- skillset:generated:start cli-environment -->
 | Variable | Contract |
 | --- | --- |
-| `SKILLSET_GENERATED_EDIT_POLICY` | Choose block (default) or warn for verified generated-file edits through the explicit Claude pre-tool-use hook. |
+| `SKILLSET_GENERATED_EDIT_POLICY` | Choose block (default) or warn for verified generated-file edits through the explicit Claude or Codex pre-tool-use hook. |
 | `SKILLSET_HOOK_COMMAND` | Override the Skillset executable and optional arguments used by an explicitly installed hook integration. Quote executable paths that contain spaces; shell syntax and quoted shell expansions run through /bin/sh on POSIX and %ComSpec% on Windows. |
 | `SKILLSET_HOOK_EVENT` | Carry the normalized hook event into an explicit hook command. |
 | `SKILLSET_PROVIDER` | Carry the selected provider into an explicit hook command. |
