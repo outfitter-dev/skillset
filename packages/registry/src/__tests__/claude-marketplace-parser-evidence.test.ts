@@ -16,13 +16,21 @@ const source = CLAUDE_MARKETPLACE_PARSER_EVIDENCE;
 const lane = getProviderValidationLane("claude-product");
 
 describe("SET-488 immutable static parser qualification", () => {
-  test("qualifies only the two inspected predicate groups, without claiming runtime acceptance", () => {
+  test("qualifies only the three inspected predicate groups, without claiming runtime acceptance", () => {
     expect(() => assertClaudeMarketplaceParserEvidence(source)).not.toThrow();
     expect(source.authority).toBe("static-parser-inspection");
     expect(inspectClaudeMarketplaceParserPin(source, lane).status).toBe("pin-matched");
     const parserRules = CLAUDE_MARKETPLACE_EVIDENCE.rules.filter((rule) => rule.parser !== undefined);
-    expect(parserRules.map(({ id }) => id).sort()).toEqual(["marketplace.source.archive.digest", "marketplace.source.command.limits"]);
+    expect(parserRules.map(({ id }) => id).sort()).toEqual(["marketplace.entry.name.pattern", "marketplace.source.archive.digest", "marketplace.source.command.limits"]);
     expect(parserRules.every(({ schema }) => schema.length === 0)).toBe(true);
+  });
+  test("keeps strict warnings distinct from schema predicates", () => {
+    expect(source.predicates["entry-name-strict"].stage).toBe("strict-warning");
+    for (const id of ["archive-digest", "command-limits"] as const) {
+      expect(source.predicates[id].stage).toBe("schema-predicate");
+    }
+    const predicates = { ...source.predicates, "entry-name-strict": { ...source.predicates["entry-name-strict"], stage: "schema-predicate" as const } };
+    expect(() => assertClaudeMarketplaceParserEvidence({ ...source, predicates })).toThrow();
   });
   test.each([
     ["version", { ...lane, version: "2.1.270" }],
@@ -66,7 +74,7 @@ describe("SET-488 immutable static parser qualification", () => {
       rules: CLAUDE_MARKETPLACE_EVIDENCE.rules.filter((rule) => rule.parser !== undefined || rule.id === "marketplace.source.archive.url") };
     const matched = inspectClaudeMarketplaceEvidence(evidence, body);
     expect(matched.status).toBe("matched");
-    expect(matched.parserRuleIds).toHaveLength(2);
+    expect(matched.parserRuleIds).toHaveLength(3);
     expect(matched.unresolvedRuleIds).toEqual(["marketplace.source.archive.url"]);
     expect(matched.parserReview?.status).toBe("pin-matched");
     const changed = inspectClaudeMarketplaceEvidence(evidence, body, { ...lane, version: "changed" });

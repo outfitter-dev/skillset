@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits";
+export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -15,7 +15,7 @@ export interface ClaudeMarketplaceParserEvidence {
   readonly member: { readonly path: string; readonly bytes: number; readonly contentHash: string };
   readonly windows: readonly { readonly id: string; readonly start: number; readonly end: number; readonly contentHash: string }[];
   readonly predicates: Readonly<Record<ClaudeMarketplaceParserPredicateId, {
-    readonly ruleId: string; readonly windows: readonly string[]; readonly claim: string;
+    readonly stage: "schema-predicate" | "strict-warning"; readonly ruleId: string; readonly windows: readonly string[]; readonly claim: string;
   }>>;
   readonly limitation: string;
 }
@@ -75,6 +75,60 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
       "start": 181312531,
       "end": 181313450,
       "contentHash": "sha256:5382d18080afc2d9825d3db83d44cf4cf64793f3452040a457982b388d19afec"
+    },
+    {
+      "id": "export-validate-handler",
+      "start": 208330955,
+      "end": 208331410,
+      "contentHash": "sha256:074f3d3109cb9bc62e5042111440d4895b56c1dcf7a40cfa6441ba4d651942d4"
+    },
+    {
+      "id": "cli-strict-aggregate",
+      "start": 208302950,
+      "end": 208304220,
+      "contentHash": "sha256:c89d0bb32aa8d491aedac05d0c168407e3be2d467cf1fd6140fafdf43556ad33"
+    },
+    {
+      "id": "strict-success-policy",
+      "start": 208253347,
+      "end": 208253550,
+      "contentHash": "sha256:4e59fbbcab3a094d3d341dc22939eb2ab15caa05ec3cc2233ff7f894569c6e81"
+    },
+    {
+      "id": "dispatch-marketplace",
+      "start": 208281849,
+      "end": 208283000,
+      "contentHash": "sha256:ee7bf790fbc3cf830dd6f933c5d3514a66db446a11644440cf7fb77b2b18e1ab"
+    },
+    {
+      "id": "marketplace-validator-schema",
+      "start": 208261077,
+      "end": 208261350,
+      "contentHash": "sha256:5a4c2348b1a4a0b106dcab883e7fe42f61b43755a366844610adfd36c957d43a"
+    },
+    {
+      "id": "marketplace-validator-parse",
+      "start": 208263350,
+      "end": 208263930,
+      "contentHash": "sha256:5294a76d6efc0ef70c3fda4dcea5cb43407a7f5c74a7447f9d02ad8d8a19ae59"
+    },
+    {
+      "id": "marketplace-name-warning",
+      "start": 208264150,
+      "end": 208265850,
+      "contentHash": "sha256:c7f0272128de9bb23df8e7e06d4f4f5026deced74fa248b76f2d7b073685fdea"
+    },
+    {
+      "id": "marketplace-validator-return",
+      "start": 208269800,
+      "end": 208270450,
+      "contentHash": "sha256:3d9655814c800d75487a6b77063444521da8f0447c47a493ebc8326a400c9d8e"
+    },
+    {
+      "id": "strict-name-pattern",
+      "start": 208260989,
+      "end": 208261077,
+      "contentHash": "sha256:49cc01ab308ded5c73adaa63f178d53e1fdfa0c154ea496e7c2482e547a93a72"
     }
   ],
   "predicates": {
@@ -87,7 +141,8 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
         "entry-safeparse-transform",
         "marketplace-schema-caller"
       ],
-      "claim": "The optional archive sha256 field uses Hs, a 64-character hexadecimal string predicate, in ic within the marketplace source union."
+      "claim": "The optional archive sha256 field uses Hs, a 64-character hexadecimal string predicate, in ic within the marketplace source union.",
+      "stage": "schema-predicate"
     },
     "command-limits": {
       "ruleId": "marketplace.source.command.limits",
@@ -98,10 +153,27 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
         "entry-safeparse-transform",
         "marketplace-schema-caller"
       ],
-      "claim": "The command source uses maximum length 500, printable ASCII with no four consecutive spaces, optional mode copy/link and optional positive integer timeout at most 600."
+      "claim": "The command source uses maximum length 500, printable ASCII with no four consecutive spaces, optional mode copy/link and optional positive integer timeout at most 600.",
+      "stage": "schema-predicate"
+    },
+    "entry-name-strict": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.entry.name.pattern",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "strict-success-policy",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-name-warning",
+        "marketplace-validator-return",
+        "strict-name-pattern"
+      ],
+      "claim": "The marketplace validator tests nonempty plugin entry names against ze: ASCII alphanumeric first, then ASCII alphanumeric/dot/underscore/hyphen, at most 128 characters. A mismatch is a Claude Desktop compatibility warning. K8n makes warnings fail only under --strict; oa uses that aggregate for CLI status. This is a static condition, not observed execution or ordinary Claude Code runtime rejection."
     }
   },
-  "limitation": "Embedded bundled JavaScript inspection only. js is used by H$t; dc safe-parses entries and LMe uses dc. Recovery of invalid entries and later strict-validator stages mean these predicates do not establish command exit status, installation or runtime acceptance."
+  "limitation": "Embedded bundled JavaScript inspection only. Schema-predicate records do not establish command exit status because entry recovery and later validation stages differ. The strict-warning record traces one warning-to-status condition; it does not establish whole-command acceptance, installation, trust or runtime behavior. No provider code was executed."
 };
 
 export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplaceParserEvidence): void {
@@ -119,11 +191,11 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     ids.add(window.id);
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
-  for (const id of ["archive-digest", "command-limits"] as const) {
+  for (const id of ["archive-digest", "command-limits", "entry-name-strict"] as const) {
     const predicate = evidence.predicates[id];
-    if (predicate === undefined || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
+    if (predicate === undefined || predicate.stage !== (id === "entry-name-strict" ? "strict-warning" : "schema-predicate") || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 2) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 3) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {

@@ -16,7 +16,7 @@ Run `bun run providers:check` or `bun run providers:diff` to fetch the selected 
 
 ## Static Parser Qualification
 
-`claude-marketplace-parser-evidence.ts` records the existing validation lane's Claude 2.1.269 Linux archive integrity, its exact `package/claude` member digest, and zero-based byte windows with exclusive ends. It qualifies only the archive SHA-256 string format and command-source mode, timeout and text limits. Each rule references its own inspected predicate and the source-schema use sites. The embedded parser recovers invalid entries, and later strict-validator stages were not traced; these facts do not establish CLI exit status, installation or runtime acceptance.
+`claude-marketplace-parser-evidence.ts` records the existing validation lane's Claude 2.1.269 Linux archive integrity, its exact `package/claude` member digest, and zero-based byte windows with exclusive ends. It qualifies the archive SHA-256 string format, command-source mode/timeout/text limits, and the entry-name strict-validation condition. Each predicate records its stage: `schema-predicate` or `strict-warning`. Schema predicates retain their source-schema use sites; entry recovery means they do not independently establish CLI exit status. The name record traces the exported validation handler through marketplace dispatch, the name-pattern warning, and the strict aggregation policy. A mismatching nonempty name produces a Claude Desktop compatibility warning, which fails under `--strict`; it is not ordinary Claude Code runtime rejection. Core retains its existing invalid-shape diagnostic. Static tracing does not establish observed execution, whole-command acceptance, installation or runtime behavior.
 
 Provider maintenance reports static rules separately from schema-backed and unresolved rules. It checks that the recorded version, lane identity and archive integrity still match the canonical validation lane. A pin change makes `providers:check` fail pending evidence review. It does not download or execute the binary during ordinary maintenance.
 
@@ -28,7 +28,7 @@ bun scripts/verify-claude-marketplace-parser.ts /path/to/extracted/member
 
 This command reads the member and checks its length, full digest and every referenced window. It never invokes provider code. Passing byte checks identifies the inspected bytes; it does not independently prove the human interpretation of them. Review the predicate and its call sites before changing the record or its coverage fingerprint.
 
-The inspected archive-host and plugin-name predicates differ from Core at this parser layer. They retain unresolved qualifications until their relevant strict-validation stages are traced; the static observations alone do not change the offline validation contract.
+The archive-host predicate remains unresolved: the inspected provider guard rejects additional host forms, and static tracing alone does not change the offline validation contract. The qualified name predicate agrees with the specific strict warning condition while retaining the diagnostic-severity distinction above.
 
 ## Implementation Coverage
 
