@@ -401,6 +401,39 @@ describe("preprocess reference grammar", () => {
     expect(rendered).toEqual([]);
   });
 
+  test.each([
+    ["URI", "<https://example.com/`x>\n@{{shared:references/a.md}} `"],
+    ["email", "<a`b@example.com>\n@{{shared:references/a.md}} `"],
+    ["Unicode before URI", "😀 <https://example.com/`é>\r\n@{{shared:references/a.md}} `"],
+    ["multiple ticks", "<https://example.com/``x>\n@{{shared:references/a.md}} ``"],
+    ["earlier code closes inside apparent URI", "`before <https://example.com/`x> after @{{shared:references/a.md}}"],
+  ])("autolink %s backticks do not hide a subsequent shared reference", async (_case, content) => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+    await expect(preprocessText(content, context)).resolves.toBe(content.replace(/\r\n/gu, "\n").replace("@{{shared:references/a.md}}", "@shared:references/a.md"));
+    expect(rendered).toEqual(["shared:references/a.md"]);
+  });
+
+  test.each([
+    ["escaped opener", "\\<https://example.com/`x> @{{shared:references/a.md}} `"],
+    ["invalid URI scheme", "<x:`x> @{{shared:references/a.md}} `"],
+    ["space inside URI", "<https://example.com/ `x> @{{shared:references/a.md}} `"],
+    ["nonlink angles", "<foo`x> @{{shared:references/a.md}} `"],
+    ["code consumed the apparent autolink opener", "`<https://example.com/`a`b> @{{shared:references/a.md}} `"],
+    ["real code after valid autolink", "<https://example.com/`x> `@{{shared:references/a.md}}`"],
+  ])("autolink recognition preserves %s", async (_case, content) => {
+    await files(rootPath, { ".skillset/shared/references/a.md": "A" });
+    const { context, rendered } = recordingContext(rootPath);
+    await expect(preprocessText(content, context)).resolves.toBe(content);
+    expect(rendered).toEqual([]);
+  });
+
+  test("autolink candidate offsets preserve UTF-16 and CRLF positions", () => {
+    const prefix = "😀 <https://example.com/`é>\r\n";
+    const code = "`protected`";
+    expect(markdownCodeRanges(prefix + code)).toEqual([[prefix.length, prefix.length + code.length]]);
+  });
+
   test("ends a fence that closes on the last line at the end of content", () => {
     const content = "```\n@{{shared:references/a.md}}\n```";
 

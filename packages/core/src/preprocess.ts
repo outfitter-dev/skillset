@@ -1,3 +1,4 @@
+import { markdownAutolinkCandidates } from "./markdown-autolinks";
 import { readdirSync, readFileSync, readdir, readFile, realpath, stat } from "./workspace-fs";
 import {
   basename,
@@ -895,6 +896,7 @@ function isMarkdownSource(path: string): boolean {
 type CodeRange = readonly [start: number, end: number];
 
 interface BacktickRun {
+  readonly autolinkStart?: number;
   readonly escaped: boolean;
   readonly length: number;
   readonly start: number;
@@ -1072,10 +1074,16 @@ function tableCellCount(row: string): number {
 }
 
 function backtickRuns(line: string, lineStart: number): BacktickRun[] {
+  if (!line.includes("`")) return [];
+  const autolinks = markdownAutolinkCandidates(line);
+  let autolinkIndex = 0;
   return Array.from(line.matchAll(/`+/g), (run) => {
+    while (autolinks[autolinkIndex] !== undefined && autolinks[autolinkIndex]!.end <= run.index) autolinkIndex++;
+    const autolink = autolinks[autolinkIndex];
     let backslashes = 0;
     while (line[run.index - backslashes - 1] === "\\") backslashes += 1;
     return {
+      ...(autolink !== undefined && autolink.start < run.index ? { autolinkStart: lineStart + autolink.start } : {}),
       escaped: backslashes % 2 === 1,
       length: run[0].length,
       start: lineStart + run.index,
@@ -1090,8 +1098,12 @@ function backtickRuns(line: string, lineStart: number): BacktickRun[] {
  */
 function pushCodeSpans(runs: readonly BacktickRun[], ranges: CodeRange[]): void {
   let resumeAt = 0;
+  let consumedUntil = 0;
   for (const [index, run] of runs.entries()) {
     if (index < resumeAt) continue;
+    // Autolinks consume their own ticks, unless an earlier span consumed '<'.
+    // Such ticks can still close an already open span; only openers are skipped.
+    if (run.autolinkStart !== undefined && run.autolinkStart >= consumedUntil) continue;
     const openLength = run.escaped ? run.length - 1 : run.length;
     if (openLength === 0) continue;
     let close = index + 1;
@@ -1100,6 +1112,7 @@ function pushCodeSpans(runs: readonly BacktickRun[], ranges: CodeRange[]): void 
     if (closer === undefined) continue;
     ranges.push([run.start + run.length - openLength, closer.start + closer.length]);
     resumeAt = close + 1;
+    consumedUntil = closer.start + closer.length;
   }
 }
 
