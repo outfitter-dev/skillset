@@ -380,7 +380,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
 
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
-  { path: "packages/core/src/render.ts", contentHash: "sha256:df7a3b9983395bebdfd6988b5b1e4833f1d2c77e40917636e7f756d4ce2b6f53" },
+  { path: "packages/core/src/render.ts", contentHash: "sha256:b7201cb41c788574d18e28589fce9f702d0fc15eb112a85ccda4ee27408e669d" },
   { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:28cbfca4c3383b136c4bb27bd6bcbdc1144c5d0aba95f71704a2c2c34478689a" },
   { path: "packages/core/src/__tests__/skill-invocation-policy.test.ts", contentHash: "sha256:c1efd8f659af4b136d97994960cf3512ba40164bb9cde5e47f8be06ae7af7d41" },
   { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:55e9dd9ee368a1153e2cf9262f98ea3cee428884e884ab680efd443e64d69085" },

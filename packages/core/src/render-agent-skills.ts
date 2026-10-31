@@ -23,6 +23,7 @@ import {
   copyFileFromSource,
   copyPath,
   lockRootsFor,
+  normalizeManagedRelativePath,
   textFile,
   type LockItem,
   type LockRoot,
@@ -49,6 +50,7 @@ export interface AgentSkillLockItemArgs {
   readonly graph: BuildGraph;
   readonly kind: LockItem["kind"];
   readonly license: ResolvedLicense | undefined;
+  readonly outputAnchorPath: string;
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
@@ -211,6 +213,7 @@ async function renderStandardAgentSkillTree(
     graph: args.graph,
     kind: args.plugin === undefined ? "standalone-skill" : "plugin-skill",
     license: skillLicense,
+    outputAnchorPath: markdown.file.path,
     outputRoot: args.outputRoot,
     ...(args.plugin === undefined ? {} : { plugin: args.plugin }),
     preprocessDependencies: [
@@ -254,6 +257,10 @@ async function renderStandardAgentSkillTree(
       graph: args.graph,
       kind: args.plugin === undefined ? "standalone-skill" : "plugin-skill",
       license: skillLicense,
+      // Auxiliary-only locks retain their first sorted managed-relative anchor.
+      outputAnchorPath: path.join(args.outputRoot, auxiliary.files
+        .map((file) => normalizeManagedRelativePath(path.relative(args.outputRoot, file.path)))
+        .sort()[0]!),
       outputRoot: args.outputRoot,
       ...(args.plugin === undefined ? {} : { plugin: args.plugin }),
       preprocessDependencies: auxiliary.preprocessDependencies,

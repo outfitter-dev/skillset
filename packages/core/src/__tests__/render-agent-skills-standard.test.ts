@@ -448,6 +448,30 @@ Review the change.
     expect(frontmatter).not.toHaveProperty("tools");
   });
 
+  test.each([
+    { fields: "implicit_invocation:\n  codex: true\n", anchor: "guide/agents/openai.yaml" },
+    { fields: "tools:\n  read: true\n", anchor: "guide/.skillset.tools.yaml" },
+    { fields: "", anchor: undefined },
+  ])("keeps auxiliary-only lock anchors with $fields", async ({ fields, anchor }) => {
+    const graph = adopted(await fixtureGraph({
+      "skillset.yaml": "skillset:\n  name: auxiliary-anchor\nclaude: false\ncodex: true\ncursor: false\n",
+      ".skillset/skills/guide/SKILL.md": `---\nname: guide\ndescription: Guide tasks.\n${fields}---\n\nGuide tasks.\n`,
+      ".skillset/skills/guide/AAA/SKILL.md": "Unstructured resource.\n",
+    }), ["agent-skills"]);
+    const rendered = await renderBuildGraph(graph);
+    const items = lockItems(rendered, ".agents/skills/skillset.lock");
+    expect(items).toContainEqual(expect.objectContaining({
+      outputPath: "guide/SKILL.md", owner: { standardProfile: "agent-skills" },
+      files: expect.arrayContaining(["guide/AAA/SKILL.md", "guide/SKILL.md"]),
+    }));
+    const deltas = items.filter((item) => item.role === "bundle");
+    expect(deltas).toHaveLength(anchor === undefined ? 0 : 1);
+    if (anchor !== undefined) expect(deltas[0]).toMatchObject({
+      outputPath: anchor, files: [anchor], owner: { target: "codex" },
+      consumers: [{ phase: "delta", target: "codex" }],
+    });
+  });
+
   test("coalesces the standard baseline with Codex and keeps sidecars Codex-owned", async () => {
     const graph = adopted(
       await fixtureGraph({
@@ -499,6 +523,7 @@ Guide the task.
           { phase: "delta", target: "codex" },
         ],
         files: expect.arrayContaining(["guide/SKILL.md"]),
+        outputPath: "guide/SKILL.md",
         owner: { standardProfile: "agent-skills" },
         role: "standard",
       })
@@ -507,6 +532,7 @@ Guide the task.
       expect.objectContaining({
         consumers: [{ phase: "delta", target: "codex" }],
         files: ["guide/.skillset.tools.yaml", "guide/agents/openai.yaml"],
+        outputPath: "guide/.skillset.tools.yaml",
         owner: { target: "codex" },
         role: "bundle",
       })
