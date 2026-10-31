@@ -89,3 +89,11 @@ describe("SET-488 immutable static parser qualification", () => {
     expect(text).toContain("not runtime acceptance");
   });
 });
+
+test("standalone preflight references qualified windows without becoming a marketplace predicate", async () => {
+  const { CLAUDE_STANDALONE_HOOK_PREFLIGHT_EVIDENCE: preflight } = await import("../claude-marketplace-parser-evidence");
+  expect(preflight.parserEvidenceId).toBe(source.id);
+  expect(preflight.stage).toBe("validator-error");
+  for (const id of preflight.windows) expect(source.windows.some(window => window.id === id)).toBe(true);
+  expect(preflight.claim).toContain("not provider execution");
+});

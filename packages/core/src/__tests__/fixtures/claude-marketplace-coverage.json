@@ -305,7 +305,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:6f1f4d7e8ba562854cf6162c01c161d6f3a3fd7eed3ba010d5128ef1c1d6e2d3",
+      "hash": "sha256:be5eb9a23a0644afedd1dab776ea631e74facb9a00169ea50ea1318e69ba0401",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -522,7 +522,7 @@
     {
       "path": "packages/core/src/claude-inline-hooks-conformance.ts",
       "declarations": [],
-      "hash": "sha256:b1628525757327dbe23aa40d1c63b7a56c9632782e3a096ab2593302f5f0b990",
+      "hash": "sha256:f0b22498d50c73f1288086cf02a15cdaf461ffcd3fbb27059179ba8b28e9a644",
       "ruleIds": [
         "marketplace.hooks.events",
         "marketplace.hooks.definition"
@@ -538,6 +538,22 @@
         "marketplace.hooks.definition"
       ],
       "reason": "Reviewed Wq/Rd input schemas and standalone-only Tt/Nne group guard observations; no render capability expansion."
+    },
+    {
+      "path": "packages/core/src/claude-hook-guard-scan.ts",
+      "declarations": [
+        "import:\"@skillset/registry\"",
+        "import:\"./yaml\"",
+        "variable:events",
+        "function:hasGuardKey",
+        "function:isMatcherLike",
+        "function:containsMisplacedGuard"
+      ],
+      "ruleIds": [
+        "marketplace.hooks.definition"
+      ],
+      "hash": "sha256:fb59719ddbc576b3d22f364944697129881a6532a67d8e205d4b4cbf1e986f2a",
+      "reason": "Shared Nne helper preserves the standalone-only inline guard observation. Separate manifest preflight is not applied to marketplace raw parsing."
     }
   ]
 }
