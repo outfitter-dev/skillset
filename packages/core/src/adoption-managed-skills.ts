@@ -1,3 +1,4 @@
+import { isEmptySourceGraphError } from "./empty-source-graph";
 import { basename, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { generatedFileModeMatches } from "./generated-file-mode";
@@ -28,7 +29,7 @@ export async function inspectAdoptionSkillRoots(rootPath: string, roots: readonl
       const locksPresent = await Promise.all(roots.map((root) => exists(resolveInside(rootPath, join(root.path, "skillset.lock")))));
       const hasWorkspace = await exists(join(rootPath, "skillset.yaml")) && await exists(join(rootPath, ".skillset"));
       if (!locksPresent.some(Boolean) && !hasWorkspace) return roots.flatMap((root) => root.units.map((path): AdoptionSkillOwnership => ({ path, kind: "unmanaged" })));
-      const graph = hasWorkspace ? await loadBuildGraph(rootPath, {}) : undefined;
+      const graph = hasWorkspace ? await loadBuildGraph(rootPath, {}).catch((error) => { if (isEmptySourceGraphError(error)) return undefined; throw error; }) : undefined;
       // Session settings are not skill ownership; keep their Git probe out of this read-only inspection.
       const files = graph === undefined ? [] : await renderBuildGraph({ ...graph, root: { ...graph.root, compile: { ...graph.root.compile, sessionStartHook: "off" } } });
       const rendered = new Map(files.map((file) => [file.path, file]));
