@@ -38,6 +38,7 @@ export class SkillsetFeatureDiagnosticError extends Error {
   readonly path?: string;
 
   constructor(args: {
+    readonly cause?: unknown;
     readonly code: string;
     readonly featureId: string;
     readonly message: string;
@@ -47,7 +48,7 @@ export class SkillsetFeatureDiagnosticError extends Error {
       message: args.message,
       ...(args.path === undefined ? {} : { path: args.path }),
     });
-    super(normalized.message);
+    super(normalized.message, { cause: args.cause });
     this.name = "SkillsetFeatureDiagnosticError";
     this.code = args.code;
     this.featureId = args.featureId;

@@ -923,12 +923,15 @@ async function loadAdaptiveHooks(
     if (classified.kind !== "adaptive-unit") continue;
 
     const label = logicalDiagnosticPath(rootPath, file);
+    const content = await readFile(file, "utf8");
     let parsed: JsonValue;
     try {
-      parsed = JSON.parse(await readFile(file, "utf8")) as JsonValue;
+      parsed = JSON.parse(content) as JsonValue;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      if (!(error instanceof SyntaxError)) throw error;
+      const message = error.message;
       throw new SkillsetFeatureDiagnosticError({
+        cause: error,
         code: "adaptive-hook-invalid-json",
         featureId: "adaptive-hooks",
         message: `skillset: adaptive hook ${label} is not valid JSON: ${message}`,
@@ -1050,8 +1053,10 @@ export async function validateAdaptiveHookScriptSource(
   let sourceStat;
   try {
     sourceStat = await stat(sourcePath);
-  } catch {
+  } catch (error) {
+    if (!isErrno(error, "ENOENT") && !isErrno(error, "ENOTDIR")) throw error;
     throw new SkillsetFeatureDiagnosticError({
+      cause: error,
       code: "adaptive-hook-script-missing",
       featureId: "adaptive-hooks",
       message: `skillset: adaptive hook run.script ${reference} does not resolve to an existing source file`,
