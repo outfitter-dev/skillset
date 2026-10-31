@@ -81,3 +81,6 @@ export const CLAUDE_MARKETPLACE_RESTRICTED_HEADERS = [
 export const CLAUDE_MARKETPLACE_RESTRICTED_HEADER_PREFIXES = [
   "x-forwarded-", "x-original-", "proxy-",
 ] as const;
+
+/** Pinned ie().transform(nKe) accepts any input shape; recognition is not normalization fidelity. */
+export const CLAUDE_MARKETPLACE_UNTYPED_FIELDS = ["binaries"] as const;

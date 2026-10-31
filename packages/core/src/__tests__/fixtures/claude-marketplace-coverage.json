@@ -1,11 +1,11 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:8e488ae512dde840bfc28f101a86158097860d7c7a089d5aeaa03e4176e64ed4",
+  "evidenceHash": "sha256:a885ee6e77113d866b61b385f8a2066a01920361fcaa66f40d67f8fe28bd6d62",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
-      "hash": "sha256:7dfda7704b1ecce402ea77f1c7ac8d5ee8c61daf9d551acc506a74d42233a9a1",
+      "hash": "sha256:33c5e3877ebc1ec43f855ac63bdaddab414b9fb07fa225773ca59eefff96c490",
       "ruleIds": [],
       "reason": "Module wiring or marketplace path routing; not a provider predicate."
     },
@@ -94,9 +94,10 @@
     },
     {
       "name": "variable:CLAUDE_MARKETPLACE_PLUGIN_FIELDS",
-      "hash": "sha256:1c24abd8a1b9e82332afba1ad0ac261d0b12633957ed65715822aa990c74c345",
+      "hash": "sha256:bd1d75c9fc3de92e531d11962470065c961abf7081a671fca522db1d97802475",
       "ruleIds": [
-        "marketplace.entry.closed"
+        "marketplace.entry.closed",
+        "marketplace.binaries.input"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -261,7 +262,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-inventories.ts",
       "declarations": [],
-      "hash": "sha256:0ab1c0b85b9fefef00b82c2efac66e27b323160eab25912b5796229eecec05a8",
+      "hash": "sha256:d6b1846cf865370e364ce870d720efabda1ade5069d063498656916e7e8048d3",
       "ruleIds": [
         "marketplace.entry.field_types",
         "marketplace.entry.closed",
@@ -289,7 +290,8 @@
         "marketplace.headers.shape",
         "marketplace.headers.helper_strict",
         "marketplace.headers.source_digest",
-        "marketplace.headers.restricted"
+        "marketplace.headers.restricted",
+        "marketplace.binaries.input"
       ],
       "reason": "Directly consumed field/type/source inventories; new inventory values require evidence review."
     },
@@ -305,7 +307,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:be5eb9a23a0644afedd1dab776ea631e74facb9a00169ea50ea1318e69ba0401",
+      "hash": "sha256:9c5232fa8643d185d311eb1fdeb7b030e8eb80e24ae11ad115f13f280d63e35a",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -343,7 +345,8 @@
         "marketplace.components.paths",
         "marketplace.components.array_types",
         "marketplace.hooks.events",
-        "marketplace.hooks.definition"
+        "marketplace.hooks.definition",
+        "marketplace.binaries.input"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },

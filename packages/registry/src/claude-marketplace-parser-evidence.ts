@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "inline-hook-events" | "inline-hook-definitions" | "hook-reference-paths" | "hook-reference-array" | "experimental-warning-inventory" | "experimental-child-types" | "experimental-syntax" | "monitor-references" | "monitor-required" | "monitor-closed-when" | "monitor-unique" | "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "binary-input" | "entry-key-inventory" | "inline-hook-events" | "inline-hook-definitions" | "hook-reference-paths" | "hook-reference-array" | "experimental-warning-inventory" | "experimental-child-types" | "experimental-syntax" | "monitor-references" | "monitor-required" | "monitor-closed-when" | "monitor-unique" | "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,42 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "binary-unknown-schema",
+  "start": 181147900,
+  "end": 181148250,
+  "contentHash": "sha256:15f3fb8fc9ec5b16e095e64793f8ceecc9902a32b0b568d361103a471c800598"
+},
+{
+  "id": "binary-normalization",
+  "start": 181292300,
+  "end": 181293300,
+  "contentHash": "sha256:50f86359419882f366dd6f672645213aad5192474595ac0457b9f866fb95de40"
+},
+{
+  "id": "binary-plugin-composition",
+  "start": 181293600,
+  "end": 181294350,
+  "contentHash": "sha256:091b2f770a22ce97e8296a531c16f461c7d35e146b6f2597ca4b897fbdc319d5"
+},
+{
+  "id": "binary-marketplace-composition",
+  "start": 181308616,
+  "end": 181309750,
+  "contentHash": "sha256:5b7a6bd60549bcc58b40e84692bce235a759ae67e945eb21b52e55515f7c4f7c"
+},
+{
+  "id": "binary-standalone-warnings",
+  "start": 208258200,
+  "end": 208260300,
+  "contentHash": "sha256:7b0125bdf94bdf477b6920b92f2751e1d4302949c8926690471cfe286d8bd4da"
+},
+{
+  "id": "binary-marketplace-validator",
+  "start": 208263350,
+  "end": 208269000,
+  "contentHash": "sha256:e7033a127c38bfb2d568f7525d71372234598d27d80586e14e74a74c25701afa"
+},
 {
   "id": "inline-hook-events",
   "start": 181234800,
@@ -361,6 +397,30 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"binary-input": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.binaries.input",
+  "windows": [
+    "binary-unknown-schema",
+    "binary-normalization",
+    "binary-plugin-composition",
+    "binary-marketplace-composition",
+    "binary-standalone-warnings",
+    "binary-marketplace-validator"
+  ],
+  "claim": "ie constructs ZodUnknown; oc accepts any binaries JSON then nKe filters invalid basenames/hash objects, strips member extras and retains the first 64 valid entries. The marketplace inline validator does not run standalone He binary warnings. Core recognizes the field without mutation or a normalization/fetch-fidelity claim. Standalone support is separate."
+},
+"entry-key-inventory": {
+  "stage": "strict-warning",
+  "ruleId": "marketplace.entry.closed",
+  "windows": [
+    "binary-plugin-composition",
+    "binary-marketplace-composition",
+    "binary-marketplace-validator",
+    "strict-success-policy"
+  ],
+  "claim": "H$t composes the inspected mwe fields plus marketplace identity/source/header fields into 35 entry keys. The validator U warns on unknown entry keys and strict policy fails warnings. Core reports unknown-destination-field; key equality does not establish value-predicate, normalization or runtime parity."
+},
 "inline-hook-events": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.hooks.events",
@@ -893,6 +953,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["binary-input", "schema-predicate"], ["entry-key-inventory", "strict-warning"],
     ["inline-hook-events", "schema-predicate"], ["inline-hook-definitions", "schema-predicate"],
     ["hook-reference-paths", "schema-predicate"], ["hook-reference-array", "schema-predicate"],
     ["experimental-warning-inventory", "strict-warning"], ["experimental-child-types", "schema-predicate"], ["experimental-syntax", "schema-predicate"],
@@ -910,7 +971,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 37) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 39) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {

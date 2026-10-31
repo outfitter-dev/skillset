@@ -9,7 +9,7 @@ import { checkClaudeMcpServers } from "./claude-mcp-conformance";
 import { checkClaudeChannels, checkClaudeUserConfig } from "./claude-user-config-conformance";
 import { checkClaudeCommandMap } from "./claude-command-map-conformance";
 import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
-import { CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
+import { CLAUDE_MARKETPLACE_UNTYPED_FIELDS, CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
 import { CLAUDE_PLUGIN_FIELD_TYPES } from "./manifest-field-contracts";
 import {
   checkFieldTypes,
@@ -405,6 +405,7 @@ const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = { ...CLAUDE_PLUGIN_FIELD_TYPES, ..
 
 const CLAUDE_MARKETPLACE_PLUGIN_FIELDS = [
   ...Object.keys(CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES),
+  ...CLAUDE_MARKETPLACE_UNTYPED_FIELDS,
   "name",
   "source",
 ] as const;
