@@ -1,3 +1,4 @@
+import { checkClaudeLspServers } from "./claude-lsp-conformance";
 import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
 import { checkClaudeDependencies } from "./claude-dependency-conformance";
 import { checkClaudeMcpServers } from "./claude-mcp-conformance";
@@ -432,7 +433,6 @@ function checkClaudeMarketplacePluginArrays(
   };
   for (const [field, extension] of [
     ["hooks", ".json"],
-    ["lspServers", ".json"],
     ["monitors", ".json"],
   ] as const) {
     issues.push(
@@ -440,7 +440,7 @@ function checkClaudeMarketplacePluginArrays(
     );
   }
   issues.push(...checkClaudeComponentReferences(file, plugin, prefix, "claude-marketplace-schema"));
-  for (const field of ["hooks", "lspServers"] as const) {
+  for (const field of ["hooks"] as const) {
     checkItems(
       field,
       (value) => typeof value === "string" || isJsonRecord(value),
@@ -464,7 +464,7 @@ function checkClaudeMarketplacePluginArrays(
     issues.push(...checkClaudeHookMap(file, plugin.hooks, `${prefix}.hooks`));
   }
   issues.push(
-    ...checkClaudeLspMapVariants(file, plugin.lspServers, `${prefix}.lspServers`),
+    ...checkClaudeLspServers(file, plugin.lspServers, `${prefix}.lspServers`, "claude-marketplace-schema"),
     ...checkClaudeMcpServers(file, plugin.mcpServers, `${prefix}.mcpServers`, "claude-marketplace-schema")
   );
   if (isJsonRecord(plugin.userConfig)) {
@@ -656,94 +656,6 @@ function checkClaudeHookMap(
     );
   }
   return issues;
-}
-
-function checkClaudeLspMapVariants(
-  file: ProviderFormatConformanceFile,
-  value: unknown,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  const maps: readonly (readonly [string, JsonRecord])[] = isJsonRecord(value)
-    ? [[prefix, value]]
-    : Array.isArray(value)
-      ? value.flatMap((entry, index) =>
-          isJsonRecord(entry) ? [[`${prefix}[${index}]`, entry] as const] : []
-        )
-      : [];
-  const issues: ProviderFormatConformanceIssue[] = [];
-  for (const [mapPrefix, map] of maps) {
-    for (const [name, config] of Object.entries(map)) {
-      const configPrefix = `${mapPrefix}.${name}`;
-      if (!isJsonRecord(config)) {
-        issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-field-type", `destination field ${configPrefix} must be an object`));
-        continue;
-      }
-      issues.push(
-        ...checkRequiredFields(file, config, "claude", "claude-marketplace-schema", ["command", "extensionToLanguage"], configPrefix),
-        ...checkFieldTypes(file, config, "claude", "claude-marketplace-schema", {
-          args: "string-array", command: "string", diagnostics: "boolean", env: "object",
-          extensionToLanguage: "object", maxRestarts: "number", restartOnCrash: "boolean",
-          shutdownTimeout: "number", startupTimeout: "number", transport: "string",
-          workspaceFolder: "string",
-        }, configPrefix),
-        ...checkUnknownFields(file, config, "claude", "claude-marketplace-schema", [
-          "args", "command", "diagnostics", "env", "extensionToLanguage", "initializationOptions",
-          "maxRestarts", "restartOnCrash", "settings", "shutdownTimeout",
-          "startupTimeout", "transport", "workspaceFolder",
-        ], configPrefix)
-      );
-      if (config.transport !== undefined && config.transport !== "socket" && config.transport !== "stdio") {
-        issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.transport must be socket or stdio`));
-      }
-      if (isJsonRecord(config.env)) {
-        issues.push(...checkStringRecordValues(file, config.env, `${configPrefix}.env`));
-      }
-      if (isJsonRecord(config.extensionToLanguage)) {
-        issues.push(...checkStringRecordValues(file, config.extensionToLanguage, `${configPrefix}.extensionToLanguage`));
-        for (const [extension, language] of Object.entries(config.extensionToLanguage)) {
-          if (extension.length < 2) {
-            issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.extensionToLanguage.${extension} must use an extension of at least two characters`));
-          }
-          if (language === "") {
-            issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.extensionToLanguage.${extension} must not be empty`));
-          }
-        }
-      }
-      if (Array.isArray(config.args)) {
-        for (const [index, argument] of config.args.entries()) {
-          if (argument !== "") continue;
-          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.args[${index}] must not be empty`));
-        }
-      }
-      for (const field of ["shutdownTimeout", "startupTimeout"] as const) {
-        const timeout = config[field];
-        if (typeof timeout === "number" && (!Number.isInteger(timeout) || timeout <= 0)) {
-          issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.${field} must be a positive integer`));
-        }
-      }
-      if (typeof config.maxRestarts === "number" && (!Number.isInteger(config.maxRestarts) || config.maxRestarts < 0)) {
-        issues.push(issue(file, "claude", "claude-marketplace-schema", "invalid-shape", `destination field ${configPrefix}.maxRestarts must be a nonnegative integer`));
-      }
-
-    }
-  }
-  return issues;
-}
-
-function checkStringRecordValues(
-  file: ProviderFormatConformanceFile,
-  value: JsonRecord,
-  prefix: string
-): readonly ProviderFormatConformanceIssue[] {
-  return Object.entries(value)
-    .filter(([, entry]) => typeof entry !== "string")
-    .map(([key]) => issue(
-      file,
-      "claude",
-      "claude-marketplace-schema",
-      "invalid-field-type",
-      `destination field ${prefix}.${key} must be a string`
-    ));
 }
 
 function hasParentPathSegment(value: string): boolean {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
 
-export type ClaudeMarketplaceParserPredicateId = "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+export type ClaudeMarketplaceParserPredicateId = "lsp-references" | "lsp-required" | "lsp-fields" | "lsp-values" | "component-references" | "dependency-extra-fields" | "mcp-references" | "mcp-variants" | "mcp-records" | "mcp-oauth-fields" | "mcp-oauth-values" | "channel-shape" | "user-config-types" | "user-config-closed" | "command-map-fields" | "command-map-source" | "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
 
 export interface ClaudeMarketplaceParserEvidence {
   readonly id: "claude-marketplace-parser-2.1.269";
@@ -40,6 +40,24 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
   },
   "windows": [
+{
+  "id": "strict-object-helper",
+  "start": 181149000,
+  "end": 181149720,
+  "contentHash": "sha256:4ba2d2b0eee9ea6c36bc78de067343acd83916b4657650755f76aff80fbb22ae"
+},
+{
+  "id": "lsp-string-predicates",
+  "start": 181285700,
+  "end": 181286050,
+  "contentHash": "sha256:fc0fc249d9e6a29fb060af43538fc0df2121aec22bc63a6f4820d6d6417955d3"
+},
+{
+  "id": "lsp-monitor-schemas",
+  "start": 181288500,
+  "end": 181293791,
+  "contentHash": "sha256:03dec0ce45f1409284fc37b0278792b131709ab93ae21e4edc34c38437da2e62"
+},
   {
     "id": "simple-component-paths",
     "start": 181275990,
@@ -271,6 +289,62 @@ export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence
     }
   ],
   "predicates": {
+"lsp-references": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.lsp.references",
+  "windows": [
+    "strict-object-helper",
+    "lsp-string-predicates",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Shared tc input is a ./ JSON path, named server map, or array of those forms. No filesystem existence or runtime loading claim."
+},
+"lsp-required": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.lsp.required",
+  "windows": [
+    "strict-object-helper",
+    "lsp-string-predicates",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Strict tut config requires command and extensionToLanguage; map entries must be objects."
+},
+"lsp-fields": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.lsp.fields",
+  "windows": [
+    "strict-object-helper",
+    "lsp-string-predicates",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Qe uses the same never catchall as strict; tut closes known typed fields, permits arbitrary initializationOptions/settings, and transport is stdio or socket. No default is applied by conformance."
+},
+"lsp-values": {
+  "stage": "schema-predicate",
+  "ruleId": "marketplace.lsp.values",
+  "windows": [
+    "strict-object-helper",
+    "lsp-string-predicates",
+    "lsp-monitor-schemas",
+    "simple-component-paths",
+    "shared-plugin-base",
+    "standalone-plugin-parser",
+    "marketplace-shared-base"
+  ],
+  "claim": "Command is nonempty and forbids ASCII spaces unless starting slash; extension map is nonempty with dotted keys of length at least two and nonempty language strings. Args are nonempty strings, env values strings, timeouts positive integers and restarts nonnegative integers."
+},
 "component-references": {
   "stage": "schema-predicate",
   "ruleId": "marketplace.components.simple_paths",
@@ -595,6 +669,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
   }
   for (const [id, stage] of [
+    ["lsp-references", "schema-predicate"], ["lsp-required", "schema-predicate"], ["lsp-fields", "schema-predicate"], ["lsp-values", "schema-predicate"],
     ["component-references", "schema-predicate"], ["dependency-extra-fields", "schema-predicate"], ["mcp-references", "schema-predicate"], ["mcp-variants", "schema-predicate"], ["mcp-records", "schema-predicate"], ["mcp-oauth-fields", "schema-predicate"], ["mcp-oauth-values", "schema-predicate"],
     ["channel-shape", "schema-predicate"], ["user-config-types", "schema-predicate"], ["user-config-closed", "schema-predicate"],
     ["command-map-fields", "schema-predicate"], ["command-map-source", "schema-predicate"],
@@ -607,7 +682,7 @@ export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplac
     const predicate = evidence.predicates[id];
     if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
   }
-  if (Object.keys(evidence.predicates).length !== 22) invalid("has an unreviewed predicate");
+  if (Object.keys(evidence.predicates).length !== 26) invalid("has an unreviewed predicate");
 }
 
 export interface ClaudeMarketplaceParserPinReview {

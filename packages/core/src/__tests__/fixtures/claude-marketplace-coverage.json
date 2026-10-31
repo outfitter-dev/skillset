@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:ae80a3463b64d86c2d936db873c57937e4a6094edfc1f922d71c96a4b9248c45",
+  "evidenceHash": "sha256:cb9166fd8ebc5eb10992733976eb497b0d1e4fbec90bf427c1fb5382697a15d6",
   "declarations": [
     {
       "name": "import:\"@skillset/registry\"",
@@ -108,7 +108,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePluginArrays",
-      "hash": "sha256:606209b91860f6aecc192e0650993035cde47a27428db11983d455070753fd1a",
+      "hash": "sha256:bd4d974f377ec352037dbd1fd390c48bd82c71b0b02d88391dbc61963cd73bb4",
       "ruleIds": [
         "marketplace.components.paths",
         "marketplace.components.array_types",
@@ -141,14 +141,6 @@
       "ruleIds": [
         "marketplace.hooks.events",
         "marketplace.hooks.definition"
-      ],
-      "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
-    },
-    {
-      "name": "function:checkStringRecordValues",
-      "hash": "sha256:9dc7fba116e4a218d3f1b63451178ca406a48ad9d57cc6c17c0325bbd76d6fe6",
-      "ruleIds": [
-        "marketplace.lsp.values"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -241,16 +233,6 @@
       "reason": "Shared pinned MCP validator wiring."
     },
     {
-      "name": "function:checkClaudeLspMapVariants",
-      "hash": "sha256:11015865566eca6fb1d58f019e4843925bdc0adb1ec2000df8a0caafee3f074f",
-      "ruleIds": [
-        "marketplace.lsp.required",
-        "marketplace.lsp.fields",
-        "marketplace.lsp.values"
-      ],
-      "reason": "Existing LSP branch retained with the obsolete MCP dispatch removed; LSP predicates unchanged."
-    },
-    {
       "name": "import:\"./claude-dependency-conformance\"",
       "hash": "sha256:c0c578fc240bc504d92f7c9739ca16321cf8b4edb251b283169e1b1cb702e808",
       "ruleIds": [],
@@ -261,6 +243,12 @@
       "hash": "sha256:97a917febc42c7eea609ae199d8361dc14689b8a06b5e7c624b5b45bdf84ded2",
       "ruleIds": [],
       "reason": "Shared simple component references wiring."
+    },
+    {
+      "name": "import:\"./claude-lsp-conformance\"",
+      "hash": "sha256:98fea2cb590fdb2383643cc164e76a85a525913c161a7a9b5b51fb9ea06f6731",
+      "ruleIds": [],
+      "reason": "Shared LSP input validator wiring."
     }
   ],
   "dependencies": [
@@ -360,7 +348,7 @@
     {
       "path": "packages/registry/src/claude-marketplace-parser-evidence.ts",
       "declarations": [],
-      "hash": "sha256:85d77cc01729f927ffc5d38e5ec170b41e10c9ab42ee7da2392b357e0aac83fd",
+      "hash": "sha256:18866a87f282a2d8acbd833888abe1d508d3d05fe2814914ba813fff91b266fd",
       "ruleIds": [
         "marketplace.source.archive.digest",
         "marketplace.source.command.limits",
@@ -383,7 +371,11 @@
         "marketplace.mcp.oauth.fields",
         "marketplace.mcp.oauth.values",
         "marketplace.dependencies.object_extra_fields",
-        "marketplace.components.simple_paths"
+        "marketplace.components.simple_paths",
+        "marketplace.lsp.references",
+        "marketplace.lsp.required",
+        "marketplace.lsp.fields",
+        "marketplace.lsp.values"
       ],
       "reason": "Versioned static parser captures and byte verifier, inspected against the integrity-verified 2.1.269 member; changes require evidence review, not a runtime acceptance claim."
     },
@@ -490,6 +482,30 @@
         "marketplace.components.simple_paths"
       ],
       "reason": "Reviewed shared six-field path input policy, suffix and root-dot exception; no filesystem or runtime claim."
+    },
+    {
+      "path": "packages/core/src/claude-lsp-conformance.ts",
+      "declarations": [],
+      "hash": "sha256:d5af8b80f4897eeec15bb0876e9ef7c53372a5bbf73020f847d7b02acf078061",
+      "ruleIds": [
+        "marketplace.lsp.references",
+        "marketplace.lsp.required",
+        "marketplace.lsp.fields",
+        "marketplace.lsp.values"
+      ],
+      "reason": "Reviewed strict shared tut/tc input contracts and Qe strictness; no filesystem or runtime claim."
+    },
+    {
+      "path": "packages/registry/src/claude-lsp-contract.ts",
+      "declarations": [],
+      "hash": "sha256:86f24d89cf0f45648734dab79d0826e278e6b8c1d7db2c54d9c4a23b531c494c",
+      "ruleIds": [
+        "marketplace.lsp.references",
+        "marketplace.lsp.required",
+        "marketplace.lsp.fields",
+        "marketplace.lsp.values"
+      ],
+      "reason": "Reviewed strict shared tut/tc input contracts and Qe strictness; no filesystem or runtime claim."
     }
   ]
 }

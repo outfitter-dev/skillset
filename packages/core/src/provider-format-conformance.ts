@@ -1,3 +1,4 @@
+import { checkClaudeLspServers } from "./claude-lsp-conformance";
 import { CLAUDE_COMPONENT_REFERENCE_POLICY } from "@skillset/registry";
 import { checkClaudeComponentReferences } from "./claude-component-reference-conformance";
 import { checkClaudeDependencies } from "./claude-dependency-conformance";
@@ -532,6 +533,7 @@ function checkClaudePluginManifest(
   if (Array.isArray(parsed.value.channels)) {
     issues.push(...checkClaudeChannels(file, parsed.value.channels, "channels", "claude-plugin-manifest-schema"));
   }
+  issues.push(...checkClaudeLspServers(file, parsed.value.lspServers, "lspServers", "claude-plugin-manifest-schema"));
   issues.push(...checkClaudeMcpServers(file, parsed.value.mcpServers, "mcpServers", "claude-plugin-manifest-schema"));
   if (Array.isArray(parsed.value.dependencies)) {
     issues.push(...checkClaudeDependencies(file, parsed.value.dependencies, "dependencies", "claude-plugin-manifest-schema"));

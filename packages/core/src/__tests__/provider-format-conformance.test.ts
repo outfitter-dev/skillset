@@ -851,7 +851,7 @@ describe("provider format conformance", () => {
         owner: { name: "Example Team" },
         plugins: [
           {
-            lspServers: ["./lsp.json", { ts: { command: 1, extensionToLanguage: { ts: "ts" } } }],
+            lspServers: ["./lsp.json", { ts: { command: 1, extensionToLanguage: { ".ts": "ts" } } }],
             mcpServers: ["./mcp.json", { x: { command: 1 } }],
             name: "mixed",
             source: "./plugins/mixed",
@@ -877,7 +877,7 @@ describe("provider format conformance", () => {
               "hooks/config.json",
             ],
             lspServers: [
-              { ts: { command: "lsp", extensionToLanguage: { ts: "typescript" } } },
+              { ts: { command: "lsp", extensionToLanguage: { ".ts": "typescript" } } },
               "lsp/config.json",
             ],
             name: "mixed-paths",
