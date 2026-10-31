@@ -1,7 +1,7 @@
 {
   "name": "@skillset/cli",
   "version": "0.30.0",
-  "description": "Source-first compiler for provider-native agent loadouts.",
+  "description": "Bun distribution of the Skillset source-first compiler.",
   "keywords": [
     "agents",
     "bun",

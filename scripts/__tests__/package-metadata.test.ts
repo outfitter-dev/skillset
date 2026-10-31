@@ -124,10 +124,12 @@ describe("package metadata checks", () => {
         "skillset init",
         "```",
       ].join("\n"),
-      "apps/cli/package.json": {
+      "apps/skillset/package.json": {
         description:
           "Source-first compiler for provider-native agent loadouts.",
       },
+      "apps/cli/package.json": { description: "Bun CLI.", engines: { bun: ">=1.4.0" } },
+      "apps/cli/README.md": "Bun CLI.\nBun >=1.4.0\nbun add --global @skillset/cli\nbunx @skillset/cli init\n",
     });
 
     expect(await readmeMetadataDiagnostics(root)).toEqual([]);

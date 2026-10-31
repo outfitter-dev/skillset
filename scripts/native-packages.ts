@@ -130,8 +130,9 @@ export async function nativePackageManifestDiagnostics(
   return diagnostics;
 }
 
-function packageReadme(target: NativeTarget): string {
-  return `# ${target.npmPackage}\n\nThis package contains the ${target.suffix} native executable used by the \`skillset\` npm launcher. Install \`skillset\` globally instead of depending on this platform package directly.\n`;
+export function packageReadme(target: NativeTarget): string {
+  const platform = `${target.os}-${target.arch}${target.libc ? `-${target.libc}` : ""}`;
+  return `# ${target.npmPackage}\n\nThis package contains the ${platform} native executable used by the \`skillset\` npm launcher. Install \`skillset\` globally instead of depending on this platform package directly.\n`;
 }
 
 async function runPack(
