@@ -181,6 +181,7 @@ describe("SET-275 final CLI contract", () => {
 
   test("hard-cuts try environment overrides to the test family", () => {
     expect(Object.keys(CLI_ENVIRONMENT).toSorted()).toEqual([
+      "SKILLSET_GENERATED_EDIT_POLICY",
       "SKILLSET_HOOK_COMMAND",
       "SKILLSET_HOOK_EVENT",
       "SKILLSET_PROVIDER",
