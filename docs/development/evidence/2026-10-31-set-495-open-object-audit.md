@@ -1,0 +1,52 @@
+---
+description: Dated inventory and recommendations for open source objects, silent omissions and shallow provider conformance under SET-495.
+---
+
+# SET-495 Open Object Audit
+
+The sweep found **eight source/configuration cases and four provider-conformance cases** requiring action or a contract decision. The source cases include unreported output omissions, wrong-type values that silently fall back, and admitted fields with no consumer. Conformance false accepts are separate: that API reports on bytes and does not itself discard them. No finding below establishes provider runtime acceptance, and no corrective behavior or new policy is ratified by this audit.
+
+Audit revisions: `02559515979024f1fab9cf1a8e1c711185adcbea` for the final conformance and project-agent probes, with source probes at its direct parent `8dcd23e5b455645b61a63ad5420ca659a8102b97`. The only intervening behavior was SET-801 marketplace header validation. At capture, `origin/main` was `24800e02ed4e7150ea1bc7130c35603c98ea9da2`; the audit head was 272 commits ahead and zero behind. These findings describe that campaign head, not shipped main.
+
+## Accounting and evidence
+
+- [Source object inventory](2026-10-31-set-495-source-objects.md): all 116 emitted open/typed-map object occurrences, grouped by declaration and actual consumer. The [machine inventory](2026-10-31-set-495-schema-inventory.json) contains every contract/JSON-pointer occurrence and its shape fingerprint: 30 distinct shapes, 101 open occurrences and 15 typed-map occurrences.
+- [Provider object inventory](2026-10-31-set-495-provider-objects.md): the actual object/union maps in Core conformance and shared registry inventories, including deeper checks, intentional openness and exact external evidence gaps.
+- [Probe inputs and observations](2026-10-31-set-495-probes.json): reproducible public conformance inputs/results, source render-result summaries and project-agent emitted bytes. Source fixture recipes are in the source inventory. Probes ran in disposable workspaces, never user runtime directories.
+
+The candidate scan traverses the actual output of `deriveSkillsetJsonSchemaArtifacts()` in `packages/schema/src/artifacts.ts`, excludes the combined `skillset` artifact, and records each object node for which `additionalProperties !== false`. That includes explicitly open objects, implicit openness and typed additional-property maps. It catches helper-generated shapes, unlike a literal source search. It does not enumerate arbitrary user-chosen extension keys or prove complete provider grammar coverage. Closed source listing, test/run and durable-state objects are outside this candidate predicate. Four output-envelope occurrences are retained in the accounting and explicitly excluded from source-projection conclusions.
+
+A schema accepting an extension is not proof that every destination can represent it. Conversely, intentionally open input does not explain why a known consumed key may have the wrong type or why omitted authored meaning receives a clean result. The table distinguishes those questions.
+
+## Findings and recommended order
+
+| ID | Observed gap | Recommendation and acceptance boundary |
+|---|---|---|
+| P1 | Agent Plugins root `author.name: 42` passes conformance although the embedded 1.0 schema requires strings for name/email/url and closes other keys | Fix now with a standard-specific nested validator. Preserve optional name: `{}` and email-only authors must remain valid. Do not reuse the name-required provider author helper unchanged. |
+| P2 | Cursor marketplace `metadata.description: 42` passes despite the exact authoring-schema pin requiring a string | Fix now by validating the known member and retaining arbitrary other metadata keys. Positive open-extension control is recorded. No runtime equivalence claim. |
+| P3 | Codex legacy `interface.displayName: 42` and `capabilities: [42]` pass despite typed members in the pinned legacy loader | Validate against that loader's actual types, including nullable optional strings and its deliberately tolerant `defaultPrompt` invalid-value variant. Do not borrow the modern Agent Plugins or stricter authoring contract. |
+| P4 | Claude standalone nested commands/MCP/userConfig accept malformed values that the same shared-field contract rejects in marketplace entries | Reuse the appropriate nested field validation through a focused owner. Keep marketplace-only source, header and identity rules out of standalone manifests, and verify actual standalone evidence before adding stronger constraints. Paired direct/public tests must prove same-field parity. |
+| F3 | Known compatibility `presentation.displayName` accepts a number and is ignored, with only a generic migration warning | Validate the finite known aliases through the schema owner while retaining the migration warning and accepted aliases. Cover strings/arrays, blank values and precedence; do not infer unknown aliases. |
+| F4 | `changes.reason.minLength: "2"` is accepted but the checker uses default 40 | Type/range-check this known workspace policy. Keep the absent-value default; distinguish plugin-level applicability rather than silently promising the same policy there. |
+| F7 | `skillset.outputs.plugins.claude: 42` is accepted and defaults to the normal output root | Reconcile the active legacy reader with the canonical schema. Validate recognized target root values or retire the legacy surface explicitly; cover all target members and absent/default controls. |
+| F8 | Skill-level object `bin`/`mcp` selections are accepted and removed without loading even missing referenced source paths | Decide scope explicitly: reject unsupported skill-level selection with an actionable diagnostic, or implement a supported contract. The plugin-level source reader already resolves the source and is a separate positive control. |
+| F1 | Portable `manifest.publisher` is accepted and omitted from both manifests; loss accounting only visits five known keys | Reconcile the deliberately open annotation contract with known provider-like fields. Add an explicit disposition for recognized meaning or report unsupported meaning; do not merge arbitrary portable extras into every provider. Preserve source bytes. |
+| F2 | Portable `marketplace.description` is accepted but the generated catalog uses default/root description without field evidence | Establish whether this legacy block promises only identity or additional canonical fields. Then validate/diagnose at that boundary; recommend canonical listing or a native override only where its meaning is proven. |
+| F5 | Rule metadata/extra frontmatter is accepted but omitted from Claude rule output with generic transformed status | Separate intentionally source-only annotations from meaningful unsupported rule fields and record the latter under existing result policy. Do not infer all native rule fields are portable. |
+| F6 | Agent `metadata.team` survives Claude/Cursor but disappears from Codex TOML without a field diagnostic | Qualify its source-only versus projected meaning and record any loss. Do not write arbitrary metadata into Codex TOML solely to preserve bytes. |
+
+P1/P2/P3 are exact nested contract mismatches; P4 is also a project shared-contract inconsistency, with provider breadth still requiring care. F3/F4/F7 have known typed readers and clear false accepts. F1/F2/F5/F6/F8 have observed omissions or missing consumers, but the correction must state supported meaning and applicability. These distinctions prevent an audit from silently expanding the product contract.
+
+## Shared mechanism recommendation
+
+Use the existing schema/package ownership model rather than adding a new generic field-routing framework. A known source member should have one typed contract in `@skillset/schema`; its runtime validator, Workbench checks and generated schema should agree while allowing extras where the contract explicitly permits them. Pinned provider member types belong with their registry evidence and should be consumed by a small nested validator. Pair valid extension controls with malformed known-member cases.
+
+Structural validation alone cannot account for projection loss. A source field that claims publishable meaning needs a declared outcome: consumed into the actual selected output, explicitly source-only, unsupported, or overridden with evidence. Reuse existing render-result policy and actual rendered-value comparisons; a list of known field names must not be mistaken for a complete omission inventory. SET-492 owns the broader mandatory-loss design. Existing SET-697 owns the workspace/frontmatter schema gap and its open-versus-closed decision; F4/F7 and the target/default findings should extend that evidence rather than create competing configuration policy. SET-487 is behavior-preserving cleanup and must not be used to hide the P4 correctness change. This audit supplies counterexamples and recommends focused repairs first; it does not approve a new cross-provider abstraction or a blanket ban on unknown fields.
+
+## Explicit exclusions and unresolved authority
+
+Cursor `variables.properties` is intentionally only an object in the pinned schema; its child values are unconstrained. Claude marketplace `settings` is likewise open in its matching pin. Typed maps, runtime-stricter defaults/distribution/tools validation, skill-frontmatter preservation, and native hook refusal/preservation paths are negative controls, not defects inferred from object syntax.
+
+The exact OpenAI marketplace source at commit `36eab01061df3cde5f95ec20a526777b430091ba`, `codex-rs/core-plugins/src/marketplace.rs`, could not be reacquired: the exact raw URL returned 404 through both browser fetch and direct HTTP. The registry records digest `eba7fed810eed705a2ff6bf73af2b7a879cabaca7807f5df36a73a01b6ff9795`, but its field matrix alone does not establish author-member types, required fields, closure, or all interface bounds. Those nested facts remain unqualified; neither an older loader nor the Agent Plugins standard substitutes for that evidence. SET-801 binary filtering/normalization also remains open.
+
+The inventory is complete for its finite emitted-schema and named conformance surfaces; it is not a claim that every possible extension key has meaning, that all renderers are loss-free, or that all provider grammars were executed. No provider process, install, global activation, readiness transition or release formed part of the audit.
