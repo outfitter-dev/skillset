@@ -818,3 +818,9 @@ Seven regression cases failed on the parent, with two valid controls passing. Fi
 - Qualified archive-digest and command-source limits using the integrity-verified Claude 2.1.269 Linux member, exact source windows and traced schema use sites. Added a local byte verifier that never invokes provider code. Schema-backed, static-parser and unresolved authority remain distinct.
 - Provider maintenance detects validation-lane version/artifact drift. Existing implementation fingerprints were asserted unchanged before adding the reviewed parser dependency and updating only the two rule qualifications; no blind refresh.
 - Focused affected corpus: 87 tests and 419 assertions pass; fast gate passes. The actual pinned 219,651,568-byte member and all six source windows verify. Exact independent review and full immutable verification follow the commit.
+
+### SET-799 inherited marketplace source discriminators
+
+- Require an own source-inventory key before selecting required fields; inherited prototype names now return the existing unsupported-source diagnostic instead of throwing. No supported source form changes.
+- Regression baseline: five inherited-name failures and eight passing controls. Final affected corpus: 84 tests and 368 assertions pass; fast gate passes. Both direct and public conformance entry points are covered.
+- Reviewed only the changed discriminator predicate and its qualification; asserted every other declaration and delegated fingerprint unchanged before updating the coverage record. Exact review and full verification follow the commit.

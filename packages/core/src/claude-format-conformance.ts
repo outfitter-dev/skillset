@@ -240,7 +240,9 @@ function checkClaudeMarketplacePlugin(
   }
 
   const sourceKind = source.source as keyof typeof CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS;
-  const requiredFields = CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS[sourceKind];
+  const requiredFields = Object.hasOwn(CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, sourceKind)
+    ? CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS[sourceKind]
+    : undefined;
   if (requiredFields === undefined) {
     report(
       "invalid-shape",
