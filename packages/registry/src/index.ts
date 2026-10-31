@@ -1,3 +1,5 @@
+export * from "./claude-marketplace-evidence";
+export * from "./claude-marketplace-inventories";
 export * from "./generated-edit-hook-evidence";
 import { createHash } from "node:crypto";
 

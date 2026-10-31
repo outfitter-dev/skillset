@@ -1,3 +1,4 @@
+import { CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/registry";
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
 import { CLAUDE_PLUGIN_FIELD_TYPES } from "./manifest-field-contracts";
 import {
@@ -8,7 +9,6 @@ import {
   issue,
   jsonSchemaSummary,
   parseJsonRecord,
-  type FieldType,
   type ProviderFormatConformanceFile,
   type ProviderFormatConformanceIssue,
   type ProviderFormatConformanceIssueCode,
@@ -379,26 +379,6 @@ function checkClaudeMarketplacePlugin(
   }
   return issues;
 }
-
-const CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS = {
-  archive: ["url"],
-  command: ["command"],
-  github: ["repo"],
-  "git-subdir": ["url", "path"],
-  npm: ["package"],
-  url: ["url"],
-} as const;
-
-const CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES = {
-  archive: { sha256: "string", url: "string" },
-  command: { command: "string", mode: "string", timeout: "number" },
-  github: { ref: "string", repo: "string", sha: "string" },
-  "git-subdir": { path: "string", ref: "string", sha: "string", url: "string" },
-  npm: { package: "string", registry: "string", version: "string" },
-  url: { ref: "string", sha: "string", url: "string" },
-} as const satisfies Readonly<
-  Record<keyof typeof CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, Readonly<Record<string, FieldType>>>
->;
 
 const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = CLAUDE_PLUGIN_FIELD_TYPES;
 
