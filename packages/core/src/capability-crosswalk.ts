@@ -386,7 +386,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:55e9dd9ee368a1153e2cf9262f98ea3cee428884e884ab680efd443e64d69085" },
   { path: "packages/core/src/__tests__/project-agent-skills.test.ts", contentHash: "sha256:38865be157c31c3be4de6b3a12a027946cf0e9d6847faed38e24dcc50c4c6105" },
   { path: "apps/skillset/src/__tests__/skillset.test.ts", contentHash: "sha256:98db4ceaabaa00aa6cbcf63a6e1224d526186d2fee6f0e05fe52d5ad9d855ac2" },
-  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:f7270b0d05ddd22db3802fcbcd8a084ed33895eb4e3ab75170b14cb253ab78cd" },
+  { path: "packages/core/src/render-rules.ts", contentHash: "sha256:163239876e71053d8a65242817a6c6a218c26e238f98f660f85b597e7df7445e" },
   { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:608f1171d11ce31c910871a2027a2d6909a3a1106e750d5057eea46eebae33c2" },
   { path: "packages/core/src/__tests__/render-standard-instructions.test.ts", contentHash: "sha256:ea2548155b937c075f2d7b5aaf105866ff36a92bee277cba3d812fd94a8297f2" },
   { path: "packages/core/src/hooks.ts", contentHash: "sha256:8659ebcef8468a700f3240075b2f6128fd21cccd2364379734e7057239d75d70" },
@@ -394,6 +394,6 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/hook-capabilities.ts", contentHash: "sha256:2f06a181cc347b256d4d4b4a3145a25f37a4d4f6eb1b5b7e448a7ab1af391296" },
   { path: "docs/reference/features/skills.md", contentHash: "sha256:ca8a77f9780c48bbb0161194c2108ac945c0e040fefe23792dcd9ec5532eee79" },
   { path: "docs/reference/features/agents.md", contentHash: "sha256:e721f30c2fdf7587f0bb7660c6e63b21500453d24b853e6a0fa7ead01d1b14fc" },
-  { path: "docs/reference/features/rules.md", contentHash: "sha256:5272d1776cc67e1ad8b974b8ee53126ad588942495e56aeeaec8bd72f7662bad" },
+  { path: "docs/reference/features/rules.md", contentHash: "sha256:c4c5336a510285a4489beb5b2987e96a50a6fb902584ca2205d025f5b0914aa0" },
   { path: "docs/reference/features/hooks.md", contentHash: "sha256:af36b729f23f5c231120b7074d46b3db341c51c34928937d0acd77d4c172c85f" },
 ] as const;
