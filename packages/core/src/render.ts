@@ -1,3 +1,4 @@
+import type { BuildScope } from "./types";
 import { assertRenderedMarkdownLinks } from "./rendered-markdown-links";
 import { readFileSync, statSync, readdir, readFile, stat } from "./workspace-fs";
 import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
@@ -207,7 +208,8 @@ interface RenderedProjectAgentFile {
 
 export async function renderBuildGraph(
   graph: BuildGraph,
-  destination: RenderDestination = liveRenderDestination(graph.rootPath)
+  destination: RenderDestination = liveRenderDestination(graph.rootPath),
+  scopes?: readonly BuildScope[]
 ): Promise<readonly RenderedFile[]> {
   await assertResolvedSourceFrontmatter(graph);
   const rendered: RenderedFile[] = [];
@@ -340,7 +342,7 @@ export async function renderBuildGraph(
   const planned = [...planRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
     .map((file) => validateRenderedFile(file));
-  assertRenderedMarkdownLinks(graph, planned, lockRoots);
+  assertRenderedMarkdownLinks(graph, planned, lockRoots, scopes);
   return planned;
 }
 

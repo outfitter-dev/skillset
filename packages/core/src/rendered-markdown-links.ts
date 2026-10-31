@@ -1,10 +1,11 @@
 import { Parser } from "commonmark";
 import { basename, dirname, join, resolve } from "node:path";
+import { scopeForPath } from "./output-scope";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { isPathInside, logicalDiagnosticPath } from "./path";
 import { pluginBundleRoot } from "./plugin-output";
 import type { LockRoot } from "./render-support";
-import type { BuildGraph, RenderedFile } from "./types";
+import type { BuildGraph, BuildScope, RenderedFile } from "./types";
 
 interface PrimaryMarkdown {
   readonly file: RenderedFile;
@@ -17,7 +18,8 @@ interface PrimaryMarkdown {
 export function assertRenderedMarkdownLinks(
   graph: BuildGraph,
   files: readonly RenderedFile[],
-  lockRoots: ReadonlyMap<string, LockRoot>
+  lockRoots: ReadonlyMap<string, LockRoot>,
+  scopes?: readonly BuildScope[]
 ): void {
   const inventory = new Map(files.map((file) => [resolve(graph.rootPath, file.path), file]));
   const primaries = new Map<string, PrimaryMarkdown>();
@@ -52,6 +54,7 @@ export function assertRenderedMarkdownLinks(
   }
   const parser = new Parser();
   for (const [output, primary] of primaries) {
+    if (scopes !== undefined && !scopes.includes(scopeForPath(graph, primary.file.path))) continue;
     const text = typeof primary.file.content === "string" ? primary.file.content : new TextDecoder().decode(primary.file.content);
     // Copied README frontmatter is opaque; remove delimiters without interpreting YAML.
     const body = text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/u, "");

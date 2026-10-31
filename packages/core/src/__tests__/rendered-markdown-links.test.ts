@@ -130,3 +130,13 @@ test("SET-627: cold bundle validation needs neither source nor stale disk target
   const omitted = result.data.filter(file => !file.path.endsWith("/references/guide.md"));
   expect(() => assertRenderedMarkdownLinks(graph, omitted, locks)).toThrow("references/guide.md");
 });
+
+test("SET-627: excluded plugin links do not block repo-scoped build or diff", async () => {
+  const root = await fixture("[guide](references/guide.md)", "resources:\n  references:\n    - shared:references/guide.md\n");
+  await Bun.write(join(root, ".skillset/plugins/other/skillset.yaml"), "skillset:\n  name: other\n");
+  await Bun.write(join(root, ".skillset/plugins/other/skills/other/SKILL.md"), "---\nname: other\ndescription: Other.\n---\n[missing](absent.md)\n");
+  expect((await buildSkillsetResult(root, { scopes: ["repo"], isolated: true })).ok).toBe(true);
+  await expect(diffSkillsetResult(root, { scopes: ["repo"] })).resolves.toBeDefined();
+  await expect(buildSkillsetResult(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
+  await expect(diffSkillsetResult(root, { scopes: ["plugins"] })).rejects.toThrow("absent.md");
+});
