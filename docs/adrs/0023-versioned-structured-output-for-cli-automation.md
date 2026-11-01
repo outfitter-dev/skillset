@@ -4,7 +4,7 @@ slug: versioned-structured-output-for-cli-automation
 title: Versioned Structured Output For CLI Automation
 status: accepted
 created: 2026-07-12
-updated: 2026-10-22
+updated: 2026-10-31
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 4, 18, 19, 22]
 ---
