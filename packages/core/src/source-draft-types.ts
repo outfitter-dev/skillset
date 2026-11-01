@@ -29,6 +29,8 @@ export interface SourceDraftPlan extends SourceDraftMutationPlan {
 }
 
 export interface SourceDraftApplyRequest extends SourceDraftRequest {
+  /** Optional caller-owned ledger lease, rechecked before event creation. */
+  readonly assertLedgerOwned?: () => Promise<void>;
   readonly expectedPlanHash: string;
   /** Deterministic fault injection for transaction tests. @internal */
   readonly transactionOptions?: WorkspaceTransactionOptions;
@@ -58,6 +60,8 @@ export interface SourcePromotionPlan extends SourceDraftMutationPlan {
 }
 
 export interface SourcePromotionApplyRequest extends SourcePromotionRequest {
+  /** Optional caller-owned ledger lease, rechecked before event creation. */
+  readonly assertLedgerOwned?: () => Promise<void>;
   readonly expectedPlanHash: string;
   /** Deterministic fault injection for transaction tests. @internal */
   readonly transactionOptions?: WorkspaceTransactionOptions;

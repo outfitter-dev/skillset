@@ -66,6 +66,8 @@ export interface WorkspaceTransactionAppend {
 
 /** How a new-file append reads its context and names its file. */
 export interface WorkspaceTransactionNewFileAppend {
+  /** Recheck a caller-owned lease immediately before creating the event file. */
+  readonly assertOwned?: () => Promise<void>;
   readonly current: () => Promise<string>;
   readonly fileName: (records: readonly object[]) => string;
 }
@@ -1180,6 +1182,9 @@ async function applyAppends(
       if ((await inspectPath(state.workspaceRoot, target)) !== undefined) {
         throw transactionError(`new-file append target already exists: ${target.relative}`);
       }
+      // Lease loss must fail inside the transaction so installed source and
+      // generated writes are rolled back before the command returns.
+      await append.newFile.assertOwned?.();
       const lines = await appendOwnedJsonlRecords(target.absolute, records);
       state.appliedAppends.push({ lines, path: target });
       continue;

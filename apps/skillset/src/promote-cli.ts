@@ -50,6 +50,7 @@ export interface PromoteCommandCore {
     readonly rootPath: string;
   }) => Promise<SourcePromotionPlan>;
   readonly promoteSource: (request: {
+    readonly assertLedgerOwned?: () => Promise<void>;
     readonly draftPath: string;
     readonly expectedPlanHash: string;
     readonly rootPath: string;
@@ -138,9 +139,10 @@ export const runPromoteCommand = async (
     rootPath: request.rootPath,
   };
   const report = request.yes
-    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async () =>
+    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async (assertLedgerOwned) =>
         promoteCore.promoteSource({
           ...planRequest,
+          assertLedgerOwned,
           expectedPlanHash: (await promoteCore.planSourcePromotion(planRequest)).planHash,
         })
       )

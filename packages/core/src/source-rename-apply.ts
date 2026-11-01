@@ -62,7 +62,7 @@ export async function applySourceMutation<Request extends SourceMutationApplyReq
     );
   }
 
-  const sourceTransaction = sourceTransactionPlan(rootPath, plan);
+  const sourceTransaction = sourceTransactionPlan(rootPath, plan, request.assertLedgerOwned);
   const generatedTransaction = generatedTransactionPlan(plan);
   const fullPlan: WorkspaceTransactionPlan = {
     ...(nativeSource === undefined ? {} : {
@@ -156,6 +156,7 @@ export async function planSourceMutationGeneratedEffects(
 }
 
 interface SourceMutationApplyRequest {
+  readonly assertLedgerOwned?: () => Promise<void>;
   readonly expectedPlanHash: string;
   readonly rootPath: string;
   readonly transactionOptions?: SourceRenameApplyRequest["transactionOptions"];
@@ -187,12 +188,13 @@ function describeBlockers(
 
 function sourceTransactionPlan(
   rootPath: string,
-  plan: SourceMutationPlan
+  plan: SourceMutationPlan,
+  assertLedgerOwned?: () => Promise<void>
 ): WorkspaceTransactionPlan {
   return {
     appends: plan.operations
       .filter((operation): operation is SourceLedgerAppendOperation => operation.kind === "append")
-      .map((operation) => sourceLifecyclePendingAppend(rootPath, operation.path, operation.event)),
+      .map((operation) => sourceLifecyclePendingAppend(rootPath, operation.path, operation.event, assertLedgerOwned)),
     copies: plan.operations
       .filter((operation): operation is SourceMutationCopyOperation => operation.kind === "copy")
       .map((operation) => ({ from: operation.from, to: operation.to })),
