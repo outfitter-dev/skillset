@@ -148,3 +148,29 @@ test("adjacent HTML blocks and EOF do not retain span state", async () => {
   expect(await rewritePreprocessReferences(source, context, () => "resolved"))
     .toBe(source.replaceAll(token, "resolved"));
 });
+
+test("a block HTML opener interrupts a GFM table instead of creating a protected cell", async () => {
+  // GFM 4.10 ends a table at another block-level structure; GitHub's renderer
+  // confirms a header-only table followed by raw HTML for this exact fixture.
+  const source = ["a | b", "--- | ---", "<div> " + tick + token + tick + " | value"].join("\n");
+  expect(markdownCodeRanges(source)).toEqual([]);
+  expect(await rewritePreprocessReferences(source, context, () => "resolved"))
+    .toBe(source.replace(token, "resolved"));
+});
+
+
+test("HTML candidate filtering admits nested list and quote container prefixes", async () => {
+  for (const [first, rest] of [
+    ["> - <div>", ">   "],
+    ["- > <div>", "  > "],
+    ["1. <div>", "   "],
+    ["1) <div>", "   "],
+    ["* <div>", "  "],
+    ["+ <div>", "  "],
+    ["   <div>", "   "],
+  ]) {
+    const source = [first, rest + tick + token + tick, rest + "</div>"].join("\n");
+    expect(await rewritePreprocessReferences(source, context, () => "resolved"))
+      .toBe(source.replace(token, "resolved"));
+  }
+});
