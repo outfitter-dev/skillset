@@ -1,0 +1,134 @@
+[
+  {
+    "targets": [
+      "claude"
+    ],
+    "ok": true,
+    "allDiagnostics": [],
+    "manifests": {
+      "plugins/demo/.claude-plugin/plugin.json": {
+        "description": "Demo.",
+        "displayName": "Demo Display",
+        "name": "demo",
+        "skills": "./skills/",
+        "version": "0.1.0"
+      },
+      "plugins/demo/plugin.json": {
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        "description": "Demo.",
+        "name": "demo",
+        "version": "0.1.0"
+      }
+    },
+    "results": [
+      {
+        "sourceUnit": "plugin.demo.config:root",
+        "standardProfile": "agent-plugins-1.0",
+        "featureId": "plugin-manifests",
+        "status": "rendered",
+        "outputs": [
+          {
+            "kind": "plugin",
+            "path": "plugins/demo/plugin.json"
+          }
+        ]
+      },
+      {
+        "sourceUnit": "plugin.demo.config:root",
+        "target": "claude",
+        "featureId": "plugin-manifests",
+        "status": "rendered",
+        "outputs": [
+          {
+            "kind": "plugin",
+            "path": "plugins/demo/.claude-plugin/plugin.json"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "targets": [
+      "claude",
+      "codex"
+    ],
+    "ok": true,
+    "allDiagnostics": [],
+    "manifests": {
+      "plugins/demo/.claude-plugin/plugin.json": {
+        "description": "Demo.",
+        "displayName": "Demo Display",
+        "name": "demo",
+        "skills": "./skills/",
+        "version": "0.1.0"
+      },
+      "plugins/demo/plugin.json": {
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        "description": "Demo.",
+        "extensions": {
+          "com.openai": {
+            "interface": {
+              "brandColor": "#112233",
+              "capabilities": [
+                "Read",
+                "Write"
+              ],
+              "composerIcon": "./assets/composer.svg",
+              "defaultPrompt": [
+                "Help with this project"
+              ],
+              "displayName": "Demo Display",
+              "longDescription": "Demo.",
+              "privacyPolicyUrl": "https://example.invalid/privacy",
+              "screenshots": [
+                "./assets/shot.png"
+              ],
+              "shortDescription": "Demo.",
+              "termsOfServiceUrl": "https://example.invalid/terms"
+            }
+          }
+        },
+        "name": "demo",
+        "version": "0.1.0"
+      }
+    },
+    "results": [
+      {
+        "sourceUnit": "plugin.demo.config:root",
+        "standardProfile": "agent-plugins-1.0",
+        "featureId": "plugin-manifests",
+        "status": "rendered",
+        "outputs": [
+          {
+            "kind": "plugin",
+            "path": "plugins/demo/plugin.json"
+          }
+        ]
+      },
+      {
+        "sourceUnit": "plugin.demo.config:root",
+        "target": "claude",
+        "featureId": "plugin-manifests",
+        "status": "rendered",
+        "outputs": [
+          {
+            "kind": "plugin",
+            "path": "plugins/demo/.claude-plugin/plugin.json"
+          }
+        ]
+      },
+      {
+        "sourceUnit": "plugin.demo.config:root",
+        "target": "codex",
+        "featureId": "plugin-manifests",
+        "status": "rendered",
+        "outputs": [
+          {
+            "kind": "plugin",
+            "path": "plugins/demo/plugin.json"
+          }
+        ]
+      }
+    ]
+  }
+]

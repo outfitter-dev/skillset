@@ -13,6 +13,7 @@ These pages explain how to change and verify the compiler itself.
 - [Package releases](package-releases.md) defines Changesets, package preflight, and GitHub Actions-owned publishing.
 - [Feature-system internals](features/README.md) cover registries, render reports, adapters, test machinery, and maintainer guardrails.
 - Evidence retains dated implementation receipts under `evidence/`, newest first:
+  - [SET-492 loss-accounting investigation](evidence/2026-10-31-set-492-loss-accounting.md) (2026-10-31; current reproduction and non-ratifying options)
   - [SET-495 open-object audit](evidence/2026-10-31-set-495-open-object-audit.md) (2026-10-31; findings and recommendations)
   - [SET-433 transform inventory](evidence/2026-10-30-set-433-transform-inventory.md) (2026-10-30; open evidence review)
   - [SET-554 Agent Skills internal-marker receipt](evidence/2026-09-16-set-554-agent-skills-internal-marker.md) (2026-09-16)
