@@ -4,7 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
-  "headerHash": "sha256:b2a14aee870a242b4753be1c1554532f63b8c3873927aada7951b9c5807c96c6",
+  "headerHash": "sha256:019ba1a37ecf76b899bb7fad0c004535fcb5821f7a0f86125ee6550cb8665c2d",
   "items": [
     {
       "fileModes": {
@@ -421,7 +421,7 @@
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
     "agent-instructions": "sha256:0f5ffa22e849bd64d2552d9a22eb582d1caae59b657b0dcac85853950307fbdb",
-    "agent-plugins-1.0": "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
+    "agent-plugins-1.0": "sha256:cef3eb8d1c963fb31d452cdbca33de8fa7aa37ba4a457c98d0875075bd48698e",
     "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
   "target": "workspace"

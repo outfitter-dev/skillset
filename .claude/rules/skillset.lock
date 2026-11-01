@@ -4,7 +4,7 @@
     "promptArguments": true
   },
   "generatedBy": "skillset@0.1.0",
-  "headerHash": "sha256:0f72778eb3de662fd8733065e44f0e92d7ffa7346771de2058665111e965fc41",
+  "headerHash": "sha256:04664821902b530420bf25accc60cb92f9e71903a78e9de850a844bcaffdc16d",
   "items": [
     {
       "fileModes": {
@@ -101,7 +101,7 @@
   "sourceRoot": ".skillset",
   "standardProfileEvidence": {
     "agent-instructions": "sha256:0f5ffa22e849bd64d2552d9a22eb582d1caae59b657b0dcac85853950307fbdb",
-    "agent-plugins-1.0": "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
+    "agent-plugins-1.0": "sha256:cef3eb8d1c963fb31d452cdbca33de8fa7aa37ba4a457c98d0875075bd48698e",
     "agent-skills": "sha256:423b063e9fe4e723fb61bf1fd1799605bfaf005e84bc07f9990f0183cf718554"
   },
   "target": "claude"
