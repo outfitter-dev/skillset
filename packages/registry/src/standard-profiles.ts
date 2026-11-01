@@ -177,7 +177,7 @@ const profiles = [
   makeProfile({
     adoption: {
       profileContentHash:
-        "sha256:d992e4ff4ae49c4fd814c8c0faf05cb8f109a516b471769b63f6a45023f22d52",
+        "sha256:b9a450246a71fa091a46b187e1e070493e13a41b1354f8fb6bd2ea467d80fe86",
       receipt: {
         contentHash:
           "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
@@ -198,6 +198,22 @@ const profiles = [
         "The portable package owns immediate-child skills/ entries."
       ),
       required("plugin-mcp", "The portable package may own a root mcp.json."),
+      required(
+        "plugin-readme",
+        "When authored, the compiler preserves README.md as neutral package support data; this does not establish client discovery or execution."
+      ),
+      required(
+        "plugin-assets",
+        "When authored, the compiler preserves assets/ as neutral package support data; this does not establish client discovery or execution."
+      ),
+      required(
+        "plugin-scripts",
+        "When authored, the compiler preserves scripts/ as neutral package support data; this does not establish client discovery or execution."
+      ),
+      required(
+        "plugin-src",
+        "When authored, the compiler preserves src/ as neutral package support data; this does not establish client discovery or execution."
+      ),
     ],
     id: "agent-plugins-1.0",
     lifecycle: "adopted",
