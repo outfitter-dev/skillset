@@ -2,6 +2,59 @@
   "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/adaptive-hook.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "providers",
+          "claude"
+        ]
+      },
+      "then": {
+        "properties": {
+          "providers": {
+            "contains": {
+              "const": "claude"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "providers",
+          "codex"
+        ]
+      },
+      "then": {
+        "properties": {
+          "providers": {
+            "contains": {
+              "const": "codex"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "providers",
+          "cursor"
+        ]
+      },
+      "then": {
+        "properties": {
+          "providers": {
+            "contains": {
+              "const": "cursor"
+            }
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "claude": {
       "additionalProperties": false,

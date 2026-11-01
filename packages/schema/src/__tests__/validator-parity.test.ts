@@ -177,6 +177,28 @@ const hookRunFixtures = (runs: readonly SchemaJsonValue[]) =>
 
 const cases: Record<string, ParityCase> = {
   ...skillsetBlockCases,
+  "adaptive hook provider membership": {
+    contract: adaptiveHookContract,
+    invalid: TARGET_NAMES.flatMap((target) => [
+      { ...hookBase, providers: TARGET_NAMES.filter((other) => other !== target), [target]: {} },
+      { ...hookBase, providers: [target], ...Object.fromEntries(TARGET_NAMES.map((name) => [name, {}])) },
+      { ...hookBase, providers: [], [target]: {} },
+      { ...hookBase, providers: [target, target], [target]: {} },
+      { ...hookBase, providers: ["unknown"], [target]: {} },
+      { ...hookBase, providers: target, [target]: {} },
+      { ...hookBase, providers: [target], [target]: null },
+    ]),
+    valid: [
+      ...TARGET_NAMES.flatMap((target) => [
+        { ...hookBase, [target]: {} },
+        { ...hookBase, providers: [target], [target]: {} },
+        { ...hookBase, providers: [target], [target]: { context: null } },
+        { ...hookBase, providers: TARGET_NAMES.filter((other) => other !== target) },
+      ]),
+      { ...hookBase, providers: [...TARGET_NAMES], ...Object.fromEntries(TARGET_NAMES.map((target) => [target, {}])) },
+    ],
+    validators: [validateAdaptiveHookUnitSource],
+  },
   "adaptive hook handler": {
     contract: adaptiveHookContract,
     invalid: [
