@@ -512,14 +512,28 @@ async function expandVariables(content: string, context: PreprocessContext): Pro
   const variablePattern = /\{\{\s*([^{}]*?)\s*\}\}/g;
   let expanded = "";
   let cursor = 0;
+  const markdown = isMarkdownSource(context.sourcePath);
+  let containerFences: ReturnType<typeof markdownSpecialBlockLines>["containers"] | undefined;
+  let containerIndex = 0;
+  let line = 0;
+  let nextLine = content.indexOf("\n");
 
   for (const match of content.matchAll(variablePattern)) {
     const [token, key] = match;
     if (key === undefined) continue;
+    containerFences ??= markdown ? markdownSpecialBlockLines(content).containers : [];
+    while (nextLine !== -1 && nextLine < match.index) {
+      line++;
+      nextLine = content.indexOf("\n", nextLine + 1);
+    }
+    while (containerFences[containerIndex] !== undefined && containerFences[containerIndex]!.endLine <= line) containerIndex++;
+    const candidate = containerFences[containerIndex];
+    const container = candidate !== undefined && candidate.startLine <= line ? candidate : undefined;
     expanded += content.slice(cursor, match.index);
     expanded += await resolveVariable(token, key.trim(), context, {
-      inMarkdownCodeBlock: isMarkdownSource(context.sourcePath) && isInsideFencedCodeBlock(content, match.index),
-      markdown: isMarkdownSource(context.sourcePath),
+      inMarkdownCodeBlock: markdown && (container !== undefined || isInsideFencedCodeBlock(content, match.index, containerFences)),
+      markdown,
+      ...(container === undefined ? {} : { continuationPrefix: container.continuationPrefix }),
     });
     cursor = match.index + token.length;
   }
@@ -528,6 +542,7 @@ async function expandVariables(content: string, context: PreprocessContext): Pro
 }
 
 interface VariableRenderContext {
+  readonly continuationPrefix?: string;
   readonly inMarkdownCodeBlock: boolean;
   readonly markdown: boolean;
 }
@@ -668,7 +683,9 @@ function renderJsonValue(
   renderContext: VariableRenderContext
 ): string {
   if (!renderContext.markdown) return compactJson;
-  if (renderContext.inMarkdownCodeBlock) return prettyJson;
+  if (renderContext.inMarkdownCodeBlock) {
+    return prettyJson.replaceAll("\n", `\n${renderContext.continuationPrefix ?? ""}`);
+  }
   return `\`\`\`json\n${prettyJson}\n\`\`\``;
 }
 
@@ -1229,9 +1246,24 @@ function nextFence(line: string, fence: MarkdownFence | undefined): MarkdownFenc
   return closes ? undefined : fence;
 }
 
-function isInsideFencedCodeBlock(content: string, index: number): boolean {
+function isInsideFencedCodeBlock(
+  content: string,
+  index: number,
+  containers: ReturnType<typeof markdownSpecialBlockLines>["containers"]
+): boolean {
   let fence: MarkdownFence | undefined;
-  for (const line of content.slice(0, index).split("\n")) {
+  let containerIndex = 0;
+  const prefixLines = content.slice(0, index).split("\n");
+  for (const [lineIndex, line] of prefixLines.entries()) {
+    while (containers[containerIndex] !== undefined && containers[containerIndex]!.fenceLines[1] <= lineIndex) containerIndex++;
+    const container = containers[containerIndex];
+    // A short-indented list fence can look like a root fence, but its state must
+    // end with its parser-confirmed container rather than leak into later prose.
+    if (container !== undefined && container.fenceLines[0] <= lineIndex) {
+      // Opener-info interpolation is outside the body-only correction.
+      if (lineIndex === container.fenceLines[0] && lineIndex === prefixLines.length - 1) fence = nextFence(line, fence);
+      continue;
+    }
     fence = nextFence(line, fence);
   }
   return fence !== undefined;

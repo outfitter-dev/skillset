@@ -18,6 +18,8 @@ This source is maintained by {{this.metadata.owner}}.
 
 Nested dot paths are supported. Missing fields fail rather than producing an empty string. Strings, numbers, and booleans serialize as text. Objects and arrays serialize as fenced JSON in Markdown prose, as indented JSON when already inside a fenced block, and as compact JSON when the [destination](../../glossary.md#destination) is a structured sidecar.
 
+For object and array values on a code-body line of a list- or blockquote-nested fence, generated JSON lines retain the container continuation prefix. Authored text around the variable stays on its original line; it is not repeated as a prefix. This behavior does not change string-valued substitutions or interpolation in fence opener info.
+
 Triple braces preserve a recognized token literally. `{{{this.description}}}` renders as `{{this.description}}` instead of substituting the field.
 
 ## Source and parent context
