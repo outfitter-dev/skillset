@@ -129,16 +129,16 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:eaf6bfe16db65356233080be74c24a649294ffa480328bd3f5e81691dbbe7a97",
+      "outputHash": "sha256:2f9415709496a1d892f1db691f497fe9aa7f8b9d2c5825f2c5e23f1b7d0486df",
       "outputPath": "skillset/plugin.json",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
-      "provenanceHash": "sha256:9a32645353881b92d01588d7a803ffeddec394a78b467daea21016f415b0d106",
+      "provenanceHash": "sha256:b439fc46f4c36d7273508d41aca82ef9b61365ba42d1d1245bcf179929517906",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "standard",
       "skippedSkills": [],
-      "sourceHash": "sha256:a4f7b272ecd0c67a651b6411fb38acecfc97a9931c1cf1ed4561b5ff491e1a6f",
+      "sourceHash": "sha256:770cd83a01ba71959aa61877a16a6b7bbe1d1b63eeb75ce7882a1b31d9dbb4f7",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -310,15 +310,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset-provider-capabilities",
-      "outputHash": "sha256:a3a52231513c580822c8221a40b170c5174008f0cfbfca3773f1364cc1b0f6ed",
+      "outputHash": "sha256:c9cc3d862493537592472c408011632b460c4ee60406d002b07dc3bdcf4d4a34",
       "outputPath": "skillset/skills/skillset-provider-capabilities/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:6b8e688573eebfcd6225104dbfd5e9f5ad60e4844d18875ad58717773c71b7d2",
+      "provenanceHash": "sha256:30318703ca2a33b05e5c54d62f28766bff391f3bb2881649c42f76ff73ef0383",
       "role": "standard",
-      "sourceHash": "sha256:c7620a721d7c4758ea57e50e13ff2b3ed1aee05976ce07b2a7e9f8ea09fc4c7e",
+      "sourceHash": "sha256:f249bd25f9438a8c9b5c72569302b9cebf2d6056f334b4450303f4397c7d258d",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
       "version": "0.1.1"
     },

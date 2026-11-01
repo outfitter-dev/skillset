@@ -6,6 +6,8 @@ import { sortSchemaRecord } from "./json";
 import { RETIRED_RULE_IMPORT_KIND } from "./retired-vocabulary";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 import {
+  ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN,
+  ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN,
   PROVIDER_NATIVE_REFERENCE_NAME_PATTERN,
   REPORT_REPOSITORY_IDENTITY_PATTERN,
   REPORT_WORKSPACE_NAME_PATTERN,
@@ -513,9 +515,17 @@ function adaptiveHookRunSchema(): SchemaJsonRecord {
     ...strictObjectSchema({
       args: arraySchema(nonEmptyStringSchema()),
       command: { ...nonEmptyStringSchema(), pattern: "\\S" },
-      cwd: nonEmptyStringSchema(),
+      cwd: {
+        ...nonEmptyStringSchema(),
+        pattern: "\\S",
+        not: { pattern: ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN },
+      },
       env: { additionalProperties: { type: "string" }, type: "object" },
-      script: { ...nonEmptyStringSchema(), pattern: "\\S" },
+      script: {
+        ...nonEmptyStringSchema(),
+        pattern: ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN,
+        not: { pattern: ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN },
+      },
     }),
     anyOf: [{ required: ["command"] }, { required: ["script"] }],
   };

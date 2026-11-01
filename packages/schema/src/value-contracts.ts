@@ -1,3 +1,8 @@
+export const ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN = "^(?:\\./|\\{\\{scripts\\.dir\\}\\}/)";
+// Match whole parent segments through true string end, including after line terminators.
+export const ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN =
+  "^/|^[A-Za-z]:[\\\\/]|(?:^|[\\\\/])\\.\\.(?=[\\\\/]|(?![\\s\\S]))";
+
 export const SEMVER_PATTERN =
   "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
 export const PROVIDER_NATIVE_REFERENCE_NAME_PATTERN =
