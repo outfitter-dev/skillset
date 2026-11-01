@@ -1,6 +1,6 @@
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import type { CliParseContext } from "./cli-arg-values";
-import { CliUsageError } from "./cli-output";
+import { bindUsageCommand, CliUsageError } from "./cli-output";
 import type { ReportCommandRequest } from "./report-cli";
 
 export const parseReportCommandRequest = (
@@ -46,11 +46,6 @@ export const parseReportCommandRequest = (
       reportSubcommand: "show",
     };
   } catch (error) {
-    if (error instanceof CliUsageError) {
-      throw error.command === undefined
-        ? new CliUsageError(error.message, "report.show")
-        : error;
-    }
-    throw error;
+    throw bindUsageCommand(error, "report.show");
   }
 };
