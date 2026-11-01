@@ -323,6 +323,11 @@
           "context": "- [ADR-0003](0003-lossy-and-unsupported-output-policy.md) — unchanged unsupported and failed policy behavior.",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
+        },
+        {
+          "context": "The governing boundaries are [ADR-0018](../../adrs/0018-render-results.md), [ADR-0003](../../adrs/0003-lossy-and-unsupported-output-policy.md), [ADR-0046](../../adrs/0046-provider-only-plugin-componen",
+          "from": "2026-10-31-set-492-loss-accounting",
+          "fromPath": "docs/development/evidence/2026-10-31-set-492-loss-accounting.md"
         }
       ],
       "number": "0003",
@@ -1017,6 +1022,11 @@
           "context": "- [ADR-0018](0018-render-results.md): rendering and evidence reporting boundaries.",
           "from": "0049",
           "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
+        },
+        {
+          "context": "The governing boundaries are [ADR-0018](../../adrs/0018-render-results.md), [ADR-0003](../../adrs/0003-lossy-and-unsupported-output-policy.md), [ADR-0046](../../adrs/0046-provider-only-plugin-componen",
+          "from": "2026-10-31-set-492-loss-accounting",
+          "fromPath": "docs/development/evidence/2026-10-31-set-492-loss-accounting.md"
         },
         {
           "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
@@ -2049,6 +2059,11 @@
       "created": "2026-10-29",
       "depends_on": ["3", "18", "19", "28", "37"],
       "inbound": [
+        {
+          "context": "The governing boundaries are [ADR-0018](../../adrs/0018-render-results.md), [ADR-0003](../../adrs/0003-lossy-and-unsupported-output-policy.md), [ADR-0046](../../adrs/0046-provider-only-plugin-componen",
+          "from": "2026-10-31-set-492-loss-accounting",
+          "fromPath": "docs/development/evidence/2026-10-31-set-492-loss-accounting.md"
+        },
         {
           "context": "Provider-only plugin components outside a destination's component contract are uncovered: they use `intentionally_skipped`, `policy: default`, an explicit support reason, and `plugin-component-uncover",
           "from": "render-results",
