@@ -1,3 +1,4 @@
+import { planSkillContent, withSkillContent } from "./skill-content-plan";
 import type { BuildScope } from "./types";
 import { assertRenderedMarkdownLinks } from "./rendered-markdown-links";
 import { readFileSync, statSync, readdir, readFile, stat } from "./workspace-fs";
@@ -50,7 +51,6 @@ import {
 } from "./plugin-output";
 import { pluginComponentPath, pluginPackageComponentFile } from "./plugin-component-paths";
 import {
-  createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
 } from "./resources";
 import {
@@ -770,6 +770,20 @@ async function renderPluginSharedSkillFiles(
     scopePath: sourceDir,
     sourcePath: skill.sourcePath,
   });
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if (
+      relativeFile === SKILL_FILE ||
+      relativeFile === "CHANGELOG.md" ||
+      relativeFile === "LICENSE.txt" ||
+      relativeFile === ".skillset.tools.yaml" ||
+      relativeFile.startsWith(`agents${sep}`)
+    ) {
+      continue;
+    }
+    sourceFiles.push(file);
+  }
   const standardMarkdown = standardConsumer
     ? await renderAgentSkillStandardMarkdown(
         graph,
@@ -777,7 +791,8 @@ async function renderPluginSharedSkillFiles(
         skill,
         targetSkillDir,
         skillLicense?.manifestValue,
-        "agent-plugins-1.0"
+        "agent-plugins-1.0",
+        { sourceFiles }
       )
     : undefined;
   const providerRenderings: ProviderSkillRendering[] = [];
@@ -787,6 +802,7 @@ async function renderPluginSharedSkillFiles(
         content: standardMarkdown.content,
         preprocessDependencies: standardMarkdown.preprocessDependencies,
         resources: standardMarkdown.resources,
+        nestedFiles: standardMarkdown.nestedFiles,
         transforms: [],
       },
       provider: "agent-plugins-1.0",
@@ -808,6 +824,7 @@ async function renderPluginSharedSkillFiles(
           content: standardMarkdown.content,
           preprocessDependencies: standardMarkdown.preprocessDependencies,
           resources: standardMarkdown.resources,
+        nestedFiles: standardMarkdown.nestedFiles,
           transforms: [],
         },
         provider: target,
@@ -815,7 +832,7 @@ async function renderPluginSharedSkillFiles(
       continue;
     }
     providerRenderings.push({
-      markdown: await renderSkillMarkdown(graph, plugin, skill, target),
+      markdown: await renderSkillMarkdown(graph, plugin, skill, target, { sourceFiles }),
       provider: target,
     });
   }
@@ -884,20 +901,11 @@ async function renderPluginSharedSkillFiles(
     );
   }
 
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = relative(sourceDir, file);
-    if (
-      relativeFile === SKILL_FILE ||
-      relativeFile === "CHANGELOG.md" ||
-      relativeFile === "LICENSE.txt" ||
-      relativeFile === ".skillset.tools.yaml" ||
-      relativeFile.startsWith(`agents${sep}`)
-    ) {
-      continue;
-    }
     pushSkillRenderedFile(
       rendered,
-      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      withSkillContent(await copyFileFromSource(file, join(targetSkillDir, relativeFile)), targetSkillDir, mergedMarkdown.nestedFiles),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -959,6 +967,7 @@ function mergePluginSkillRenderings(
   const preprocessDependencies = new Set<string>();
   const resources = new Map<string, SourceResource>();
   const transforms: AppliedTransform[] = [];
+  const nestedFiles = renderings[0]?.markdown.nestedFiles ?? new Map<string, Uint8Array>();
   const standardRendering = renderings.find(
     (rendering) => rendering.provider === "agent-plugins-1.0"
   );
@@ -968,6 +977,9 @@ function mergePluginSkillRenderings(
 
   let sharedInvocationPolicy: JsonValue | undefined;
   for (const rendering of renderings) {
+    if (!isDeepStrictEqual(nestedFiles, rendering.markdown.nestedFiles ?? new Map())) {
+      throwPluginSkillProviderIncompatible(graph, plugin, skill, rendering.provider, "nested Markdown");
+    }
     const parsed = parseMarkdown(
       rendering.markdown.content,
       `${relative(graph.rootPath, skill.sourcePath)} -> ${rendering.provider}`
@@ -1084,6 +1096,7 @@ function mergePluginSkillRenderings(
       compareStrings(left.targetPath, right.targetPath)
     ),
     transforms,
+    nestedFiles,
   };
 }
 
@@ -1588,7 +1601,16 @@ async function renderStandaloneSkill(
   );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
-  const skillMarkdown = await renderSkillMarkdown(graph, undefined, skill, target);
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if (relativeFile === SKILL_FILE) continue;
+    if (relativeFile === "CHANGELOG.md") continue;
+    if (relativeFile === "LICENSE.txt") continue;
+    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
+    sourceFiles.push(file);
+  }
+  const skillMarkdown = await renderSkillMarkdown(graph, undefined, skill, target, { sourceFiles });
   pushSkillRenderedFile(
     rendered,
     textFile(
@@ -1637,15 +1659,11 @@ async function renderStandaloneSkill(
     );
   }
 
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = relative(sourceDir, file);
-    if (relativeFile === SKILL_FILE) continue;
-    if (relativeFile === "CHANGELOG.md") continue;
-    if (relativeFile === "LICENSE.txt") continue;
-    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
-      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      withSkillContent(await copyFileFromSource(file, join(targetSkillDir, relativeFile)), targetSkillDir, skillMarkdown.nestedFiles),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -1735,6 +1753,27 @@ async function renderProjectSkillCopy(
     scopePath: sourceDir,
     sourcePath: skill.sourcePath,
   });
+  const generatedCodexAgentFile = await renderCodexSkillAgentFile(
+    graph, plugin, skill, target, sourceDir, targetSkillDir
+  );
+  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
+    graph, skill, target, targetSkillDir
+  );
+  const generatedRelativeFiles = new Set(
+    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
+      .filter((file): file is RenderedFile => file !== undefined)
+      .map((file) => relative(targetSkillDir, file.path))
+  );
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if ([SKILL_FILE, "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
+    // Skill-local hook definitions are not hydrated into project-use copies.
+    // Explicit resources are still copied by renderSkillResources below.
+    if (relativeFile.startsWith(`hooks${sep}`)) continue;
+    if (generatedRelativeFiles.has(relativeFile)) continue;
+    sourceFiles.push(file);
+  }
   const standard = target === "codex"
     ? await renderAgentSkillStandardMarkdown(
         graph,
@@ -1744,6 +1783,7 @@ async function renderProjectSkillCopy(
         skillLicense?.manifestValue,
         "agent-skills",
         {
+          sourceFiles,
           draft: copy.draftOrigin !== undefined,
           effectiveName: copy.effectiveName,
           internal: copy.draftOrigin !== undefined
@@ -1760,6 +1800,7 @@ async function renderProjectSkillCopy(
   }
   const skillMarkdown = standard === undefined
     ? await renderSkillMarkdown(graph, plugin, skill, target, {
+        sourceFiles,
         effectiveName: copy.effectiveName,
         // A project copy's own eligible hooks are rejected above; hydrating
         // here would resolve the shared skill scope and pick up a same-id
@@ -1780,17 +1821,6 @@ async function renderProjectSkillCopy(
         copy.draftOrigin === undefined ? undefined : copy.effectiveName
       );
   const resources = standard?.resources ?? skillMarkdown.resources;
-  const generatedCodexAgentFile = await renderCodexSkillAgentFile(
-    graph, plugin, skill, target, sourceDir, targetSkillDir
-  );
-  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
-    graph, skill, target, targetSkillDir
-  );
-  const generatedRelativeFiles = new Set(
-    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
-      .filter((file): file is RenderedFile => file !== undefined)
-      .map((file) => relative(targetSkillDir, file.path))
-  );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
   pushSkillRenderedFile(rendered, textFile(
@@ -1810,16 +1840,11 @@ async function renderProjectSkillCopy(
     renderedRelativeFiles,
     `${skill.sourcePath}.LICENSE.txt`
   );
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = relative(sourceDir, file);
-    if ([SKILL_FILE, "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
-    // Skill-local hook definitions are not hydrated into project-use copies.
-    // Explicit resources are still copied by renderSkillResources below.
-    if (relativeFile.startsWith(`hooks${sep}`)) continue;
-    if (generatedRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
-      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      withSkillContent(await copyFileFromSource(file, join(targetSkillDir, relativeFile)), targetSkillDir, standard?.nestedFiles ?? skillMarkdown.nestedFiles),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -1959,6 +1984,7 @@ function formattedPreprocessDependencies(
 }
 
 interface RenderedSkillMarkdown {
+  readonly nestedFiles?: ReadonlyMap<string, Uint8Array>;
   readonly content: string;
   readonly preprocessDependencies: readonly string[];
   readonly resources: readonly SourceResource[];
@@ -1982,6 +2008,7 @@ async function renderSkillMarkdown(
   skill: SourceSkill,
   target: TargetName,
   options: {
+    readonly sourceFiles?: readonly string[];
     readonly draft?: boolean;
     readonly effectiveName?: string;
     readonly includeAdaptiveHooks?: boolean;
@@ -2053,31 +2080,9 @@ async function renderSkillMarkdown(
     ? withDraftPresentation
     : withProjectUseInternalMarker(withDraftPresentation, options.internal);
 
-  const preprocessDependencies = new Set<string>();
-  const resourcePlanner = createEffectiveSkillResourcePlanner(
-    skill.resources,
-    {
-      label: skill.sourcePath,
-      ...(plugin === undefined
-        ? {}
-        : { pluginSharedPath: join(plugin.path, "shared") }),
-      sharedPath: join(graph.sourceRootPath, "shared"),
-      sourceRootPath: graph.sourceRootPath,
-    }
+  const { body: preprocessedBody, nestedFiles, preprocessDependencies, resources } = await planSkillContent(
+    graph, plugin, skill, options.sourceFiles, target
   );
-  const preprocessedBody = await preprocessText(skill.body, {
-    frontmatter: skill.frontmatter,
-    preprocessDependencies,
-    rootPath: graph.rootPath,
-    sourcePath: skill.sourcePath,
-    sourceRoot: graph.sourceRoot,
-    target,
-    promptArguments: graph.root.compile.features.promptArguments,
-    renderPathReference: (reference) =>
-      resourcePlanner.resolveReference(reference.specifier),
-    ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
-  });
-  const resources = resourcePlanner.resources();
   const linkedBody = rewriteResourceLinks(preprocessedBody, resources, skill.sourcePath);
   const translated =
     target === "codex"
@@ -2096,6 +2101,7 @@ async function renderSkillMarkdown(
       `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
     ),
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+    nestedFiles,
     resources,
     transforms: translated.transforms,
   };

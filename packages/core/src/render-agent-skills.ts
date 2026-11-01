@@ -1,3 +1,4 @@
+import { withSkillContent } from "./skill-content-plan";
 import { readdir } from "./workspace-fs";
 import path from "node:path";
 
@@ -176,6 +177,20 @@ async function renderStandardAgentSkillTree(
     scopePath: sourceDir,
     sourcePath: args.skill.sourcePath,
   });
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = normalizePath(path.relative(sourceDir, file));
+    if (
+      relativeFile === SKILL_FILE ||
+      relativeFile === "CHANGELOG.md" ||
+      relativeFile === "LICENSE.txt" ||
+      relativeFile === ".skillset.tools.yaml" ||
+      relativeFile === CODEX_SKILL_SIDECAR_FILE
+    ) {
+      continue;
+    }
+    sourceFiles.push(file);
+  }
   const markdown = await renderAgentSkillStandardMarkdown(
     args.graph,
     args.plugin,
@@ -183,7 +198,8 @@ async function renderStandardAgentSkillTree(
     args.targetSkillDir,
     skillLicense?.manifestValue ??
       (skillLicense === undefined ? undefined : "LICENSE.txt"),
-    args.standardProfile
+    args.standardProfile,
+    { sourceFiles }
   );
   if (!("file" in markdown)) return [];
 
@@ -201,6 +217,8 @@ async function renderStandardAgentSkillTree(
     sourceUnit,
     markdown.file,
     markdown.resources,
+    sourceFiles,
+    markdown.nestedFiles,
     skillLicense
   );
   const baselineConsumer: OutputConsumer = {
@@ -285,6 +303,8 @@ async function renderBaselineFiles(
   sourceUnit: string,
   markdown: LogicalRenderedFile,
   resources: readonly SourceResource[],
+  sourceFiles: readonly string[],
+  nestedFiles: ReadonlyMap<string, Uint8Array>,
   skillLicense: ResolvedLicense | undefined
 ): Promise<readonly LogicalRenderedFile[]> {
   const baseline: LogicalRenderedFile[] = [];
@@ -313,7 +333,7 @@ async function renderBaselineFiles(
       `${args.skill.sourcePath}.LICENSE.txt`
     );
   }
-  await pushSourceFiles(args, sourceDir, sourceUnit, baseline, relativeFiles);
+  await pushSourceFiles(args, sourceDir, sourceUnit, baseline, relativeFiles, sourceFiles, nestedFiles);
   await pushEffectiveResources(
     args,
     resources,
@@ -329,26 +349,19 @@ async function pushSourceFiles(
   sourceDir: string,
   sourceUnit: string,
   baseline: LogicalRenderedFile[],
-  relativeFiles: Set<string>
+  relativeFiles: Set<string>,
+  sourceFiles: readonly string[],
+  nestedFiles: ReadonlyMap<string, Uint8Array>
 ): Promise<void> {
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = normalizePath(path.relative(sourceDir, file));
-    if (
-      relativeFile === SKILL_FILE ||
-      relativeFile === "CHANGELOG.md" ||
-      relativeFile === "LICENSE.txt" ||
-      relativeFile === ".skillset.tools.yaml" ||
-      relativeFile === CODEX_SKILL_SIDECAR_FILE
-    ) {
-      continue;
-    }
     pushSkillRenderedFile(
       baseline,
       asAgentSkillStandardFile(
-        await copyFileFromSource(
+        withSkillContent(await copyFileFromSource(
           file,
           path.join(args.targetSkillDir, relativeFile)
-        ),
+        ), args.targetSkillDir, nestedFiles),
         sourceUnit,
         args.standardProfile
       ),
