@@ -108,6 +108,7 @@ const OWNED_FUNCTIONS = {
   ],
   "render-standard-instructions": ["planAgentInstructionProjections"],
   "render-support": [
+    "collectFiles",
     "copyFileFromSource",
     "copyPath",
     "exists",

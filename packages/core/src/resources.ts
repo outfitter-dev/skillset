@@ -1,6 +1,6 @@
 import { realpath, stat } from "./workspace-fs";
 import type { Stats } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import { markdownLinkIsActive } from "./markdown-link-context";
@@ -347,9 +347,10 @@ interface ResourceLinkMapping {
 export function rewriteResourceLinks(
   body: string,
   resources: readonly SourceResource[],
-  label: string
+  label: string,
+  outputFile = SKILL_FILE
 ): string {
-  const replacements = new Map(resources.map((resource) => [resource.from, resource.targetPath]));
+  const replacements = new Map(resources.map((resource) => [resource.from, posix.relative(posix.dirname(outputFile), resource.targetPath)]));
   // Bare (schemeless) links to a resource's *source* path break when a custom
   // `to` emits that resource elsewhere; index those remapped source paths so the
   // build can reject the ambiguous link instead of leaving it silently broken.

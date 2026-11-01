@@ -44,6 +44,8 @@ Use the shared [ownership and handoff table](references/public-handoffs.md). Cho
 
 Missing CLI or machine installation stays with this router's [preflight and recovery](references/preflight-and-recovery.md). For authoring, read [source authoring](references/source-authoring.md); for import details, [import and rules](references/import-and-rules.md) and [root guidance adoption](references/root-guidance-adoption.md); for checks, [commands and checks](references/commands-and-checks.md). Design/config/eval/review/audit/publish/help/settings specialists are not bundled. Route to the table's available guidance and report unsupported work honestly.
 
+Nested skill Markdown and copied Markdown resources use the same preprocessing grammar as the primary body. Links remain inside the skill, deduplicate copies, and rebase from each emitted file. Use per-file `skillset.preprocess: false` for literal syntax examples. Includes fail on cycles or beyond four hops; supporting-file and rule-import size advisories identify content worth trimming. See [source authoring](references/source-authoring.md) for the exact boundaries.
+
 ## Preserve Authority
 
 Preview before writes. Inspect diagnostics and preserve unmanaged originals. Inspect ownership before editing root guidance. Source edits normally belong under `.skillset/` or in `skillset.yaml`; in native-root mode, edit the authored root `AGENTS.md` directly and do not create a conflicting `.skillset/RULES.md`. Use explicit reconciliation for edits to managed destinations. Build does not install, enable, trust, or activate provider output. Missing CLI, drift, and a generated plan do not authorize those actions or a package installation.

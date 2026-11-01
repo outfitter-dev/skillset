@@ -162,7 +162,7 @@ export function textFile(
     : { path, content: textEncoder.encode(content), mode: 0o644, sourcePath };
 }
 
-async function collectFiles(root: string): Promise<readonly string[]> {
+export async function collectFiles(root: string): Promise<readonly string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries.sort((left, right) =>

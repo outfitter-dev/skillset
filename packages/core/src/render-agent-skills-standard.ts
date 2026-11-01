@@ -1,3 +1,4 @@
+import { planSkillContent } from "./skill-content-plan";
 import path from "node:path";
 import { incompatibleAgentSkillsMetadataKeys } from "./agent-skills-metadata";
 
@@ -12,12 +13,10 @@ import { readRecord, readString } from "./config";
 import type { LogicalRenderedFile } from "./output-plan";
 import {
   formatPreprocessDependency,
-  preprocessText,
   renderPromptArgumentsNotice,
 } from "./preprocess";
 import { textFile } from "./render-support";
 import {
-  createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
 } from "./resources";
 import { readAllowedTools } from "./skill-policy";
@@ -71,6 +70,7 @@ export type AgentSkillStandardClassification =
   | { readonly issue: AgentSkillStandardIssue; readonly status: "unsupported" };
 
 export interface RenderedAgentSkillStandardMarkdown {
+  readonly nestedFiles: ReadonlyMap<string, Uint8Array>;
   readonly content: string;
   readonly file: LogicalRenderedFile;
   readonly preprocessDependencies: readonly string[];
@@ -78,6 +78,7 @@ export interface RenderedAgentSkillStandardMarkdown {
 }
 
 export interface AgentSkillStandardRenderOptions {
+  readonly sourceFiles?: readonly string[];
   readonly draft?: boolean;
   readonly effectiveName?: string;
   readonly internal?: boolean;
@@ -196,30 +197,9 @@ export async function renderAgentSkillStandardMarkdown(
     return classification.issue;
   }
 
-  const preprocessDependencies = new Set<string>();
-  const resourcePlanner = createEffectiveSkillResourcePlanner(
-    skill.resources,
-    {
-      label: skill.sourcePath,
-      ...(plugin === undefined
-        ? {}
-        : { pluginSharedPath: path.join(plugin.path, "shared") }),
-      sharedPath: path.join(graph.sourceRootPath, "shared"),
-      sourceRootPath: graph.sourceRootPath,
-    }
+  const { body: body, nestedFiles, preprocessDependencies, resources } = await planSkillContent(
+    graph, plugin, skill, options.sourceFiles
   );
-  const body = await preprocessText(skill.body, {
-    frontmatter: skill.frontmatter,
-    preprocessDependencies,
-    rootPath: graph.rootPath,
-    sourcePath: skill.sourcePath,
-    sourceRoot: graph.sourceRoot,
-    promptArguments: graph.root.compile.features.promptArguments,
-    renderPathReference: (reference) =>
-      resourcePlanner.resolveReference(reference.specifier),
-    ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
-  });
-  const resources = resourcePlanner.resources();
   // Only the Agent Skills baseline carries the replacement notice. Plugin
   // packages share one SKILL.md, and Cursor preserves the marker as written.
   const notice =
@@ -249,6 +229,7 @@ export async function renderAgentSkillStandardMarkdown(
       )
       .sort(),
     resources,
+    nestedFiles,
   };
 }
 

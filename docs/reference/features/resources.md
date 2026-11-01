@@ -16,7 +16,7 @@ Resources copy workspace or plugin shared files into a generated skill. [Workspa
 
 ## Linked files
 
-A marked link both renders a skill-root-relative path and implies a file copy:
+A marked link both renders a path relative to its emitted Markdown file and implies a file copy:
 
 ```markdown
 Read @{{shared:references/common.md}}.
@@ -25,7 +25,7 @@ Run @{{plugin:scripts/check.sh}}.
 
 The first segment after `shared:` or `plugin:` must be exactly `references`, `scripts`, `assets`, or `templates`, followed by a file path. By default the destination is the same `<group>/<rest>` path beneath the generated skill. Repeating the same source deduplicates the copy. Two different sources that map to one destination fail as a collision.
 
-Marked links in inline code or fenced code blocks stay literal and copy nothing. `skillset.preprocess: false` also leaves them literal and copy-free. Copied Markdown is opaque resource content; Skillset does not preprocess links or partials inside it.
+Marked links in inline code or fenced code blocks stay literal and copy nothing. `skillset.preprocess: false` also leaves them literal and copy-free. Copied Markdown processes its own links and partials unless that file carries the opt-out. Non-Markdown resources remain byte-preserving. Nested skill Markdown and the primary body share one copy inventory.
 
 ## Explicit resources
 
@@ -61,6 +61,22 @@ Generated Cursor `SKILL.md` keeps the same leading `@` text. The copied path is 
 Skillset rejects missing inputs, invalid marked-link groups, plugin resources in standalone skills, path traversal, canonical symlink escapes, generated control-file targets, source-to-target collisions, and collisions with skill-local files. Marked links accept files only. Declared scripts without source executable bits produce a lint diagnostic; set the source bit with `chmod +x`.
 
 Skillset validates source paths through the same declared-resource containment rules before copying. Refusal happens before managed output writes. Avoid declaring large directories when one file is sufficient because every selected byte participates in generated [drift](../../glossary.md#drift).
+
+## Plugin-level shared files
+
+A plugin subagent, hook command, or emitted script using a marked shared reference lifts the resource into `plugins/<plugin>/shared/<group>/<rest>`. Skill-owned references still copy inside the skill: the referrer's portable unit determines the destination. Plugin `shared/` support files also travel with the shared package. Repeated references deduplicate the same output, and the plugin lock records preprocessing dependencies.
+
+If the plugin authors `shared/references/common.md` and plugin-level content also links the workspace `shared:references/common.md`, build fails with `shared-reference-collision`, naming both sources even if their bytes agree. The diagnostic recommends `skillset move plugins/<plugin>/shared/references/common.md shared/references/common.md` so the author can promote the material deliberately. The build does not perform the move.
+
+Subagent Markdown links are relative to the emitted Markdown file. [Hook and script arguments](hooks.md#shared-files-in-plugin-hooks-and-scripts) preserve `@` and have explicit shell and runtime-path boundaries; copying a file alone does not qualify an arbitrary command. Cursor plugin rules and provider-native islands are outside this lifting path.
+
+## Size advisories
+
+`skill-resource-size` warns when a physical skill's emitted supporting files exceed 1 MiB (1,048,576 bytes). It counts each output path once, after preprocessing, excluding the primary `SKILL.md` and generated license/tool/agent controls. Multiple provider consumers of the same physical skill do not multiply its size. The warning is advisory and the build continues; it is a Skillset packaging threshold, not a provider installation limit.
+
+`rule-import-size` warns when a rule with shared preprocessing dependencies exceeds 256 KiB (262,144 bytes) in either its final rendered content or its unique shared dependency bytes. The message reports both measurements separately because inlined text can occur in both. This conservative threshold encourages smaller eager context; it is not an estimate of tokens or a provider hard limit. Claude's [memory documentation](https://code.claude.com/docs/en/memory#my-claudemd-is-too-large) states that imports load with their parent, recommends short instruction files, and documents a 4 MiB skip limit for files loaded at launch. On-demand files have separate limits.
+
+Both advisories use the selected output scope and appear during builds, diffs, and generated-output checks. A large rule without shared preprocessing dependencies does not receive the import advisory.
 
 ## Provenance
 

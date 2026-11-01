@@ -1,6 +1,8 @@
+import { createPluginContentPlan } from "./plugin-content-plan";
+import { planSkillContent, withSkillContent } from "./skill-content-plan";
 import type { BuildScope } from "./types";
 import { assertRenderedMarkdownLinks } from "./rendered-markdown-links";
-import { readFileSync, statSync, readdir, readFile, stat } from "./workspace-fs";
+import { readFileSync, statSync, readFile, stat } from "./workspace-fs";
 import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
 import { createHash } from "node:crypto";
@@ -50,7 +52,6 @@ import {
 } from "./plugin-output";
 import { pluginComponentPath, pluginPackageComponentFile } from "./plugin-component-paths";
 import {
-  createEffectiveSkillResourcePlanner,
   rewriteResourceLinks,
 } from "./resources";
 import {
@@ -100,6 +101,7 @@ import { listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/regist
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
 import {
+  collectFiles,
   copyFileFromSource,
   copyPath,
   exists,
@@ -559,7 +561,7 @@ async function renderPluginTarget(
   // Without it, each target keeps only the companions its registry support
   // proves, as with LICENSE above.
   const supportPaths = standardOwner
-    ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src"] as const : []
+    ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src", "shared"] as const : []
     : fallbackSupportPaths(target);
   const supportFiles: RenderedFile[] = [];
   for (const supportPath of supportPaths) {
@@ -570,19 +572,20 @@ async function renderPluginTarget(
       supportPath
     )));
   }
-  rendered.push(...supportFiles);
-  pluginRootFiles.push(...supportFiles);
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
-  const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
+  const contentPlanner = createPluginContentPlan(graph, plugin, basePath, target);
+  const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath, contentPlanner.processHookCommand);
   const companionFiles = await copyPluginCompanionFiles(
     graph,
     plugin,
     target,
     basePath,
-    pluginManifest
+    pluginManifest,
+    contentPlanner.processHookCommand
   );
-  rendered.push(...adaptiveHookFiles, ...companionFiles);
-  pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
+  const contentPlan = await contentPlanner.finish([...supportFiles, ...adaptiveHookFiles, ...companionFiles]);
+  rendered.push(...contentPlan.files);
+  pluginRootFiles.push(...contentPlan.files);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
   assertPluginPackagePathCompatibility(graph, labelPackageWriter(pluginRootFiles, target));
   const pluginOwnedFiles = planRenderedFiles(pluginRootFiles);
@@ -594,7 +597,11 @@ async function renderPluginTarget(
       plugin,
       // Fallback support copies are this item's own output, so their source
       // must move its sourceHash; the standard package hashes them otherwise.
-      sourceFiles: standardOwner ? companionFiles : [...supportFiles, ...companionFiles],
+      sourceFiles: contentPlan.files.filter(file =>
+        !adaptiveHookFiles.some(hook => hook.path === file.path) &&
+        (!standardOwner || !supportFiles.some(support => support.path === file.path))
+      ),
+      preprocessDependencies: contentPlan.preprocessDependencies,
       target,
     });
   lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
@@ -770,6 +777,20 @@ async function renderPluginSharedSkillFiles(
     scopePath: sourceDir,
     sourcePath: skill.sourcePath,
   });
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if (
+      relativeFile === SKILL_FILE ||
+      relativeFile === "CHANGELOG.md" ||
+      relativeFile === "LICENSE.txt" ||
+      relativeFile === ".skillset.tools.yaml" ||
+      relativeFile.startsWith(`agents${sep}`)
+    ) {
+      continue;
+    }
+    sourceFiles.push(file);
+  }
   const standardMarkdown = standardConsumer
     ? await renderAgentSkillStandardMarkdown(
         graph,
@@ -777,7 +798,8 @@ async function renderPluginSharedSkillFiles(
         skill,
         targetSkillDir,
         skillLicense?.manifestValue,
-        "agent-plugins-1.0"
+        "agent-plugins-1.0",
+        { sourceFiles }
       )
     : undefined;
   const providerRenderings: ProviderSkillRendering[] = [];
@@ -787,6 +809,7 @@ async function renderPluginSharedSkillFiles(
         content: standardMarkdown.content,
         preprocessDependencies: standardMarkdown.preprocessDependencies,
         resources: standardMarkdown.resources,
+        nestedFiles: standardMarkdown.nestedFiles,
         transforms: [],
       },
       provider: "agent-plugins-1.0",
@@ -808,6 +831,7 @@ async function renderPluginSharedSkillFiles(
           content: standardMarkdown.content,
           preprocessDependencies: standardMarkdown.preprocessDependencies,
           resources: standardMarkdown.resources,
+        nestedFiles: standardMarkdown.nestedFiles,
           transforms: [],
         },
         provider: target,
@@ -815,7 +839,7 @@ async function renderPluginSharedSkillFiles(
       continue;
     }
     providerRenderings.push({
-      markdown: await renderSkillMarkdown(graph, plugin, skill, target),
+      markdown: await renderSkillMarkdown(graph, plugin, skill, target, { sourceFiles }),
       provider: target,
     });
   }
@@ -884,20 +908,11 @@ async function renderPluginSharedSkillFiles(
     );
   }
 
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = relative(sourceDir, file);
-    if (
-      relativeFile === SKILL_FILE ||
-      relativeFile === "CHANGELOG.md" ||
-      relativeFile === "LICENSE.txt" ||
-      relativeFile === ".skillset.tools.yaml" ||
-      relativeFile.startsWith(`agents${sep}`)
-    ) {
-      continue;
-    }
     pushSkillRenderedFile(
       rendered,
-      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      withSkillContent(await copyFileFromSource(file, join(targetSkillDir, relativeFile)), targetSkillDir, mergedMarkdown.nestedFiles),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -908,7 +923,8 @@ async function renderPluginSharedSkillFiles(
       mergedMarkdown.resources,
       skill,
       targetSkillDir,
-      renderedRelativeFiles
+      renderedRelativeFiles,
+      mergedMarkdown.nestedFiles
     ))
   );
 
@@ -959,6 +975,7 @@ function mergePluginSkillRenderings(
   const preprocessDependencies = new Set<string>();
   const resources = new Map<string, SourceResource>();
   const transforms: AppliedTransform[] = [];
+  const nestedFiles = renderings[0]?.markdown.nestedFiles ?? new Map<string, Uint8Array>();
   const standardRendering = renderings.find(
     (rendering) => rendering.provider === "agent-plugins-1.0"
   );
@@ -968,6 +985,9 @@ function mergePluginSkillRenderings(
 
   let sharedInvocationPolicy: JsonValue | undefined;
   for (const rendering of renderings) {
+    if (!isDeepStrictEqual(nestedFiles, rendering.markdown.nestedFiles ?? new Map())) {
+      throwPluginSkillProviderIncompatible(graph, plugin, skill, rendering.provider, "nested Markdown");
+    }
     const parsed = parseMarkdown(
       rendering.markdown.content,
       `${relative(graph.rootPath, skill.sourcePath)} -> ${rendering.provider}`
@@ -1084,6 +1104,7 @@ function mergePluginSkillRenderings(
       compareStrings(left.targetPath, right.targetPath)
     ),
     transforms,
+    nestedFiles,
   };
 }
 
@@ -1588,7 +1609,16 @@ async function renderStandaloneSkill(
   );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
-  const skillMarkdown = await renderSkillMarkdown(graph, undefined, skill, target);
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if (relativeFile === SKILL_FILE) continue;
+    if (relativeFile === "CHANGELOG.md") continue;
+    if (relativeFile === "LICENSE.txt") continue;
+    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
+    sourceFiles.push(file);
+  }
+  const skillMarkdown = await renderSkillMarkdown(graph, undefined, skill, target, { sourceFiles });
   pushSkillRenderedFile(
     rendered,
     textFile(
@@ -1637,15 +1667,11 @@ async function renderStandaloneSkill(
     );
   }
 
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = relative(sourceDir, file);
-    if (relativeFile === SKILL_FILE) continue;
-    if (relativeFile === "CHANGELOG.md") continue;
-    if (relativeFile === "LICENSE.txt") continue;
-    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
-      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      withSkillContent(await copyFileFromSource(file, join(targetSkillDir, relativeFile)), targetSkillDir, skillMarkdown.nestedFiles),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -1656,7 +1682,8 @@ async function renderStandaloneSkill(
       skillMarkdown.resources,
       skill,
       targetSkillDir,
-      renderedRelativeFiles
+      renderedRelativeFiles,
+      skillMarkdown.nestedFiles
     ))
   );
 
@@ -1735,6 +1762,27 @@ async function renderProjectSkillCopy(
     scopePath: sourceDir,
     sourcePath: skill.sourcePath,
   });
+  const generatedCodexAgentFile = await renderCodexSkillAgentFile(
+    graph, plugin, skill, target, sourceDir, targetSkillDir
+  );
+  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
+    graph, skill, target, targetSkillDir
+  );
+  const generatedRelativeFiles = new Set(
+    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
+      .filter((file): file is RenderedFile => file !== undefined)
+      .map((file) => relative(targetSkillDir, file.path))
+  );
+  const sourceFiles: string[] = [];
+  for (const file of await collectFiles(sourceDir)) {
+    const relativeFile = relative(sourceDir, file);
+    if ([SKILL_FILE, "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
+    // Skill-local hook definitions are not hydrated into project-use copies.
+    // Explicit resources are still copied by renderSkillResources below.
+    if (relativeFile.startsWith(`hooks${sep}`)) continue;
+    if (generatedRelativeFiles.has(relativeFile)) continue;
+    sourceFiles.push(file);
+  }
   const standard = target === "codex"
     ? await renderAgentSkillStandardMarkdown(
         graph,
@@ -1744,6 +1792,7 @@ async function renderProjectSkillCopy(
         skillLicense?.manifestValue,
         "agent-skills",
         {
+          sourceFiles,
           draft: copy.draftOrigin !== undefined,
           effectiveName: copy.effectiveName,
           internal: copy.draftOrigin !== undefined
@@ -1760,6 +1809,7 @@ async function renderProjectSkillCopy(
   }
   const skillMarkdown = standard === undefined
     ? await renderSkillMarkdown(graph, plugin, skill, target, {
+        sourceFiles,
         effectiveName: copy.effectiveName,
         // A project copy's own eligible hooks are rejected above; hydrating
         // here would resolve the shared skill scope and pick up a same-id
@@ -1780,17 +1830,6 @@ async function renderProjectSkillCopy(
         copy.draftOrigin === undefined ? undefined : copy.effectiveName
       );
   const resources = standard?.resources ?? skillMarkdown.resources;
-  const generatedCodexAgentFile = await renderCodexSkillAgentFile(
-    graph, plugin, skill, target, sourceDir, targetSkillDir
-  );
-  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
-    graph, skill, target, targetSkillDir
-  );
-  const generatedRelativeFiles = new Set(
-    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
-      .filter((file): file is RenderedFile => file !== undefined)
-      .map((file) => relative(targetSkillDir, file.path))
-  );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
   pushSkillRenderedFile(rendered, textFile(
@@ -1810,16 +1849,11 @@ async function renderProjectSkillCopy(
     renderedRelativeFiles,
     `${skill.sourcePath}.LICENSE.txt`
   );
-  for (const file of await collectFiles(sourceDir)) {
+  for (const file of sourceFiles) {
     const relativeFile = relative(sourceDir, file);
-    if ([SKILL_FILE, "CHANGELOG.md", "LICENSE.txt"].includes(relativeFile)) continue;
-    // Skill-local hook definitions are not hydrated into project-use copies.
-    // Explicit resources are still copied by renderSkillResources below.
-    if (relativeFile.startsWith(`hooks${sep}`)) continue;
-    if (generatedRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
-      await copyFileFromSource(file, join(targetSkillDir, relativeFile)),
+      withSkillContent(await copyFileFromSource(file, join(targetSkillDir, relativeFile)), targetSkillDir, standard?.nestedFiles ?? skillMarkdown.nestedFiles),
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.${relativeFile}`
@@ -1829,7 +1863,8 @@ async function renderProjectSkillCopy(
     resources,
     skill,
     targetSkillDir,
-    renderedRelativeFiles
+    renderedRelativeFiles,
+      standard?.nestedFiles ?? skillMarkdown.nestedFiles
   )));
   const lock = await lockItemForSkill({
     files: rendered,
@@ -1905,7 +1940,8 @@ async function renderSkillResources(
   resources: readonly SourceResource[],
   skill: SourceSkill,
   targetSkillDir: string,
-  renderedRelativeFiles: Set<string>
+  renderedRelativeFiles: Set<string>,
+  nestedFiles?: ReadonlyMap<string, Uint8Array>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
 
@@ -1914,7 +1950,7 @@ async function renderSkillResources(
       if (file.path.endsWith(".gitkeep")) continue;
       pushSkillRenderedFile(
         rendered,
-        file,
+        withSkillContent(file, targetSkillDir, nestedFiles),
         targetSkillDir,
         renderedRelativeFiles,
         `${skill.sourcePath}.resources.${resource.from}`
@@ -1959,6 +1995,7 @@ function formattedPreprocessDependencies(
 }
 
 interface RenderedSkillMarkdown {
+  readonly nestedFiles?: ReadonlyMap<string, Uint8Array>;
   readonly content: string;
   readonly preprocessDependencies: readonly string[];
   readonly resources: readonly SourceResource[];
@@ -1982,6 +2019,7 @@ async function renderSkillMarkdown(
   skill: SourceSkill,
   target: TargetName,
   options: {
+    readonly sourceFiles?: readonly string[];
     readonly draft?: boolean;
     readonly effectiveName?: string;
     readonly includeAdaptiveHooks?: boolean;
@@ -2053,31 +2091,9 @@ async function renderSkillMarkdown(
     ? withDraftPresentation
     : withProjectUseInternalMarker(withDraftPresentation, options.internal);
 
-  const preprocessDependencies = new Set<string>();
-  const resourcePlanner = createEffectiveSkillResourcePlanner(
-    skill.resources,
-    {
-      label: skill.sourcePath,
-      ...(plugin === undefined
-        ? {}
-        : { pluginSharedPath: join(plugin.path, "shared") }),
-      sharedPath: join(graph.sourceRootPath, "shared"),
-      sourceRootPath: graph.sourceRootPath,
-    }
+  const { body: preprocessedBody, nestedFiles, preprocessDependencies, resources } = await planSkillContent(
+    graph, plugin, skill, options.sourceFiles, target
   );
-  const preprocessedBody = await preprocessText(skill.body, {
-    frontmatter: skill.frontmatter,
-    preprocessDependencies,
-    rootPath: graph.rootPath,
-    sourcePath: skill.sourcePath,
-    sourceRoot: graph.sourceRoot,
-    target,
-    promptArguments: graph.root.compile.features.promptArguments,
-    renderPathReference: (reference) =>
-      resourcePlanner.resolveReference(reference.specifier),
-    ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
-  });
-  const resources = resourcePlanner.resources();
   const linkedBody = rewriteResourceLinks(preprocessedBody, resources, skill.sourcePath);
   const translated =
     target === "codex"
@@ -2096,6 +2112,7 @@ async function renderSkillMarkdown(
       `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
     ),
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+    nestedFiles,
     resources,
     transforms: translated.transforms,
   };
@@ -2274,7 +2291,8 @@ async function copyPluginCompanionFiles(
   plugin: SourcePlugin,
   target: TargetName,
   basePath: string,
-  manifest: JsonRecord
+  manifest: JsonRecord,
+  preprocessCommand: (command: string, source: string) => Promise<string>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   const candidates =
@@ -2295,7 +2313,8 @@ async function copyPluginCompanionFiles(
     graph,
     plugin,
     target,
-    basePath
+    basePath,
+    preprocessCommand
   );
   if (hook !== undefined) rendered.push(hook);
 
@@ -2587,6 +2606,7 @@ function lockItemForPlugin(args: {
   readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin: SourcePlugin;
+  readonly preprocessDependencies: readonly string[];
   readonly sourceFiles: readonly RenderedFile[];
   readonly target: TargetName;
 }): LockItem {
@@ -2606,6 +2626,7 @@ function lockItemForPlugin(args: {
 
   return {
     ...(dependencies.length === 0 ? {} : { dependencies }),
+    ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
     fileModes: renderedFileModes(args.outputRoot, args.files),
     files,
     includedSkills,
@@ -2625,7 +2646,8 @@ function lockItemForPlugin(args: {
       dependencyHashSummaries,
       args.license,
       args.outputRoot,
-      args.sourceFiles
+      args.sourceFiles,
+      args.preprocessDependencies
     ),
     ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
@@ -2992,7 +3014,8 @@ function hashPluginSource(
   dependencies: readonly string[],
   license: ResolvedLicense | undefined,
   outputRoot: string,
-  sourceFiles: readonly RenderedFile[]
+  sourceFiles: readonly RenderedFile[],
+  preprocessDependencies: readonly string[]
 ): string {
   const hash = createHash("sha256");
   hash.update(
@@ -3076,6 +3099,13 @@ function hashPluginSource(
     hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");
     hash.update(file.content);
+  }
+  for (const dependency of preprocessDependencies) {
+    hash.update("preprocess-dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readPreprocessDependencySync(graph.rootPath, dependency));
+    hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;
 }
@@ -3255,22 +3285,6 @@ async function hashMarketplaceSource(
   }
   hash.update(JSON.stringify(graph.releaseState));
   return `sha256:${hash.digest("hex")}`;
-}
-
-async function collectFiles(root: string): Promise<readonly string[]> {
-  const entries = await readdir(root, { withFileTypes: true });
-  const files: string[] = [];
-
-  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectFiles(path)));
-    } else if (entry.isFile() && !entry.name.endsWith(".DS_Store")) {
-      files.push(path);
-    }
-  }
-
-  return files;
 }
 
 function validateRenderedFile(file: RenderedFile): RenderedFile {

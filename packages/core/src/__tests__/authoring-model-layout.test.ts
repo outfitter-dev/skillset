@@ -996,3 +996,19 @@ Demo.
     );
   });
 });
+
+it("SET-573 renders nested examples in the package and project copies with one resource", async () => {
+  const root = await authoringFixture();
+  const result = await buildSkillsetResult(root);
+  expect(result.ok).toBe(true);
+  for (const output of ["plugins/mg-skills/skills/tdd", ".agents/skills/tdd", ".claude/skills/tdd", ".cursor/skills/tdd"]) {
+    const text = await readFile(join(root, output, "examples/walkthrough.md"), "utf8");
+    expect(text).toContain("Use the shared repository guidance.");
+    expect(text).toContain("@../references/common.md");
+    expect(result.data.filter(file => file.path === `${output}/references/common.md`)).toHaveLength(1);
+  }
+  expect(await readFile(join(root, "plugins/mg-skills/shared/references/common.md"), "utf8")).toContain("# Common reference");
+  expect(await readFile(join(root, "plugins/mg-skills/agents/editor.md"), "utf8")).toContain("@../shared/references/common.md");
+  expect(await readFile(join(root, "plugins/mg-skills/hooks/hooks.json"), "utf8")).toContain("@${CLAUDE_PLUGIN_ROOT}/shared/references/common.md");
+  expect(await readFile(join(root, "plugins/mg-skills/.cursor-plugin/hooks.json"), "utf8")).toContain("@${CURSOR_PLUGIN_ROOT}/shared/references/common.md");
+});

@@ -1244,7 +1244,7 @@ Family: hooks. Exact aliases: `hooks/hooks.json`.
 - Canonical source: `plugin hooks/hooks.json` (contracts: `hook`).
 - Realization: Copies plugin hook declarations with registry-backed provider event and handler validation.
 - Destination support: pass_through; fidelity: **provider-only**; evidence: **current**.
-- Semantic scope: Claude-native plugin hook declarations retain Claude event and handler semantics through validated pass-through.
+- Semantic scope: Claude-native plugin hook declarations without explicit marked resource arguments retain Claude event and handler semantics through validated pass-through.
 - Authority pin: `sha256:69cdb29880ac838f610030b9a714229efeb9fa034c35cd909426e1a0f5ac65fd`.
 - Standards: none recorded.
 - Provider-native destination: `claude-hooks`.
@@ -1280,7 +1280,7 @@ Family: hooks. Exact aliases: `hooks/hooks.json`.
 
 Limitations:
 
-- The declaration is provider-native; identically spelled events on other providers do not establish equivalence. Use adaptive hooks for explicitly supported adaptation.
+- The declaration is provider-native; identically spelled events on other providers do not establish equivalence. Use adaptive hooks for explicitly supported adaptation. Explicit marked command arguments use the separately validated resource-lifting path and are outside this pass-through judgment.
 - Reviewed implementation evidence is tracked with this capability; contributor locations are not bundled.
 - Fidelity is scoped to the pinned registry contract and reviewed implementation. The regression gate requires re-review when cited implementation files change; lookup does not inspect source files in an installed package.
 - Destination support and build output do not prove runtime activation or effectiveness.

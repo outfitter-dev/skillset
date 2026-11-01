@@ -21,6 +21,8 @@ export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
   readonly partialBasePath?: string;
   readonly partialStack?: readonly string[];
+  /** Active mixed inline/link path for bounded resource planning. */
+  readonly includeChain?: readonly string[];
   readonly pluginPath?: string;
   readonly preprocessDependencies?: Set<string>;
   readonly rootPath: string;
@@ -41,6 +43,7 @@ export interface PreprocessContext {
 }
 
 export interface ResolvedPreprocessPathReference {
+  readonly includeChain?: readonly string[];
   readonly resolvedPath: string;
   readonly scheme?: "plugin" | "shared";
   readonly specifier: string;
@@ -83,6 +86,36 @@ export async function resolveMarkedPathReferences(
   );
   const expanded = await expandPartialsAtBoundary(normalized, context, "references-only");
   return restoreTripleBraceTokens(expanded, escapedTokens);
+}
+
+/** Replace explicit links in opaque text without interpreting other templates or normalizing bytes. */
+export async function resolveOpaqueMarkedPathReferences(
+  content: string,
+  context: PreprocessContext,
+  validate?: (offset: number) => void
+): Promise<string> {
+  if (isPreprocessDisabled(context.frontmatter)) return content;
+  const pattern = /@\{\{\{([^}]*?)\}\}\}|@\{\{\s*([^}\s]+)\s*\}\}/g;
+  let result = "";
+  let cursor = 0;
+  try {
+    for (const match of content.matchAll(pattern)) {
+      const [token, escaped, specifier] = match;
+      result += content.slice(cursor, match.index);
+      if (escaped !== undefined) {
+        result += `@{{${escaped}}}`;
+      } else if (specifier !== undefined) {
+        assertCurrentLinkSpecifier(token, specifier, context);
+        validate?.(match.index);
+        result += `@${await renderPathReference(specifier, context)}`;
+      }
+      cursor = match.index + token.length;
+    }
+  } catch (error) {
+    if (error instanceof PreprocessCallbackFailure) throw error.original;
+    throw error;
+  }
+  return result + content.slice(cursor);
 }
 
 export async function rewritePreprocessReferences(
@@ -329,7 +362,8 @@ async function renderPathReference(
     if (!(await isFile(resolvedPath))) {
       throw missingScopedPathReference(specifier, resolvedPath, context);
     }
-    await assertCanonicalPartialContainment(resolvedPath, specifier, context, "path");
+    const canonical = await assertCanonicalPartialContainment(resolvedPath, specifier, context, "path");
+    const includeChain = advanceIncludeChain(canonical, context);
     const [rawScheme] = splitSpecifier(specifier);
     const scheme =
       rawScheme === "root"
@@ -339,6 +373,7 @@ async function renderPathReference(
           : undefined;
     const reference: ResolvedPreprocessPathReference = {
       resolvedPath,
+      ...(includeChain === undefined ? {} : { includeChain }),
       ...(scheme === undefined ? {} : { scheme }),
       specifier,
     };
@@ -391,6 +426,7 @@ async function readPartial(
       context,
       kind
     );
+    const includeChain = advanceIncludeChain(canonical, context);
     assertNoPartialCycle(canonical, specifier, context);
     const raw = normalizeText(await readFile(canonical, "utf8"));
     let content: string;
@@ -402,6 +438,7 @@ async function readPartial(
     return await expandPartials(content, {
       ...context,
       partialBasePath: canonical,
+      ...(includeChain === undefined ? {} : { includeChain }),
       partialStack: [...(context.partialStack ?? []), canonical],
     });
   } catch (error) {
@@ -858,6 +895,22 @@ async function resolveNamedPartial(
   }
   context.preprocessDependencies?.add(resolved);
   return resolved;
+}
+
+function advanceIncludeChain(
+  canonical: string,
+  context: PreprocessContext
+): readonly string[] | undefined {
+  if (context.includeChain === undefined) return undefined;
+  const chain = [...context.includeChain, canonical];
+  const display = chain.map((file) => normalizePath(relative(context.rootPath, file))).join(" -> ");
+  if (context.includeChain.includes(canonical)) {
+    throw new PreprocessInputError(`skillset: include graph creates a cycle: ${display}`);
+  }
+  if (chain.length > 5) {
+    throw new PreprocessInputError(`skillset: include graph exceeds the four-hop limit: ${display}`);
+  }
+  return chain;
 }
 
 function assertNoPartialCycle(

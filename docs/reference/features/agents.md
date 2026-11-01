@@ -75,3 +75,7 @@ Plugin agents remain [uncovered](plugins.md#uncovered-components) in Codex and A
 ## Provenance
 
 The root `skillset.lock` records source path, resolved name, target path, hashes, validation, and ordered skill-reference ownership. [`skillset explain`](../cli/explain.md) distinguishes managed references from provider-native ones and exposes the Codex shim caveat.
+
+## Shared references in plugin subagents
+
+Emitted plugin subagent Markdown may inline shared partials and use `@{{shared:references/common.md}}`. The linked file is copied into `plugins/<plugin>/shared/references/common.md`; a subagent under `agents/` receives `@../shared/references/common.md`. Outgoing Markdown references use the same cycle and four-hop checks as skill resources, and the plugin lock records their dependencies. A plugin-local `shared/` file at the same destination causes `shared-reference-collision` with a promotion command. This applies only to emitted subagents and does not add a subagent destination for a provider that lacks one.

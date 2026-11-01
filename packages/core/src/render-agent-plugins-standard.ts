@@ -1,3 +1,5 @@
+import { planPluginContent } from "./plugin-content-plan";
+import { readPreprocessDependencySync } from "./preprocess";
 import { lstat, readdir, realpath } from "./workspace-fs";
 import { createHash } from "node:crypto";
 
@@ -49,6 +51,7 @@ const SUPPORT_PATHS = [
   "assets",
   "scripts",
   "src",
+  "shared",
 ] as const;
 
 interface AgentPluginManifestSchema {
@@ -177,12 +180,13 @@ export async function renderAgentPluginStandardPackages(
         ))
       );
     }
-    const packageFiles = rootFiles
+    const contentPlan = await planPluginContent(graph, plugin, packageRoot, rootFiles);
+    const packageFiles = contentPlan.files
       .filter((file) => !file.path.endsWith(".gitkeep"))
       .toSorted((left, right) => compareStrings(left.path, right.path));
     rendered.push(...packageFiles);
     lockRoot.items.push(
-      agentPluginLockItem(graph, plugin, packageFiles, pluginLicense)
+      agentPluginLockItem(graph, plugin, packageFiles, pluginLicense, contentPlan.preprocessDependencies)
     );
   }
   return rendered;
@@ -401,7 +405,8 @@ function agentPluginLockItem(
   graph: BuildGraph,
   plugin: SourcePlugin,
   files: readonly RenderedFile[],
-  license: ResolvedLicense | undefined
+  license: ResolvedLicense | undefined,
+  preprocessDependencies: readonly string[]
 ): LockItem {
   const relativeFiles = files
     .map((file) =>
@@ -426,7 +431,8 @@ function agentPluginLockItem(
       metadata: plugin.metadata,
       version: pluginVersion(graph, plugin),
     }),
-    sourceHash: hashRenderedFiles("agent-plugins-source-v1", files),
+    ...(preprocessDependencies.length === 0 ? {} : { preprocessDependencies }),
+    sourceHash: hashRenderedFiles("agent-plugins-source-v1", files, graph.rootPath, preprocessDependencies),
     ...(plugin.sourceOrigin === undefined
       ? {}
       : { sourceOrigin: plugin.sourceOrigin }),
@@ -439,7 +445,9 @@ function agentPluginLockItem(
 
 function hashRenderedFiles(
   domain: string,
-  files: readonly RenderedFile[]
+  files: readonly RenderedFile[],
+  rootPath?: string,
+  preprocessDependencies: readonly string[] = []
 ): string {
   const hash = createHash("sha256");
   hash.update(`${domain}\0`);
@@ -451,6 +459,13 @@ function hashRenderedFiles(
     hash.update(String(file.mode));
     hash.update("\0");
     hash.update(file.content);
+    hash.update("\0");
+  }
+  for (const dependency of preprocessDependencies) {
+    hash.update("preprocess-dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readPreprocessDependencySync(rootPath!, dependency));
     hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;
