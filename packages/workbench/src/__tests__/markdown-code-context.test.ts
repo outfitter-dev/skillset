@@ -50,3 +50,9 @@ test("task markers and the separate nested-fence diagnostic remain intact", () =
   const content = [tick.repeat(3) + "markdown", "example", tick.repeat(3) + "ts", "const n = 1", tick.repeat(3), tick.repeat(3)].join("\n");
   expect(checkWorkbenchSyntax({content, path}).some((d) => d.ruleId === "markdown/code-fence-nesting")).toBe(true);
 });
+
+test("invalid backtick fence info leaves following placeholders active", () => {
+  const content = [tick.repeat(3) + "js" + tick, "{   }", tick.repeat(3)].join("\n");
+  expect(placeholders(content).map((d) => d.location)).toEqual([{path, line: 2, endLine: 2, column: 1, endColumn: 5}]);
+  expect(placeholders(["~~~js" + tick, "{   }", "~~~"].join("\n"))).toEqual([]);
+});

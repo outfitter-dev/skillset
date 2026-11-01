@@ -957,3 +957,5 @@ Eleven public-API regressions established rewritten references inside nested fen
 ### SET-673 Workbench placeholder reuse
 
 The placeholder diagnostic now consumes Core code ranges instead of maintaining a duplicate root-fence and single-line-backtick scanner. Six new red cases covered nested fences, multiline spans, container exits, HTML and source offsets; focused parser/migration consumers and typecheck pass. Masking retains UTF-16 width/newlines so active placeholders on the same line keep exact coordinates. The intentionally heuristic nested-fence warning remains separate. This also inherits the documented shared scanner AST cost; no performance-neutral claim. Variable rendering needs its own multiline-prefix design and remains open.
+
+Workbench review found the shared Core opener accepted a backtick in backtick-fence info, unlike the removed local scanner. Two red consumer regressions reproduced it. The shared opener now rejects that invalid info while valid backtick info and backticks in tilde info stay protected. Final focused146tests/345assertions across9files pass; the change is necessary to preserve Workbench behavior during reuse.

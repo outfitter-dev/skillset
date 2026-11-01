@@ -1218,7 +1218,10 @@ function nextFence(line: string, fence: MarkdownFence | undefined): MarkdownFenc
   const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
   const marker = match?.[1];
   if (marker === undefined) return fence;
-  if (fence === undefined) return { char: marker.charAt(0), length: marker.length };
+  if (fence === undefined) {
+    if (marker.charAt(0) === "`" && match?.[2]?.includes("`")) return undefined;
+    return { char: marker.charAt(0), length: marker.length };
+  }
   const closes =
     marker.charAt(0) === fence.char &&
     marker.length >= fence.length &&
