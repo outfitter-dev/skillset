@@ -12,6 +12,7 @@ import {
   REPORT_REPOSITORY_IDENTITY_PATTERN,
   REPORT_WORKSPACE_NAME_PATTERN,
   SEMVER_PATTERN,
+  SOURCE_PRESENTATION_FIELD_TYPES,
   WORKSPACE_ID_MAX_LENGTH,
   WORKSPACE_ID_PATTERN,
 } from "./value-contracts";
@@ -1219,7 +1220,15 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     origin: sourceOriginSchema(),
     owner: sourceAuthorObjectSchema(),
     outputs: sourceOutputsSchema(),
-    presentation: { type: "object" },
+    presentation: {
+      type: "object",
+      additionalProperties: true,
+      properties: Object.fromEntries(
+        Object.entries(SOURCE_PRESENTATION_FIELD_TYPES).map(([key, type]) => [
+          key, type === "string" ? { type: "string" } : arraySchema({ type: "string" }),
+        ])
+      ),
+    },
     preprocess: { type: "boolean" },
     repository: { type: "string" },
     schema: { const: 1, type: "integer" },

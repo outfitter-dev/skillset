@@ -1,3 +1,34 @@
+// Known legacy listing aliases remain open to extensions and blank compatibility values.
+export const SOURCE_PRESENTATION_FIELD_TYPES = {
+  display_name: "string",
+  displayName: "string",
+  summary: "string",
+  short_description: "string",
+  shortDescription: "string",
+  description: "string",
+  long_description: "string",
+  longDescription: "string",
+  category: "string",
+  color: "string",
+  brand_color: "string",
+  brandColor: "string",
+  website_url: "string",
+  websiteURL: "string",
+  privacy_policy_url: "string",
+  privacyPolicyURL: "string",
+  terms_of_service_url: "string",
+  termsOfServiceURL: "string",
+  composer_icon: "string",
+  composerIcon: "string",
+  logo: "string",
+  logo_dark: "string",
+  logoDark: "string",
+  capabilities: "string-array",
+  default_prompt: "string-array",
+  defaultPrompt: "string-array",
+  screenshots: "string-array",
+} as const;
+
 export const ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN = "^(?:\\./|\\{\\{scripts\\.dir\\}\\}/)";
 // Match whole parent segments through true string end, including after line terminators.
 export const ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN =

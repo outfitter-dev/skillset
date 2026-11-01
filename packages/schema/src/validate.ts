@@ -42,6 +42,7 @@ import type {
 import {
   ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN,
   ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN,
+  SOURCE_PRESENTATION_FIELD_TYPES,
   createSemverRegExp,
   formatList,
   isProviderNativeReferenceName,
@@ -3490,12 +3491,7 @@ function checkSourceMetadata(
     diagnostics
   );
   checkSourceOutputs(value.outputs, `${path}.outputs`, diagnostics);
-  checkOptionalObject(
-    value.presentation,
-    `${path}.presentation`,
-    "schema/source-metadata/presentation",
-    diagnostics
-  );
+  checkSourcePresentation(value.presentation, `${path}.presentation`, diagnostics);
   if (value.preprocess !== undefined && typeof value.preprocess !== "boolean") {
     diagnostics.push(
       diagnostic(
@@ -3915,6 +3911,19 @@ function checkDependencyPlugin(
         `${path}.unversioned must be a boolean`
       )
     );
+  }
+}
+
+function checkSourcePresentation(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  checkOptionalObject(value, path, "schema/source-metadata/presentation", diagnostics);
+  if (!isSchemaRecord(value)) return;
+  for (const [key, type] of Object.entries(SOURCE_PRESENTATION_FIELD_TYPES)) {
+    const check = type === "string" ? checkOptionalString : checkOptionalStringArray;
+    check(value[key], `${path}.${key}`, "schema/source-metadata/presentation-field", diagnostics);
   }
 }
 
