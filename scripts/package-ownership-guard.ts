@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import ts from "typescript";
+
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
 
 export interface PackageOwnershipViolation {
@@ -11,19 +13,27 @@ export interface PackageOwnershipViolation {
 }
 
 const APP_SOURCE_PREFIX = "apps/skillset/src/";
-const PACKAGE_INTERNAL_EXPORT_PATTERN =
-  /^\s*export\s+(?:type\s+)?(?:\*\s+|\{[^}]*\}\s+)from\s+["']@skillset\/[^"']+\/internal\/[^"']+["'];?\s*$/u;
+const PACKAGE_INTERNAL_PATH_PATTERN = /^@skillset\/[^/]+\/internal\/.+$/u;
 
 export function isScannablePackageOwnershipPath(path: string): boolean {
   return path.startsWith(APP_SOURCE_PREFIX) && path.endsWith(".ts") && !path.includes("/__tests__/");
 }
 
 export function scanPackageOwnershipContent(file: string, content: string): readonly PackageOwnershipViolation[] {
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const violations: PackageOwnershipViolation[] = [];
-  const lines = content.split(/\r?\n/u);
-  for (const [index, text] of lines.entries()) {
-    if (PACKAGE_INTERNAL_EXPORT_PATTERN.test(text)) {
-      violations.push({ file, line: index + 1, text: text.trim() });
+  for (const statement of source.statements) {
+    if (
+      ts.isExportDeclaration(statement) &&
+      statement.moduleSpecifier &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      PACKAGE_INTERNAL_PATH_PATTERN.test(statement.moduleSpecifier.text)
+    ) {
+      violations.push({
+        file,
+        line: source.getLineAndCharacterOfPosition(statement.getStart(source)).line + 1,
+        text: statement.getText(source).replace(/\s+/gu, " "),
+      });
     }
   }
   return violations;
