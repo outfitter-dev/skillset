@@ -83,6 +83,18 @@
             },
             "run": {
               "additionalProperties": false,
+              "anyOf": [
+                {
+                  "required": [
+                    "command"
+                  ]
+                },
+                {
+                  "required": [
+                    "script"
+                  ]
+                }
+              ],
               "properties": {
                 "args": {
                   "items": {
@@ -93,6 +105,7 @@
                 },
                 "command": {
                   "minLength": 1,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "cwd": {
@@ -107,6 +120,7 @@
                 },
                 "script": {
                   "minLength": 1,
+                  "pattern": "\\S",
                   "type": "string"
                 }
               },
@@ -195,6 +209,18 @@
             },
             "run": {
               "additionalProperties": false,
+              "anyOf": [
+                {
+                  "required": [
+                    "command"
+                  ]
+                },
+                {
+                  "required": [
+                    "script"
+                  ]
+                }
+              ],
               "properties": {
                 "args": {
                   "items": {
@@ -205,6 +231,7 @@
                 },
                 "command": {
                   "minLength": 1,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "cwd": {
@@ -219,6 +246,7 @@
                 },
                 "script": {
                   "minLength": 1,
+                  "pattern": "\\S",
                   "type": "string"
                 }
               },
@@ -352,6 +380,18 @@
             },
             "run": {
               "additionalProperties": false,
+              "anyOf": [
+                {
+                  "required": [
+                    "command"
+                  ]
+                },
+                {
+                  "required": [
+                    "script"
+                  ]
+                }
+              ],
               "properties": {
                 "args": {
                   "items": {
@@ -362,6 +402,7 @@
                 },
                 "command": {
                   "minLength": 1,
+                  "pattern": "\\S",
                   "type": "string"
                 },
                 "cwd": {
@@ -376,6 +417,7 @@
                 },
                 "script": {
                   "minLength": 1,
+                  "pattern": "\\S",
                   "type": "string"
                 }
               },
@@ -427,6 +469,18 @@
         },
         "run": {
           "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "command"
+              ]
+            },
+            {
+              "required": [
+                "script"
+              ]
+            }
+          ],
           "properties": {
             "args": {
               "items": {
@@ -437,6 +491,7 @@
             },
             "command": {
               "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             "cwd": {
@@ -451,6 +506,7 @@
             },
             "script": {
               "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             }
           },

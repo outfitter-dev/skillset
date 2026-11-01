@@ -497,21 +497,25 @@ export const adaptiveHookContract = contract(
         minItems: 1,
         uniqueItems: true,
       }),
-      run: strictObjectSchema({
-        args: arraySchema(nonEmptyStringSchema()),
-        command: nonEmptyStringSchema(),
-        cwd: nonEmptyStringSchema(),
-        env: {
-          additionalProperties: { type: "string" },
-          type: "object",
-        },
-        script: nonEmptyStringSchema(),
-      }),
+      run: adaptiveHookRunSchema(),
       status: nonEmptyStringSchema(),
     }),
     required: ["events", "run"],
   }
 );
+
+function adaptiveHookRunSchema(): SchemaJsonRecord {
+  return {
+    ...strictObjectSchema({
+      args: arraySchema(nonEmptyStringSchema()),
+      command: { ...nonEmptyStringSchema(), pattern: "\\S" },
+      cwd: nonEmptyStringSchema(),
+      env: { additionalProperties: { type: "string" }, type: "object" },
+      script: { ...nonEmptyStringSchema(), pattern: "\\S" },
+    }),
+    anyOf: [{ required: ["command"] }, { required: ["script"] }],
+  };
+}
 
 function adaptiveHookContextSchema(): SchemaJsonRecord {
   return {
@@ -544,16 +548,7 @@ function adaptiveHookProviderOverrideSchema(): SchemaJsonRecord {
     match: {
       anyOf: [{ type: "null" }, nonEmptyStringSchema(), { type: "object" }],
     },
-    run: strictObjectSchema({
-      args: arraySchema(nonEmptyStringSchema()),
-      command: nonEmptyStringSchema(),
-      cwd: nonEmptyStringSchema(),
-      env: {
-        additionalProperties: { type: "string" },
-        type: "object",
-      },
-      script: nonEmptyStringSchema(),
-    }),
+    run: adaptiveHookRunSchema(),
   });
 }
 
