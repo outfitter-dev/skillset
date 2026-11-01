@@ -210,6 +210,8 @@ test("SET-387: provider infrastructure failures and cancellation stay distinct f
     signal: controller.signal,
     xdg,
   });
+  // Observe rejection immediately; cleanup must not replace the original test failure.
+  const settled = running.then(() => undefined, () => undefined);
   try {
     await waitForPath(started, "eval provider trial start marker");
     controller.abort();
@@ -221,6 +223,7 @@ test("SET-387: provider infrastructure failures and cancellation stay distinct f
   } finally {
     // A marker timeout must not leave the run and its sleeping provider going.
     controller.abort();
+    await settled;
   }
 });
 
@@ -268,12 +271,15 @@ test("SET-387: cancellation between trials preserves completed evidence and fail
     signal: controller.signal,
     xdg: { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } },
   });
+  // Keep marker failures primary while waiting for cancellation to finish.
+  const settled = run.then(() => undefined, () => undefined);
   try {
     await waitForPath(firstComplete, "eval trial 1 completion marker");
     await waitForPath(secondStarted, "eval trial 2 start marker");
   } finally {
     // Abort once trial 2 is in flight, or on a marker timeout.
     controller.abort();
+    await settled;
   }
   const report = await run;
   expect(report).toMatchObject({ state: "failed" });
