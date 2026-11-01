@@ -41,9 +41,13 @@ describe("lookupSkillsetReference", () => {
     ]);
     expect(report.standards[1]).toMatchObject({
       envelopes: [
+        { expectation: "required", featureId: "plugin-assets" },
         { expectation: "required", featureId: "plugin-manifests" },
         { expectation: "required", featureId: "plugin-mcp" },
+        { expectation: "required", featureId: "plugin-readme" },
+        { expectation: "required", featureId: "plugin-scripts" },
         { expectation: "required", featureId: "plugin-skills" },
+        { expectation: "required", featureId: "plugin-src" },
       ],
       id: "agent-plugins-1.0",
       version: "1.0.0",
