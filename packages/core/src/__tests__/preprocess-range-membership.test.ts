@@ -44,7 +44,7 @@ test("code range producer returns ascending disjoint half-open spans and fences"
   expect(ranges).toHaveLength(spans.length);
   for (const [index, [start, end]] of ranges.entries()) {
     expect(start).toBeLessThan(end);
-    expect(source.slice(start, end)).toBe(spans[index]);
+    expect(source.slice(start, end)).toBe(spans[index]!);
     if (index > 0) expect(start).toBeGreaterThanOrEqual(ranges[index - 1]![1]);
   }
 });
