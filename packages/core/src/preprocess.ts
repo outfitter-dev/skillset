@@ -1,3 +1,4 @@
+import { markdownHtmlBlockLines } from "./markdown-html-blocks";
 import { markdownAutolinkCandidates } from "./markdown-autolinks";
 import { readdirSync, readFileSync, readdir, readFile, realpath, stat } from "./workspace-fs";
 import {
@@ -988,7 +989,7 @@ interface ListItemStart {
  * Fenced blocks and inline code spans as ordered, disjoint half-open ranges. A span opens
  * at a backtick run and closes at the next run of exactly the same length in the
  * same block, so spans may cross line breaks within a paragraph or list item but
- * never a blank line, fence, heading, setext underline, list-item start, GFM table
+ * never an HTML block, blank line, fence, heading, setext underline, list-item start, GFM table
  * row, thematic break, or indented-code line; unmatched runs stay literal.
  */
 export function markdownCodeRanges(content: string): CodeRange[] {
@@ -1001,10 +1002,32 @@ export function markdownCodeRanges(content: string): CodeRange[] {
   let fence: MarkdownFence | undefined;
   let fenceStart = 0;
   const state: MarkdownBlockState = { inParagraph: false, inTable: false, listIndents: [] };
-  const lines = content.split("\n");
+  const lines = content.split(/\r\n?|\n/u);
+  const htmlBlocks = markdownHtmlBlockLines(content);
+  let htmlBlockIndex = 0;
+  let inHtmlBlock = false;
   let lineStart = 0;
   for (const [index, line] of lines.entries()) {
     const lineEnd = lineStart + line.length;
+    const nextLineStart = lineEnd + (content.startsWith("\r\n", lineEnd) ? 2 : 1);
+    while (htmlBlocks[htmlBlockIndex] !== undefined && htmlBlocks[htmlBlockIndex]![1] <= index) htmlBlockIndex++;
+    const htmlBlock = htmlBlocks[htmlBlockIndex];
+    if (fence === undefined && htmlBlock !== undefined && index >= htmlBlock[0]) {
+      if (!inHtmlBlock) {
+        flush();
+        // Retain a list container opened on the HTML block's first line.
+        trackListItems(line, markdownLineBlock(line, lines[index + 1], state), state);
+      }
+      inHtmlBlock = true;
+      state.inParagraph = false;
+      state.inTable = false;
+      lineStart = nextLineStart;
+      continue;
+    }
+    if (inHtmlBlock) {
+      flush();
+      inHtmlBlock = false;
+    }
     const next = nextFence(line, fence);
     if (fence === undefined && next !== undefined) {
       flush();
@@ -1028,7 +1051,7 @@ export function markdownCodeRanges(content: string): CodeRange[] {
       state.inTable = block === "row";
     }
     fence = next;
-    lineStart = lineEnd + 1;
+    lineStart = nextLineStart;
   }
   if (fence !== undefined) ranges.push([fenceStart, content.length]);
   flush();

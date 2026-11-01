@@ -13,6 +13,7 @@ These pages explain how to change and verify the compiler itself.
 - [Package releases](package-releases.md) defines Changesets, package preflight, and GitHub Actions-owned publishing.
 - [Feature-system internals](features/README.md) cover registries, render reports, adapters, test machinery, and maintainer guardrails.
 - Evidence retains dated implementation receipts under `evidence/`, newest first:
+  - [SET-673 HTML block boundaries](evidence/2026-10-31-set-673-html-boundaries.md) (2026-10-31; correctness and measured allocation tradeoff)
   - [SET-759 projection timing](evidence/2026-10-31-set-759-projection-timing.md) (2026-10-31; bounded unresolved timeout investigation)
   - [SET-492 loss-accounting investigation](evidence/2026-10-31-set-492-loss-accounting.md) (2026-10-31; current reproduction and non-ratifying options)
   - [SET-495 open-object audit](evidence/2026-10-31-set-495-open-object-audit.md) (2026-10-31; findings and recommendations)
