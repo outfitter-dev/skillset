@@ -9,6 +9,7 @@ export interface Args {
   supersedes?: string;
   renumber?: string;
   dryRun?: boolean;
+  check?: boolean;
   yes?: boolean;
   help?: boolean;
 }
@@ -31,6 +32,8 @@ export const parseArgs = (argv: string[]): Args => {
       args.supersedes = argv[++i];
     } else if (arg === '--renumber' && argv[i + 1]) {
       args.renumber = argv[++i];
+    } else if (arg === '--check') {
+      args.check = true;
     } else if (arg === '--dry-run') {
       args.dryRun = true;
     } else if (arg === '--yes' || arg === '-y') {
@@ -85,6 +88,7 @@ Options:
   --status <status>         Status (promote, update)
   --supersedes <ref>        Mark another ADR as superseded by this one (promote)
   --renumber <NNNN>         Change ADR number (update)
+  --check                   Compare generated artifacts without writing (map)
   --yes, -y                 Apply changes (default: preview only)
   --help                    Show this help
 

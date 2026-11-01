@@ -60,9 +60,14 @@ bun scripts/adr.ts fix --yes
 # Validate format and consistency
 bun scripts/adr.ts check
 
+# Check decision maps and draft index without writing
+bun scripts/adr.ts map --check
+
 # Regenerate decision maps and draft index
 bun scripts/adr.ts map
 ```
+
+In this repository, `bun run docs:generate` regenerates the ADR artifacts and `bun run docs:check` compares them read-only. Missing or stale numbered maps, draft maps, and the draft index fail the documentation gate.
 
 The script handles file creation, git moves, title/slug/number updates, index rebuilding, decision-map generation for numbered and draft ADRs, and cross-reference updates.
 

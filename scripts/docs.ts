@@ -36,6 +36,7 @@ export async function runDocsCommand(
     await generateDocsReferenceArtifacts(resolve(root));
     await generatePublicCapabilityReference(resolve(root));
     await assertFeatureRegistryClean(resolve(root));
+    await runAdrMap(resolve(root));
     process.stdout.write("skillset: generated documentation projections\n");
     return 0;
   }
@@ -54,11 +55,29 @@ export async function runDocsCommand(
   await generateDocsReferenceArtifacts(resolve(root), { check: true });
   await generatePublicCapabilityReference(resolve(root), { check: true });
   await assertFeatureRegistryClean(resolve(root));
+  await runAdrMap(resolve(root), true);
   await assertReadmeFrontDoorClean(resolve(root));
   await runDocsGoldenPath(resolve(root));
   const result = await checkDocumentation(resolve(root));
   process.stdout.write(renderDocsCheckResult(result));
   return result.ok ? 0 : 1;
+}
+
+/** Run the source-owned ADR generator in the requested repository context. */
+export async function runAdrMap(root: string, check = false): Promise<void> {
+  const helper = resolve(import.meta.dir, "../.skillset/skills/skillset-adrs/scripts/adr.ts");
+  const child = Bun.spawn([process.execPath, helper, "map", ...(check ? ["--check"] : [])], {
+    cwd: root,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  if (exitCode !== 0) throw new Error((stdout + stderr).trim() || "skillset: ADR map command failed");
+  if (stdout) process.stdout.write(stdout);
 }
 
 async function assertReadmeFrontDoorClean(root: string): Promise<void> {
