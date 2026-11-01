@@ -1,0 +1,606 @@
+{
+  "schema": "set759-observation@1",
+  "kind": "normalized extract; raw reports and logs retained locally",
+  "sourceUnchangedBeforeAfter": true,
+  "inputs": {
+    "owner": {
+      "head": "99f9c8f83e3ec81b83b4595444c89688496c8d0d",
+      "tree": "58a238cfb5749b88973ba38ab156a644165c8bfc",
+      "sourceDigest": "1a8019a7076711e10316e735e8d1c6b0885556048b2e7b15c954142bf2467bc3",
+      "sourceFiles": 1063,
+      "sourceBytes": 2493226,
+      "dependencyFiles": 6325,
+      "dependencyDigest": "af0fffc48627b8baafdbb801acac2cdb05fe1c5a9baa9e08e36fe5ba49a8f824",
+      "lockSha256": "5c587976332d27d680a12b2d403a81e248ecefd371ff07d18b38da5be873586b",
+      "pinSha256": "d03d8b268b4171328ac2458ce8ca82d69a1fde38469d4e4faae4f8fa8d8a5e35",
+      "device": 16777231,
+      "status": "?? .agents/plans/2026-10-29-astra-backlog/OUTCOMES.md"
+    },
+    "control": {
+      "head": "99f9c8f83e3ec81b83b4595444c89688496c8d0d",
+      "tree": "58a238cfb5749b88973ba38ab156a644165c8bfc",
+      "sourceDigest": "1a8019a7076711e10316e735e8d1c6b0885556048b2e7b15c954142bf2467bc3",
+      "sourceFiles": 1063,
+      "sourceBytes": 2493226,
+      "dependencyFiles": 5953,
+      "dependencyDigest": "28107df6ee4d2c5f271ea868dfeed7698297aeb78259989d0173b7ec78db7e83",
+      "lockSha256": "5c587976332d27d680a12b2d403a81e248ecefd371ff07d18b38da5be873586b",
+      "pinSha256": "d03d8b268b4171328ac2458ce8ca82d69a1fde38469d4e4faae4f8fa8d8a5e35",
+      "device": 16777231,
+      "status": ""
+    },
+    "instrumented": {
+      "head": "99f9c8f83e3ec81b83b4595444c89688496c8d0d",
+      "tree": "58a238cfb5749b88973ba38ab156a644165c8bfc",
+      "sourceDigest": "1a8019a7076711e10316e735e8d1c6b0885556048b2e7b15c954142bf2467bc3",
+      "sourceFiles": 1063,
+      "sourceBytes": 2493226,
+      "dependencyFiles": 5953,
+      "dependencyDigest": "28107df6ee4d2c5f271ea868dfeed7698297aeb78259989d0173b7ec78db7e83",
+      "lockSha256": "5c587976332d27d680a12b2d403a81e248ecefd371ff07d18b38da5be873586b",
+      "pinSha256": "d03d8b268b4171328ac2458ce8ca82d69a1fde38469d4e4faae4f8fa8d8a5e35",
+      "device": 16777231,
+      "status": "M packages/core/src/deterministic-projection.ts"
+    }
+  },
+  "runtime": {
+    "sha256": "0a2237cdcfa0d16ef501d9acca9f0026309ef348bea7393a64e8d1e3609565cc",
+    "version": "1.4.4"
+  },
+  "testCommand": "bun run test:sandbox -- bun test packages/core/src/__tests__/deterministic-projection.test.ts --test-name-pattern \"proves the self-hosted workspace source selection deterministically\"",
+  "defaultTestTimeoutMs": 5000,
+  "order": [
+    "owner-1",
+    "control-1",
+    "control-2",
+    "owner-2",
+    "owner-3",
+    "control-3",
+    "instrumented-1",
+    "instrumented-2",
+    "instrumented-3"
+  ],
+  "instrumentationPatchSha256": "5e3dcc60d220603cc7deada3d743df12fc6fb7c2616adf1779e7ff6d8a81e5d7",
+  "samples": [
+    {
+      "label": "set759-control-1",
+      "startedAt": "2026-11-01T03:40:06.164Z",
+      "wallMs": 1086.616916,
+      "testRunnerElapsed": "1022.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": true,
+      "attributabilityIssues": [],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          5.06640625,
+          4.5693359375,
+          4.79345703125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          5.06640625,
+          4.5693359375,
+          4.79345703125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "fe35d3ec2b6428298cedaeed3a2be0df5dec88dd837edefe6b30ff0304ccd660",
+      "rawLogSha256": "821ece3b77bc93aa9cfa0c2706a4e7bc78912153233da62578a96fcd3eb4ef77",
+      "phaseObservation": null,
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-control-2",
+      "startedAt": "2026-11-01T03:40:07.399Z",
+      "wallMs": 1083.403208,
+      "testRunnerElapsed": "1020.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": true,
+      "attributabilityIssues": [],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          5.06640625,
+          4.5693359375,
+          4.79345703125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          5.06640625,
+          4.5693359375,
+          4.79345703125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "b2ee7d0bc7b3033f0aa47ea7b20ac30217afe962db2a2b8eaadb499b015ab78d",
+      "rawLogSha256": "f2fa1e88c950035596d1348642774e09a636ea985a38b2a50a3b0954614771e3",
+      "phaseObservation": null,
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-control-3",
+      "startedAt": "2026-11-01T03:40:11.062Z",
+      "wallMs": 1058.949958,
+      "testRunnerElapsed": "997.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": true,
+      "attributabilityIssues": [],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "03fd02dc59ea953879946d596a304f63b5ca4f0aa46f50176efc3893139c5cc5",
+      "rawLogSha256": "45d3b52174f5a3517b378af6afe72077695a675f658b550ef4c6e87052a496c4",
+      "phaseObservation": null,
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-instrumented-1",
+      "startedAt": "2026-11-01T03:40:12.271Z",
+      "wallMs": 1093.667708,
+      "testRunnerElapsed": "1031.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": false,
+      "attributabilityIssues": [
+        "working tree is dirty (1 entries); the sample cannot claim revision 99f9c8f83e3ec81b83b4595444c89688496c8d0d"
+      ],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "2ef431d4cc8ec587d88c9ad53856731fb0a06700f49820f0c44ffb15c83062b3",
+      "rawLogSha256": "1fb112432d62b8032e6dbb3d0cee0096bfcb1ce5e13881d4bd06f882c501e60d",
+      "phaseObservation": {
+        "totalMs": 847.56125,
+        "phases": [
+          {
+            "name": "createRoot",
+            "ms": 1.244083
+          },
+          {
+            "name": "sourceGraphExclusions",
+            "ms": 41.054042
+          },
+          {
+            "name": "left.copy",
+            "ms": 175.767416
+          },
+          {
+            "name": "left.graph",
+            "ms": 32.992
+          },
+          {
+            "name": "left.build",
+            "ms": 198.05275
+          },
+          {
+            "name": "right.copy",
+            "ms": 174.871375
+          },
+          {
+            "name": "right.graph",
+            "ms": 31.68075
+          },
+          {
+            "name": "right.build",
+            "ms": 169.917209
+          },
+          {
+            "name": "outputComparison",
+            "ms": 20.401791
+          },
+          {
+            "name": "resultComparison",
+            "ms": 1.328208
+          }
+        ]
+      },
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-instrumented-2",
+      "startedAt": "2026-11-01T03:40:13.514Z",
+      "wallMs": 1068.584583,
+      "testRunnerElapsed": "1004.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": false,
+      "attributabilityIssues": [
+        "working tree is dirty (1 entries); the sample cannot claim revision 99f9c8f83e3ec81b83b4595444c89688496c8d0d"
+      ],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.82861328125,
+          4.53369140625,
+          4.77783203125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "c7f5bed55b8de01e77b0d7e2c7e3b1e572af63d71054c167e483ec30dcee8ac9",
+      "rawLogSha256": "148e381d8888bf7a10ff4a8f088362139e455f69a110284b7eb72efb58e90332",
+      "phaseObservation": {
+        "totalMs": 820.655167,
+        "phases": [
+          {
+            "name": "createRoot",
+            "ms": 0.23975
+          },
+          {
+            "name": "sourceGraphExclusions",
+            "ms": 40.313
+          },
+          {
+            "name": "left.copy",
+            "ms": 170.138584
+          },
+          {
+            "name": "left.graph",
+            "ms": 32.2015
+          },
+          {
+            "name": "left.build",
+            "ms": 197.528041
+          },
+          {
+            "name": "right.copy",
+            "ms": 162.544375
+          },
+          {
+            "name": "right.graph",
+            "ms": 31.8055
+          },
+          {
+            "name": "right.build",
+            "ms": 163.848584
+          },
+          {
+            "name": "outputComparison",
+            "ms": 20.418709
+          },
+          {
+            "name": "resultComparison",
+            "ms": 1.372958
+          }
+        ]
+      },
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-instrumented-3",
+      "startedAt": "2026-11-01T03:40:14.739Z",
+      "wallMs": 1081.911333,
+      "testRunnerElapsed": "1017.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": false,
+      "attributabilityIssues": [
+        "working tree is dirty (1 entries); the sample cannot claim revision 99f9c8f83e3ec81b83b4595444c89688496c8d0d"
+      ],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.82861328125,
+          4.53369140625,
+          4.77783203125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.82861328125,
+          4.53369140625,
+          4.77783203125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "649c0fe57b589157f6d102678b593ac41e84607267172fde2ee886cb04246a0e",
+      "rawLogSha256": "95e0b1a1445175815003b10f5734a75105ea682ce9c861b5c74793dcbcb28de3",
+      "phaseObservation": {
+        "totalMs": 832.201084,
+        "phases": [
+          {
+            "name": "createRoot",
+            "ms": 0.228333
+          },
+          {
+            "name": "sourceGraphExclusions",
+            "ms": 41.1045
+          },
+          {
+            "name": "left.copy",
+            "ms": 171.435667
+          },
+          {
+            "name": "left.graph",
+            "ms": 33.347416
+          },
+          {
+            "name": "left.build",
+            "ms": 196.994917
+          },
+          {
+            "name": "right.copy",
+            "ms": 167.71975
+          },
+          {
+            "name": "right.graph",
+            "ms": 30.870125
+          },
+          {
+            "name": "right.build",
+            "ms": 166.696959
+          },
+          {
+            "name": "outputComparison",
+            "ms": 22.195792
+          },
+          {
+            "name": "resultComparison",
+            "ms": 1.35975
+          }
+        ]
+      },
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-owner-1",
+      "startedAt": "2026-11-01T03:40:04.948Z",
+      "wallMs": 1066.348917,
+      "testRunnerElapsed": "1000.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": false,
+      "attributabilityIssues": [
+        "working tree is dirty (1 entries); the sample cannot claim revision 99f9c8f83e3ec81b83b4595444c89688496c8d0d"
+      ],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          5.06640625,
+          4.5693359375,
+          4.79345703125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          5.06640625,
+          4.5693359375,
+          4.79345703125
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "af4df02d75d6c9a1b8eb1eb094688a8e10dea6f43dd462113b8cdabb96a4d80d",
+      "rawLogSha256": "e6b85d23c257b4d78b480c540ca5ca6d779169bf246ed4dff57a02fb6ac447bc",
+      "phaseObservation": null,
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-owner-2",
+      "startedAt": "2026-11-01T03:40:08.632Z",
+      "wallMs": 1065.738667,
+      "testRunnerElapsed": "1004.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": false,
+      "attributabilityIssues": [
+        "working tree is dirty (1 entries); the sample cannot claim revision 99f9c8f83e3ec81b83b4595444c89688496c8d0d"
+      ],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "3037736641a915efc7a7f7bb670653311e26a2aaa86c424a8b2cc8a3015d8bbc",
+      "rawLogSha256": "29dc530e61a2a3ac53972328195095091c56e770efcdb0faf5be9aad249111c7",
+      "phaseObservation": null,
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    },
+    {
+      "label": "set759-owner-3",
+      "startedAt": "2026-11-01T03:40:09.845Z",
+      "wallMs": 1069.111542,
+      "testRunnerElapsed": "1008.00ms",
+      "commandSucceeded": true,
+      "exitCode": 0,
+      "attributable": false,
+      "attributabilityIssues": [
+        "working tree is dirty (1 entries); the sample cannot claim revision 99f9c8f83e3ec81b83b4595444c89688496c8d0d"
+      ],
+      "resourceAccounting": "complete",
+      "hostBefore": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "hostAfter": {
+        "arch": "arm64",
+        "cpuCount": 14,
+        "cpuModel": "Apple M4 Pro",
+        "loadAverage": [
+          4.90087890625,
+          4.54296875,
+          4.78271484375
+        ],
+        "platform": "darwin",
+        "release": "27.2.0",
+        "totalMemoryBytes": 68719476736
+      },
+      "rawReportSha256": "d6dd9ae775d66270a1fbf0cd621e9ed9014be981a96f86cb185c12c7af645220",
+      "rawLogSha256": "f918b0e3d4533df0153365262288fac55d485c84df318d2f52a1408dfe9e58d2",
+      "phaseObservation": null,
+      "assertions": 6,
+      "passed": 1,
+      "filteredOut": 10,
+      "failed": 0
+    }
+  ]
+}
