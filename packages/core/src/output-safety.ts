@@ -572,12 +572,16 @@ export function diagnoseOutputBackupPlan(
   ];
 }
 
+export function isOutputBackupId(value: string): boolean {
+  return /^[a-f0-9]{8,64}$/.test(value);
+}
+
 export async function restoreOutputBackup(
   rootPath: string,
   runId: string,
   options: { readonly write?: boolean } = {}
 ): Promise<OutputBackupRestoreReport> {
-  if (!/^[a-f0-9]{8,64}$/.test(runId)) {
+  if (!isOutputBackupId(runId)) {
     throw new Error(`skillset: expected backup id to be a lowercase hex ref, received ${JSON.stringify(runId)}`);
   }
 

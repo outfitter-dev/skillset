@@ -1,4 +1,4 @@
-import { inspectOutputBackups, restoreOutputBackup } from "@skillset/core";
+import { inspectOutputBackups, isOutputBackupId, restoreOutputBackup } from "@skillset/core";
 import type { OutputBackupRestoreReport } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
@@ -43,6 +43,9 @@ export async function runRestoreCommand({
   }
   if (backupId === undefined) {
     throw new Error("skillset: expected backup id to restore");
+  }
+  if (!isOutputBackupId(backupId)) {
+    throw new CliUsageError(`skillset: expected backup id to be a lowercase hex ref, received ${JSON.stringify(backupId)}`);
   }
   const report = await restoreOutputBackup(rootPath, backupId, {
     write: yes,

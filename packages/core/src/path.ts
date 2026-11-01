@@ -140,8 +140,12 @@ export function compareStrings(left: string, right: string): number {
   return 0;
 }
 
+export function isSlug(value: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
 export function validateSlug(value: string, label: string): string {
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(value)) {
+  if (!isSlug(value)) {
     throw new Error(
       `skillset: expected ${label} to be a lowercase slug, received ${JSON.stringify(value)}`
     );

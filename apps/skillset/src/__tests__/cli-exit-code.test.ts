@@ -72,10 +72,10 @@ const spawnedCases = [
     name: "report invalid reference",
   },
   {
-    expected: 1,
+    expected: 2,
     human: ["restore", "NOT-A-HEX"],
     json: ["restore", "NOT-A-HEX", "--json"],
-    name: "core validation error",
+    name: "malformed backup id",
   },
 ] as const;
 
@@ -230,7 +230,7 @@ describe("SET-635 shared CLI exit classes", () => {
   test("structured diagnostics match the selected exit class", async () => {
     const [usage, failure] = await Promise.all([
       runCliResult(["build", "--dry-run", "--json"]),
-      runCliResult(["restore", "NOT-A-HEX", "--json"]),
+      runCliResult(["restore", "deadbeef", "--json"]),
     ]);
     expect(JSON.parse(usage.stdout)).toMatchObject({
       diagnostics: [{ code: "cli.usage" }],

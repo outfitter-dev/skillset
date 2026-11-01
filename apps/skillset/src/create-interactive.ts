@@ -1,10 +1,11 @@
 import { resolve } from "node:path";
 
 import { targetNames } from "@skillset/core/internal/config";
-import { validateSlug } from "@skillset/core/internal/path";
+import { isSlug } from "@skillset/core/internal/path";
 import type { TargetName } from "@skillset/core/internal/types";
 import { formatList } from "@skillset/schema";
 
+import { CliUsageError } from "./cli-output";
 import { confirmProceed } from "./interactive-session";
 import type { InteractiveSession } from "./interactive-session";
 import { createSkillset, type SetupInclude, type SetupReport } from "./setup";
@@ -156,7 +157,10 @@ export function normalizeCreateName(value: string): string {
     .replace(/[^A-Za-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
-  return validateSlug(normalized, "skillset create name");
+  if (!isSlug(normalized)) {
+    throw new CliUsageError(`skillset: expected skillset create name to be a lowercase slug, received ${JSON.stringify(normalized)}`);
+  }
+  return normalized;
 }
 
 function validateCreateName(value: string): true | string {

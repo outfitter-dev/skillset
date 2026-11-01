@@ -518,6 +518,7 @@ export {
   OUTPUT_BACKUP_ROOT,
   WORKSPACE_LOCK_FILE,
   inspectOutputBackups,
+  isOutputBackupId,
   lockDisagreementPaths,
   restoreOutputBackup,
   type OutputBackupAction,

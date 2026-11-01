@@ -1,4 +1,5 @@
 import { renderImportNormalizations } from "@skillset/core/internal/import-normalization-report";
+import { isSlug } from "@skillset/core/internal/path";
 import { relative, resolve } from "node:path";
 
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
@@ -55,6 +56,9 @@ export async function runImportCommand({
   options,
   rootPath,
 }: ImportCommandRequest): Promise<void> {
+  if (importName !== undefined && !isSlug(importName)) {
+    throw new CliUsageError(`skillset: expected import name to be a lowercase slug, received ${JSON.stringify(importName)}`);
+  }
   let result;
   try {
     result = await importSources({
