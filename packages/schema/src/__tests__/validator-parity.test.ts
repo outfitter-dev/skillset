@@ -146,8 +146,50 @@ const hookContextFixtures = (contexts: readonly SchemaJsonValue[]) =>
     ...TARGET_NAMES.map((target) => ({ ...hookBase, [target]: { context } })),
   ]);
 
+const validHookRuns: readonly SchemaJsonValue[] = [
+  { command: "echo run" },
+  { script: "./ok.sh" },
+  // Handler ambiguity is classified by rendering; source validation permits both.
+  { command: "echo run", script: "./ok.sh" },
+  { command: "echo run", args: ["arg"], cwd: "subdir", env: { FLAG: "1" } },
+];
+const invalidHookRuns: readonly SchemaJsonValue[] = [
+  {},
+  { args: ["arg"] },
+  { env: { FLAG: "1" } },
+  { command: "" },
+  { script: "" },
+  { command: " \t\n" },
+  { command: "\uFEFF\u00A0" },
+  { script: " \t\n" },
+  { command: " ", script: "./ok.sh" },
+  { command: "echo run", script: " " },
+  { command: null },
+  { script: 1 },
+  null,
+  [],
+];
+const hookRunFixtures = (runs: readonly SchemaJsonValue[]) =>
+  runs.flatMap((run) => [
+    { ...hookBase, run },
+    ...TARGET_NAMES.map((target) => ({ ...hookBase, [target]: { run } })),
+  ]);
+
 const cases: Record<string, ParityCase> = {
   ...skillsetBlockCases,
+  "adaptive hook handler": {
+    contract: adaptiveHookContract,
+    invalid: [
+      { events: hookBase.events },
+      ...hookRunFixtures(invalidHookRuns),
+    ],
+    valid: [
+      hookBase,
+      ...hookRunFixtures(validHookRuns),
+      ...TARGET_NAMES.map((target) => ({ ...hookBase, [target]: {} })),
+    ],
+    validators: [validateAdaptiveHookUnitSource],
+  },
   "adaptive hook context": {
     contract: adaptiveHookContract,
     invalid: [...hookContextFixtures(invalidHookContexts), { ...hookBase, context: null }],
