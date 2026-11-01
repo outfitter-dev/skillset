@@ -1,3 +1,4 @@
+import { markdownCodeRanges } from "@skillset/core/internal/preprocess";
 import { createWorkbenchDiagnostic } from "./diagnostics";
 import type { WorkbenchDiagnostic } from "./types";
 
@@ -6,11 +7,6 @@ interface FenceLine {
   readonly info: string;
   readonly length: number;
   readonly line: number;
-}
-
-interface MarkdownFence {
-  readonly length: number;
-  readonly marker: "`" | "~";
 }
 
 interface PlaceholderIssue {
@@ -72,25 +68,20 @@ export function workbenchDiagnosticsFromMarkdownTemplatePlaceholders(args: {
   readonly startLine?: number;
 }): readonly WorkbenchDiagnostic[] {
   const normalized = args.content.replaceAll(/\r\n?/g, "\n");
-  const lines = normalized.split("\n");
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const [start, end] of markdownCodeRanges(normalized)) {
+    // Preserve UTF-16 columns and line offsets while excluding only code content.
+    parts.push(normalized.slice(cursor, start), normalized.slice(start, end).replace(/[^\n]/g, " "));
+    cursor = end;
+  }
+  parts.push(normalized.slice(cursor));
+  const lines = parts.join("").split("\n");
   const diagnostics: WorkbenchDiagnostic[] = [];
-  let fence: MarkdownFence | undefined;
   const startLine = args.startLine ?? 1;
 
   for (const [index, line] of lines.entries()) {
-    if (fence !== undefined) {
-      if (closesMarkdownFence(line, fence)) fence = undefined;
-      continue;
-    }
-
-    const openedFence = readMarkdownFence(line);
-    if (openedFence !== undefined) {
-      fence = openedFence;
-      continue;
-    }
-
-    const maskedLine = maskInlineCode(line);
-    for (const issue of templatePlaceholderIssuesForLine(maskedLine, index + startLine)) {
+    for (const issue of templatePlaceholderIssuesForLine(line, index + startLine)) {
       diagnostics.push(templatePlaceholderDiagnostic(args.path, issue));
     }
   }
@@ -219,61 +210,6 @@ function unclosedSingleBraceTemplateIssues(
     });
   }
   return issues;
-}
-
-function maskInlineCode(line: string): string {
-  let masked = "";
-  let cursor = 0;
-
-  while (cursor < line.length) {
-    const openerIndex = line.indexOf("`", cursor);
-    if (openerIndex === -1) {
-      masked += line.slice(cursor);
-      break;
-    }
-
-    masked += line.slice(cursor, openerIndex);
-    const openerLength = countBackticks(line, openerIndex);
-    const closerIndex = line.indexOf("`".repeat(openerLength), openerIndex + openerLength);
-    if (closerIndex === -1) {
-      masked += line.slice(openerIndex);
-      break;
-    }
-
-    const endIndex = closerIndex + openerLength;
-    masked += " ".repeat(endIndex - openerIndex);
-    cursor = endIndex;
-  }
-
-  return masked;
-}
-
-function countBackticks(line: string, index: number): number {
-  let cursor = index;
-  while (line[cursor] === "`") cursor += 1;
-  return cursor - index;
-}
-
-function readMarkdownFence(line: string): MarkdownFence | undefined {
-  const match = /^( {0,3})(`{3,}|~{3,})(.*)$/u.exec(line);
-  if (match === null) return undefined;
-  const sequence = match[2]!;
-  const marker = sequence[0] as "`" | "~";
-  const info = match[3]!;
-  if (marker === "`" && info.includes("`")) return undefined;
-  return { length: sequence.length, marker };
-}
-
-function closesMarkdownFence(line: string, fence: MarkdownFence): boolean {
-  const candidate = readMarkdownClosingFence(line);
-  return candidate?.marker === fence.marker && candidate.length >= fence.length;
-}
-
-function readMarkdownClosingFence(line: string): MarkdownFence | undefined {
-  const match = /^( {0,3})(`{3,}|~{3,})[ \t]*$/u.exec(line);
-  if (match === null) return undefined;
-  const sequence = match[2]!;
-  return { length: sequence.length, marker: sequence[0] as "`" | "~" };
 }
 
 function looksLikeUnlabeledNestedFence(
