@@ -643,6 +643,44 @@ test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisi
   expect(await fileExists(join(root, ".skillset/plugins/guard/skills/writer/hooks/scripted-skill-policy.json"))).toBe(false);
 });
 
+test("SET-678: invalid hook events precede attachment lookup without writes", async () => {
+  const root = await createTestFixtureRoot("skillset-hook-event-precedence-");
+  expect((await runSkillsetCli("init", "--root", root, "--yes")).exitCode).toBe(0);
+  const configPath = join(root, "skillset.yaml");
+  const before = await readFile(configPath, "utf8");
+  for (const json of [false, true]) {
+    for (const events of [["NotAnEvent"], ["PreToolUse", "NotAnEvent", "AlsoInvalid"]]) {
+      const result = await runSkillsetCli(
+        "new", "hook", "Invalid Event",
+        ...events.flatMap((event) => ["--event", event]),
+        "--command", "true", "--attach", "plugin:missing", "--root", root,
+        "--yes", ...(json ? ["--json"] : [])
+      );
+      expect(result.exitCode).toBe(2);
+      const message = `unknown adaptive hook event ${events.filter((event) => event !== "PreToolUse").join(", ")}`;
+      if (json) {
+        expect(result.stderr).toBe("");
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          exitCode: 2,
+          diagnostics: [expect.objectContaining({ code: "cli.usage", message: expect.stringContaining(message) })],
+        });
+      } else {
+        expect(result.stderr).toContain(message);
+        expect(result.stderr).toContain("skillset lookup hooks --events");
+      }
+    }
+    const valid = await runSkillsetCli(
+      "new", "hook", "Valid Event", "--event", "PreToolUse", "--command", "true",
+      "--attach", "plugin:missing", "--root", root, "--yes", ...(json ? ["--json"] : [])
+    );
+    expect(valid.exitCode).toBe(1);
+    expect(json ? valid.stdout : valid.stderr).toContain("hook attachment source unit plugin:missing was not found");
+  }
+  expect(await readFile(configPath, "utf8")).toBe(before);
+  expect(await fileExists(join(root, ".skillset/plugins/missing/hooks/invalid-event.json"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/plugins/missing/hooks/valid-event.json"))).toBe(false);
+});
+
 test("SET-310: non-hook source kinds reject hook-only flags", async () => {
   const root = await createTestFixtureRoot("skillset-new-non-hook-options-");
   await expect(

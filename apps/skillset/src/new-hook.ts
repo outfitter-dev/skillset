@@ -89,10 +89,6 @@ export async function planNewAdaptiveHook(
   }
   const events = uniqueRequired(options.events, "--event");
   const action = hookAction(options);
-  const graph = await loadBuildGraph(rootPath, options.skillsetOptions);
-  const owner = options.attachment === undefined
-    ? rootHookOwner(graph)
-    : await resolveHookOwner(rootPath, graph, options.attachment);
   const eventCatalog = new Map(
     adaptiveHookEventDefinitions().map((event) => [event.id, event])
   );
@@ -102,6 +98,10 @@ export async function planNewAdaptiveHook(
       `skillset: unknown adaptive hook event ${invalidEvents.join(", ")}; use skillset lookup hooks --events`
     );
   }
+  const graph = await loadBuildGraph(rootPath, options.skillsetOptions);
+  const owner = options.attachment === undefined
+    ? rootHookOwner(graph)
+    : await resolveHookOwner(rootPath, graph, options.attachment);
   const compatibility = planAdaptiveHookCompatibility({
     events: [...events],
     ...(options.providers === undefined ? {} : { providers: options.providers }),
