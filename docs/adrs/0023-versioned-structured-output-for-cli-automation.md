@@ -272,6 +272,15 @@ Current evidence is in `packages/schema/src/contracts.ts`, generated
 `cli-result.schema.json` and `cli-event.schema.json`, `cli-output.ts`,
 `cli-contract.ts`, and schema/finite-read/dev/parity tests.
 
+## Open implementation follow-up
+
+The [current CLI exit-class reference](../reference/cli/README.md#exit-classes)
+records a remaining discrepancy: the shared classifier defaults unexpected
+unclassified exceptions to `1`, while the accepted table above assigns them
+`4`. [SET-678](https://linear.app/outfitter/issue/SET-678) tracks whether to
+implement that contract or formally amend the decision. This implementation
+note leaves the accepted exit-code table and ADR status unchanged.
+
 ## References
 
 - [Tenets](../project/tenets.md) - deterministic output, source truth, no activation, and visible diagnostics.

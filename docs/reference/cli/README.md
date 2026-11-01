@@ -81,3 +81,9 @@ explicitly in its result or through `CliOutputError`. The report command uses
 `3` for an unreadable owned bundle. Report and structured-output invariant
 failures use `4`.
 Interactive prompt cancellation uses `130`.
+
+The accepted [ADR-0023 exit-code contract](../../adrs/0023-versioned-structured-output-for-cli-automation.md#exit-codes-classify-outcomes)
+assigns unexpected unclassified exceptions to `4`, while the current shared
+classifier defaults them to `1`. [SET-678](https://linear.app/outfitter/issue/SET-678)
+tracks the unresolved choice between implementing that accepted contract and
+formally amending it. The behavior described here does not resolve that decision.
