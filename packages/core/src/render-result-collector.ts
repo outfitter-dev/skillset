@@ -1,3 +1,4 @@
+import { createProjectCopyPlan, type ProjectCopyPlan } from "./project-copy-plan";
 import { lstatSync, readdirSync } from "./workspace-fs";
 import { join, posix, relative } from "node:path";
 
@@ -33,14 +34,10 @@ import {
   type SkillsetRenderResultStatus,
   type SkillsetRenderResultPolicy,
 } from "./render-result";
-import { scopeForPath } from "./output-scope";
+import { isInsideOutputRoot, scopeForPath } from "./output-scope";
 import { ruleScopeRenderResults } from "./render-rules";
 import { compareStrings } from "./path";
 import { pluginPackageComponentFile } from "./plugin-component-paths";
-import {
-  resolveProjectUseSkillCopies,
-  resolveRenderedSkillCopies,
-} from "./project-use";
 import {
   claudeMarketplacePath,
   cursorMarketplacePath,
@@ -63,7 +60,6 @@ import { hasAdaptivePluginHookOutput } from "./render-hooks";
 import {
   agentSkillSourceUnit,
   agentSkillStandardProjectionIssues,
-  classifyAgentSkillStandard,
   draftSkillDescriptionWasTruncated,
 } from "./render-agent-skills-standard";
 import { classifyAgentPluginStandard } from "./render-agent-plugins-standard";
@@ -111,6 +107,7 @@ type RenderResultSubject =
   | { readonly standardProfile?: undefined; readonly target?: undefined };
 
 interface CollectRenderResultsOptions {
+  readonly projectCopies?: ProjectCopyPlan;
   /**
    * Source plugins projected into the generated Claude marketplace, with the
    * author their emitted entries carry, from `claudeMarketplaceSourcePlugins`.
@@ -157,6 +154,7 @@ export function collectRenderResults(
   rendered: readonly RenderedFile[],
   options: CollectRenderResultsOptions
 ): readonly SkillsetRenderResult[] {
+  const projectCopies = options.projectCopies ?? createProjectCopyPlan(graph);
   const mapOutputPath = options.mapOutputPath ?? ((path: string) => path);
   const outcomes: SkillsetRenderResult[] = [];
   const lockOutcomes: SkillsetRenderResult[] = [];
@@ -193,7 +191,8 @@ export function collectRenderResults(
             primaryOutputPaths,
             options.includedPaths,
             mapOutputPath,
-            subject
+            subject,
+            projectCopies
           )
         );
         outcomes.push(
@@ -261,8 +260,8 @@ export function collectRenderResults(
   outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentSkillStandardOutcomes(graph, options.scopes));
   outcomes.push(...unsupportedAgentPluginStandardOutcomes(graph, options.scopes));
-  outcomes.push(...unsupportedProjectUseComponentOutcomes(graph, options.scopes));
-  outcomes.push(...unsupportedProjectSkillCopyStandardOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedProjectUseComponentOutcomes(graph, options.scopes, projectCopies));
+  outcomes.push(...unsupportedProjectSkillCopyStandardOutcomes(graph, options.scopes, projectCopies));
   outcomes.push(
     ...claudeMarketplaceAuthorOutcomes(
       graph,
@@ -291,10 +290,12 @@ export function collectRenderResults(
 
 function unsupportedProjectUseComponentOutcomes(
   graph: BuildGraph,
-  scopes: readonly BuildScope[] | undefined
+  scopes: readonly BuildScope[] | undefined,
+  projectCopies: ProjectCopyPlan
 ): readonly SkillsetRenderResult[] {
   const outcomes: SkillsetRenderResult[] = [];
-  for (const copy of resolveProjectUseSkillCopies(graph)) {
+  for (const copy of projectCopies.copies) {
+    if (!("plugin" in copy)) continue;
     // Plugin-level content is requested only by whole-plugin selection; an
     // unrelated sibling under hooks/ or shared/ is not a skill dependency.
     const wholePluginSelected = graph.pluginPlan?.internalUse.pluginIds.includes(copy.plugin.id);
@@ -390,28 +391,21 @@ function unsupportedProjectUseComponentOutcomes(
  */
 function unsupportedProjectSkillCopyStandardOutcomes(
   graph: BuildGraph,
-  scopes: readonly BuildScope[] | undefined
+  scopes: readonly BuildScope[] | undefined,
+  projectCopies: ProjectCopyPlan
 ): readonly SkillsetRenderResult[] {
   const target = "codex";
   const outcomes: SkillsetRenderResult[] = [];
-  for (const copy of resolveRenderedSkillCopies(graph)) {
+  for (const copy of projectCopies.copies) {
     const plugin = "plugin" in copy ? copy.plugin : undefined;
     if (
-      !copy.skill.targets[target].enabled ||
-      !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, copy.skill.id) ||
+      !projectCopies.isSelected(copy, target) ||
       (scopes !== undefined && !scopes.includes(scopeForPath(
         graph,
         posix.join(graph.root.outputs.skills[target], copy.effectiveName)
       )))
     ) continue;
-    const classification = classifyAgentSkillStandard(
-      graph,
-      plugin,
-      copy.skill,
-      copy.effectiveName,
-      undefined,
-      { draft: copy.draftOrigin !== undefined, effectiveName: copy.effectiveName }
-    );
+    const classification = projectCopies.codexClassification(copy);
     if (classification.status === "supported") continue;
     const featureId = plugin === undefined ? "standalone-skills" : "plugin-skills";
     outcomes.push(defineRenderResult({
@@ -902,7 +896,8 @@ function outcomeForLockItem(
   outputPaths: readonly string[],
   includedPaths: ReadonlySet<string>,
   mapOutputPath: OutputPathMapper,
-  subject: RenderResultSubject
+  subject: RenderResultSubject,
+  projectCopies: ProjectCopyPlan
 ): SkillsetRenderResult {
   const { standardProfile, target } = subject;
   const featureId = featureIdForLockItem(item);
@@ -918,16 +913,12 @@ function outcomeForLockItem(
   const evidence = evidenceFor(featureId, target, standardProfile);
   const projectUseCopy = item.sourceUnit === undefined
     ? undefined
-    : resolveRenderedSkillCopies(graph).find(
-        (copy) =>
-          copy.sourceUnit === item.sourceUnit &&
-          copy.effectiveName === item.effectiveName
-      );
+    : projectCopies.find(item.sourceUnit, item.effectiveName);
   const collisionDiagnostics = projectUseCopy === undefined || projectUseCopy.collisionSources.length === 0
     ? []
     : [{
         code: "internal-use-name-conflict",
-        message: `selected skill name ${item.name} conflicts across ${projectUseCopy.collisionSources.join(", ")}; emitted as ${projectUseCopy.effectiveName}`,
+        message: `project skill copy naming conflict among ${projectUseCopy.collisionSources.join(", ")}; emitted as ${projectUseCopy.effectiveName}`,
         path: item.sourcePath,
       }];
   const sourceSkill = item.draftOrigin === undefined
@@ -2521,10 +2512,6 @@ function requiredReasonForStatus(
     throw new Error(`skillset: feature registry ${featureId} ${target} ${status} support requires a reason`);
   }
   return reason;
-}
-
-function isInsideOutputRoot(path: string, outputRoot: string): boolean {
-  return path === outputRoot || path.startsWith(`${outputRoot}/`);
 }
 
 function normalizePath(path: string): string {

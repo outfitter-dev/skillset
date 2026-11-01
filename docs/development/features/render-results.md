@@ -56,7 +56,7 @@ Normalization produces deterministic field order and sorts outputs, diagnostics,
 
 Provider-only plugin components outside a destination's component contract are uncovered: they use `intentionally_skipped`, `policy: default`, an explicit support reason, and `plugin-component-uncovered` diagnostic provenance without output for that destination. They do not block supported provider output or imply runtime support. Invalid standard-carried components, dependency edges, and project-use hydration retain their existing policy. See [ADR-0046](../../adrs/0046-provider-only-plugin-components-remain-uncovered.md).
 
-The default unsupported-destination policy is `error`. `warn`, `skip`, and `force` can soften only `lossy` and `unsupported`; `failed` always blocks. A softened result retains the renderer's already-defined output set and provenance. It cannot synthesize output, broaden a provider capability, or relabel an unsupported projection as faithful. An enabled target that would produce no usable output still fails.
+The default unsupported-destination policy is `error`. `warn`, `skip`, and `force` can soften only `lossy` and `unsupported`; `failed` always blocks. A softened result retains the renderer's already-defined output set and provenance. It cannot synthesize output, broaden a provider capability, or relabel an unsupported projection as faithful. A softened selected build that would contain only lock files and no usable output still fails; usable output is checked across the selected build, not separately for each enabled target.
 
 ## Outputs and Consumers
 
@@ -88,7 +88,7 @@ bun run docs:check
 - A status that disagrees with feature-registry capability is a conformance issue. Inspect the renderer, provider evidence, and selected scope before changing either side.
 - A softened policy that adds, removes, or fabricates output is an enforcement bug. Policy may permit an existing projection, not define one.
 - A source validation or lint problem without a destination fact belongs in diagnostics, not a synthetic render result.
-- A clean operation with no usable output for an enabled target is silent [drift](../../glossary.md#drift) and must fail.
+- A softened selected build with only lock files and no usable output must fail. An omitted target may coexist with usable output elsewhere in the selected build, but its unsupported result must remain visible.
 
 ## Evidence and Decisions
 

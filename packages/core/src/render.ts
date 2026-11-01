@@ -1,3 +1,4 @@
+import { createProjectCopyPlan, type ProjectCopyPlan } from "./project-copy-plan";
 import { createPluginContentPlan } from "./plugin-content-plan";
 import { planSkillContent, withSkillContent } from "./skill-content-plan";
 import type { BuildScope } from "./types";
@@ -36,7 +37,6 @@ import { compareStrings, isPathInside, logicalDiagnosticPath } from "./path";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { getSkillsetFeature } from "./feature-registry";
 import {
-  resolveRenderedSkillCopies,
   type RenderedSkillCopy,
 } from "./project-use";
 import { withLockProvenance } from "./lock-provenance";
@@ -211,7 +211,8 @@ interface RenderedProjectAgentFile {
 export async function renderBuildGraph(
   graph: BuildGraph,
   destination: RenderDestination = liveRenderDestination(graph.rootPath),
-  scopes?: readonly BuildScope[]
+  scopes?: readonly BuildScope[],
+  projectCopies: ProjectCopyPlan = createProjectCopyPlan(graph)
 ): Promise<readonly RenderedFile[]> {
   await assertResolvedSourceFrontmatter(graph);
   const rendered: RenderedFile[] = [];
@@ -283,9 +284,9 @@ export async function renderBuildGraph(
     }
   }
 
-  for (const copy of resolveRenderedSkillCopies(graph)) {
+  for (const copy of projectCopies.copies) {
     for (const target of targetNames()) {
-      rendered.push(...(await renderProjectSkillCopy(graph, copy, target, lockRoots)));
+      rendered.push(...(await renderProjectSkillCopy(graph, copy, target, lockRoots, projectCopies)));
     }
   }
 
@@ -1710,14 +1711,12 @@ async function renderProjectSkillCopy(
   graph: BuildGraph,
   copy: RenderedSkillCopy,
   target: TargetName,
-  lockRoots: Map<string, LockRoot>
+  lockRoots: Map<string, LockRoot>,
+  projectCopies: ProjectCopyPlan
 ): Promise<readonly RenderedFile[]> {
   const plugin = "plugin" in copy ? copy.plugin : undefined;
   const { skill } = copy;
-  if (
-    !skill.targets[target].enabled ||
-    !isOutputSelected(graph.root.outputs.targetOutputs[target].skills, skill.id)
-  ) return [];
+  if (!projectCopies.isSelected(copy, target)) return [];
   // Resolve against this draft's definitions, not a same-name live sibling's
   // skill scope. Only hooks eligible for this target block the project copy.
   const eligibleDraftAttachments = copy.draftOrigin === undefined
@@ -1792,6 +1791,7 @@ async function renderProjectSkillCopy(
         skillLicense?.manifestValue,
         "agent-skills",
         {
+          classification: projectCopies.codexClassification(copy),
           sourceFiles,
           draft: copy.draftOrigin !== undefined,
           effectiveName: copy.effectiveName,

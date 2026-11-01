@@ -620,6 +620,7 @@ describe("SET-659 rendered skill copy allocation", () => {
     );
     expect(draft.frontmatter.name).toBe("draft-demo-2");
     expect(draft.frontmatter.description).toBe("[SKILLSET DRAFT] Workspace draft");
+    expect(JSON.stringify(result.renderResults)).toContain("project skill copy naming conflict among");
     expect(JSON.stringify(result.renderResults)).toContain("emitted as draft-demo-2");
   });
 

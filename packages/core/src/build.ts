@@ -1,3 +1,4 @@
+import { createProjectCopyPlan } from "./project-copy-plan";
 import { diagnosePreprocessSizes } from "./preprocess-size-advisories";
 import { readdir, readFile, stat, existsSync } from "./workspace-fs";
 import { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_LOCK_ITEM_KEYS } from "@skillset/schema";
@@ -354,8 +355,10 @@ export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[
 export async function renderBuildGraphWithOutcomeMetadata(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
-  const rendered = await renderBuildGraph(graph);
+  const projectCopies = createProjectCopyPlan(graph);
+  const rendered = await renderBuildGraph(graph, undefined, undefined, projectCopies);
   const renderResults = collectRenderResults(graph, rendered, {
+    projectCopies,
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(rendered.map((file) => file.path)),
     mapOutputPath: livePath,
@@ -485,10 +488,12 @@ async function runBuildProjection(
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
   const repair = normalizeRepairOptions(options.repair, outPath);
-  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes);
+  const projectCopies = createProjectCopyPlan(graph);
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes, projectCopies);
   await inspectionOptions.afterRender?.(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    projectCopies,
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
@@ -1497,9 +1502,11 @@ export async function diffSkillsetResult(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
-  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes);
+  const projectCopies = createProjectCopyPlan(graph);
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes, projectCopies);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    projectCopies,
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
@@ -1599,9 +1606,11 @@ export async function verifySkillsetResult(
   const pathContext = operationalPathContextForGraph(rootPath, graph, options);
   const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
-  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes);
+  const projectCopies = createProjectCopyPlan(graph);
+  const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath), options.scopes, projectCopies);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
+    projectCopies,
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,

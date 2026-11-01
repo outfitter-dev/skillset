@@ -103,10 +103,11 @@ Selection and exclusions resolve before either policy, so excluding a live
 skill also excludes its paired draft and no policy restores excluded content.
 
 Workspace drafts, side-by-side plugin drafts, `only`-mode drafts, and unpaired
-`override` drafts use `draft-<leaf>` for their directory and frontmatter name;
-when a live skill already owns that name, the draft takes the next free numeric
-suffix (`draft-<leaf>-2`, `draft-<leaf>-3`, ...) and the render result records
-`internal-use-name-conflict`.
+`override` drafts start with `draft-<leaf>` for their directory and frontmatter name.
+A workspace draft whose name is already occupied takes the next free numeric
+suffix (`draft-<leaf>-2`, `draft-<leaf>-3`, ...). A colliding plugin draft first
+uses `<plugin-id>-draft-<leaf>`; further collisions can add another plugin prefix
+and then a numeric suffix. The render result records `internal-use-name-conflict`.
 A paired `override` draft instead uses its live sibling's effective project-use
 name. Every rendered project draft prefixes its description with
 `[SKILLSET DRAFT] ` and writes boolean `metadata.internal: true` even when
