@@ -21,6 +21,8 @@ export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
   readonly partialBasePath?: string;
   readonly partialStack?: readonly string[];
+  /** Active mixed inline/link path for bounded resource planning. */
+  readonly includeChain?: readonly string[];
   readonly pluginPath?: string;
   readonly preprocessDependencies?: Set<string>;
   readonly rootPath: string;
@@ -41,6 +43,7 @@ export interface PreprocessContext {
 }
 
 export interface ResolvedPreprocessPathReference {
+  readonly includeChain?: readonly string[];
   readonly resolvedPath: string;
   readonly scheme?: "plugin" | "shared";
   readonly specifier: string;
@@ -329,7 +332,8 @@ async function renderPathReference(
     if (!(await isFile(resolvedPath))) {
       throw missingScopedPathReference(specifier, resolvedPath, context);
     }
-    await assertCanonicalPartialContainment(resolvedPath, specifier, context, "path");
+    const canonical = await assertCanonicalPartialContainment(resolvedPath, specifier, context, "path");
+    const includeChain = advanceIncludeChain(canonical, context);
     const [rawScheme] = splitSpecifier(specifier);
     const scheme =
       rawScheme === "root"
@@ -339,6 +343,7 @@ async function renderPathReference(
           : undefined;
     const reference: ResolvedPreprocessPathReference = {
       resolvedPath,
+      ...(includeChain === undefined ? {} : { includeChain }),
       ...(scheme === undefined ? {} : { scheme }),
       specifier,
     };
@@ -391,6 +396,7 @@ async function readPartial(
       context,
       kind
     );
+    const includeChain = advanceIncludeChain(canonical, context);
     assertNoPartialCycle(canonical, specifier, context);
     const raw = normalizeText(await readFile(canonical, "utf8"));
     let content: string;
@@ -402,6 +408,7 @@ async function readPartial(
     return await expandPartials(content, {
       ...context,
       partialBasePath: canonical,
+      ...(includeChain === undefined ? {} : { includeChain }),
       partialStack: [...(context.partialStack ?? []), canonical],
     });
   } catch (error) {
@@ -858,6 +865,22 @@ async function resolveNamedPartial(
   }
   context.preprocessDependencies?.add(resolved);
   return resolved;
+}
+
+function advanceIncludeChain(
+  canonical: string,
+  context: PreprocessContext
+): readonly string[] | undefined {
+  if (context.includeChain === undefined) return undefined;
+  const chain = [...context.includeChain, canonical];
+  const display = chain.map((file) => normalizePath(relative(context.rootPath, file))).join(" -> ");
+  if (context.includeChain.includes(canonical)) {
+    throw new PreprocessInputError(`skillset: include graph creates a cycle: ${display}`);
+  }
+  if (chain.length > 5) {
+    throw new PreprocessInputError(`skillset: include graph exceeds the four-hop limit: ${display}`);
+  }
+  return chain;
 }
 
 function assertNoPartialCycle(

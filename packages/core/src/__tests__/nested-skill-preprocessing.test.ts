@@ -112,3 +112,11 @@ test("nested ordinary resource links honor custom destination and referrer direc
   expect((await buildSkillsetResult(root)).ok).toBe(true);
   expect(await readFile(join(root, ".agents/skills/example/examples/walkthrough.md"), "utf8")).toBe("[Common](../references/renamed.md)\n");
 });
+
+test("nested links can climb within their skill but cannot enter another skill", async () => {
+  const { root, source } = await fixture();
+  await Bun.write(join(root, source, "examples/links.md"), "[local](../references/common.md)\n");
+  expect((await buildSkillsetResult(root)).ok).toBe(true);
+  await Bun.write(join(root, source, "examples/links.md"), "[other](../../other/SKILL.md)\n");
+  await expect(buildSkillsetResult(root)).rejects.toMatchObject({ code: "skill-file-reference-escape" });
+});

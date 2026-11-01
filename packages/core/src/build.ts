@@ -1,3 +1,4 @@
+import { diagnosePreprocessSizes } from "./preprocess-size-advisories";
 import { readdir, readFile, stat, existsSync } from "./workspace-fs";
 import { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_LOCK_ITEM_KEYS } from "@skillset/schema";
 import { assertNativeRootRuleSource, type NativeRootRuleSource } from "./native-root-rules";
@@ -363,7 +364,7 @@ export async function renderBuildGraphWithOutcomeMetadata(
     renderResults,
     graph.root.compile.unsupportedDestination
   );
-  const instructionDiagnostics = [...diagnoseLargeInstructionFiles(rendered), ...diagnoseRuleScopes(graph, rendered)];
+  const instructionDiagnostics = [...diagnoseLargeInstructionFiles(rendered), ...diagnoseRuleScopes(graph, rendered), ...await diagnosePreprocessSizes(graph, rendered)];
   return withPersistedRenderResults(
     rendered,
     attachDiagnosticsToRenderResults(
@@ -500,6 +501,7 @@ async function runBuildProjection(
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = [
     ...diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata),
+    ...await diagnosePreprocessSizes(graph, renderedWithoutOutcomeMetadata),
     ...diagnoseRuleScopes(graph, renderedWithoutOutcomeMetadata),
   ];
   diagnostics.push(...instructionDiagnostics);
@@ -1512,6 +1514,7 @@ export async function diffSkillsetResult(
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = [
     ...diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata),
+    ...await diagnosePreprocessSizes(graph, renderedWithoutOutcomeMetadata),
     ...diagnoseRuleScopes(graph, renderedWithoutOutcomeMetadata),
   ];
   diagnostics.push(...instructionDiagnostics);
@@ -1611,6 +1614,7 @@ export async function verifySkillsetResult(
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = [
     ...diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata),
+    ...await diagnosePreprocessSizes(graph, renderedWithoutOutcomeMetadata),
     ...diagnoseRuleScopes(graph, renderedWithoutOutcomeMetadata),
   ];
   diagnostics.push(...instructionDiagnostics);

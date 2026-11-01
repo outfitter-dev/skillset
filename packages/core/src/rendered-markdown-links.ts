@@ -80,6 +80,29 @@ export function assertRenderedMarkdownLinks(
   }
 }
 
+/** Nested Markdown may climb to its skill root, but never to a sibling skill. */
+export function assertSkillMarkdownContainment(
+  body: string,
+  outputFile: string,
+  sourcePath: string
+): void {
+  const boundary = resolve("/skillset-skill");
+  const output = resolve(boundary, outputFile);
+  const walker = new Parser().parse(body).walker();
+  for (let event = walker.next(); event !== null; event = walker.next()) {
+    if (!event.entering || (event.node.type !== "link" && event.node.type !== "image")) continue;
+    const raw = event.node.destination ?? "";
+    const local = localDestination(raw);
+    if (local === undefined || isPathInside(boundary, resolve(dirname(output), local), { allowEqual: true })) continue;
+    throw new SkillsetFeatureDiagnosticError({
+      code: "skill-file-reference-escape",
+      featureId: "resources",
+      path: sourcePath,
+      message: `skillset: ${sourcePath} links to ${JSON.stringify(raw)}, which escapes the skill directory; copy the resource inside the skill instead of referencing another skill`,
+    });
+  }
+}
+
 function localDestination(raw: string): string | undefined {
   if (raw === "" || raw.startsWith("#") || raw.startsWith("//") || /^[a-z][a-z\d+.-]*:/iu.test(raw)) return undefined;
   // Dynamic paths are not statically verifiable and must not be mistaken for missing files.

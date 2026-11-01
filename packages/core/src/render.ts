@@ -916,7 +916,8 @@ async function renderPluginSharedSkillFiles(
       mergedMarkdown.resources,
       skill,
       targetSkillDir,
-      renderedRelativeFiles
+      renderedRelativeFiles,
+      mergedMarkdown.nestedFiles
     ))
   );
 
@@ -1674,7 +1675,8 @@ async function renderStandaloneSkill(
       skillMarkdown.resources,
       skill,
       targetSkillDir,
-      renderedRelativeFiles
+      renderedRelativeFiles,
+      skillMarkdown.nestedFiles
     ))
   );
 
@@ -1854,7 +1856,8 @@ async function renderProjectSkillCopy(
     resources,
     skill,
     targetSkillDir,
-    renderedRelativeFiles
+    renderedRelativeFiles,
+      standard?.nestedFiles ?? skillMarkdown.nestedFiles
   )));
   const lock = await lockItemForSkill({
     files: rendered,
@@ -1930,7 +1933,8 @@ async function renderSkillResources(
   resources: readonly SourceResource[],
   skill: SourceSkill,
   targetSkillDir: string,
-  renderedRelativeFiles: Set<string>
+  renderedRelativeFiles: Set<string>,
+  nestedFiles?: ReadonlyMap<string, Uint8Array>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
 
@@ -1939,7 +1943,7 @@ async function renderSkillResources(
       if (file.path.endsWith(".gitkeep")) continue;
       pushSkillRenderedFile(
         rendered,
-        file,
+        withSkillContent(file, targetSkillDir, nestedFiles),
         targetSkillDir,
         renderedRelativeFiles,
         `${skill.sourcePath}.resources.${resource.from}`

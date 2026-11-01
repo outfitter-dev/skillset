@@ -339,7 +339,8 @@ async function renderBaselineFiles(
     resources,
     sourceUnit,
     baseline,
-    relativeFiles
+    relativeFiles,
+    nestedFiles
   );
   return baseline;
 }
@@ -377,7 +378,8 @@ async function pushEffectiveResources(
   resources: readonly SourceResource[],
   sourceUnit: string,
   baseline: LogicalRenderedFile[],
-  relativeFiles: Set<string>
+  relativeFiles: Set<string>,
+  nestedFiles: ReadonlyMap<string, Uint8Array>
 ): Promise<void> {
   for (const resource of resources) {
     const files = await copyPath(
@@ -388,7 +390,7 @@ async function pushEffectiveResources(
       if (file.path.endsWith(".gitkeep")) continue;
       pushSkillRenderedFile(
         baseline,
-        asAgentSkillStandardFile(file, sourceUnit, args.standardProfile),
+        asAgentSkillStandardFile(withSkillContent(file, args.targetSkillDir, nestedFiles), sourceUnit, args.standardProfile),
         args.targetSkillDir,
         relativeFiles,
         `${args.skill.sourcePath}.resources.${resource.from}`
