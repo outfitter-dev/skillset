@@ -54,7 +54,7 @@ export async function withChangeLedgerLock<T>(
     },
     startHeartbeat: settings.startHeartbeat,
     timeoutError: () =>
-      new Error(`skillset: timed out waiting for change ledger lock ${ledgerPath}.lock`),
+      new Error(`skillset: timed out waiting for change ledger lock ${ledgerPath}.lock after ${settings.timeoutMs}ms; release apply and draft/promote/move --yes can hold this lock during builds and verification; wait for the ongoing operation to finish, then rerun`),
     timing: {
       heartbeatMs: settings.heartbeatMs,
       leaseMs: settings.leaseMs,
