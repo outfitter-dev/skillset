@@ -49,22 +49,29 @@ export function renderPublicCapabilityReference(): string {
     ...buildPublicCapabilityCatalog().flatMap(capability => [
       `## ${capability.id}: ${capability.title}`, "",
       `Family: ${capability.family}. Exact aliases: ${capability.aliases.length ? capability.aliases.map(alias => `\`${alias}\``).join(", ") : "none"}.`, "",
-      ...capability.rows.flatMap(row => [
-        `### ${row.target}: ${row.featureId}`, "",
-        `- Canonical source: \`${row.canonical.shape}\` (contracts: ${row.canonical.contracts.map(id => `\`${id}\``).join(", ") || "none"}).`,
-        `- Realization: ${row.realization}`,
-        `- Destination support: ${row.destinationSupport}; fidelity: **${row.fidelity}**; evidence: **${row.evidenceStatus}**.`,
-        `- Semantic scope: ${row.semanticScope ?? "No reviewed semantic scope is recorded."}`,
-        `- Authority pin: \`${row.authorityHash}\`.`,
-        `- Standards: ${row.standards.join(", ") || "none recorded"}.`,
-        ...(row.destination === undefined ? ["- Provider-native destination: none recorded."] : [
-          `- Provider-native destination: \`${row.destination.id}\`.`,
-          "", "```json", JSON.stringify(row.destination.format, null, 2), "```", "",
-          ...row.destination.sources.map(url => `- Provider source: ${url}`),
-        ]),
-        "", "Limitations:", "",
-        ...row.limitations.map(limitation => `- ${limitation}`), "",
-      ]),
+      ...capability.rows.flatMap(row => {
+        // Keep the plugin context outside code spans so a data path is not
+        // presented as a shell command with a repository-relative operand.
+        const source = row.canonical.shape.startsWith("plugin ")
+          ? `plugin \`${row.canonical.shape.slice("plugin ".length)}\``
+          : `\`${row.canonical.shape}\``;
+        return [
+          `### ${row.target}: ${row.featureId}`, "",
+          `- Canonical source: ${source} (contracts: ${row.canonical.contracts.map(id => `\`${id}\``).join(", ") || "none"}).`,
+          `- Realization: ${row.realization}`,
+          `- Destination support: ${row.destinationSupport}; fidelity: **${row.fidelity}**; evidence: **${row.evidenceStatus}**.`,
+          `- Semantic scope: ${row.semanticScope ?? "No reviewed semantic scope is recorded."}`,
+          `- Authority pin: \`${row.authorityHash}\`.`,
+          `- Standards: ${row.standards.join(", ") || "none recorded"}.`,
+          ...(row.destination === undefined ? ["- Provider-native destination: none recorded."] : [
+            `- Provider-native destination: \`${row.destination.id}\`.`,
+            "", "```json", JSON.stringify(row.destination.format, null, 2), "```", "",
+            ...row.destination.sources.map(url => `- Provider source: ${url}`),
+          ]),
+          "", "Limitations:", "",
+          ...row.limitations.map(limitation => `- ${limitation}`), "",
+        ];
+      }),
     ]),
   ].join("\n");
 }
