@@ -64,7 +64,7 @@ export async function updateMarketplaces(
     options.expectedPlanHash !== undefined &&
     options.expectedPlanHash !== plan?.hash;
   const writtenPaths = options.write === true && plan !== undefined && !planChanged
-    ? await writeMarketplaceUpdate(plan)
+    ? await writeMarketplaceUpdate(rootPath, plan)
     : [];
 
   return {
@@ -207,9 +207,10 @@ async function prepareMarketplaceUpdate(
 }
 
 async function writeMarketplaceUpdate(
+  rootPath: string,
   plan: PreparedMarketplaceUpdate
 ): Promise<readonly string[]> {
-  await writeAtomicFileSet(plan.writes);
+  await writeAtomicFileSet(rootPath, plan.writes);
   return plan.paths;
 }
 
