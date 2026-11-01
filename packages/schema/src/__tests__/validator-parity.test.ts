@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 
 import {
+  adaptiveHookContract,
   agentFrontmatterContract,
   pluginConfigContract,
   ROOT_DRAFT_SELECTOR_PATTERN,
@@ -11,6 +12,7 @@ import {
   skillsetSchemaExamples,
   sourceMetadataContract,
   TARGET_NAMES,
+  validateAdaptiveHookUnitSource,
   validateAgentFrontmatter,
   validatePluginConfig,
   validateRootSourceManifest,
@@ -114,8 +116,48 @@ const skillsetBlockCases: Record<string, ParityCase> = {
   ),
 };
 
+const validHookContexts: readonly SchemaJsonValue[] = [
+  { strategy: "none" },
+  { strategy: "toolkit", includeRaw: true },
+  { strategy: "inline", env: ["provider", "hook.event", "session.id"], includeRaw: false },
+  { strategy: "none", env: ["provider"] },
+  { strategy: "toolkit", env: ["session.id"] },
+];
+const invalidHookContexts: readonly SchemaJsonValue[] = [
+  {},
+  { env: ["provider"] },
+  { strategy: "inline" },
+  { strategy: "inline", env: [] },
+  { strategy: "inline", env: ["provider", "provider"] },
+  { strategy: "inline", env: ["unknown"] },
+  { strategy: "inline", env: "provider" },
+  { strategy: "none", env: [] },
+  { strategy: "unknown" },
+  { strategy: "none", includeRaw: "yes" },
+  { strategy: "none", typo: true },
+  "none",
+  [],
+  false,
+];
+const hookBase = { events: ["PreToolUse"], run: { command: "echo context" } };
+const hookContextFixtures = (contexts: readonly SchemaJsonValue[]) =>
+  contexts.flatMap((context) => [
+    { ...hookBase, context },
+    ...TARGET_NAMES.map((target) => ({ ...hookBase, [target]: { context } })),
+  ]);
+
 const cases: Record<string, ParityCase> = {
   ...skillsetBlockCases,
+  "adaptive hook context": {
+    contract: adaptiveHookContract,
+    invalid: [...hookContextFixtures(invalidHookContexts), { ...hookBase, context: null }],
+    valid: [
+      hookBase,
+      ...hookContextFixtures(validHookContexts),
+      ...TARGET_NAMES.map((target) => ({ ...hookBase, [target]: { context: null } })),
+    ],
+    validators: [validateAdaptiveHookUnitSource],
+  },
   "plugin config": {
     contract: pluginConfigContract,
     invalid: configFixtures.invalid,

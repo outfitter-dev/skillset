@@ -13,6 +13,13 @@
                 },
                 {
                   "additionalProperties": false,
+                  "if": {
+                    "properties": {
+                      "strategy": {
+                        "const": "inline"
+                      }
+                    }
+                  },
                   "properties": {
                     "env": {
                       "items": {
@@ -38,6 +45,14 @@
                       ],
                       "type": "string"
                     }
+                  },
+                  "required": [
+                    "strategy"
+                  ],
+                  "then": {
+                    "required": [
+                      "env"
+                    ]
                   },
                   "type": "object"
                 }
@@ -110,6 +125,13 @@
                 },
                 {
                   "additionalProperties": false,
+                  "if": {
+                    "properties": {
+                      "strategy": {
+                        "const": "inline"
+                      }
+                    }
+                  },
                   "properties": {
                     "env": {
                       "items": {
@@ -135,6 +157,14 @@
                       ],
                       "type": "string"
                     }
+                  },
+                  "required": [
+                    "strategy"
+                  ],
+                  "then": {
+                    "required": [
+                      "env"
+                    ]
                   },
                   "type": "object"
                 }
@@ -199,6 +229,13 @@
         },
         "context": {
           "additionalProperties": false,
+          "if": {
+            "properties": {
+              "strategy": {
+                "const": "inline"
+              }
+            }
+          },
           "properties": {
             "env": {
               "items": {
@@ -225,6 +262,14 @@
               "type": "string"
             }
           },
+          "required": [
+            "strategy"
+          ],
+          "then": {
+            "required": [
+              "env"
+            ]
+          },
           "type": "object"
         },
         "cursor": {
@@ -237,6 +282,13 @@
                 },
                 {
                   "additionalProperties": false,
+                  "if": {
+                    "properties": {
+                      "strategy": {
+                        "const": "inline"
+                      }
+                    }
+                  },
                   "properties": {
                     "env": {
                       "items": {
@@ -262,6 +314,14 @@
                       ],
                       "type": "string"
                     }
+                  },
+                  "required": [
+                    "strategy"
+                  ],
+                  "then": {
+                    "required": [
+                      "env"
+                    ]
                   },
                   "type": "object"
                 }
