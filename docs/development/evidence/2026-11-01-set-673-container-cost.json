@@ -1,0 +1,1000 @@
+{
+  "kind": "normalized observation extract; raw harness reports retained locally",
+  "declaration": {
+    "root": "/private/tmp/skillset-container-cost-nnkaujgc",
+    "owner": "/Users/mg/Developer/outfitter/skillset-astra",
+    "baselineSha": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+    "candidateSha": "9d03f070e9a828519811949d0b0f312709f0feeb",
+    "baseline": "/private/tmp/skillset-container-cost-nnkaujgc/baseline",
+    "candidate": "/private/tmp/skillset-container-cost-nnkaujgc/candidate",
+    "cases": [
+      "million-runs",
+      "million-before-container",
+      "million-in-container",
+      "million-before-indented"
+    ],
+    "pairs": 3,
+    "order": "AB BA AB",
+    "inputScriptSha256": "9df7dcd07ad85c9ffe505cc66a80d43a5d4285926d7f99fa204617d2fef7612a",
+    "notes": "Wait for previous full verification terminal; no cold/warm claim; function timings and whole process RSS are distinct; retain all outcomes.",
+    "note": "Final filter repeat of same four workloads; initial 24 samples retained separately; no cold/warm claim or competing campaign gate."
+  },
+  "runtime": "Bun 1.4.4",
+  "host": {
+    "arch": "arm64",
+    "cpuCount": 14,
+    "cpuModel": "Apple M4 Pro",
+    "loadAverage": [
+      5.236328125,
+      4.9365234375,
+      4.49169921875
+    ],
+    "platform": "darwin",
+    "release": "27.2.0",
+    "totalMemoryBytes": 68719476736
+  },
+  "scriptSha256": "9df7dcd07ad85c9ffe505cc66a80d43a5d4285926d7f99fa204617d2fef7612a",
+  "workloadScript": "import { createHash } from \"node:crypto\";\nimport { join } from \"node:path\";\nimport { pathToFileURL } from \"node:url\";\n\nconst [repo, scenario] = process.argv.slice(2);\nif (!repo || !scenario) throw new Error(\"expected checkout and scenario\");\nconst { markdownCodeRanges } = await import(pathToFileURL(join(repo, \"packages/core/src/preprocess.ts\")).href);\nconst { markdownLinkIsActive } = await import(pathToFileURL(join(repo, \"packages/core/src/markdown-link-context.ts\")).href);\nconst tick = String.fromCharCode(96);\nlet content: string;\nlet operation = \"ranges\";\nswitch (scenario) {\n  case \"million-runs\": content = (tick + \"a\").repeat(1_000_000); break;\n  case \"million-before-container\": content = (tick + \"a\").repeat(1_000_000) + \"\\n\\n> ~~~\\n> literal\\n> ~~~\"; break;\n  case \"million-in-container\": content = \"> ~~~\\n> \" + (tick + \"a\").repeat(1_000_000) + \"\\n> ~~~\"; break;\n  case \"million-before-indented\": content = (tick + \"a\").repeat(1_000_000) + \"\\n\\n    ~~~\\n    literal\\n    ~~~\"; break;\n  default: throw new Error(\"unknown scenario\");\n}\nconst contentHash = createHash(\"sha256\").update(content).digest(\"hex\");\nconst start = Bun.nanoseconds();\nlet observation;\nif (operation === \"ranges\") {\n  const ranges = markdownCodeRanges(content);\n  observation = { rangeCount: ranges.length, first: ranges[0], last: ranges.at(-1) };\n} else {\n  const active = markdownLinkIsActive(content);\n  observation = {\n    hiddenActive: active(\"[hidden](a.md)\", content.indexOf(\"[hidden](a.md)\")),\n    finalActive: active(\"[active](b.md)\", content.lastIndexOf(\"[active](b.md)\")),\n  };\n  if (observation.hiddenActive || !observation.finalActive) throw new Error(\"link classification failed\");\n}\nconsole.log(JSON.stringify({ scenario, bytes: Buffer.byteLength(content), contentHash, elapsedMs: (Bun.nanoseconds() - start) / 1e6, observation }));\n",
+  "samples": [
+    {
+      "label": "container-million-before-container-baseline-1",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 98.267958,
+      "maxRssBytes": 246874112,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-before-container",
+        "bytes": 2000023,
+        "contentHash": "b17909452291b35f07f5b14e034db30cc63204b95bb2b738d79fd0c7eb6cdedb",
+        "elapsedMs": 77.958917,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "1c55891853a1b3f66fe05a6e059d63299bebb59265af74695b16bc835e371f18",
+      "rawLogSha256": "e55e3a1f76c364f38068a50d8976fb1620919a89bbcb0983d04fcb9aa922040c"
+    },
+    {
+      "label": "container-million-before-container-baseline-2",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 99.910542,
+      "maxRssBytes": 242548736,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-before-container",
+        "bytes": 2000023,
+        "contentHash": "b17909452291b35f07f5b14e034db30cc63204b95bb2b738d79fd0c7eb6cdedb",
+        "elapsedMs": 79.922375,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "77e4e59f169c88c9e85b8e779c661c0b628d180f42bbff0bc888f429d7387a37",
+      "rawLogSha256": "f1f76a8c125173a81d3ba6823ff2abcb12c858fadb66378be9813a8825d26950"
+    },
+    {
+      "label": "container-million-before-container-baseline-3",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 100.5855,
+      "maxRssBytes": 244940800,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-before-container",
+        "bytes": 2000023,
+        "contentHash": "b17909452291b35f07f5b14e034db30cc63204b95bb2b738d79fd0c7eb6cdedb",
+        "elapsedMs": 79.303209,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "5b034f897ed70506951a8d573cb3b32231da76a0e749c00516de81b67dcdcb08",
+      "rawLogSha256": "412ac9805616a33b9347077608f7a800d7578aabe72a988a74eecc8998497505"
+    },
+    {
+      "label": "container-million-before-container-candidate-1",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 206.085208,
+      "maxRssBytes": 647446528,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-before-container",
+        "bytes": 2000023,
+        "contentHash": "b17909452291b35f07f5b14e034db30cc63204b95bb2b738d79fd0c7eb6cdedb",
+        "elapsedMs": 182.110875,
+        "observation": {
+          "rangeCount": 500001,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            2000002,
+            2000023
+          ]
+        }
+      },
+      "rawReportSha256": "9f5f088ac4db5fae22013a59fad436e05a644c0f85fe69106750eaa1c8008afe",
+      "rawLogSha256": "e5abcbec57ac09858f1fe1768e83262fe7815c442bb1dd9c31b88ad1591c0187"
+    },
+    {
+      "label": "container-million-before-container-candidate-2",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 208.924666,
+      "maxRssBytes": 641925120,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-before-container",
+        "bytes": 2000023,
+        "contentHash": "b17909452291b35f07f5b14e034db30cc63204b95bb2b738d79fd0c7eb6cdedb",
+        "elapsedMs": 185.345833,
+        "observation": {
+          "rangeCount": 500001,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            2000002,
+            2000023
+          ]
+        }
+      },
+      "rawReportSha256": "8b8b3cf4b45793843c93c4f6e2da2ffca170d63b24d1f03e990e2f02dbf87826",
+      "rawLogSha256": "ef2d35673c007d356dfbee16b9fa558f00ae870b1b494f81443780d72c508c65"
+    },
+    {
+      "label": "container-million-before-container-candidate-3",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 207.337333,
+      "maxRssBytes": 649691136,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-before-container",
+        "bytes": 2000023,
+        "contentHash": "b17909452291b35f07f5b14e034db30cc63204b95bb2b738d79fd0c7eb6cdedb",
+        "elapsedMs": 183.239958,
+        "observation": {
+          "rangeCount": 500001,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            2000002,
+            2000023
+          ]
+        }
+      },
+      "rawReportSha256": "008b708338140c9cf9c48584d654f9f7fc93090b0b6713e66b276bc9487b35fc",
+      "rawLogSha256": "9f725def5c3042d4bb60dd0d0cd6f0a6f3c744392c9aaa7c410f4ff5ef11e40b"
+    },
+    {
+      "label": "container-million-before-indented-baseline-1",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 100.301625,
+      "maxRssBytes": 240943104,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-before-indented",
+        "bytes": 2000029,
+        "contentHash": "1babe1148f4fdbdfed0ef1c9f8cf38ff01646244b54824b8752a2082954cc74f",
+        "elapsedMs": 79.444417,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "46984310dab77c3ea7234d4815bd6c6d671e566e3f6a19570f5dba216e030478",
+      "rawLogSha256": "94b535ea8f230e25072bacf6b67034cd519e52f69aa3bf271360c11278cb94d5"
+    },
+    {
+      "label": "container-million-before-indented-baseline-2",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 99.346,
+      "maxRssBytes": 245760000,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-before-indented",
+        "bytes": 2000029,
+        "contentHash": "1babe1148f4fdbdfed0ef1c9f8cf38ff01646244b54824b8752a2082954cc74f",
+        "elapsedMs": 78.635042,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "744a28e32203e3d01436f2b35d3a25137361dba920324c9285b0f3290b687d65",
+      "rawLogSha256": "acc994526f3f09b45b68de660f30f8a1698a00594afb8b6d29abf3e3bbd682c0"
+    },
+    {
+      "label": "container-million-before-indented-baseline-3",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 98.398917,
+      "maxRssBytes": 242532352,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-before-indented",
+        "bytes": 2000029,
+        "contentHash": "1babe1148f4fdbdfed0ef1c9f8cf38ff01646244b54824b8752a2082954cc74f",
+        "elapsedMs": 77.239417,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "b278c74497c3cb09069f1fa6b36de1f360086c18b07119664407b2ceb3ee8432",
+      "rawLogSha256": "a8f53c97d6c1ca96fa497e6416772e935d0ede5f74b5297ed1c3ab8f8c6b0483"
+    },
+    {
+      "label": "container-million-before-indented-candidate-1",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 99.644041,
+      "maxRssBytes": 244072448,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-before-indented",
+        "bytes": 2000029,
+        "contentHash": "1babe1148f4fdbdfed0ef1c9f8cf38ff01646244b54824b8752a2082954cc74f",
+        "elapsedMs": 78.927167,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "9aba080fa242d0893f087aa46e48c8a13f919e462582fbbb8311835bd2f4fb86",
+      "rawLogSha256": "752da24f62d088575d900d3bd63a3dfccb6cd4cd0d08505c36e5b2cb2ae117c3"
+    },
+    {
+      "label": "container-million-before-indented-candidate-2",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 104.941875,
+      "maxRssBytes": 247545856,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-before-indented",
+        "bytes": 2000029,
+        "contentHash": "1babe1148f4fdbdfed0ef1c9f8cf38ff01646244b54824b8752a2082954cc74f",
+        "elapsedMs": 82.95175,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "f49cfe5a4f7b43e961160b18e003316b4cefcd1454a8afb76135a0eae779d37e",
+      "rawLogSha256": "ad555ba3b4fe8932cfa4dc0d220ab47c7e15a66c5470087f49339129f558ba14"
+    },
+    {
+      "label": "container-million-before-indented-candidate-3",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 97.717792,
+      "maxRssBytes": 236011520,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-before-indented",
+        "bytes": 2000029,
+        "contentHash": "1babe1148f4fdbdfed0ef1c9f8cf38ff01646244b54824b8752a2082954cc74f",
+        "elapsedMs": 77.03375,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "b301d71d8ffc97d6a61090200279260ea98eb5185206c165e9f1ac36288fb9e6",
+      "rawLogSha256": "eb471cbfce4f7ee877381f0d79bc551a3a800b59a718c27ee488df65fd996ed8"
+    },
+    {
+      "label": "container-million-in-container-baseline-1",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 99.057125,
+      "maxRssBytes": 250839040,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-in-container",
+        "bytes": 2000014,
+        "contentHash": "8fa6cca7231eecab2524650454c5689cdcda03a5d68a7ef5d6d8b1b255fae64b",
+        "elapsedMs": 78.294125,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            8,
+            11
+          ],
+          "last": [
+            2000004,
+            2000007
+          ]
+        }
+      },
+      "rawReportSha256": "ad3903858be3a50d488f8618b61198e7fa9e372eec9a28ded05c935f76b4f41c",
+      "rawLogSha256": "8524003fd02217b7143627f9a00746a11eca898cabf72f65d892fc83b67626bf"
+    },
+    {
+      "label": "container-million-in-container-baseline-2",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 97.536458,
+      "maxRssBytes": 257703936,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-in-container",
+        "bytes": 2000014,
+        "contentHash": "8fa6cca7231eecab2524650454c5689cdcda03a5d68a7ef5d6d8b1b255fae64b",
+        "elapsedMs": 77.085292,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            8,
+            11
+          ],
+          "last": [
+            2000004,
+            2000007
+          ]
+        }
+      },
+      "rawReportSha256": "8a886d4b4aa8b3a8001bd3222783dd820dc3efab642867e4d4df26cca53e1987",
+      "rawLogSha256": "2da68baa01b6525ed9e679f04784cc1b1dd69b8b2bc757a3bebe46d9be277467"
+    },
+    {
+      "label": "container-million-in-container-baseline-3",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 102.403667,
+      "maxRssBytes": 256000000,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-in-container",
+        "bytes": 2000014,
+        "contentHash": "8fa6cca7231eecab2524650454c5689cdcda03a5d68a7ef5d6d8b1b255fae64b",
+        "elapsedMs": 80.759291,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            8,
+            11
+          ],
+          "last": [
+            2000004,
+            2000007
+          ]
+        }
+      },
+      "rawReportSha256": "2df30bf899d2d83e3b3bdd60da3c5c636103b48d1d47acfaf9e72184541af2f7",
+      "rawLogSha256": "d7fbd2200902e560d8968850125e181eef60db47efb8295bc6caaabf234ee0c3"
+    },
+    {
+      "label": "container-million-in-container-candidate-1",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 20.400292,
+      "maxRssBytes": 34111488,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-in-container",
+        "bytes": 2000014,
+        "contentHash": "8fa6cca7231eecab2524650454c5689cdcda03a5d68a7ef5d6d8b1b255fae64b",
+        "elapsedMs": 0.927,
+        "observation": {
+          "rangeCount": 1,
+          "first": [
+            0,
+            2000014
+          ],
+          "last": [
+            0,
+            2000014
+          ]
+        }
+      },
+      "rawReportSha256": "4a9170608f81e67d26d02c839f7a098cfb3bc31a84cde4a7af15a9570bc6ec37",
+      "rawLogSha256": "ddb33bd7326749a44fb8e0afded6b5b21274622027782d479e95bf249533473a"
+    },
+    {
+      "label": "container-million-in-container-candidate-2",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 19.886958,
+      "maxRssBytes": 34373632,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-in-container",
+        "bytes": 2000014,
+        "contentHash": "8fa6cca7231eecab2524650454c5689cdcda03a5d68a7ef5d6d8b1b255fae64b",
+        "elapsedMs": 0.96,
+        "observation": {
+          "rangeCount": 1,
+          "first": [
+            0,
+            2000014
+          ],
+          "last": [
+            0,
+            2000014
+          ]
+        }
+      },
+      "rawReportSha256": "4e3bf9ce8f2a69debdd5700b01352c710220925f7aaf5277231fe3bccc3b9e49",
+      "rawLogSha256": "43830fe0f1d22914521ad36f7f07c4c301b0fd8447f8184871d766b3311a3696"
+    },
+    {
+      "label": "container-million-in-container-candidate-3",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 21.242208,
+      "maxRssBytes": 34242560,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "loadAfter": [
+        4.97705078125,
+        4.8876953125,
+        4.47705078125
+      ],
+      "observation": {
+        "scenario": "million-in-container",
+        "bytes": 2000014,
+        "contentHash": "8fa6cca7231eecab2524650454c5689cdcda03a5d68a7ef5d6d8b1b255fae64b",
+        "elapsedMs": 0.93575,
+        "observation": {
+          "rangeCount": 1,
+          "first": [
+            0,
+            2000014
+          ],
+          "last": [
+            0,
+            2000014
+          ]
+        }
+      },
+      "rawReportSha256": "05d3bee31a83a846c24e03a4b8c9527660f77bc6b5aa45eeae0c1f20103c2fb8",
+      "rawLogSha256": "1a4ed54133df96e90e98a0d8fb69191508d4cb12a6a634d6b9b3a476808b88b3"
+    },
+    {
+      "label": "container-million-runs-baseline-1",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 98.400125,
+      "maxRssBytes": 246546432,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-runs",
+        "bytes": 2000000,
+        "contentHash": "0337b373efdea0b793366804381f722e791375209af2098bc652db0c228ef461",
+        "elapsedMs": 75.996542,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "debda7e7d1858f3a2c8dbcb01c225c3a9af90415ddce77fe265ca6dee487c04f",
+      "rawLogSha256": "6ff01a118b2d277e819330914db2d08dc17c2dcca1bce6bbca44fbb5e15774f7"
+    },
+    {
+      "label": "container-million-runs-baseline-2",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 100.767792,
+      "maxRssBytes": 251068416,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-runs",
+        "bytes": 2000000,
+        "contentHash": "0337b373efdea0b793366804381f722e791375209af2098bc652db0c228ef461",
+        "elapsedMs": 79.646333,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "bf47f40626874dfc4cc12a6710f1c3568afab8ea40201f501d896147104abc14",
+      "rawLogSha256": "f830be82718fc880b52db77595e96240aa6aa740c59c44de36d7c342e801a172"
+    },
+    {
+      "label": "container-million-runs-baseline-3",
+      "variant": "baseline",
+      "head": "7187126850a6f75e21908d3161ad6a3d76a06ad7",
+      "tree": "3300226268d936a924a1e1f9af00eb488e3442a8",
+      "wallMs": 98.718917,
+      "maxRssBytes": 248397824,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-runs",
+        "bytes": 2000000,
+        "contentHash": "0337b373efdea0b793366804381f722e791375209af2098bc652db0c228ef461",
+        "elapsedMs": 77.957875,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "a490454a12e18ee17698edc0a884a4484198763d01c1f850b51d2d1552643086",
+      "rawLogSha256": "457a4d79d1d8bbe851d1045313949b56fc8b3ddebb719e90d6c6bb2f6c31da9a"
+    },
+    {
+      "label": "container-million-runs-candidate-1",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 98.739875,
+      "maxRssBytes": 240582656,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-runs",
+        "bytes": 2000000,
+        "contentHash": "0337b373efdea0b793366804381f722e791375209af2098bc652db0c228ef461",
+        "elapsedMs": 76.889042,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "619d314d570e8433cb88ff147fa45ee281c315cb253107cf0aa785852904f571",
+      "rawLogSha256": "c7cb9d4ec0cb11d35d5094b1a808b20d27e7966d5ef1e9e0a3959b8b289eb685"
+    },
+    {
+      "label": "container-million-runs-candidate-2",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 98.007875,
+      "maxRssBytes": 243122176,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-runs",
+        "bytes": 2000000,
+        "contentHash": "0337b373efdea0b793366804381f722e791375209af2098bc652db0c228ef461",
+        "elapsedMs": 77.455125,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "d1ad9ad885bb62c9d8b84a7ec47912b0e76e623c1f430450bcb100352c325f44",
+      "rawLogSha256": "8948d0ed83731a5b796960b69d1c35358432e91c0bd42011a698fa1a91a64692"
+    },
+    {
+      "label": "container-million-runs-candidate-3",
+      "variant": "candidate",
+      "head": "9d03f070e9a828519811949d0b0f312709f0feeb",
+      "tree": "f70290a4b3055fa063ed6c76f67182542694bc27",
+      "wallMs": 101.280875,
+      "maxRssBytes": 243679232,
+      "attributable": true,
+      "commandSucceeded": true,
+      "resourceAccounting": "complete",
+      "loadBefore": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "loadAfter": [
+        5.236328125,
+        4.9365234375,
+        4.49169921875
+      ],
+      "observation": {
+        "scenario": "million-runs",
+        "bytes": 2000000,
+        "contentHash": "0337b373efdea0b793366804381f722e791375209af2098bc652db0c228ef461",
+        "elapsedMs": 80.780834,
+        "observation": {
+          "rangeCount": 500000,
+          "first": [
+            0,
+            3
+          ],
+          "last": [
+            1999996,
+            1999999
+          ]
+        }
+      },
+      "rawReportSha256": "ceaabf43ca8669e9d85a8598b404e00fbdc796e8328974d927ec86e3620fb033",
+      "rawLogSha256": "d69cfafe5f08336c631ce07cc727b7d7101db911acf6679f524df9fd654a91b1"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { markdownHtmlBlockLines } from "./markdown-html-blocks";
+import { markdownSpecialBlockLines } from "./markdown-block-lines";
 import { markdownAutolinkCandidates } from "./markdown-autolinks";
 import { readdirSync, readFileSync, readdir, readFile, realpath, stat } from "./workspace-fs";
 import {
@@ -1003,13 +1003,29 @@ export function markdownCodeRanges(content: string): CodeRange[] {
   let fenceStart = 0;
   const state: MarkdownBlockState = { inParagraph: false, inTable: false, listIndents: [] };
   const lines = content.split(/\r\n?|\n/u);
-  const htmlBlocks = markdownHtmlBlockLines(content);
+  const { html: htmlBlocks, fences: containerFences } = markdownSpecialBlockLines(content);
+  let containerFenceIndex = 0;
+  let containerFenceStart = 0;
   let htmlBlockIndex = 0;
   let inHtmlBlock = false;
   let lineStart = 0;
   for (const [index, line] of lines.entries()) {
     const lineEnd = lineStart + line.length;
     const nextLineStart = lineEnd + (content.startsWith("\r\n", lineEnd) ? 2 : 1);
+    while (containerFences[containerFenceIndex] !== undefined && containerFences[containerFenceIndex]![1] <= index) containerFenceIndex++;
+    const containerFence = containerFences[containerFenceIndex];
+    if (containerFence !== undefined && index >= containerFence[0]) {
+      if (index === containerFence[0]) {
+        flush();
+        trackListItems(line, markdownLineBlock(line, lines[index + 1], state), state);
+        containerFenceStart = lineStart;
+      }
+      if (index === containerFence[1] - 1) ranges.push([containerFenceStart, lineEnd]);
+      state.inParagraph = false;
+      state.inTable = false;
+      lineStart = nextLineStart;
+      continue;
+    }
     while (htmlBlocks[htmlBlockIndex] !== undefined && htmlBlocks[htmlBlockIndex]![1] <= index) htmlBlockIndex++;
     const htmlBlock = htmlBlocks[htmlBlockIndex];
     if (fence === undefined && htmlBlock !== undefined && index >= htmlBlock[0]) {
