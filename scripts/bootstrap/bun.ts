@@ -16,13 +16,6 @@ interface PackageJson {
   readonly packageManager?: string;
 }
 
-// Bun canary and other prerelease builds report versions like
-// `1.4.1-canary.20`, and semver ranges never match prereleases. Compare on
-// the numeric base version so those builds pass, matching the shell gate in
-// scripts/bootstrap.sh.
-export const baseVersion = (version: string): string =>
-  version.match(/^\d+\.\d+\.\d+/)?.[0] ?? version;
-
 // BigInt keeps components exact: Number would round anything past
 // MAX_SAFE_INTEGER, letting distinct versions compare equal.
 type Release = readonly [bigint, bigint, bigint];
@@ -153,7 +146,16 @@ export const satisfiesSupportedBunRange = (
 export const isCompatibleBunVersion = (
   actual: string,
   pinned: string
-): boolean => Bun.semver.satisfies(baseVersion(actual), `~${pinned}`);
+): boolean => {
+  const actualMatch = actual.match(versionPattern);
+  const pinnedMatch = pinned.match(versionPattern);
+  if (!actualMatch || !pinnedMatch) return false;
+  const candidate = release(actualMatch);
+  const baseline = release(pinnedMatch);
+  // Local compatible policy intentionally admits canaries on the pin's
+  // minor line; package engine ranges have a separate prerelease floor.
+  return candidate[0] === baseline[0] && candidate[1] === baseline[1] && candidate[2] >= baseline[2];
+};
 
 export const isBunVersionAllowed = (
   actual: string,

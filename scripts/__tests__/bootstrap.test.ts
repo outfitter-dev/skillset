@@ -534,7 +534,27 @@ describe("bootstrap repo policy", () => {
     expect(readPinnedBunVersion(repoRoot)).toBe("1.4.4");
     expect(readPackageManagerBunVersion(repoRoot)).toBe("1.4.4");
     expect(supportedBunRangeProblem(range)).toBeUndefined();
-    expect(satisfiesSupportedBunRange("1.4.0", range ?? "")).toBe(true);
+    expect(satisfiesSupportedBunRange(readPinnedBunVersion(repoRoot), range ?? "")).toBe(true);
+  });
+
+  test("compatible Bun versions require whole candidate and pin versions", () => {
+    for (const malformed of ["1.4.4junk", "1.4.4.7", "1.4.4-01", "01.4.4", "1.4", "v1.4.4", "1.4.4\n", "~1.4.4"]) {
+      expect(isCompatibleBunVersion(malformed, "1.4.4")).toBe(false);
+      expect(isCompatibleBunVersion("1.4.4", malformed)).toBe(false);
+    }
+  });
+
+  test("compatible policy preserves the pin's minor line and canary support", () => {
+    for (const candidate of ["1.4.4", "1.4.5", "1.4.4-canary.1", "1.4.5-canary.20+build", "1.4.4+build"]) {
+      expect(isCompatibleBunVersion(candidate, "1.4.4")).toBe(true);
+    }
+    for (const candidate of ["1.4.3", "1.4.3-canary.1", "1.3.99", "1.5.0", "2.4.4"]) {
+      expect(isCompatibleBunVersion(candidate, "1.4.4")).toBe(false);
+    }
+    expect(isCompatibleBunVersion("1.4.4", "1.4.4-canary.1")).toBe(true);
+    expect(isCompatibleBunVersion("1.4.4", "1.4.4+build")).toBe(true);
+    expect(isCompatibleBunVersion("1.4.9007199254740992", "1.4.9007199254740993")).toBe(false);
+    expect(isCompatibleBunVersion("1.4.9007199254740993", "1.4.9007199254740993")).toBe(true);
   });
 
   test("Bun checks distinguish package ranges from repo pins", () => {
@@ -556,7 +576,7 @@ describe("bootstrap repo policy", () => {
     expect(isBunVersionAllowed("1.4.1", "1.4.0", "strict")).toBe(false);
   });
 
-  test("Bun checks tolerate prerelease builds like the shell gate does", () => {
+  test("Bun compatible checks intentionally tolerate prerelease builds", () => {
     expect(satisfiesSupportedBunRange("1.4.1-canary.20+abc123", ">=1.4.0")).toBe(
       true
     );
