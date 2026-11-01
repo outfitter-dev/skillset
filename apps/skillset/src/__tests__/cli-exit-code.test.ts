@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 
 import {
+  bindUsageCommand,
   cliExitCode,
   CliOutputError,
   CliUsageError,
@@ -255,4 +256,16 @@ describe("SET-635 shared CLI exit classes", () => {
       expect(cliExitCode(error)).toBe(4);
     }
   });
+});
+
+
+test("usage command binding preserves specific commands and other thrown values", () => {
+  const unbound = new CliUsageError("bad option");
+  expect(bindUsageCommand(unbound, "build")).toMatchObject({
+    command: "build", message: "bad option", exitCode: 2,
+  });
+  expect(unbound.command).toBeUndefined();
+  for (const error of [new CliUsageError("bad option", "report.show"), new CliOutputError("failure"), new Error("failure"), "failure", null]) {
+    expect(bindUsageCommand(error, "report")).toBe(error);
+  }
 });

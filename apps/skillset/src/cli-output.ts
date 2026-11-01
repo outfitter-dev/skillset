@@ -36,6 +36,12 @@ export class CliUsageError extends CliOutputError {
   }
 }
 
+export function bindUsageCommand(error: unknown, command: string): unknown {
+  return error instanceof CliUsageError && error.command === undefined
+    ? new CliUsageError(error.message, command)
+    : error;
+}
+
 export function cliExitCode(error: unknown): number {
   if (error instanceof PromptCancelledError) return error.exitCode;
   if (error instanceof CliUsageError) return 2;

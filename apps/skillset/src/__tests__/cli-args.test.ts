@@ -1339,3 +1339,14 @@ describe("SET-299 parser failure contract", () => {
     }
   });
 });
+
+
+test("top-level parsing preserves the report leaf usage command", () => {
+  try {
+    parseCliRequest(["report", "show", "id", "--root", "."], { cwd: ROOT });
+    throw new Error("expected usage error");
+  } catch (error) {
+    expect(error).toBeInstanceOf(CliUsageError);
+    expect(error).toMatchObject({ command: "report.show", exitCode: 2 });
+  }
+});

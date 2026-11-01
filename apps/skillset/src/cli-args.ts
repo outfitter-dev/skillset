@@ -3,7 +3,7 @@ import { parseChangeCommandRequest } from "./change-args";
 import { parseCheckCommandRequest } from "./check-args";
 import type { CliParseContext } from "./cli-arg-values";
 import { isCliCommand, renderExpectedCliCommands } from "./cli-commands";
-import { CliUsageError, readCliCommand } from "./cli-output";
+import { bindUsageCommand, CliUsageError, readCliCommand } from "./cli-output";
 import type { CliRequest } from "./cli-request";
 import { USAGE } from "./cli-usage";
 import { parseCreateCommandRequest } from "./create-args";
@@ -163,11 +163,6 @@ export const parseCliRequest = (
       }
     }
   } catch (error) {
-    if (error instanceof CliUsageError) {
-      throw error.command === undefined
-        ? new CliUsageError(error.message, readCliCommand(args))
-        : error;
-    }
-    throw error;
+    throw bindUsageCommand(error, readCliCommand(args));
   }
 };
