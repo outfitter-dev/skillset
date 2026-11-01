@@ -2,6 +2,59 @@
   "$defs": {
     "adaptive-hook": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "providers",
+              "claude"
+            ]
+          },
+          "then": {
+            "properties": {
+              "providers": {
+                "contains": {
+                  "const": "claude"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "providers",
+              "codex"
+            ]
+          },
+          "then": {
+            "properties": {
+              "providers": {
+                "contains": {
+                  "const": "codex"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "providers",
+              "cursor"
+            ]
+          },
+          "then": {
+            "properties": {
+              "providers": {
+                "contains": {
+                  "const": "cursor"
+                }
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "claude": {
           "additionalProperties": false,

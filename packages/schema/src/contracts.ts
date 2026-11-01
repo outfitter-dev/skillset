@@ -500,6 +500,10 @@ export const adaptiveHookContract = contract(
       run: adaptiveHookRunSchema(),
       status: nonEmptyStringSchema(),
     }),
+    allOf: TARGET_NAMES.map((target) => ({
+      if: { required: ["providers", target] },
+      then: { properties: { providers: { contains: { const: target } } } },
+    })),
     required: ["events", "run"],
   }
 );
