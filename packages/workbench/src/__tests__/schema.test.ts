@@ -77,6 +77,21 @@ describe("workbench source contract schema checks", () => {
     })).toEqual([]);
   });
 
+  test("locates malformed known presentation aliases without removing compatibility warnings", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: "skillset:\n  name: demo\n  presentation:\n    displayName: 42\n",
+      kind: "workspace-config",
+      path: "skillset.yaml",
+    });
+    const errors = diagnostics.filter((item) => item.severity === "error");
+    expect(errors).toHaveLength(1);
+    expect(formatWorkbenchDiagnostic(errors[0]!)).toContain(
+      "skillset.yaml:4: error: schema/workspace-config:"
+    );
+    expect(errors[0]?.message).toContain("presentation.displayName must be a string");
+    expect(diagnostics.some((item) => item.ruleId === "source-metadata/legacy-presentation")).toBe(true);
+  });
+
   test("reports canonical source metadata migration guidance as warnings", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content:

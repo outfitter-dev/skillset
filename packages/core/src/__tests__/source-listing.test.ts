@@ -48,6 +48,25 @@ describe("source listing resolution", () => {
     );
   });
 
+  test("preserves first nonblank scalar and empty-array alias precedence", () => {
+    expect(readSourceListing({
+      presentation: {
+        display_name: "  ",
+        displayName: "Fallback",
+        summary: "First",
+        shortDescription: "Second",
+        default_prompt: [],
+        defaultPrompt: ["Ignored"],
+        capabilities: ["", " "],
+      },
+    })).toEqual(expect.objectContaining({
+      display_name: "Fallback",
+      summary: "First",
+      default_prompt: [],
+      capabilities: ["", " "],
+    }));
+  });
+
   test("does not imply support for the provider-native ui alias", () => {
     expect(
       readSourceListing({

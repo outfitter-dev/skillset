@@ -1143,6 +1143,102 @@
               "type": "boolean"
             },
             "presentation": {
+              "additionalProperties": true,
+              "properties": {
+                "brandColor": {
+                  "type": "string"
+                },
+                "brand_color": {
+                  "type": "string"
+                },
+                "capabilities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "composerIcon": {
+                  "type": "string"
+                },
+                "composer_icon": {
+                  "type": "string"
+                },
+                "defaultPrompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "default_prompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "logo": {
+                  "type": "string"
+                },
+                "logoDark": {
+                  "type": "string"
+                },
+                "logo_dark": {
+                  "type": "string"
+                },
+                "longDescription": {
+                  "type": "string"
+                },
+                "long_description": {
+                  "type": "string"
+                },
+                "privacyPolicyURL": {
+                  "type": "string"
+                },
+                "privacy_policy_url": {
+                  "type": "string"
+                },
+                "screenshots": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "shortDescription": {
+                  "type": "string"
+                },
+                "short_description": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "termsOfServiceURL": {
+                  "type": "string"
+                },
+                "terms_of_service_url": {
+                  "type": "string"
+                },
+                "websiteURL": {
+                  "type": "string"
+                },
+                "website_url": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "repository": {
@@ -2215,6 +2311,102 @@
               "type": "boolean"
             },
             "presentation": {
+              "additionalProperties": true,
+              "properties": {
+                "brandColor": {
+                  "type": "string"
+                },
+                "brand_color": {
+                  "type": "string"
+                },
+                "capabilities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "composerIcon": {
+                  "type": "string"
+                },
+                "composer_icon": {
+                  "type": "string"
+                },
+                "defaultPrompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "default_prompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "logo": {
+                  "type": "string"
+                },
+                "logoDark": {
+                  "type": "string"
+                },
+                "logo_dark": {
+                  "type": "string"
+                },
+                "longDescription": {
+                  "type": "string"
+                },
+                "long_description": {
+                  "type": "string"
+                },
+                "privacyPolicyURL": {
+                  "type": "string"
+                },
+                "privacy_policy_url": {
+                  "type": "string"
+                },
+                "screenshots": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "shortDescription": {
+                  "type": "string"
+                },
+                "short_description": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "termsOfServiceURL": {
+                  "type": "string"
+                },
+                "terms_of_service_url": {
+                  "type": "string"
+                },
+                "websiteURL": {
+                  "type": "string"
+                },
+                "website_url": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "repository": {
@@ -2701,6 +2893,102 @@
               "type": "boolean"
             },
             "presentation": {
+              "additionalProperties": true,
+              "properties": {
+                "brandColor": {
+                  "type": "string"
+                },
+                "brand_color": {
+                  "type": "string"
+                },
+                "capabilities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "composerIcon": {
+                  "type": "string"
+                },
+                "composer_icon": {
+                  "type": "string"
+                },
+                "defaultPrompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "default_prompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "logo": {
+                  "type": "string"
+                },
+                "logoDark": {
+                  "type": "string"
+                },
+                "logo_dark": {
+                  "type": "string"
+                },
+                "longDescription": {
+                  "type": "string"
+                },
+                "long_description": {
+                  "type": "string"
+                },
+                "privacyPolicyURL": {
+                  "type": "string"
+                },
+                "privacy_policy_url": {
+                  "type": "string"
+                },
+                "screenshots": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "shortDescription": {
+                  "type": "string"
+                },
+                "short_description": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "termsOfServiceURL": {
+                  "type": "string"
+                },
+                "terms_of_service_url": {
+                  "type": "string"
+                },
+                "websiteURL": {
+                  "type": "string"
+                },
+                "website_url": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "repository": {
@@ -3630,6 +3918,102 @@
               "type": "boolean"
             },
             "presentation": {
+              "additionalProperties": true,
+              "properties": {
+                "brandColor": {
+                  "type": "string"
+                },
+                "brand_color": {
+                  "type": "string"
+                },
+                "capabilities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "composerIcon": {
+                  "type": "string"
+                },
+                "composer_icon": {
+                  "type": "string"
+                },
+                "defaultPrompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "default_prompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "logo": {
+                  "type": "string"
+                },
+                "logoDark": {
+                  "type": "string"
+                },
+                "logo_dark": {
+                  "type": "string"
+                },
+                "longDescription": {
+                  "type": "string"
+                },
+                "long_description": {
+                  "type": "string"
+                },
+                "privacyPolicyURL": {
+                  "type": "string"
+                },
+                "privacy_policy_url": {
+                  "type": "string"
+                },
+                "screenshots": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "shortDescription": {
+                  "type": "string"
+                },
+                "short_description": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "termsOfServiceURL": {
+                  "type": "string"
+                },
+                "terms_of_service_url": {
+                  "type": "string"
+                },
+                "websiteURL": {
+                  "type": "string"
+                },
+                "website_url": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "repository": {
@@ -4047,6 +4431,102 @@
           "type": "boolean"
         },
         "presentation": {
+          "additionalProperties": true,
+          "properties": {
+            "brandColor": {
+              "type": "string"
+            },
+            "brand_color": {
+              "type": "string"
+            },
+            "capabilities": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "category": {
+              "type": "string"
+            },
+            "color": {
+              "type": "string"
+            },
+            "composerIcon": {
+              "type": "string"
+            },
+            "composer_icon": {
+              "type": "string"
+            },
+            "defaultPrompt": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "default_prompt": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "display_name": {
+              "type": "string"
+            },
+            "logo": {
+              "type": "string"
+            },
+            "logoDark": {
+              "type": "string"
+            },
+            "logo_dark": {
+              "type": "string"
+            },
+            "longDescription": {
+              "type": "string"
+            },
+            "long_description": {
+              "type": "string"
+            },
+            "privacyPolicyURL": {
+              "type": "string"
+            },
+            "privacy_policy_url": {
+              "type": "string"
+            },
+            "screenshots": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "shortDescription": {
+              "type": "string"
+            },
+            "short_description": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "termsOfServiceURL": {
+              "type": "string"
+            },
+            "terms_of_service_url": {
+              "type": "string"
+            },
+            "websiteURL": {
+              "type": "string"
+            },
+            "website_url": {
+              "type": "string"
+            }
+          },
           "type": "object"
         },
         "repository": {
@@ -5767,6 +6247,102 @@
               "type": "boolean"
             },
             "presentation": {
+              "additionalProperties": true,
+              "properties": {
+                "brandColor": {
+                  "type": "string"
+                },
+                "brand_color": {
+                  "type": "string"
+                },
+                "capabilities": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "color": {
+                  "type": "string"
+                },
+                "composerIcon": {
+                  "type": "string"
+                },
+                "composer_icon": {
+                  "type": "string"
+                },
+                "defaultPrompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "default_prompt": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "logo": {
+                  "type": "string"
+                },
+                "logoDark": {
+                  "type": "string"
+                },
+                "logo_dark": {
+                  "type": "string"
+                },
+                "longDescription": {
+                  "type": "string"
+                },
+                "long_description": {
+                  "type": "string"
+                },
+                "privacyPolicyURL": {
+                  "type": "string"
+                },
+                "privacy_policy_url": {
+                  "type": "string"
+                },
+                "screenshots": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "shortDescription": {
+                  "type": "string"
+                },
+                "short_description": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "termsOfServiceURL": {
+                  "type": "string"
+                },
+                "terms_of_service_url": {
+                  "type": "string"
+                },
+                "websiteURL": {
+                  "type": "string"
+                },
+                "website_url": {
+                  "type": "string"
+                }
+              },
               "type": "object"
             },
             "repository": {
