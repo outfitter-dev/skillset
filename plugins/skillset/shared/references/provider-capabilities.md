@@ -218,7 +218,7 @@ Family: standards. Exact aliases: `agent-plugins`, `agent-plugins-1.0`.
 
 ### claude: plugin-assets
 
-- Canonical source: `plugin assets/` (contracts: none).
+- Canonical source: plugin `assets/` (contracts: none).
 - Realization: 2026-09-21: The Claude plugin snapshot has no assets component; package-root assets are portable presentation, not Claude pass-through.
 - Destination support: not_applicable; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -235,7 +235,7 @@ Limitations:
 
 ### codex: plugin-assets
 
-- Canonical source: `plugin assets/` (contracts: none).
+- Canonical source: plugin `assets/` (contracts: none).
 - Realization: Copies plugin asset companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -252,7 +252,7 @@ Limitations:
 
 ### cursor: plugin-assets
 
-- Canonical source: `plugin assets/` (contracts: none).
+- Canonical source: plugin `assets/` (contracts: none).
 - Realization: Copies plugin asset companions into generated provider plugin outputs.
 - Destination support: planned; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -518,7 +518,7 @@ Limitations:
 
 ### claude: plugin-mcp
 
-- Canonical source: `plugin mcp/source pointer or conventional .mcp.json` (contracts: none).
+- Canonical source: plugin `mcp/source pointer or conventional .mcp.json` (contracts: none).
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -633,7 +633,7 @@ Limitations:
 
 ### codex: plugin-mcp
 
-- Canonical source: `plugin mcp/source pointer or conventional .mcp.json` (contracts: none).
+- Canonical source: plugin `mcp/source pointer or conventional .mcp.json` (contracts: none).
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -650,7 +650,7 @@ Limitations:
 
 ### cursor: plugin-mcp
 
-- Canonical source: `plugin mcp/source pointer or conventional .mcp.json` (contracts: none).
+- Canonical source: plugin `mcp/source pointer or conventional .mcp.json` (contracts: none).
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -766,7 +766,7 @@ Limitations:
 
 ### claude: plugin-readme
 
-- Canonical source: `plugin README.md` (contracts: none).
+- Canonical source: plugin `README.md` (contracts: none).
 - Realization: Copies plugin README companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -783,7 +783,7 @@ Limitations:
 
 ### codex: plugin-readme
 
-- Canonical source: `plugin README.md` (contracts: none).
+- Canonical source: plugin `README.md` (contracts: none).
 - Realization: Copies plugin README companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -800,7 +800,7 @@ Limitations:
 
 ### cursor: plugin-readme
 
-- Canonical source: `plugin README.md` (contracts: none).
+- Canonical source: plugin `README.md` (contracts: none).
 - Realization: Copies plugin README companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -817,7 +817,7 @@ Limitations:
 
 ### claude: plugin-scripts
 
-- Canonical source: `plugin scripts/` (contracts: none).
+- Canonical source: plugin `scripts/` (contracts: none).
 - Realization: Copies plugin script companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -834,7 +834,7 @@ Limitations:
 
 ### codex: plugin-scripts
 
-- Canonical source: `plugin scripts/` (contracts: none).
+- Canonical source: plugin `scripts/` (contracts: none).
 - Realization: Copies plugin script companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -851,7 +851,7 @@ Limitations:
 
 ### cursor: plugin-scripts
 
-- Canonical source: `plugin scripts/` (contracts: none).
+- Canonical source: plugin `scripts/` (contracts: none).
 - Realization: Copies plugin script companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1002,7 +1002,7 @@ Limitations:
 
 ### claude: plugin-src
 
-- Canonical source: `plugin src/` (contracts: none).
+- Canonical source: plugin `src/` (contracts: none).
 - Realization: Copies plugin source companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1019,7 +1019,7 @@ Limitations:
 
 ### codex: plugin-src
 
-- Canonical source: `plugin src/` (contracts: none).
+- Canonical source: plugin `src/` (contracts: none).
 - Realization: Copies plugin source companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1036,7 +1036,7 @@ Limitations:
 
 ### cursor: plugin-src
 
-- Canonical source: `plugin src/` (contracts: none).
+- Canonical source: plugin `src/` (contracts: none).
 - Realization: Copies plugin source companions into generated provider plugin outputs.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1446,7 +1446,7 @@ Family: hooks. Exact aliases: `hooks/hooks.json`.
 
 ### claude: plugin-hooks
 
-- Canonical source: `plugin hooks/hooks.json` (contracts: `hook`).
+- Canonical source: plugin `hooks/hooks.json` (contracts: `hook`).
 - Realization: Copies plugin hook declarations with registry-backed provider event and handler validation.
 - Destination support: pass_through; fidelity: **provider-only**; evidence: **current**.
 - Semantic scope: Claude-native plugin hook declarations without explicit marked resource arguments retain Claude event and handler semantics through validated pass-through.
@@ -1492,7 +1492,7 @@ Limitations:
 
 ### codex: plugin-hooks
 
-- Canonical source: `plugin hooks/hooks.json` (contracts: `hook`).
+- Canonical source: plugin `hooks/hooks.json` (contracts: `hook`).
 - Realization: Copies plugin hook declarations with registry-backed provider event and handler validation.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1509,7 +1509,7 @@ Limitations:
 
 ### cursor: plugin-hooks
 
-- Canonical source: `plugin hooks/hooks.json` (contracts: `hook`).
+- Canonical source: plugin `hooks/hooks.json` (contracts: `hook`).
 - Realization: Copies plugin hook declarations with registry-backed provider event and handler validation.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1561,7 +1561,7 @@ Family: plugins. Exact aliases: `agents/`.
 
 ### claude: plugin-agents
 
-- Canonical source: `plugin target-native agents/` (contracts: `plugin-config`).
+- Canonical source: plugin `target-native agents/` (contracts: `plugin-config`).
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -1608,7 +1608,7 @@ Limitations:
 
 ### codex: plugin-agents
 
-- Canonical source: `plugin target-native agents/` (contracts: `plugin-config`).
+- Canonical source: plugin `target-native agents/` (contracts: `plugin-config`).
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: unsupported; fidelity: **unavailable**; evidence: **current**.
 - Semantic scope: The pinned Codex plugin contract has no plugin agents component; Skillset cannot faithfully emit plugin-packaged agents there.
@@ -1731,7 +1731,7 @@ Limitations:
 
 ### cursor: plugin-agents
 
-- Canonical source: `plugin target-native agents/` (contracts: `plugin-config`).
+- Canonical source: plugin `target-native agents/` (contracts: `plugin-config`).
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -2027,7 +2027,7 @@ Family: mcp. Exact aliases: `mcp`, `mcpServers`, `.mcp.json`, `http_headers`.
 
 ### claude: plugin-mcp
 
-- Canonical source: `plugin mcp/source pointer or conventional .mcp.json` (contracts: `plugin-config`).
+- Canonical source: plugin `mcp/source pointer or conventional .mcp.json` (contracts: `plugin-config`).
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -2142,7 +2142,7 @@ Limitations:
 
 ### codex: plugin-mcp
 
-- Canonical source: `plugin mcp/source pointer or conventional .mcp.json` (contracts: `plugin-config`).
+- Canonical source: plugin `mcp/source pointer or conventional .mcp.json` (contracts: `plugin-config`).
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
@@ -2159,7 +2159,7 @@ Limitations:
 
 ### cursor: plugin-mcp
 
-- Canonical source: `plugin mcp/source pointer or conventional .mcp.json` (contracts: `plugin-config`).
+- Canonical source: plugin `mcp/source pointer or conventional .mcp.json` (contracts: `plugin-config`).
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
