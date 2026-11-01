@@ -78,6 +78,8 @@ export interface RenderedAgentSkillStandardMarkdown {
 }
 
 export interface AgentSkillStandardRenderOptions {
+  /** Internal project-copy support fact, before resolved license enrichment. */
+  readonly classification?: AgentSkillStandardClassification;
   readonly sourceFiles?: readonly string[];
   readonly draft?: boolean;
   readonly effectiveName?: string;
@@ -185,7 +187,7 @@ export async function renderAgentSkillStandardMarkdown(
   standardProfile: SkillStandardProfile,
   options: AgentSkillStandardRenderOptions = {}
 ): Promise<RenderedAgentSkillStandardMarkdown | AgentSkillStandardIssue> {
-  const classification = classifyAgentSkillStandard(
+  const classification = options.classification ?? classifyAgentSkillStandard(
     graph,
     plugin,
     skill,
@@ -207,8 +209,13 @@ export async function renderAgentSkillStandardMarkdown(
       ? renderPromptArgumentsNotice(body)
       : undefined;
   const linkedBody = rewriteResourceLinks(body, resources, skill.sourcePath);
+  // License resolution belongs to rendering; shared support facts contain no license.
+  const { name, description, ...remainingFrontmatter } = classification.frontmatter;
+  const frontmatter = options.classification === undefined
+    ? classification.frontmatter
+    : { name, description, ...(resolvedLicense === undefined ? {} : { license: resolvedLicense }), ...remainingFrontmatter };
   const content = renderValidatedMarkdown(
-    classification.frontmatter,
+    frontmatter,
     notice === undefined ? linkedBody : `${notice}\n\n${linkedBody}`,
     `${path.relative(graph.rootPath, skill.sourcePath)} -> Agent Skills`
   );

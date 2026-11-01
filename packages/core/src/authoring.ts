@@ -1,3 +1,4 @@
+import { createProjectCopyPlan, projectUseStatusEntries } from "./project-copy-plan";
 import { readFile } from "./workspace-fs";
 import { writeFile } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
@@ -41,7 +42,6 @@ import {
 import { classifySkillsetOutputFailure, classifySkillsetOutputState, type SkillsetOutputStateEvidence } from "./output-state";
 import { compareStrings, resolveInside } from "./path";
 import {
-  projectUseStatusEntries,
   type ProjectUseStatusEntry,
 } from "./project-use";
 import { renderBuildGraph } from "./render";
@@ -167,8 +167,10 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  const allRendered = await renderBuildGraph(graph, undefined, options.scopes);
+  const projectCopies = createProjectCopyPlan(graph);
+  const allRendered = await renderBuildGraph(graph, undefined, options.scopes, projectCopies);
   const renderResults = collectRenderResults(graph, allRendered, {
+    projectCopies,
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
     includedPaths: new Set(
       scopedRenderedFiles(graph, allRendered, options.scopes).map((file) => file.path)

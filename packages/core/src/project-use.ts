@@ -1,9 +1,6 @@
-import { relative, sep } from "node:path";
 
-import { isOutputSelected } from "./config";
 import { compareStrings } from "./path";
 import { selectorForPluginSkill } from "./source-unit-selector";
-import { targetNames } from "./targets";
 import type {
   BuildGraph,
   SourcePlugin,
@@ -347,71 +344,4 @@ function shippedSiblingFor(
           : selectorForPluginSkill(pluginId, skill.id),
       }
     : {};
-}
-
-export function projectUseStatusEntries(
-  graph: BuildGraph
-): readonly ProjectUseStatusEntry[] {
-  const pluginCopies = resolveProjectUseSkillCopies(graph).flatMap((copy) =>
-    targetNames().flatMap((target) => {
-      if (
-        !copy.skill.targets[target].enabled ||
-        !isOutputSelected(
-          graph.root.outputs.targetOutputs[target].skills,
-          copy.skill.id
-        )
-      ) {
-        return [];
-      }
-      return [{
-        ...(copy.draftOrigin === undefined ? {} : { draftOrigin: copy.draftOrigin }),
-        ...(copy.draftPolicy === undefined ? {} : { draftPolicy: copy.draftPolicy }),
-        effectiveName: copy.effectiveName,
-        owner: { target },
-        role: "project-use" as const,
-        selectionRule: copy.selectionRule,
-        ...(copy.shippedSibling === undefined
-          ? {}
-          : { shippedSibling: copy.shippedSibling }),
-        sourcePath: relative(graph.rootPath, copy.skill.sourcePath)
-          .split(sep)
-          .join("/"),
-        sourceUnit: copy.sourceUnit,
-        target,
-      }];
-    })
-  );
-  const workspaceDrafts = resolveWorkspaceDraftSkillCopies(graph).flatMap(
-    (copy) =>
-      targetNames().flatMap((target) => {
-        if (
-          !copy.skill.targets[target].enabled ||
-          !isOutputSelected(
-            graph.root.outputs.targetOutputs[target].skills,
-            copy.skill.id
-          )
-        ) return [];
-        return [{
-          draftOrigin: copy.draftOrigin,
-          effectiveName: copy.effectiveName,
-          owner: { target },
-          role: "bundle" as const,
-          selectionRule: copy.selectionRule,
-          ...(copy.shippedSibling === undefined
-            ? {}
-            : { shippedSibling: copy.shippedSibling }),
-          sourcePath: relative(graph.rootPath, copy.skill.sourcePath)
-            .split(sep)
-            .join("/"),
-          sourceUnit: copy.sourceUnit,
-          target,
-        }];
-      })
-  );
-  return [...pluginCopies, ...workspaceDrafts].sort((left, right) =>
-    compareStrings(
-      `${left.sourceUnit}\0${left.effectiveName}\0${left.target}`,
-      `${right.sourceUnit}\0${right.effectiveName}\0${right.target}`
-    )
-  );
 }
