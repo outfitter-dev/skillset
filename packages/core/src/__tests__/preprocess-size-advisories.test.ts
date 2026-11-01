@@ -14,6 +14,7 @@ for (const bytes of [1024 * 1024 - 1, 1024 * 1024, 1024 * 1024 + 1]) {
     const warnings = result.diagnostics.filter(d => d.code === "skill-resource-size");
     expect(warnings).toHaveLength(bytes > 1024 * 1024 ? 1 : 0);
     if (warnings.length) {
+      expect(result.renderResults.some(outcome => outcome.diagnostics?.some(diagnostic => diagnostic.code === "skill-resource-size"))).toBe(true);
       expect(warnings[0]?.message).toContain(`${bytes} bytes`);
       expect(warnings[0]?.outputPath).toBe(".agents/skills/example/SKILL.md");
       expect((await diffSkillsetResult(root)).diagnostics.filter(d => d.code === "skill-resource-size")).toHaveLength(1);

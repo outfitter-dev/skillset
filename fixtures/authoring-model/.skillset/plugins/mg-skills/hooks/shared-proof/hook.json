@@ -1,0 +1,6 @@
+{
+  "events": ["SessionStart"],
+  "run": {
+    "command": "file=\"@{{shared:references/common.md}}\"; cat \"${file#@}\""
+  }
+}

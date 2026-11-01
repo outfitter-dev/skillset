@@ -46,6 +46,9 @@ describe("SET-499 frozen package-runner detection", () => {
     }
     const sharedLines = FROZEN_PACKAGE_RUNNER_LINES.filter((line) => line.startsWith("plugins/skillset/skills/skillset/"));
     const expected = [...FROZEN_PACKAGE_RUNNER_LINES, ...["skillset-init", "skillset-maintain"].flatMap((name) => sharedLines.map((line) => line.replace("skills/skillset/", `skills/${name}/`)))];
+    // Plugin support now carries the same public preflight material. These
+    // commands invoke the published CLI, not repository-internal scripts.
+    expected.push(...sharedLines.map(line => line.replace("skills/skillset/", "shared/")));
     // The capability specialist bundles the reference, but no preflight script.
     expected.push(...sharedLines
       .filter((line) => line.startsWith("plugins/skillset/skills/skillset/references/preflight-and-recovery.md:"))

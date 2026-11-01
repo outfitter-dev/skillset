@@ -6,7 +6,7 @@ description: Defines Skillset Markdown preprocessing variables, prompt arguments
 
 Skillset preprocesses Markdown [source](../../glossary.md#canonical-source) before [target](../../glossary.md#target) serialization. The language substitutes known document and path context, expands exact partials, and resolves marked links without becoming a general template engine.
 
-Preprocessing applies to supported Markdown source, including skills and [rules](rules.md). Invalid reserved expressions fail with the source path and relevant name. Unrelated double-brace text, such as JSX object literals, remains unchanged.
+Preprocessing applies to supported Markdown source, including every emitted skill-owned `.md` file and [rules](rules.md). Invalid reserved expressions fail with the source path and relevant name. Unrelated double-brace text, such as JSX object literals, remains unchanged.
 
 ## Document values
 
@@ -58,6 +58,8 @@ Use `{{> ...}}` to insert another Markdown file. Names resolve to one exact file
 
 `plugin:` requires plugin-bound source. Missing files report the workspace or plugin scope and the single expected repository-relative path. Included Markdown is recursively preprocessed, dependencies are recorded in generated provenance, unsafe traversal is rejected, and recursive cycles fail with the include chain.
 
+Plugin `shared/partials/` files are include templates: they use the including document's frontmatter. Their packaged support copies stay verbatim rather than being evaluated as independent documents.
+
 Bare `{{shared:...}}`, `{{plugin:...}}`, `{{@...}}`, relative-path partials, `root:`, and plugin-basename aliases are retired grammar and fail with current-syntax guidance.
 
 ## Marked links
@@ -71,11 +73,19 @@ Use @{{plugin:templates/checklist.md}}.
 
 The accepted scopes are `shared:` and `plugin:`. `plugin:` is available only to plugin-bound source. For a skill body, the first path segment must be exactly `references`, `scripts`, `assets`, or `templates`. The linked file becomes an effective skill resource, defaults to the same `<group>/<rest>` destination beside `SKILL.md`, and the rendered text keeps the leading `@`, such as `@references/common.md`. An explicit `resources` exact-file or directory `to:` mapping wins and changes the rendered target.
 
-For rules and project agents, marked links resolve to the appropriate committed source path; they do not create a skill resource. Code spans and fenced code blocks preserve marked-link text literally and imply no copy. Copied Markdown resources are opaque files and are not recursively preprocessed.
+For rules and project agents, marked links resolve to the appropriate committed source path; they do not create a skill resource. Code spans and fenced code blocks preserve marked-link text literally and imply no copy. Copied Markdown resources also preprocess their own partials and marked links. Each link is relative to its emitted file, including when a declared resource remaps the destination.
 
 Missing files, invalid groups, unsafe traversal, symlink escapes, and destination collisions fail before output writes. Marked links accept files only; use explicit [`resources`](../features/resources.md) for directories, unlinked files, and destination remaps.
 
 Cursor receives the same literal leading-`@` text as the other generated skill formats. Skillset copies the target file and validates the path, but it does not claim that Cursor interprets that text as a native UI context mention.
+
+## Nested skill files and bounded includes
+
+A skill's `examples/walkthrough.md` can use the same partials and marked links as its primary `SKILL.md`. A link to `shared:references/common.md` renders as `@../references/common.md` from that example. The primary and nested documents share one resource inventory, so repeated references produce one copy. Nested partial dependencies participate in the owning skill's lock entry and source hash.
+
+The default also applies to unflagged imported Markdown. Add the per-file opt-out below when a document intentionally demonstrates literal template syntax. Non-Markdown files remain byte-preserving. Existing control-file exclusions remain in force: this does not begin emitting a skill's source `CHANGELOG.md` or preprocess generated license and sidecar files.
+
+Within a skill, the include graph spans inline partials, marked links, and the outgoing references of copied Markdown. A cycle fails with the full active source chain. Four edges from a root document are allowed; a fifth fails with the chain and the `four-hop` limit. Shared descendants reached by separate paths are valid and still deduplicate their copies. These checks finish before managed output writes. The limit is Skillset's compilation contract, with Claude's documented [four-hop import limit](https://code.claude.com/docs/en/memory#import-additional-files) as its precedent; it is not a claim about other providers' runtime loading.
 
 ## Disable preprocessing
 
@@ -86,4 +96,4 @@ skillset:
   preprocess: false
 ```
 
-The control is source-only and is removed from [generated output](../../glossary.md#generated-output). No partial expands and no marked link implies a resource while preprocessing is disabled. Use it for documents whose double-brace syntax belongs to another language; do not use it to hide a missing field, broken partial, or unsafe reference.
+For primary source documents, the control is source-only and is removed during [generated output](../../glossary.md#generated-output) serialization. A nested or copied Markdown file with this control is copied byte-for-byte, including its frontmatter, BOM, and line endings. Active nested files retain their authored frontmatter while their body is processed. No partial expands and no marked link implies a resource while preprocessing is disabled. Use it for documents whose double-brace syntax belongs to another language; do not use it to hide a missing field, broken partial, or unsafe reference.

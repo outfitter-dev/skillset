@@ -41,7 +41,6 @@ export async function diagnosePreprocessSizes(
         }, 0);
         if (copiedBytes > SKILL_RESOURCE_WARNING_BYTES) diagnostics.push(skillsetDiagnostic({
           code: "skill-resource-size",
-          featureId: "skill-resources",
           message: `generated ${outputPath} carries ${copiedBytes} bytes of supporting files, over Skillset's ${SKILL_RESOURCE_WARNING_BYTES}-byte advisory threshold. Prefer copying only the resources this skill needs.`,
           outputPath,
           ...(item.sourcePath === undefined ? {} : { path: item.sourcePath }),

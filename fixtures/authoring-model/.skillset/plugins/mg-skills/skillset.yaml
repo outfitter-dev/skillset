@@ -1,3 +1,6 @@
 skillset:
   name: mg-skills
   description: Authoring-model plugin fixture.
+
+hooks:
+  SessionStart: [shared-proof]

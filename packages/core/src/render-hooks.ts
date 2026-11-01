@@ -44,7 +44,8 @@ export async function renderAdaptivePluginHookFiles(
   graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
-  basePath: string
+  basePath: string,
+  preprocessCommand?: (command: string, source: string) => Promise<string>
 ): Promise<readonly RenderedFile[]> {
   const resolved = adaptivePluginHookAttachments(graph, plugin, target);
   if (resolved.length === 0) return [];
@@ -61,13 +62,14 @@ export async function renderAdaptivePluginHookFiles(
     const event = nativeHookEventName(target, item.event);
     const eventGroups = hooks[event] ?? [];
     eventGroups.push(
-      renderAdaptiveHookGroup(
+      await renderAdaptiveHookGroup(
         graph,
         plugin,
         target,
         item,
         basePath,
-        scriptFiles
+        scriptFiles,
+        preprocessCommand
       )
     );
     hooks[event] = eventGroups;
@@ -117,14 +119,15 @@ export async function renderAdaptivePluginHookFiles(
   ];
 }
 
-function renderAdaptiveHookGroup(
+async function renderAdaptiveHookGroup(
   graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
   item: ResolvedAdaptiveHookAttachment,
   basePath: string,
-  scriptFiles: Map<string, RenderedFile>
-): JsonRecord {
+  scriptFiles: Map<string, RenderedFile>,
+  preprocessCommand?: (command: string, source: string) => Promise<string>
+): Promise<JsonRecord> {
   validateSupportedAdaptiveHookRenderFields(item, target);
   const effective = effectiveAdaptiveHookDefinition(item, target);
   const matcher =
@@ -139,13 +142,14 @@ function renderAdaptiveHookGroup(
       : { statusMessage }),
     hooks: [
       {
-        command: adaptiveHookCommand(
+        command: await adaptiveHookCommand(
           graph,
           plugin,
           target,
           item,
           basePath,
-          scriptFiles
+          scriptFiles,
+          preprocessCommand
         ),
         type: "command",
       },
@@ -164,21 +168,22 @@ function validateSupportedAdaptiveHookRenderFields(
   }
 }
 
-function adaptiveHookCommand(
+async function adaptiveHookCommand(
   graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
   item: ResolvedAdaptiveHookAttachment,
   basePath: string,
-  scriptFiles: Map<string, RenderedFile>
-): string {
+  scriptFiles: Map<string, RenderedFile>,
+  preprocessCommand?: (command: string, source: string) => Promise<string>
+): Promise<string> {
   const run = materializeEffectiveAdaptiveHookRecord(
     effectiveAdaptiveHookDefinition(item, target).run
   );
   const command = readString(run, "command");
   if (command !== undefined)
     return withAdaptiveHookContextCommand(
-      withAdaptiveHookRunEnv(command, item, target),
+      withAdaptiveHookRunEnv(await (preprocessCommand?.(command, item.definition.sourcePath) ?? command), item, target),
       item,
       target
     );
@@ -541,7 +546,8 @@ export async function renderNormalizedPluginHookFile(
   graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
-  basePath: string
+  basePath: string,
+  preprocessCommand?: (command: string, source: string) => Promise<string>
 ): Promise<RenderedFile | undefined> {
   const canonicalSource = join(plugin.path, "hooks", "hooks.json");
   if (!(await exists(canonicalSource))) return undefined;
@@ -559,6 +565,19 @@ export async function renderNormalizedPluginHookFile(
     target,
     relative(graph.rootPath, canonicalSource)
   );
+  if (preprocessCommand !== undefined && isJsonRecord(providerNative.hooks)) {
+    for (const entries of Object.values(providerNative.hooks)) {
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (!isJsonRecord(entry)) continue;
+        const handlers = Array.isArray(entry.hooks) ? entry.hooks : [entry];
+        for (const handler of handlers) {
+          if (!isJsonRecord(handler) || typeof handler.command !== "string") continue;
+          (handler as Record<string, JsonValue>).command = await preprocessCommand(handler.command, canonicalSource);
+        }
+      }
+    }
+  }
   const outputPath = join(basePath, pluginPackageComponentFile(target, "hooks"));
   validateHookDefinition(providerNative, {
     sourcePath: `${relative(graph.rootPath, canonicalSource)} -> ${outputPath}`,

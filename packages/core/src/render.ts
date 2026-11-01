@@ -1,7 +1,8 @@
+import { createPluginContentPlan } from "./plugin-content-plan";
 import { planSkillContent, withSkillContent } from "./skill-content-plan";
 import type { BuildScope } from "./types";
 import { assertRenderedMarkdownLinks } from "./rendered-markdown-links";
-import { readFileSync, statSync, readdir, readFile, stat } from "./workspace-fs";
+import { readFileSync, statSync, readFile, stat } from "./workspace-fs";
 import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
 import { createHash } from "node:crypto";
@@ -100,6 +101,7 @@ import { listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/regist
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
 import {
+  collectFiles,
   copyFileFromSource,
   copyPath,
   exists,
@@ -559,7 +561,7 @@ async function renderPluginTarget(
   // Without it, each target keeps only the companions its registry support
   // proves, as with LICENSE above.
   const supportPaths = standardOwner
-    ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src"] as const : []
+    ? target === "codex" ? ["README.md", "CHANGELOG.md", "assets", "scripts", "src", "shared"] as const : []
     : fallbackSupportPaths(target);
   const supportFiles: RenderedFile[] = [];
   for (const supportPath of supportPaths) {
@@ -570,19 +572,20 @@ async function renderPluginTarget(
       supportPath
     )));
   }
-  rendered.push(...supportFiles);
-  pluginRootFiles.push(...supportFiles);
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
-  const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath);
+  const contentPlanner = createPluginContentPlan(graph, plugin, basePath, target);
+  const adaptiveHookFiles = await renderAdaptivePluginHookFiles(graph, plugin, target, basePath, contentPlanner.processHookCommand);
   const companionFiles = await copyPluginCompanionFiles(
     graph,
     plugin,
     target,
     basePath,
-    pluginManifest
+    pluginManifest,
+    contentPlanner.processHookCommand
   );
-  rendered.push(...adaptiveHookFiles, ...companionFiles);
-  pluginRootFiles.push(...adaptiveHookFiles, ...companionFiles);
+  const contentPlan = await contentPlanner.finish([...supportFiles, ...adaptiveHookFiles, ...companionFiles]);
+  rendered.push(...contentPlan.files);
+  pluginRootFiles.push(...contentPlan.files);
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
   assertPluginPackagePathCompatibility(graph, labelPackageWriter(pluginRootFiles, target));
   const pluginOwnedFiles = planRenderedFiles(pluginRootFiles);
@@ -594,7 +597,11 @@ async function renderPluginTarget(
       plugin,
       // Fallback support copies are this item's own output, so their source
       // must move its sourceHash; the standard package hashes them otherwise.
-      sourceFiles: standardOwner ? companionFiles : [...supportFiles, ...companionFiles],
+      sourceFiles: contentPlan.files.filter(file =>
+        !adaptiveHookFiles.some(hook => hook.path === file.path) &&
+        (!standardOwner || !supportFiles.some(support => support.path === file.path))
+      ),
+      preprocessDependencies: contentPlan.preprocessDependencies,
       target,
     });
   lockRootsFor(lockRoots, outputRoot, pluginLockRootTarget(graph, plugin, target)).items.push(
@@ -2284,7 +2291,8 @@ async function copyPluginCompanionFiles(
   plugin: SourcePlugin,
   target: TargetName,
   basePath: string,
-  manifest: JsonRecord
+  manifest: JsonRecord,
+  preprocessCommand: (command: string, source: string) => Promise<string>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   const candidates =
@@ -2305,7 +2313,8 @@ async function copyPluginCompanionFiles(
     graph,
     plugin,
     target,
-    basePath
+    basePath,
+    preprocessCommand
   );
   if (hook !== undefined) rendered.push(hook);
 
@@ -2597,6 +2606,7 @@ function lockItemForPlugin(args: {
   readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin: SourcePlugin;
+  readonly preprocessDependencies: readonly string[];
   readonly sourceFiles: readonly RenderedFile[];
   readonly target: TargetName;
 }): LockItem {
@@ -2616,6 +2626,7 @@ function lockItemForPlugin(args: {
 
   return {
     ...(dependencies.length === 0 ? {} : { dependencies }),
+    ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
     fileModes: renderedFileModes(args.outputRoot, args.files),
     files,
     includedSkills,
@@ -2635,7 +2646,8 @@ function lockItemForPlugin(args: {
       dependencyHashSummaries,
       args.license,
       args.outputRoot,
-      args.sourceFiles
+      args.sourceFiles,
+      args.preprocessDependencies
     ),
     ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
@@ -3002,7 +3014,8 @@ function hashPluginSource(
   dependencies: readonly string[],
   license: ResolvedLicense | undefined,
   outputRoot: string,
-  sourceFiles: readonly RenderedFile[]
+  sourceFiles: readonly RenderedFile[],
+  preprocessDependencies: readonly string[]
 ): string {
   const hash = createHash("sha256");
   hash.update(
@@ -3086,6 +3099,13 @@ function hashPluginSource(
     hash.update(file.mode.toString(8).padStart(4, "0"));
     hash.update("\0");
     hash.update(file.content);
+  }
+  for (const dependency of preprocessDependencies) {
+    hash.update("preprocess-dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readPreprocessDependencySync(graph.rootPath, dependency));
+    hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;
 }
@@ -3265,22 +3285,6 @@ async function hashMarketplaceSource(
   }
   hash.update(JSON.stringify(graph.releaseState));
   return `sha256:${hash.digest("hex")}`;
-}
-
-async function collectFiles(root: string): Promise<readonly string[]> {
-  const entries = await readdir(root, { withFileTypes: true });
-  const files: string[] = [];
-
-  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectFiles(path)));
-    } else if (entry.isFile() && !entry.name.endsWith(".DS_Store")) {
-      files.push(path);
-    }
-  }
-
-  return files;
 }
 
 function validateRenderedFile(file: RenderedFile): RenderedFile {

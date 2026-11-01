@@ -88,6 +88,36 @@ export async function resolveMarkedPathReferences(
   return restoreTripleBraceTokens(expanded, escapedTokens);
 }
 
+/** Replace explicit links in opaque text without interpreting other templates or normalizing bytes. */
+export async function resolveOpaqueMarkedPathReferences(
+  content: string,
+  context: PreprocessContext,
+  validate?: (offset: number) => void
+): Promise<string> {
+  if (isPreprocessDisabled(context.frontmatter)) return content;
+  const pattern = /@\{\{\{([^}]*?)\}\}\}|@\{\{\s*([^}\s]+)\s*\}\}/g;
+  let result = "";
+  let cursor = 0;
+  try {
+    for (const match of content.matchAll(pattern)) {
+      const [token, escaped, specifier] = match;
+      result += content.slice(cursor, match.index);
+      if (escaped !== undefined) {
+        result += `@{{${escaped}}}`;
+      } else if (specifier !== undefined) {
+        assertCurrentLinkSpecifier(token, specifier, context);
+        validate?.(match.index);
+        result += `@${await renderPathReference(specifier, context)}`;
+      }
+      cursor = match.index + token.length;
+    }
+  } catch (error) {
+    if (error instanceof PreprocessCallbackFailure) throw error.original;
+    throw error;
+  }
+  return result + content.slice(cursor);
+}
+
 export async function rewritePreprocessReferences(
   content: string,
   context: PreprocessContext,
