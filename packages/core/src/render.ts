@@ -596,11 +596,10 @@ async function renderPluginTarget(
       license: pluginLicense,
       outputRoot,
       plugin,
-      // Fallback support copies are this item's own output, so their source
-      // must move its sourceHash; the standard package hashes them otherwise.
+      // This item owns coalesced standard support as well as native companions.
+      // Adaptive hook files retain their separate source-hash ownership.
       sourceFiles: contentPlan.files.filter(file =>
-        !adaptiveHookFiles.some(hook => hook.path === file.path) &&
-        (!standardOwner || !supportFiles.some(support => support.path === file.path))
+        !adaptiveHookFiles.some(hook => hook.path === file.path)
       ),
       preprocessDependencies: contentPlan.preprocessDependencies,
       target,
