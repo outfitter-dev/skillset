@@ -481,14 +481,7 @@ export const adaptiveHookContract = contract(
   {
     ...strictObjectSchema({
       claude: adaptiveHookProviderOverrideSchema(),
-      context: strictObjectSchema({
-        env: arraySchema(enumSchema(["hook.event", "provider", "session.id"]), {
-          minItems: 1,
-          uniqueItems: true,
-        }),
-        includeRaw: { type: "boolean" },
-        strategy: enumSchema(["inline", "none", "toolkit"]),
-      }),
+      context: adaptiveHookContextSchema(),
       codex: adaptiveHookProviderOverrideSchema(),
       cursor: adaptiveHookProviderOverrideSchema(),
       description: nonEmptyStringSchema(),
@@ -520,19 +513,28 @@ export const adaptiveHookContract = contract(
   }
 );
 
+function adaptiveHookContextSchema(): SchemaJsonRecord {
+  return {
+    ...strictObjectSchema({
+      env: arraySchema(enumSchema(["hook.event", "provider", "session.id"]), {
+        minItems: 1,
+        uniqueItems: true,
+      }),
+      includeRaw: { type: "boolean" },
+      strategy: enumSchema(["inline", "none", "toolkit"]),
+    }),
+    if: { properties: { strategy: { const: "inline" } } },
+    required: ["strategy"],
+    then: { required: ["env"] },
+  };
+}
+
 function adaptiveHookProviderOverrideSchema(): SchemaJsonRecord {
   return strictObjectSchema({
     context: {
       anyOf: [
         { type: "null" },
-        strictObjectSchema({
-          env: arraySchema(
-            enumSchema(["hook.event", "provider", "session.id"]),
-            { minItems: 1, uniqueItems: true }
-          ),
-          includeRaw: { type: "boolean" },
-          strategy: enumSchema(["inline", "none", "toolkit"]),
-        }),
+        adaptiveHookContextSchema(),
       ],
     },
     events: arraySchema(nonEmptyStringSchema(), {
