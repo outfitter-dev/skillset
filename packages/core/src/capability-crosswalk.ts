@@ -316,7 +316,7 @@ export function assessPinnedCapabilityJudgment(
 const judgments: readonly CapabilityJudgment[] = [
   {
     capabilityId: "claude-manifest-identity", featureId: "plugin-manifests", target: "claude", fidelity: "exact",
-    implementationPaths: ["packages/core/src/import-manifest-roundtrip.ts", "packages/core/src/render-plugin-manifest.ts", "packages/core/src/plugin-manifest-identity.ts", "apps/skillset/src/import.ts", "apps/skillset/src/adopt.ts", "packages/core/src/build.ts", "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", "docs/guides/importing.md"],
+    implementationPaths: ["packages/core/src/import-manifest-roundtrip.ts", "packages/core/src/render-plugin-manifest.ts", "packages/core/src/plugin-manifest-identity.ts", "apps/skillset/src/import.ts", "packages/core/src/path.ts", "apps/skillset/src/adopt.ts", "packages/core/src/build.ts", "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", "docs/guides/importing.md"],
     scope: "Selected direct Claude manifest name and description strings retain their identity and descriptive metadata meaning through canonical configuration and the actual same-provider manifest, only when all three values are equal and no overriding route participates.",
     limitations: ["Excludes name remaps, defaults, whitespace changes, listing or native overrides, absent or unselected output, all other fields and providers, and runtime activation or behavior."],
     authorityHash: "sha256:b6223384a7684bc8281c86e58744bddca318455d88de35d8c68d503e8ddc7cc4",
@@ -371,7 +371,8 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/import-manifest-roundtrip.ts", contentHash: "sha256:ef066fa15c81e4702d6479f2bf7296b8836374bdc6a18a592630cb7d8dcd762f" },
   { path: "packages/core/src/render-plugin-manifest.ts", contentHash: "sha256:9aae325c89c69850911d3a5b4566132b21aae5f2c5a9b9977ae106639505ce87" },
   { path: "packages/core/src/plugin-manifest-identity.ts", contentHash: "sha256:d10cb0004cb89c6c70ee5bc3e1ae91c15a52618cf9acece984bcc991195d61bd" },
-  { path: "apps/skillset/src/import.ts", contentHash: "sha256:4ebaa1eeba5a5fe1e721a1bbde9753e050a2f9ac6a7991b154af0138107cb2d5" },
+  { path: "apps/skillset/src/import.ts", contentHash: "sha256:2817f30a1f80aeedff50a4b7079c96517bbcfce0c66a23bdb60d2012cb7b32d7" },
+  { path: "packages/core/src/path.ts", contentHash: "sha256:06af1ac4a6f93ff269d40c7c8a4cfb0785b1d475e8c43692166c74abe480e2ca" },
   { path: "apps/skillset/src/adopt.ts", contentHash: "sha256:e948eef53798685c8ec76215381b3db722729785a6e65367fc1341c353330f25" },
   { path: "packages/core/src/build.ts", contentHash: "sha256:0027cd452e1b70f089d3d5d380880efc10d3b89ac4f97318a9ef88615b7c5ec9" },
   { path: "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", contentHash: "sha256:e7be2ba62a564c10f5fd37ea4106b776d84de25695a0e740716bbccf55a8ea46" },
