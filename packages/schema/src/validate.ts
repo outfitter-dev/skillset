@@ -40,6 +40,8 @@ import type {
   SkillsetSchemaValidationResult,
 } from "./types";
 import {
+  ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN,
+  ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN,
   createSemverRegExp,
   formatList,
   isProviderNativeReferenceName,
@@ -5401,7 +5403,7 @@ function checkRuntimePath(
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
   checkSafeRelativePath(value, path, label, diagnostics);
-  if (!(value.startsWith("./") || value.startsWith("{{scripts.dir}}/"))) {
+  if (!new RegExp(ADAPTIVE_HOOK_SCRIPT_PREFIX_PATTERN, "u").test(value)) {
     diagnostics.push(
       diagnostic(
         path,
@@ -5418,11 +5420,7 @@ function checkSafeRelativePath(
   label: string,
   diagnostics: SkillsetSchemaDiagnostic[]
 ): void {
-  if (
-    value.startsWith("/") ||
-    /^[A-Za-z]:[\\/]/.test(value) ||
-    value.split(/[\\/]+/).includes("..")
-  ) {
+  if (new RegExp(ADAPTIVE_HOOK_UNSAFE_RELATIVE_PATH_PATTERN, "u").test(value)) {
     diagnostics.push(
       diagnostic(
         path,

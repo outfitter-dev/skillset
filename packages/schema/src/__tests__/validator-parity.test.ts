@@ -177,6 +177,26 @@ const hookRunFixtures = (runs: readonly SchemaJsonValue[]) =>
 
 const cases: Record<string, ParityCase> = {
   ...skillsetBlockCases,
+  "adaptive hook runtime paths": {
+    contract: adaptiveHookContract,
+    invalid: hookRunFixtures([
+      ...["scripts/ok.sh", "../ok.sh", "/bin/x", "C:/x", "C:\\x",
+        "./../x", "./a/../b", "./a\\..\\b", "./..", "{{scripts.dir}}/../x",
+        ".\\ok.sh"].map((script) => ({ script })),
+      ...[" ", "\t\n", "/tmp", "C:/x", "C:\\x", "..", "../x",
+        "a/..", "a\\..\\b"].map((cwd) => ({ command: "echo ok", cwd })),
+    ]),
+    valid: hookRunFixtures([
+      ...["./ok.sh", "{{scripts.dir}}/ok.sh", "./", "{{scripts.dir}}/",
+        "./x..", "./...", "./ok\\nested", "./..\n", "./..\r", "./..\u2028"]
+        .map((script) => ({ script })),
+      // Preserve lexical validator acceptance; these are not filesystem safety claims.
+      ...[".", "scripts/ok.sh", "C:relative", "\\\\server\\share", "\\root",
+        "...", "x..", "a\\b", "..\n", "..\r", "..\u2028"]
+        .map((cwd) => ({ command: "echo ok", cwd })),
+    ]),
+    validators: [validateAdaptiveHookUnitSource],
+  },
   "adaptive hook provider membership": {
     contract: adaptiveHookContract,
     invalid: TARGET_NAMES.flatMap((target) => [
@@ -278,6 +298,19 @@ describe("@skillset/schema validator parity", () => {
       }
     });
   }
+
+  it("preserves distinct hook path diagnostics for base and provider runs", () => {
+    for (const [run, codes] of [
+      [{ script: "/absolute.sh" }, ["schema/adaptive-hook/path", "schema/adaptive-hook/runtime-path-proof"]],
+      [{ script: "./../escape.sh" }, ["schema/adaptive-hook/path"]],
+      [{ script: "scripts/ok.sh" }, ["schema/adaptive-hook/runtime-path-proof"]],
+      [{ command: "echo ok", cwd: "../escape" }, ["schema/adaptive-hook/path"]],
+    ] as const) {
+      for (const fixture of hookRunFixtures([run])) {
+        expect(validateAdaptiveHookUnitSource(fixture).diagnostics.map((item) => item.code)).toEqual(codes);
+      }
+    }
+  });
 
   it("limits selector plugin segments to Core's slug plugin ids", () => {
     const sourceUnit = new RegExp(SOURCE_UNIT_SELECTOR_PATTERN, "u");
