@@ -234,11 +234,17 @@ async function transformPreprocessReferences(
     : [];
   let expanded = "";
   let cursor = 0;
+  let codeRangeIndex = 0;
 
   for (const match of content.matchAll(partialPattern)) {
     const [token, linkSpecifier, inlineSpecifier, bareSpecifier] = match;
     expanded += content.slice(cursor, match.index);
-    if (isInsideMarkdownCode(codeRanges, match.index)) {
+    // Both matches and disjoint ranges are ordered, so earlier ranges stay behind us.
+    let codeRange = codeRanges[codeRangeIndex];
+    while (codeRange !== undefined && codeRange[1] <= match.index) {
+      codeRange = codeRanges[++codeRangeIndex];
+    }
+    if (codeRange !== undefined && match.index >= codeRange[0]) {
       expanded += token;
     } else if (linkSpecifier !== undefined) {
       assertCurrentLinkSpecifier(token, linkSpecifier, context);
@@ -978,12 +984,8 @@ interface ListItemStart {
   readonly canInterruptParagraph: boolean;
 }
 
-function isInsideMarkdownCode(ranges: readonly CodeRange[], index: number): boolean {
-  return ranges.some(([start, end]) => index >= start && index < end);
-}
-
 /**
- * Fenced blocks and inline code spans, computed once per document. A span opens
+ * Fenced blocks and inline code spans as ordered, disjoint half-open ranges. A span opens
  * at a backtick run and closes at the next run of exactly the same length in the
  * same block, so spans may cross line breaks within a paragraph or list item but
  * never a blank line, fence, heading, setext underline, list-item start, GFM table
