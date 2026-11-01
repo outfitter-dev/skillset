@@ -159,3 +159,42 @@ test("invalid optional lock evidence is disclosed without granting paths or bloc
   expect(advice.patterns).not.toContain("AGENTS.md");
   expect(advice.notes.join(" ")).toContain("Could not use skillset.lock");
 });
+
+test("formatter advice follows metadata marketplace roots and searches their locks", async () => {
+  const config = `skillset:
+  name: custom-catalog
+  outputs:
+    plugins:
+      claude: generated/claude
+compile:
+  targets: [claude]
+  session_start_hook: off
+marketplaces:
+  catalog:
+    targets: [claude]
+    plugins:
+      - plugin: remote-tools
+        repo: https://git.invalid/acme/remote-tools.git
+`;
+  const root = await fixture({
+    ".prettierignore": "# keep\r\n",
+    "skillset.yaml": config,
+    "generated/claude/skillset.lock": "{invalid",
+  });
+  const report = await initSkillset({ rootPath: root, useGitRoot: false });
+  const advice = report.formatterSuggestions![0]!;
+  expect(advice.patterns).toContain("generated/claude/.claude-plugin/marketplace.json");
+  expect(advice.patterns).not.toContain(".claude-plugin/marketplace.json");
+  expect(advice.patterns).not.toContain("generated/claude/**");
+  expect(advice.notes.join(" ")).toContain("Could not use generated/claude/skillset.lock");
+  expect(await readFile(join(root, ".prettierignore"), "utf8")).toBe("# keep\r\n");
+});
+
+test("invalid output metadata keeps only safe fallback suggestions and a diagnostic note", async () => {
+  const root = await fixture({ ".prettierrc": "{}" });
+  for (const config of ["skillset: invalid\n", "skillset:\n  outputs:\n    plugins:\n      claude: 42\n"]) {
+    const advice = (await formatterIgnoreSuggestions(root, config, false))[0]!;
+    expect(advice.patterns).toEqual(["**/skillset.lock", ".skillset/**"]);
+    expect(advice.notes.join(" ")).toContain("Could not derive all configured output roots");
+  }
+});

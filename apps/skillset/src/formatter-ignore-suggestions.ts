@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { join, posix, relative } from "node:path";
-import { readCompileConfig, readCompileTargets, readOutputConfig, resolveTargets } from "@skillset/core/internal/config";
+import { readCompileConfig, readCompileTargets, readOutputConfig, readSkillsetMetadata, resolveTargets } from "@skillset/core/internal/config";
 import { readCurrentGeneratedLockFromDisk } from "@skillset/core/internal/generated-lock-read";
 import { assertRealPathInside, isPathInside, resolveInside } from "@skillset/core/internal/path";
 import { DEFAULT_PLUGIN_OUTPUT_ROOT, claudeMarketplacePath, cursorMarketplacePath, chatGptMarketplacePath } from "@skillset/core/internal/plugin-output";
@@ -73,7 +73,7 @@ async function suggestedPatterns(rootPath: string, configText: string, nativeAge
   try {
     const config = parseYamlRecord(configText, "skillset.yaml");
     const targets = resolveTargets(readCompileTargets(config, "skillset.yaml"), config, "skillset.yaml", { allowDefaults: true, objectInheritsEnabled: true });
-    const outputs = readOutputConfig(config, {});
+    const outputs = readOutputConfig(config, readSkillsetMetadata(config, "skillset.yaml"));
     for (const entry of STANDARD_PROJECTION_MANAGED_ROOTS) add(entry.path, true);
     if (!nativeAgents) add("AGENTS.md");
     for (const target of targetNames()) {
