@@ -24,6 +24,8 @@ export interface SourceMovePlan {
 }
 
 export interface SourceMoveApplyRequest extends SourceMoveRequest {
+  /** Optional caller-owned ledger lease, rechecked before event creation. */
+  readonly assertLedgerOwned?: () => Promise<void>;
   readonly expectedPlanHash: string;
   /** Deterministic fault injection for transaction tests. @internal */
   readonly transactionOptions?: WorkspaceTransactionOptions;

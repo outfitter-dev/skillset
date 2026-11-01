@@ -42,6 +42,7 @@ interface SourceMoveReport extends SourceMovePlan {
 
 export interface MoveCommandCore {
   readonly moveSource: (request: {
+    readonly assertLedgerOwned?: () => Promise<void>;
     readonly expectedPlanHash: string;
     readonly from: string;
     readonly rootPath: string;
@@ -152,9 +153,10 @@ export const runMoveCommand = async (
     to: request.to,
   };
   const report = request.yes
-    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async () =>
+    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async (assertLedgerOwned) =>
         moveCore.moveSource({
           ...planRequest,
+          assertLedgerOwned,
           expectedPlanHash: (await moveCore.planSourceMove(planRequest)).planHash,
         })
       )

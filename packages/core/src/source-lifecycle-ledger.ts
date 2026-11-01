@@ -50,10 +50,12 @@ export function sourceLifecycleLedgerRecord(
 export function sourceLifecyclePendingAppend(
   rootPath: string,
   eventsDir: string,
-  event: SourceLifecycleLedgerEvent
+  event: SourceLifecycleLedgerEvent,
+  assertOwned?: () => Promise<void>
 ): WorkspaceTransactionAppend {
   return {
     newFile: {
+      ...(assertOwned === undefined ? {} : { assertOwned }),
       current: async () => {
         const tail = await readChangeLedgerTailTimestampAt(rootPath, eventsDir);
         // `sourceLifecycleLedgerRecord` reads only the tail's timestamp.

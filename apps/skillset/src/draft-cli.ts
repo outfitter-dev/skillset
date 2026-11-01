@@ -41,6 +41,7 @@ interface SourceDraftReport extends SourceDraftPlan {
 
 export interface DraftCommandCore {
   readonly draftSource: (request: {
+    readonly assertLedgerOwned?: () => Promise<void>;
     readonly expectedPlanHash: string;
     readonly rootPath: string;
     readonly shippedPath: string;
@@ -128,9 +129,10 @@ export const runDraftCommand = async (
     shippedPath: request.shippedPath,
   };
   const report = request.yes
-    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async () =>
+    ? await (context.ledgerLock ?? defaultLifecycleLedgerLock)(request.rootPath, async (assertLedgerOwned) =>
         draftCore.draftSource({
           ...planRequest,
+          assertLedgerOwned,
           expectedPlanHash: (await draftCore.planSourceDraft(planRequest)).planHash,
         })
       )
