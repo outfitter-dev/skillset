@@ -1963,10 +1963,9 @@ export function renderResultsForLock(
       if (target !== undefined && target !== "workspace" && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
       if (outputPaths.length === 0) {
+        if (outcome.outputRoot !== undefined) return outcome.outputRoot === logicalOutputRoot;
         if (logicalOutputRoot === ".") return true;
-        return outcome.outputRoot === undefined
-          ? noOutputOutcomeBelongsToLock(outcome, logicalOutputRoot, lock)
-          : outcome.outputRoot === logicalOutputRoot;
+        return noOutputOutcomeBelongsToLock(outcome, logicalOutputRoot, lock);
       }
       return outputPaths.some((path) => lockOutputs.has(path));
     })

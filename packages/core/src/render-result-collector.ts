@@ -369,6 +369,7 @@ function unsupportedProjectUseComponentOutcomes(
             path: component.sourcePath,
           }],
           featureId: "internal-use-components",
+          outputRoot: graph.root.outputs.skills[target],
           policy: "unsupported:error",
           reason: `selected project-use copy is emitted without plugin ${component.component} hydration`,
           sourcePath: component.sourcePath,
