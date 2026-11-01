@@ -62,7 +62,7 @@ describe("SET-397 standard profile registry", () => {
       expect(profile.adoption?.rendererCommit).toBe(
         {
           "agent-instructions": "0009c8a0ecef6877b43a9bb1cd021f61ac65b74d",
-          "agent-plugins-1.0": "0363d83c444c444d359ca5befa154db31c7fa7fc",
+          "agent-plugins-1.0": "8b4a8951f077fa396576631267587d3a692866af",
           "agent-skills": "15a9eee591d7b1abd4660ae96ecae1d78776c385",
         }[profile.id]
       );
