@@ -1199,7 +1199,7 @@ Family: plugins. Exact aliases: none.
 - Realization: Projects plugin metadata and component wiring into target-native plugin manifests.
 - Destination support: native; fidelity: **exact**; evidence: **current**.
 - Semantic scope: Selected direct Claude manifest name and description strings retain their identity and descriptive metadata meaning through canonical configuration and the actual same-provider manifest, only when all three values are equal and no overriding route participates.
-- Authority pin: `sha256:b6223384a7684bc8281c86e58744bddca318455d88de35d8c68d503e8ddc7cc4`.
+- Authority pin: `sha256:63a0a441c851d09e6e8f72e40aafd2dc55605ef00d4bbbf848fd3b516febf87a`.
 - Standards: none recorded.
 - Provider-native destination: `claude-plugin`.
 
@@ -1313,7 +1313,7 @@ Limitations:
 - Realization: Projects plugin metadata and component wiring into target-native plugin manifests.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:295f4253636ca56fcc79f9fd0b857ca880989fe21a3eea3d3bb8363b8927872b`.
+- Authority pin: `sha256:25b4c5cf11c020d840f89319b33c28c048c604ed3e7277bfc7c1bea9554970ec`.
 - Standards: none recorded.
 - Provider-native destination: none recorded.
 
@@ -1330,7 +1330,7 @@ Limitations:
 - Realization: Projects plugin metadata and component wiring into target-native plugin manifests.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:c04d8a4cab76921a4bc3835fd27c360c11e9f7c455dbaec6ab57b8e19eb45a3a`.
+- Authority pin: `sha256:7a6178287c4eb9872e7ca4f541809061c07bd0f07509ade3ad7c0a617ea330fe`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-plugin`.
 
@@ -1565,7 +1565,7 @@ Family: plugins. Exact aliases: `agents/`.
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:346e436c1bca5be615c141ddb857b19f9024268eb804cc6211781c50f90cc2c7`.
+- Authority pin: `sha256:c48f47287052d6ba2941ceb0e2db7359278557feeaa48d77abb0996e8f756884`.
 - Standards: none recorded.
 - Provider-native destination: `claude-subagent`.
 
@@ -1612,7 +1612,7 @@ Limitations:
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: unsupported; fidelity: **unavailable**; evidence: **current**.
 - Semantic scope: The pinned Codex plugin contract has no plugin agents component; Skillset cannot faithfully emit plugin-packaged agents there.
-- Authority pin: `sha256:3f6aa2b11c6a28273a0d996c9ca99d22ccfd10b6038c87b15075f4c27fad5928`.
+- Authority pin: `sha256:50d9ba046e25295d626c1b3c52079d2276d76cb6b8bc555366398a9164a533ed`.
 - Standards: none recorded.
 - Provider-native destination: `codex-plugin`.
 
@@ -1735,7 +1735,7 @@ Limitations:
 - Realization: Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.
 - Destination support: pass_through; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:14c53e9127734f2292e0026c4019e0a3103382874303ae33a4f83a5d33c038ef`.
+- Authority pin: `sha256:1bce5f9deebb297cb918c0a5aa09bdb4c41ceb36af710b5f9ef97364c9b5a12a`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-agent`.
 
@@ -1779,7 +1779,7 @@ Family: plugins. Exact aliases: `plugins`, `plugin.json`.
 - Realization: Projects plugin metadata and component wiring into target-native plugin manifests.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:afb1541f84ed4711b832be01469d6315764600c956d8a5bb1eb78a980c957cb6`.
+- Authority pin: `sha256:85f6bdcf6fc21c39902359905249dfc4bc55b4ad33e38cb38e0f9e13df367e72`.
 - Standards: agent-plugins-1.0.
 - Provider-native destination: `claude-plugin`.
 
@@ -1894,7 +1894,7 @@ Limitations:
 - Realization: Projects plugin metadata and component wiring into target-native plugin manifests.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:6b45e3ad3ccd9d404240a55e3ededd73f1e79953de21119be69975708f858edb`.
+- Authority pin: `sha256:d38bf766898ed2cfd212d4ec6170b0d7d92b8192a8efb8975c4fcb3cb82e57db`.
 - Standards: agent-plugins-1.0.
 - Provider-native destination: none recorded.
 
@@ -1911,7 +1911,7 @@ Limitations:
 - Realization: Projects plugin metadata and component wiring into target-native plugin manifests.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:60de69f8369ffd9ae4f10121a682fd27c0168858476b790b617b7c8cdc862ba4`.
+- Authority pin: `sha256:9e026c54098d26162d6953da41e965aa35bb72cb28a013c683dca18e2d4687af`.
 - Standards: agent-plugins-1.0.
 - Provider-native destination: `cursor-plugin`.
 
@@ -2031,7 +2031,7 @@ Family: mcp. Exact aliases: `mcp`, `mcpServers`, `.mcp.json`, `http_headers`.
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:59b6322f2c6c258e6f8cf6ad20c93a7001abfa2b4a26755b8c64765c5d3b412b`.
+- Authority pin: `sha256:2099b324be1735fc73d6c5c63fb835f085e10d1c77a585d79c36ff5f0d262aab`.
 - Standards: agent-plugins-1.0.
 - Provider-native destination: `claude-plugin`.
 
@@ -2146,7 +2146,7 @@ Limitations:
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:07ded587c642e2ac14a165f7927cb3627c83b19fd2dcd0d250d11e0ef695ba89`.
+- Authority pin: `sha256:0d673b87d92220a0d80203b47a843f0153183cc0b468445c3e177c88c0e00328`.
 - Standards: agent-plugins-1.0.
 - Provider-native destination: none recorded.
 
@@ -2163,7 +2163,7 @@ Limitations:
 - Realization: Normalizes portable plugin MCP server definitions and renders them into generated provider plugin outputs.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:464ae03700c10e55a4cfef778b9b866c5e1e1feb64d0596b7774915eb984513e`.
+- Authority pin: `sha256:4c3d12f78def0a8e3e15bb569c93e78a784dd3d97d542dc5f83e47bf9f38886a`.
 - Standards: agent-plugins-1.0.
 - Provider-native destination: `cursor-plugin`.
 
@@ -2283,7 +2283,7 @@ Family: agents. Exact aliases: `subagents`, `developer_instructions`.
 - Realization: Renders portable project agents to Claude Markdown agents and Codex TOML agents.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:644a5f15375f229a844121e03366cf06277c5f719748c4d597d51baca3fb19b1`.
+- Authority pin: `sha256:300e60c784fb5da2863bd35f0956ff091997f8f88ca8fb53289430f50a52ec9c`.
 - Standards: none recorded.
 - Provider-native destination: `claude-subagent`.
 
@@ -2330,7 +2330,7 @@ Limitations:
 - Realization: Renders portable project agents to Claude Markdown agents and Codex TOML agents.
 - Destination support: transformed; fidelity: **partial**; evidence: **current**.
 - Semantic scope: Project-agent name, description and instructions receive native TOML fields; shared skill-loading intent is only an instruction preface.
-- Authority pin: `sha256:e9a92d29967c45ac38282fbc0a79562c17a5a053016846278f6b32f3a57fc922`.
+- Authority pin: `sha256:a478ef5538751a0ec47e226d2a0939cd3ce9487f639ae991cc741c9eb8245c3a`.
 - Standards: none recorded.
 - Provider-native destination: `codex-subagent`.
 
@@ -2369,7 +2369,7 @@ Limitations:
 - Realization: Renders portable project agents to Claude Markdown agents and Codex TOML agents.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:32b457ca3edad5cc479822197015c1cba0c77e457017f277fca3765e3f6275e2`.
+- Authority pin: `sha256:65c28d273cff7ff0bfb450eecb8c69090aa035a10165b2af095276bda6c6d669`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-agent`.
 
@@ -2413,7 +2413,7 @@ Family: rules. Exact aliases: `rules`, `AGENTS.md`, `CLAUDE.md`, `alwaysApply`.
 - Realization: Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.
 - Destination support: transformed; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:b051907e5a13ab08c644896964f08c61181a5c0fcf033aac179a05f3d3513a19`.
+- Authority pin: `sha256:581300977a31def73d29ab172116d9c4c1f086fac5fe5aa9cf84bae033995bfe`.
 - Standards: agent-instructions.
 - Provider-native destination: none recorded.
 
@@ -2430,7 +2430,7 @@ Limitations:
 - Realization: Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.
 - Destination support: transformed; fidelity: **synthesized**; evidence: **current**.
 - Semantic scope: Generated rules with literal directory scope and no paths narrowing are combined in deterministic source-path order into the directory AGENTS.md.
-- Authority pin: `sha256:27b88d98ccdde2a51e3053e801f45afb90403bd60f0ccdc3173e9aa4997b4d08`.
+- Authority pin: `sha256:f643a3bf141790235688eb6e822345589925b15aca39bded4111b8453aec6c28`.
 - Standards: agent-instructions.
 - Provider-native destination: `codex-agents-md`.
 
@@ -2463,7 +2463,7 @@ Limitations:
 - Realization: Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.
 - Destination support: transformed; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:e6c2dc881e8a23c350bfe6bbe607892bd4491c1c3e759f3280a581ed9dc0b0e6`.
+- Authority pin: `sha256:983bb788feae1de3c1b8392a93b4c700517ac08d08edd5e10c795cbec51ef6f0`.
 - Standards: agent-instructions.
 - Provider-native destination: `cursor-rules`.
 
@@ -2502,7 +2502,7 @@ Family: skills. Exact aliases: `implicit_invocation`, `disable-model-invocation`
 - Realization: Lowers canonical skill invocation eligibility into provider-native policy.
 - Destination support: transformed; fidelity: **equivalent**; evidence: **current**.
 - Semantic scope: The resolved implicit_invocation boolean is inverted into disable-model-invocation; false eligibility becomes true disablement and vice versa.
-- Authority pin: `sha256:c384e48621d0185092326e37612ccc66426d143722ef9b00dc1a5233421704fc`.
+- Authority pin: `sha256:02549d43004492e4a241c2c35413b3a129c790ce05513c3ec4eda00f8381653a`.
 - Standards: none recorded.
 - Provider-native destination: `claude-skill`.
 
@@ -2550,7 +2550,7 @@ Limitations:
 - Realization: Lowers canonical skill invocation eligibility into provider-native policy.
 - Destination support: transformed; fidelity: **exact**; evidence: **current**.
 - Semantic scope: The resolved implicit_invocation boolean is represented directly as policy.allow_implicit_invocation in agents/openai.yaml.
-- Authority pin: `sha256:e33c782023491b69d1c0afa3d881b1f68f2f9cb1a64627250a8c41f3c0b48a9c`.
+- Authority pin: `sha256:14cf3aa7ae27a5f8feae3c23229b4067176b02410172f2afbf6e50452fc216f7`.
 - Standards: none recorded.
 - Provider-native destination: `codex-skill`.
 
@@ -2591,7 +2591,7 @@ Limitations:
 - Realization: Lowers canonical skill invocation eligibility into provider-native policy.
 - Destination support: transformed; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:50d66fa19d408e8acca39c4f9f4a6bdfec307cd7d5127f083da8a6ccb6da87b4`.
+- Authority pin: `sha256:d9c00194aa2a1d8c6df9f28e1ab68c038ec4caf29645679f7bb2810f96284593`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-skill`.
 
@@ -2640,7 +2640,7 @@ Family: skills. Exact aliases: `skill`, `SKILL.md`.
 - Realization: Preserves plugin-scoped skills inside each target plugin boundary.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:dedab445c5bbf38b0792d49d012b40286de014c5106ed1b32bce6c5b9666354a`.
+- Authority pin: `sha256:418adb17ebf977eda0ab2e860add3d8c394cd73e0e6b1c5b205b722564ce1817`.
 - Standards: agent-skills.
 - Provider-native destination: `claude-skill`.
 
@@ -2688,7 +2688,7 @@ Limitations:
 - Realization: Preserves plugin-scoped skills inside each target plugin boundary.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:3e114327eb00fbe95779924563acb8a3222fa7d8e697ceef6293f3e5e265a73c`.
+- Authority pin: `sha256:c2a1193def02afd5a60abceac75fe4fe97d6d91d21c80daba45c2f40a2241d30`.
 - Standards: agent-skills.
 - Provider-native destination: `codex-skill`.
 
@@ -2729,7 +2729,7 @@ Limitations:
 - Realization: Preserves plugin-scoped skills inside each target plugin boundary.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:a47c4d3c93c4bffc686384f29b5f6842b314d9560d696e01ebd5260245fe83fe`.
+- Authority pin: `sha256:996780d480afd0023f44a5f4bb0074d0c00c54abd2b26530cdbc589eba67a00e`.
 - Standards: agent-skills.
 - Provider-native destination: `cursor-skill`.
 
@@ -2774,7 +2774,7 @@ Limitations:
 - Realization: Projects standalone repo skills into configured target skill roots.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:9a5ad69eb3cedd42c4d50a73c5f486936b0ec0edac0be9ca041b07ef663f66c6`.
+- Authority pin: `sha256:89b8338dbd4224052af10c741b1545b67562ecaac2b4850fb26fcde8c24ac641`.
 - Standards: agent-skills.
 - Provider-native destination: `claude-skill`.
 
@@ -2822,7 +2822,7 @@ Limitations:
 - Realization: Projects standalone repo skills into configured target skill roots.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:c720f4b75b4e4c53586aeb93967435501c084872f8ec77e5f1b26678d0e2e0e3`.
+- Authority pin: `sha256:f59a9947918736a432c4f560ff22821a9d87091d6b5106389f5a6e24deac7939`.
 - Standards: agent-skills.
 - Provider-native destination: `codex-skill`.
 
@@ -2863,7 +2863,7 @@ Limitations:
 - Realization: Projects standalone repo skills into configured target skill roots.
 - Destination support: native; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:9c896cc04c5597669def85d4940d2b292f9c1ff759b534dfb03cc4c799255d38`.
+- Authority pin: `sha256:d4d2551b2304a3f1c4a25efc5a609f0b7cd3a9f8e78267015ef8fcd96104061a`.
 - Standards: agent-skills.
 - Provider-native destination: `cursor-skill`.
 
