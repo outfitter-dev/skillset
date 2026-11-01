@@ -73,6 +73,8 @@ because `@zz` is not a hex ref, while a well-formed ref that matches no entry
 exits `1`. Malformed `restore` backup ids, explicit `import --name` slugs,
 and `create` names that normalize to an invalid slug also exit `2`.
 Import source data and existing destination conflicts remain failures (`1`).
+For `release amend`, an explicitly blank inline `--reason` is usage (`2`);
+empty content read from a file or stdin remains a data failure (`1`).
 
 Codes `3` and `4` are command-specific and appear only when a command sets them
 explicitly in its result or through `CliOutputError`. The report command uses

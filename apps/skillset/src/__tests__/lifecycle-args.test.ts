@@ -448,3 +448,9 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
     }
   });
 });
+
+
+test("release inline reason validation preserves argument-conflict precedence", () => {
+  expect(() => parseReleaseCommandRequest(["release", "amend", "--reason", ""], CONTEXT)).toThrow("release amend requires @ref");
+  expect(() => parseReleaseCommandRequest(["release", "amend", "@abcdef", "--reason", "", "--reason-file", "reason.txt"], CONTEXT)).toThrow("pass only one of --reason or --reason-file");
+});
