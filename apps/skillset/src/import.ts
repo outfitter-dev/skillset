@@ -40,7 +40,7 @@ import {
   readString,
   targetNames,
 } from "@skillset/core/internal/config";
-import { compareStrings, isPathInside, resolveInside, validateSlug } from "@skillset/core/internal/path";
+import { compareStrings, isPathInside, isSlug, resolveInside, validateSlug } from "@skillset/core/internal/path";
 import { prepareRepositoryMutationPath } from "@skillset/core/internal/repository-mutation";
 import {
   normalizeGeneratedFileMode,
@@ -1557,10 +1557,6 @@ async function isSamePath(left: string, right: string): Promise<boolean> {
   } catch {
     return resolve(left) === resolve(right);
   }
-}
-
-function isSlug(value: string): boolean {
-  return /^[a-z0-9][a-z0-9-]*$/.test(value);
 }
 
 function isImportScaffold(
