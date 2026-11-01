@@ -10,7 +10,10 @@ export function markdownSpecialBlockLines(content: string): { html: LineRange[];
   const fences: LineRange[] = [];
   const htmlCandidate = /(?:^|[\r\n])[ \t>+*0-9.)-]*<[A-Za-z!/?]/u.test(content);
   const fenceCandidate = /(?:^|[\r\n])[ \t>+*0-9.)-]+(?:`{3,}|~{3,})/u.test(content);
-  if (!htmlCandidate && !fenceCandidate) return { html, fences };
+  // A nested fence also requires a list or quote opener somewhere in the document.
+  // Indented fence-looking text alone is not a container and needs no full AST.
+  const containerCandidate = /(?:^|[\r\n])[ \t]*(?:>|(?:[-+*]|[0-9]{1,9}[.)])(?:[ \t\r\n]|$))/u.test(content);
+  if (!htmlCandidate && !(fenceCandidate && containerCandidate)) return { html, fences };
   const walker = new Parser().parse(content).walker();
   for (let event = walker.next(); event !== null; event = walker.next()) {
     if (event.entering && event.node.type === "html_block") {

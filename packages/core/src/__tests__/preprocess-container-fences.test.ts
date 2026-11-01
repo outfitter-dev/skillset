@@ -8,6 +8,8 @@ const context: PreprocessContext = { frontmatter: {}, rootPath: "/virtual", sour
 
 for (const [name, lines] of [
   ["four-column list", ["-   item", "", "    ~~~", "    " + token, "    ~~~"]],
+  ["empty list opener", ["-", "", "  ~~~", "  " + token, "  ~~~"]],
+  ["compact quote", [">~~~", ">" + token, ">~~~"]],
   ["quote", ["> ~~~", "> " + token, "> ~~~"]],
   ["ordered list", ["12. item", "", "    ~~~text", "    " + token, "    ~~~~"]],
   ["quote list", ["> - ~~~", ">   " + token, ">   ~~~"]],
