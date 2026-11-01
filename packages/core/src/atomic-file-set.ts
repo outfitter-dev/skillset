@@ -1,4 +1,5 @@
-import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { prepareRepositoryMutationPath } from "./repository-mutation";
+import { lstat, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 export interface AtomicFileWrite {
@@ -20,21 +21,31 @@ interface StagedFile {
 }
 
 export async function writeAtomicFileSet(
+  workspaceRoot: string,
   writes: readonly AtomicFileWrite[],
   options: AtomicFileSetOptions = {}
 ): Promise<void> {
-  assertUniquePaths(writes);
+  // Inspect every destination before staging any member of the transaction.
+  const preparedWrites: AtomicFileWrite[] = [];
+  for (const write of writes) {
+    const prepared = await prepareRepositoryMutationPath(workspaceRoot, write.path, { createParents: false });
+    preparedWrites.push({ ...write, path: prepared.path });
+  }
+  assertUniquePaths(preparedWrites);
   const staged: StagedFile[] = [];
   try {
-    for (const write of writes) staged.push(await stageFile(write));
+    for (const write of preparedWrites) staged.push(await stageFile(workspaceRoot, write));
   } catch (error) {
-    await cleanupStaging(staged);
+    await cleanupStaging(workspaceRoot, staged);
     throw error;
   }
 
   try {
     for (const [index, file] of staged.entries()) {
       await options.beforeInstall?.(file.path, index);
+      await prepareRepositoryMutationPath(workspaceRoot, file.path, { createParents: false });
+      await prepareRepositoryMutationPath(workspaceRoot, file.nextPath, { createParents: false });
+      await prepareRepositoryMutationPath(workspaceRoot, file.backupPath, { createParents: false });
       const existing = await lstat(file.path).catch((error: unknown) => {
         if (isMissing(error)) return undefined;
         throw error;
@@ -48,17 +59,17 @@ export async function writeAtomicFileSet(
       file.installed = true;
     }
   } catch (error) {
-    const rollbackErrors = await rollback(staged);
+    const rollbackErrors = await rollback(workspaceRoot, staged);
     if (rollbackErrors.length > 0) {
       throw new Error(
         `skillset: marketplace update failed and rollback failed for ${rollbackErrors.join(", ")}: ${errorMessage(error)}`
       );
     }
-    await cleanupStaging(staged);
+    await cleanupStaging(workspaceRoot, staged);
     throw error;
   }
 
-  await cleanupStaging(staged);
+  await cleanupStaging(workspaceRoot, staged);
 }
 
 function assertUniquePaths(writes: readonly AtomicFileWrite[]): void {
@@ -69,9 +80,9 @@ function assertUniquePaths(writes: readonly AtomicFileWrite[]): void {
   }
 }
 
-async function stageFile(write: AtomicFileWrite): Promise<StagedFile> {
+async function stageFile(workspaceRoot: string, write: AtomicFileWrite): Promise<StagedFile> {
   const parent = dirname(write.path);
-  await mkdir(parent, { recursive: true });
+  await prepareRepositoryMutationPath(workspaceRoot, write.path);
   const stagingPath = await mkdtemp(join(parent, ".skillset-marketplace-"));
   const nextPath = join(stagingPath, `${basename(write.path)}.next`);
   try {
@@ -85,17 +96,21 @@ async function stageFile(write: AtomicFileWrite): Promise<StagedFile> {
       stagingPath,
     };
   } catch (error) {
-    await rm(stagingPath, { force: true, recursive: true });
+    await removeStaging(workspaceRoot, stagingPath);
     throw error;
   }
 }
 
-async function rollback(staged: readonly StagedFile[]): Promise<readonly string[]> {
+async function rollback(workspaceRoot: string, staged: readonly StagedFile[]): Promise<readonly string[]> {
   const failures: string[] = [];
   for (const file of [...staged].reverse()) {
     try {
-      if (file.installed) await rm(file.path, { force: true });
-      if (file.backupMoved) await rename(file.backupPath, file.path);
+      if (file.installed || file.backupMoved) {
+        await prepareRepositoryMutationPath(workspaceRoot, file.path, { createParents: false });
+        if (file.backupMoved) await prepareRepositoryMutationPath(workspaceRoot, file.backupPath, { createParents: false });
+        if (file.installed) await rm(file.path, { force: true });
+        if (file.backupMoved) await rename(file.backupPath, file.path);
+      }
     } catch {
       failures.push(file.path);
     }
@@ -103,10 +118,19 @@ async function rollback(staged: readonly StagedFile[]): Promise<readonly string[
   return failures;
 }
 
-async function cleanupStaging(staged: readonly StagedFile[]): Promise<void> {
+async function cleanupStaging(workspaceRoot: string, staged: readonly StagedFile[]): Promise<void> {
   await Promise.all(staged.map(({ stagingPath }) =>
-    rm(stagingPath, { force: true, recursive: true }).catch(() => undefined)
+    removeStaging(workspaceRoot, stagingPath)
   ));
+}
+
+async function removeStaging(workspaceRoot: string, stagingPath: string): Promise<void> {
+  try {
+    await prepareRepositoryMutationPath(workspaceRoot, stagingPath, { createParents: false });
+    await rm(stagingPath, { force: true, recursive: true });
+  } catch {
+    // Leave recovery artifacts in place if their ancestry can no longer be trusted.
+  }
 }
 
 function isMissing(error: unknown): boolean {
