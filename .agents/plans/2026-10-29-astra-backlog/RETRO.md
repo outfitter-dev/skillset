@@ -953,3 +953,7 @@ SET-759 full at5adc3e85 ended5839pass3skip4todo3native-sizefailures; #940 body a
 ### SET-673 container-fence boundaries
 
 Eleven public-API regressions established rewritten references inside nested fences. Shared public parser block positions now protect them through their actual container end. Final focused139tests/322assertions pass. Measurement found avoidable parsing for indented tildes without a container; conservative container-presence filtering removes it. Final24paired attributable samples retain the real AST cost for a pathological paragraph before a quote fence (612–620MiB vs231–235MiB), documented without performance-neutral claims. The separate variable-expansion multiline-prefix and Workbench placeholder consumers remain follow-ups; rename already delegates to the shared rewrite.
+
+### SET-673 Workbench placeholder reuse
+
+The placeholder diagnostic now consumes Core code ranges instead of maintaining a duplicate root-fence and single-line-backtick scanner. Six new red cases covered nested fences, multiline spans, container exits, HTML and source offsets; focused parser/migration consumers and typecheck pass. Masking retains UTF-16 width/newlines so active placeholders on the same line keep exact coordinates. The intentionally heuristic nested-fence warning remains separate. This also inherits the documented shared scanner AST cost; no performance-neutral claim. Variable rendering needs its own multiline-prefix design and remains open.
