@@ -25,7 +25,7 @@ Run @{{plugin:scripts/check.sh}}.
 
 The first segment after `shared:` or `plugin:` must be exactly `references`, `scripts`, `assets`, or `templates`, followed by a file path. By default the destination is the same `<group>/<rest>` path beneath the generated skill. Repeating the same source deduplicates the copy. Two different sources that map to one destination fail as a collision.
 
-Marked links in inline code or fenced code blocks stay literal and copy nothing. `skillset.preprocess: false` also leaves them literal and copy-free. Copied Markdown processes its own links and partials unless that file carries the opt-out. Non-Markdown resources remain byte-preserving. Nested skill Markdown and the primary body share one copy inventory.
+Marked links in inline code or fenced code blocks stay literal and copy nothing. Raw HTML blocks are boundaries for Markdown code parsing: backticks or fence-like lines inside them do not make an explicit marked reference literal. References in those blocks still follow the normal preprocessing rules. `skillset.preprocess: false` also leaves them literal and copy-free. Copied Markdown processes its own links and partials unless that file carries the opt-out. Non-Markdown resources remain byte-preserving. Nested skill Markdown and the primary body share one copy inventory.
 
 ## Explicit resources
 
