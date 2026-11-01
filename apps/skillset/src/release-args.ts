@@ -180,6 +180,9 @@ export const parseReleaseCommandRequest = (
   if (releaseSubcommand === "amend" && releaseRef === undefined) {
     throw new CliUsageError("skillset: release amend requires @ref");
   }
+  if (releaseReason?.kind === "inline" && releaseReason.value.trim().length === 0) {
+    throw new CliUsageError("skillset: change reason must not be empty");
+  }
   return {
     jsonOutput,
     options: {
