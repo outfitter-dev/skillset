@@ -2,12 +2,11 @@
 
 import {
   mkdirSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, relative } from 'node:path';
 import {
-  ADR_DIR,
-  DRAFTS_DIR,
   DRAFTS_INDEX_PATH,
   DRAFTS_MAP_PATH,
   MAP_PATH,
@@ -349,17 +348,13 @@ const stringifyFormattedJson = (
   return JSON.stringify(value);
 };
 
-const writeJson = (path: string, data: unknown): void => {
-  writeFileSync(path, `${stringifyFormattedJson(data)}\n`, 'utf8');
-};
-
 /**
- * Write all generated ADR artifacts:
+ * Derive all generated ADR artifacts before either checking or writing:
  * - docs/adrs/decision-map.json (numbered ADRs only — stable)
  * - docs/adrs/drafts/decision-map.json (drafts only — changes with drafts)
  * - docs/adrs/drafts/README.md (generated index)
  */
-export const writeDecisionMap = (documents: readonly ReferenceDocument[]): void => {
+const decisionMapArtifacts = (documents: readonly ReferenceDocument[]) => {
   const numbered = listNumberedAdrs();
   const drafts = listDrafts();
   const allFiles = [...numbered, ...drafts];
@@ -378,19 +373,37 @@ export const writeDecisionMap = (documents: readonly ReferenceDocument[]): void 
   );
   const draftEntries = buildDraftEntries(allFiles, documents);
 
-  // Accepted ADR map (stable — only changes when ADRs are promoted/modified)
   const acceptedMap: DecisionMap = { entries: numberedEntries, version: 1 };
-  writeJson(MAP_PATH, acceptedMap);
-  console.log(`Updated ${MAP_PATH}`);
-
-  // Drafts map (changes with draft edits)
-  mkdirSync(DRAFTS_DIR, { recursive: true });
   const draftsMap: DecisionMap = { entries: draftEntries, version: 1 };
-  writeJson(DRAFTS_MAP_PATH, draftsMap);
-  console.log(`Updated ${DRAFTS_MAP_PATH}`);
+  return [
+    { path: MAP_PATH, content: `${stringifyFormattedJson(acceptedMap)}\n` },
+    { path: DRAFTS_MAP_PATH, content: `${stringifyFormattedJson(draftsMap)}\n` },
+    { path: DRAFTS_INDEX_PATH, content: buildDraftsIndex(draftEntries, numberedEntries) },
+  ];
+};
 
-  // Drafts README
-  const draftsIndex = buildDraftsIndex(draftEntries, numberedEntries);
-  writeFileSync(DRAFTS_INDEX_PATH, draftsIndex, 'utf8');
-  console.log(`Updated ${DRAFTS_INDEX_PATH}`);
+export const writeDecisionMap = (documents: readonly ReferenceDocument[]): void => {
+  for (const { path, content } of decisionMapArtifacts(documents)) {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content, 'utf8');
+    console.log(`Updated ${path}`);
+  }
+};
+
+/** Compare every artifact without creating directories or repairing output. */
+export const checkDecisionMap = (documents: readonly ReferenceDocument[]): void => {
+  const stale: string[] = [];
+  for (const { path, content } of decisionMapArtifacts(documents)) {
+    let current: string | undefined;
+    try {
+      current = readFileSync(path, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    if (current !== content) stale.push(relative(ROOT, path).replaceAll('\\', '/'));
+  }
+  if (stale.length > 0) {
+    throw new Error(`ADR artifacts are stale or missing:\n${stale.map((path) => `- ${path}`).join('\n')}\nRun adr map to regenerate.`);
+  }
+  console.log('ADR decision maps and draft index are current.');
 };

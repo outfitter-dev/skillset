@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 
 import { parseArgs, shouldApply, previewBanner, printHelp } from './lib/cli.ts';
 import type { Args } from './lib/cli.ts';
-import { writeDecisionMap } from './lib/decision-map.ts';
+import { checkDecisionMap, writeDecisionMap } from './lib/decision-map.ts';
 import {
   listNumberedAdrs,
   listDrafts,
@@ -570,8 +570,9 @@ const cmdCheck = (args: Args, documents: readonly ReferenceDocument[]): void => 
   }
 };
 
-const cmdMap = (documents: readonly ReferenceDocument[]): void => {
-  writeDecisionMap(documents);
+const cmdMap = (args: Args, documents: readonly ReferenceDocument[]): void => {
+  if (args.check) checkDecisionMap(documents);
+  else writeDecisionMap(documents);
 };
 
 const cmdUpdate = (args: Args, documents: readonly ReferenceDocument[]): void => {
@@ -798,7 +799,7 @@ const main = async (): Promise<void> => {
       break;
     }
     case 'map': {
-      cmdMap(documents);
+      cmdMap(args, documents);
       break;
     }
     default: {

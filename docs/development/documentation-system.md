@@ -14,6 +14,8 @@ The generated layer under [`docs/reference/`](../reference/README.md) projects s
 
 The public capability specialist bundles a generated projection of the Core capability crosswalk at `.skillset/plugins/skillset/shared/references/provider-capabilities.md`. `docs:generate` refreshes it and `docs:check` rejects drift. The projection retains semantic judgments and limitations while omitting contributor implementation locations; Skillset then copies it through the declared-resource mechanism. It is a snapshot, not provider-runtime or live-upstream evidence.
 
+The source-owned ADR helper derives `docs/adrs/decision-map.json`, `docs/adrs/drafts/decision-map.json`, and the draft README from ADR metadata and authored references. `docs:generate` invokes its `map` command; `docs:check` invokes `map --check`, which fails on stale or missing artifacts without repairing them.
+
 Feature narratives remain authored pages. Their registry-owned support tables use the generic `feature-support` generated block, which `docs:generate` rewrites from the Core registry while preserving surrounding prose. The registry's `docs` references are the canonical linkage between a feature and one or more authored pages. Introductory pages under `start/`, `guides/`, and the repository front door link to those facts but do not acquire registry entries simply to satisfy navigation.
 
 Skillset does not generate a diagnostics catalog yet. Diagnostic identifiers, ownership, severity, and user guidance are distributed across several runtime surfaces rather than one typed exhaustive registry. Until such a registry exists, diagnostics stay documented on their owning feature and workflow pages; scraping messages would create a second, brittle contract.
