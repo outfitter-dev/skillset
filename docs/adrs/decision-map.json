@@ -1267,6 +1267,11 @@
           "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
           "from": "cli-flags",
           "fromPath": "docs/reference/cli-flags.md"
+        },
+        {
+          "context": "The accepted [ADR-0023 exit-code contract](../../adrs/0023-versioned-structured-output-for-cli-automation.md#exit-codes-classify-outcomes)",
+          "from": "README",
+          "fromPath": "docs/reference/cli/README.md"
         }
       ],
       "number": "0023",
