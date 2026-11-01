@@ -16,7 +16,7 @@ Family: hooks. Exact aliases: `hooks`, `hook.json`.
 - Realization: Defines reusable adaptive hook units and renders supported plugin and Claude frontmatter hook destinations with explicit unsupported-destination results.
 - Destination support: transformed; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:12c437682749874709ed6aabe4f62f44fb26fb10df87a846dc1e468bdf86d757`.
+- Authority pin: `sha256:8d9aa31d1d88816081085312974a5d2c3e9ab8981deed1bc3741789e3111d9d3`.
 - Standards: none recorded.
 - Provider-native destination: `claude-hooks`.
 
@@ -62,7 +62,7 @@ Limitations:
 - Realization: Defines reusable adaptive hook units and renders supported plugin and Claude frontmatter hook destinations with explicit unsupported-destination results.
 - Destination support: degraded; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:183943c39032f2074fd4b4d650df43b65dc3bcf61746f5b397fee0dc32854904`.
+- Authority pin: `sha256:2b57bdf792dac7116f76b2c4df74857865fe94ec241992d3673ecf1abbadc137`.
 - Standards: none recorded.
 - Provider-native destination: none recorded.
 
@@ -80,7 +80,7 @@ Limitations:
 - Realization: Defines reusable adaptive hook units and renders supported plugin and Claude frontmatter hook destinations with explicit unsupported-destination results.
 - Destination support: degraded; fidelity: **unknown**; evidence: **missing**.
 - Semantic scope: No reviewed semantic scope is recorded.
-- Authority pin: `sha256:8e41d6129b586b6ea5f8ace1d1fd19b24e296c6602efbff89d0a70e1a052e33c`.
+- Authority pin: `sha256:79fe8f16ea39a832fd56edf282b9d7fe8e2f2daba065c6580193bd7d9fcd24bc`.
 - Standards: none recorded.
 - Provider-native destination: `cursor-hooks`.
 
