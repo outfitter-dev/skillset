@@ -65,7 +65,8 @@ describe("legacy presentation known fields", () => {
   it("applies shared validation in config and each frontmatter consumer", () => {
     for (const [contract, validate, base] of [
       [pluginConfigContract, validatePluginConfig, {}],
-      [workspaceConfigContract, validateWorkspaceConfig, validateRootSourceManifest, {}],
+      [workspaceConfigContract, validateWorkspaceConfig, {}],
+      [workspaceConfigContract, validateRootSourceManifest, {}],
       [skillFrontmatterContract, validateSkillFrontmatter, { description: "Skill." }],
       [agentFrontmatterContract, validateAgentFrontmatter, { description: "Agent." }],
       [ruleFrontmatterContract, validateRuleFrontmatter, {}],
