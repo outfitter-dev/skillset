@@ -4,7 +4,8 @@ import { dirname, join } from "node:path";
 import { extractInlineMarkdownLinks } from "../docs/markdown";
 import { TARGET_NAMES } from "@skillset/schema";
 import { compareCapability, findCapabilities, listCapabilities } from "@skillset/core/internal/capability-crosswalk";
-import { buildPublicCapabilityCatalog, generatePublicCapabilityReference, projectCapabilityComparison, PUBLIC_CAPABILITY_REFERENCE } from "../public-capability-reference";
+import { buildPublicCapabilityCatalog, generatePublicCapabilityReference, projectCapabilityComparison, PUBLIC_CAPABILITY_REFERENCE, renderPublicCapabilityReference } from "../public-capability-reference";
+import { scanGeneratedPublicContent } from "../public-closure-guard";
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 test("SET-448: public fallback derives every capability and comparison from Core", () => {
@@ -79,4 +80,17 @@ test("SET-448: every local link in the generated specialist resolves without a C
   expect(seen.has(join(skill, "references/provider-capabilities.md"))).toBe(
     true
   );
+});
+
+test("neutral companion source shapes are explicit plugin data, not repository script commands", () => {
+  const lines = renderPublicCapabilityReference().split("\n").filter((line) =>
+    line.startsWith("- Canonical source:") && line.includes("scripts/")
+  );
+  expect(lines).toHaveLength(TARGET_NAMES.length);
+  for (const line of lines) {
+    expect(line).toContain("plugin `scripts/`");
+    expect(scanGeneratedPublicContent("plugins/skillset/shared/references/provider-capabilities.md", line)).toEqual([]);
+  }
+  expect(scanGeneratedPublicContent("plugins/skillset/shared/references/provider-capabilities.md", "Run `bun scripts/private.ts`.", ["scripts/private.ts"]))
+    .toContainEqual(expect.objectContaining({ rule: "internal-script" }));
 });

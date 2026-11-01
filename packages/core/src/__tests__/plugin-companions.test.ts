@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
+import { chmod, rm, stat } from "node:fs/promises";
+import { checkAdapterConformance, createAdapterConformanceCoverageReport } from "@skillset/core";
 
 import { buildSkillsetResult, diffSkillsetResult } from "../build";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
@@ -8,6 +10,78 @@ import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-
 const LONG_PLUGIN_ID = `long-${"x".repeat(65)}`;
 
 describe("plugin companions", () => {
+  it("conforms to the standard envelope while preserving authored companion bytes and modes [SET-675]", async () => {
+    const root = await fixture("claude", "demo");
+    if (process.platform !== "win32") await chmod(join(root, ".skillset/plugins/demo/scripts/setup.sh"), 0o755);
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    const cases = companionCases();
+    const outcomes = result.renderResults.filter((outcome) =>
+      cases.some(({ featureId }) => featureId === outcome.featureId)
+    );
+    expect(outcomes).toHaveLength(4);
+    expect(checkAdapterConformance(outcomes, cases)).toEqual({ issues: [], ok: true });
+    for (const [feature, path] of Object.entries(COMPANION_PATHS)) {
+      const source = join(root, ".skillset/plugins/demo", path);
+      const output = join(root, "plugins/demo", path);
+      expect(await Bun.file(output).text()).toBe(await Bun.file(source).text());
+      expect((await stat(output)).mode & 0o777).toBe((await stat(source)).mode & 0o777);
+      const outcome = outcomes.find(({ featureId }) => featureId === feature);
+      expect(outcome).toMatchObject({
+        standardProfile: "agent-plugins-1.0", status: "rendered",
+        outputs: [expect.objectContaining({ path: `plugins/demo/${path}` })],
+      });
+      expect(outcome?.target).toBeUndefined();
+    }
+    const coverage = createAdapterConformanceCoverageReport(cases);
+    expect(coverage.entries.filter((entry) =>
+      "standardProfile" in entry && entry.standardProfile === "agent-plugins-1.0" &&
+      cases.some(({ featureId }) => featureId === entry.featureId)
+    ).map(({ coverage }) => coverage)).toEqual(["covered", "covered", "covered", "covered"]);
+  });
+
+  it("rejects false status and evidence claims for each standard companion", async () => {
+    const root = await fixture("claude", "demo");
+    const { renderResults } = await diffSkillsetResult(root);
+    for (const item of companionCases()) {
+      const outcome = renderResults.find(({ featureId }) => featureId === item.featureId)!;
+      expect(checkAdapterConformance([{ ...outcome, status: "unsupported" }], [item]).issues.map(({ code }) => code))
+        .toEqual(["status-mismatch"]);
+      expect(checkAdapterConformance([{ ...outcome, evidence: [{ kind: "test", ref: "unrelated" }] }], [item]).issues.map(({ code }) => code))
+        .toEqual(["standard-profile-evidence-mismatch"]);
+      expect(checkAdapterConformance([], [item]).issues.map(({ code }) => code)).toEqual(["missing-outcome"]);
+    }
+  });
+
+  it("does not require absent optional companions or invent their render results", async () => {
+    const root = await fixture("claude", "demo");
+    for (const path of ["README.md", "assets", "scripts", "src"]) {
+      await rm(join(root, ".skillset/plugins/demo", path), { recursive: true });
+    }
+    const result = await buildSkillsetResult(root);
+    expect(result.ok).toBe(true);
+    expect(result.renderResults.filter(({ featureId }) => featureId in COMPANION_PATHS)).toEqual([]);
+    for (const path of Object.values(COMPANION_PATHS)) {
+      expect(await Bun.file(join(root, "plugins/demo", path)).exists()).toBe(false);
+    }
+  });
+
+  it("does not emit companions outside the plugin build scope", async () => {
+    const root = await fixture("claude", "demo");
+    const result = await buildSkillsetResult(root, { scopes: ["repo"] });
+    expect(result.ok).toBe(true);
+    const outcomes = result.renderResults.filter(({ featureId }) => featureId in COMPANION_PATHS);
+    expect(outcomes).toHaveLength(4);
+    for (const outcome of outcomes) {
+      expect(outcome).toMatchObject({ status: "intentionally_skipped", policy: "scope:excluded" });
+      expect(outcome.outputs ?? []).toEqual([]);
+    }
+
+    for (const path of Object.values(COMPANION_PATHS)) {
+      expect(await Bun.file(join(root, "plugins/demo", path)).exists()).toBe(false);
+    }
+  });
+
   it("keeps claude companions when the Agent Plugins baseline is unsupported", async () => {
     const root = await fixture("claude", LONG_PLUGIN_ID);
 
@@ -115,4 +189,20 @@ async function fixture(target: "claude" | "codex" | "cursor", pluginId: string):
   };
   for (const [path, content] of Object.entries(files)) await Bun.write(join(root, path), content);
   return root;
+}
+
+const COMPANION_PATHS = {
+  "plugin-readme": "README.md",
+  "plugin-assets": "assets/icon.svg",
+  "plugin-scripts": "scripts/setup.sh",
+  "plugin-src": "src/index.js",
+};
+
+function companionCases() {
+  return Object.keys(COMPANION_PATHS).map((featureId) => ({
+    featureId,
+    fixtureRef: "packages/core/src/__tests__/plugin-companions.test.ts",
+    standardProfile: "agent-plugins-1.0" as const,
+    sourceUnit: `plugin.demo.feature:${featureId.slice("plugin-".length)}`,
+  }));
 }

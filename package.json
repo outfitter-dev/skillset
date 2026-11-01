@@ -34,7 +34,7 @@
     "changeset:check": "bun scripts/changeset-guard.ts",
     "changeset:status": "changeset status --verbose",
     "conformance:adapters": "bun run test:sandbox -- bun run conformance:adapters:repo",
-    "conformance:adapters:repo": "bun test packages/core/src/__tests__/adapter-conformance.test.ts packages/core/src/__tests__/adapter-conformance-coverage.test.ts packages/core/src/__tests__/provider-format-conformance.test.ts",
+    "conformance:adapters:repo": "bun test packages/core/src/__tests__/plugin-companions.test.ts packages/core/src/__tests__/adapter-conformance.test.ts packages/core/src/__tests__/adapter-conformance-coverage.test.ts packages/core/src/__tests__/provider-format-conformance.test.ts",
     "conformance:determinism": "bun run test:sandbox -- bun run conformance:determinism:repo",
     "conformance:determinism:repo": "bun test packages/core/src/__tests__/deterministic-projection.test.ts",
     "conformance:external": "bun run test:sandbox -- bun run conformance:external:repo",

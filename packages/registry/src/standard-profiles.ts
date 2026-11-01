@@ -177,16 +177,16 @@ const profiles = [
   makeProfile({
     adoption: {
       profileContentHash:
-        "sha256:d992e4ff4ae49c4fd814c8c0faf05cb8f109a516b471769b63f6a45023f22d52",
+        "sha256:b9a450246a71fa091a46b187e1e070493e13a41b1354f8fb6bd2ea467d80fe86",
       receipt: {
         contentHash:
-          "sha256:f922f9e861b76e9c7eae0c01d89f3f00be8997fae8656044cba6d6ac40ce73e2",
+          "sha256:cef3eb8d1c963fb31d452cdbca33de8fa7aa37ba4a457c98d0875075bd48698e",
         path: "fixtures/standards/evidence/agent-plugins-1.0.json",
         schema: "skillset.standards-conformance-receipt@1",
       },
-      rendererCommit: "0363d83c444c444d359ca5befa154db31c7fa7fc",
+      rendererCommit: "8b4a8951f077fa396576631267587d3a692866af",
       schema: STANDARD_PROFILE_ADOPTION_EVIDENCE_SCHEMA,
-      verifiedAt: "2026-09-21T19:46:37.434Z",
+      verifiedAt: "2026-11-01T02:06:15.591Z",
     },
     envelopes: [
       required(
@@ -198,6 +198,22 @@ const profiles = [
         "The portable package owns immediate-child skills/ entries."
       ),
       required("plugin-mcp", "The portable package may own a root mcp.json."),
+      required(
+        "plugin-readme",
+        "When authored, the compiler preserves README.md as neutral package support data; this does not establish client discovery or execution."
+      ),
+      required(
+        "plugin-assets",
+        "When authored, the compiler preserves assets/ as neutral package support data; this does not establish client discovery or execution."
+      ),
+      required(
+        "plugin-scripts",
+        "When authored, the compiler preserves scripts/ as neutral package support data; this does not establish client discovery or execution."
+      ),
+      required(
+        "plugin-src",
+        "When authored, the compiler preserves src/ as neutral package support data; this does not establish client discovery or execution."
+      ),
     ],
     id: "agent-plugins-1.0",
     lifecycle: "adopted",

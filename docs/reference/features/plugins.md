@@ -29,6 +29,8 @@ Create an empty container with `skillset new plugin <name> --yes`. The command p
 
 When Agent Plugins 1.0 is adopted, its portable manifest, skill tree, and neutral support files form the package baseline. Enabled providers add their manifest and supported components beside that baseline instead of creating provider subpackages.
 
+The profile requires preservation of authored `README.md`, `assets/`, `scripts/`, and `src/` companions as neutral package support data. These paths are optional source content, not required components of every plugin. Adapter conformance checks their rendered bytes and standard-profile attribution; it does not establish client discovery or execution. The pinned adoption receipt separately validates manifests and read-only package listing on its recorded fixture, which does not contain these companions.
+
 Root `plugins.internal_use` selects and reports project-local plugin content,
 defaulting to none. Selected live skills render as separately owned project-use
 copies in enabled provider skill roots; plugin-level components do not
