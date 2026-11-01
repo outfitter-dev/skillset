@@ -307,7 +307,7 @@ describe("@skillset/schema validator parity", () => {
       [{ command: "echo ok", cwd: "../escape" }, ["schema/adaptive-hook/path"]],
     ] as const) {
       for (const fixture of hookRunFixtures([run])) {
-        expect(validateAdaptiveHookUnitSource(fixture).diagnostics.map((item) => item.code)).toEqual(codes);
+        expect(validateAdaptiveHookUnitSource(fixture).diagnostics.map((item) => item.code)).toEqual([...codes]);
       }
     }
   });
