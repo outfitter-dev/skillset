@@ -629,3 +629,11 @@ Static/runtime activation and per-target eval trials now query completed build e
 Four grouped/name-mismatch activation regressions failed before repair; existing flat controls passed. Final focused suites: 38 pass, 185 assertions. Coverage includes standalone/plugin flat/grouped/mismatch, wrong-target shared package, missing/stale old-layout output, resource collision, collision-prefixed project-use, nested standalone fake eval execution, non-emitted target with existing standards output, and existing cancellation/infrastructure classification. Typecheck and fast gate passed. No real provider execution. Exact review and full immutable gate follow.
 
 SET-783 full immutable: 4,623 pass, three deferred native-size failures; SET-786: 4,627 pass, same three failures. No receipts. Drafts #822/#823 and Linear have completed verification results.
+
+## SET-784 resolved source staging — 2026-10-30
+
+Selection now retains actual graph source paths, complete skill subtrees, and grouping ancestors. Narrow plugin selections preserve shared/config while pruning unselected skills and companions; whole-plugin selection remains intact. Canonical subagents and schema-derived provider islands replace retired/incomplete path assumptions. Selection runs after managed-file copying so final staging cannot reintroduce excluded source. The helper is extracted from the already large evaluation module.
+
+Grouped standalone and subagent regressions failed before repair. Nine focused selection tests now pass (52 assertions), with actual emitted skills/subagent, exact resource bytes, whole-plugin/child boundaries, no-selection and all-skills controls. Authored config is unchanged: a configured draft reference to excluded source remains a clear build error rather than inventing dependency selection. Earlier evaluation regression set passed 29 tests/123 assertions; fast gate passed. Exact review/full immutable verification follow. No provider execution.
+
+SET-785 full immutable verification completed: 4,638 pass, three deferred SET-419/SET-420 native-size failures; no receipt. Draft #824 and Linear updated.
