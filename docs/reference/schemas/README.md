@@ -28,6 +28,7 @@ The examples are generated from typed fixtures and checked against the same sche
 
 | Contract | Example | Purpose |
 | --- | --- | --- |
+| `migration-state` | [`migration-state.json`](../examples/migration-state.json) | Workspace migration ledger with inline and sidecar review flags. |
 | `report` | [`report.json`](../examples/report.json) | Immutable Skillset typed operational report receipt. |
 | `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest; defaults.codex.agents configures project-agent rendering, not Agent standards selection. |
 | `plugin-config` | [`plugin-config.yaml`](../examples/plugin-config.yaml) | Maximal plugin manifest for a Skillset plugin. |
