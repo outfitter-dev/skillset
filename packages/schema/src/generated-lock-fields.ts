@@ -1,0 +1,63 @@
+/** Known serialized lock fields across supported lock versions.
+ * Semantic validation and provenance remain owned by the Core lock reader.
+ */
+export const GENERATED_LOCK_TOP_LEVEL_KEYS = [
+  "buildMode",
+  "features",
+  "generatedBy",
+  "headerHash",
+  "items",
+  "marketplaces",
+  "outputRoot",
+  "provenanceHash",
+  "renderResults",
+  "schemaVersion",
+  "selectedStandards",
+  "selectedTargets",
+  "skillsetMetadata",
+  "sourceInventory",
+  "sourceRoot",
+  "standardProfileEvidence",
+  "target",
+] as const;
+
+export const GENERATED_LOCK_FEATURE_KEYS = [
+  "promptArguments",
+] as const;
+
+export const GENERATED_LOCK_ITEM_KEYS = [
+  "consumers",
+  "dependencies",
+  "draftOrigin",
+  "draftPolicy",
+  "effectiveName",
+  "feature",
+  "fileModes",
+  "files",
+  "includedSkills",
+  "kind",
+  "name",
+  "origin",
+  "outputHash",
+  "outputPath",
+  "ownedEntries",
+  "owner",
+  "plugin",
+  "preprocessDependencies",
+  "provenanceHash",
+  "renderInputsHash",
+  "role",
+  "selectionRule",
+  "shippedSibling",
+  "skillReferences",
+  "skippedSkills",
+  "sourceHash",
+  "sourceOrigin",
+  "sourcePath",
+  "sourcePointer",
+  "sourceUnit",
+  "targetState",
+  "transforms",
+  "validation",
+  "version",
+] as const;

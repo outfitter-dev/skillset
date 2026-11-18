@@ -1,3 +1,4 @@
+import { GENERATED_LOCK_TOP_LEVEL_KEYS, GENERATED_LOCK_FEATURE_KEYS, GENERATED_LOCK_ITEM_KEYS } from "@skillset/schema";
 import { assertNativeRootRuleSource, type NativeRootRuleSource } from "./native-root-rules";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -167,54 +168,9 @@ function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): 
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
-const LOCK_TOP_LEVEL_KEYS = new Set([
-  "buildMode",
-  "features",
-  "generatedBy",
-  "headerHash",
-  "items",
-  "marketplaces",
-  "outputRoot",
-  "provenanceHash",
-  "renderResults",
-  "schemaVersion",
-  "standardProfileEvidence",
-  "selectedStandards",
-  "selectedTargets",
-  "skillsetMetadata",
-  "sourceRoot",
-  "target",
-]);
-const LOCK_FEATURE_KEYS = new Set(["promptArguments"]);
-const LOCK_ITEM_KEYS = new Set([
-  "consumers",
-  "dependencies",
-  "feature",
-  "fileModes",
-  "files",
-  "includedSkills",
-  "kind",
-  "name",
-  "origin",
-  "outputHash",
-  "outputPath",
-  "owner",
-  "plugin",
-  "preprocessDependencies",
-  "provenanceHash",
-  "renderInputsHash",
-  "role",
-  "skillReferences",
-  "skippedSkills",
-  "sourceHash",
-  "sourceOrigin",
-  "sourcePath",
-  "sourcePointer",
-  "targetState",
-  "transforms",
-  "validation",
-  "version",
-]);
+const LOCK_TOP_LEVEL_KEYS = new Set<string>(GENERATED_LOCK_TOP_LEVEL_KEYS);
+const LOCK_FEATURE_KEYS = new Set<string>(GENERATED_LOCK_FEATURE_KEYS);
+const LOCK_ITEM_KEYS = new Set<string>(GENERATED_LOCK_ITEM_KEYS);
 
 /**
  * Codex silently truncates AGENTS.md content beyond `project_doc_max_bytes`.
