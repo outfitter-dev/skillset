@@ -46,7 +46,7 @@ A string preserves its group-relative path. An object maps `from` to an explicit
 
 When a marked link names a source already covered by a declared exact file or declared directory, that declaration wins. Its `to:` mapping determines the rendered `@` path and copy destination. Declared and implied resources then form one effective resource set for copying, collision checks, modes, locks, hashes, explain output, drift detection, and deterministic projection.
 
-Ordinary Markdown links such as `[guide](shared:references/common.md)` remain declaration-only. They are rewritten only when an explicit resource covers the source. Otherwise build and lint reject the undeclared link and suggest `@{{shared:references/common.md}}`; keep explicit resources when the source is a directory, unlinked, or remapped.
+Ordinary Markdown links such as `[guide](shared:references/common.md)` remain declaration-only. They are rewritten only when an explicit resource covers the source. Otherwise build and lint reject the undeclared link and suggest `@{{shared:references/common.md}}`; keep explicit resources when the source is a directory, unlinked, or remapped. Link-shaped examples in fenced, inline or indented code, HTML comments, or escaped brackets stay literal and do not create resource or plugin-script dependency diagnostics. A real link may contain inline code in its label; its destination still follows the declared-resource mapping.
 
 ## Provider output
 

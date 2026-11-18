@@ -1,6 +1,6 @@
 import { posix } from "node:path";
 
-import { markdownCodeRanges } from "./preprocess";
+import { markdownCodeLiteralRanges } from "./markdown-link-context";
 
 /**
  * Where an authored rule's relative links are anchored, and where one
@@ -38,7 +38,7 @@ export function rebaseRuleLinks(body: string, base: RuleLinkBase): string {
   const outputDir = normalizeDir(base.outputDir);
   if (scopeDir === outputDir) return body;
 
-  const codeRanges = literalRanges(body);
+  const codeRanges = markdownCodeLiteralRanges(body);
   const inCode = (index: number): boolean =>
     codeRanges.some(([start, end]) => index >= start && index < end);
   const rebase = (target: string): string | undefined =>
@@ -54,7 +54,7 @@ export function rebaseRuleLinks(body: string, base: RuleLinkBase): string {
   );
   // Inline rebasing shifts offsets, so code ranges are recomputed for the
   // reference-definition pass.
-  const definitionRanges = literalRanges(inlineRebased);
+  const definitionRanges = markdownCodeLiteralRanges(inlineRebased);
   return inlineRebased.replaceAll(
     REFERENCE_DEFINITION,
     (match, prefix: string, target: string, offset: number) => {
@@ -63,38 +63,6 @@ export function rebaseRuleLinks(body: string, base: RuleLinkBase): string {
       return rebased === undefined ? match : `${prefix}${rebased}`;
     }
   );
-}
-
-type Range = readonly [start: number, end: number];
-
-/** Fenced blocks and inline spans from the preprocessor, plus indented code blocks. */
-function literalRanges(body: string): readonly Range[] {
-  return [...markdownCodeRanges(body), ...indentedCodeRanges(body)];
-}
-
-const LIST_ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;
-const INDENTED = /^(?: {4}|\t)/;
-
-/**
- * Indented code blocks: lines indented four spaces or a tab that follow a blank
- * line (or another such line) outside a list, where the same indentation is a
- * list item's continuation instead.
- */
-function indentedCodeRanges(body: string): readonly Range[] {
-  const ranges: Range[] = [];
-  let lineStart = 0;
-  let previousBlank = true;
-  let inBlock = false;
-  let inList = false;
-  for (const line of body.split("\n")) {
-    const blank = line.trim().length === 0;
-    if (!blank && !INDENTED.test(line)) inList = LIST_ITEM.test(line) || (inList && !previousBlank);
-    inBlock = !blank && INDENTED.test(line) && !inList && (previousBlank || inBlock);
-    if (inBlock) ranges.push([lineStart, lineStart + line.length]);
-    previousBlank = blank;
-    lineStart += line.length + 1;
-  }
-  return ranges;
 }
 
 function rebaseTarget(target: string, scopeDir: string, outputDir: string): string | undefined {
