@@ -50,7 +50,7 @@ describe("SET-499 frozen package-runner detection", () => {
     const aliases = findRepoInternalScriptAliases(packageJson.scripts, [], "/repo");
     const rules = (command: string, scriptAliases: ReadonlySet<string>) =>
       scanGeneratedPublicContent(
-        "plugins/skillset/skills/use-skillset/SKILL.md",
+        "plugins/skillset/skills/skillset/SKILL.md",
         `\`\`\`sh\n${command}\n\`\`\``,
         [],
         scriptAliases,

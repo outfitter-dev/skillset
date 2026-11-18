@@ -225,12 +225,12 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       claude: {
         skills: {
           enabled: true,
-          include: ["use-skillset"],
+          include: ["skillset"],
         },
       },
       codex: {
         plugins: true,
-        skills: ["use-skillset"],
+        skills: ["skillset"],
       },
       compile: {
         build: "updated",

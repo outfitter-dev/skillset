@@ -5,11 +5,11 @@ claude:
   skills:
     enabled: true
     include:
-      - use-skillset
+      - skillset
 codex:
   plugins: true
   skills:
-    - use-skillset
+    - skillset
 compile:
   build: updated
   features:

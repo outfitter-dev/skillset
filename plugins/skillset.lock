@@ -20,7 +20,7 @@
         "skillset/.claude-plugin/plugin.json"
       ],
       "includedSkills": [
-        "use-skillset@0.1.1"
+        "skillset@0.1.0"
       ],
       "kind": "plugin",
       "name": "skillset",
@@ -29,11 +29,11 @@
       "owner": {
         "target": "claude"
       },
-      "provenanceHash": "sha256:103362b62cd75b90307e67651e8ccda86ae9dadfabd004f4ad5cdfb50d711d05",
+      "provenanceHash": "sha256:5c8ee7b50f2c8e014cf9bc7c27b57497f5ef3b8810254e81ff3567673d1943d4",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
-      "sourceHash": "sha256:3d4bbf437d22aac6803f217dafe35fec07daa29ac7ab037a9d4ed8b55cf7fee0",
+      "sourceHash": "sha256:d302427bb9b2817d8b38ef4c79a18844e01709dffd26f76012da67807e3041c2",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -52,7 +52,7 @@
         "skillset/.cursor-plugin/plugin.json"
       ],
       "includedSkills": [
-        "use-skillset@0.1.1"
+        "skillset@0.1.0"
       ],
       "kind": "plugin",
       "name": "skillset",
@@ -61,11 +61,11 @@
       "owner": {
         "target": "cursor"
       },
-      "provenanceHash": "sha256:fd8caf367fdee3b86c6e2e3b814823685a159eb94069ec7377d74c79b35c7763",
+      "provenanceHash": "sha256:0a47aca20bbc50c5f20c4449288941e2bd90689b61901445b273ec512945149a",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
-      "sourceHash": "sha256:124fd446b6707196c5734e7eceff6c5e4b512709264c17fa17998e616b64a136",
+      "sourceHash": "sha256:fc396e58d350bfd8866ad39c8c9a1ce3ddc89024b2d4de27875b4efd31e48461",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -94,20 +94,20 @@
         "skillset/plugin.json"
       ],
       "includedSkills": [
-        "use-skillset@0.1.1"
+        "skillset@0.1.0"
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:dfaa423f8448499370c13bca43d3a30357db0a585b9f2cf9a614c995da91ea41",
+      "outputHash": "sha256:8afb1b47dd860d962e0731a9ccfb4e2c2289bba6574d165ed03062b7af158314",
       "outputPath": "skillset/plugin.json",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
-      "provenanceHash": "sha256:89e0618b3a7461acae22f59b539612aba6e07b04bfa325690de8895ec8ccb97d",
+      "provenanceHash": "sha256:eb236cb1e7cf125f97a57c87eeb5f23f1c3b47f6336068574df74f03d16b2371",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "standard",
       "skippedSkills": [],
-      "sourceHash": "sha256:249224914d4c82c400438f834ed648beafa6b309f9c8c296d42120159c8f2c65",
+      "sourceHash": "sha256:1a3ae9e5733b33df3474f379bc2f670dab2f09241ba93ffdbb7d3d6446df1740",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -132,28 +132,28 @@
         }
       ],
       "fileModes": {
-        "skillset/skills/use-skillset/LICENSE.txt": "0644",
-        "skillset/skills/use-skillset/SKILL.md": "0644",
-        "skillset/skills/use-skillset/references/root-guidance-adoption.md": "0644"
+        "skillset/skills/skillset/LICENSE.txt": "0644",
+        "skillset/skills/skillset/SKILL.md": "0644",
+        "skillset/skills/skillset/references/root-guidance-adoption.md": "0644"
       },
       "files": [
-        "skillset/skills/use-skillset/LICENSE.txt",
-        "skillset/skills/use-skillset/SKILL.md",
-        "skillset/skills/use-skillset/references/root-guidance-adoption.md"
+        "skillset/skills/skillset/LICENSE.txt",
+        "skillset/skills/skillset/SKILL.md",
+        "skillset/skills/skillset/references/root-guidance-adoption.md"
       ],
       "kind": "plugin-skill",
-      "name": "use-skillset",
-      "outputHash": "sha256:6be3be3db4b3a3a351ac70a928cf37071be785a177bcddb32c2271204fc10ab7",
-      "outputPath": "skillset/skills/use-skillset/SKILL.md",
+      "name": "skillset",
+      "outputHash": "sha256:4cb2b72d497385b132a25d2ce742964e6c5a89626056c8efe18164f69106b0a8",
+      "outputPath": "skillset/skills/skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:a4e55559417998888b9ef2912a96bb4e481d2f56a3a5bec3ad2969ee9cf719a7",
+      "provenanceHash": "sha256:764890679d777a1505600397bd207f20498795c2c984c3c599bf4e54476902c1",
       "role": "standard",
-      "sourceHash": "sha256:eab040f629d1fa275aefbc8a71a68493f905dbd60df8a23878431f7a04885855",
-      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-      "version": "0.1.1"
+      "sourceHash": "sha256:6344cb377cb058bdb349eda0ea19a7851393957f35d35c95af60a2354d326be3",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
+      "version": "0.1.0"
     }
   ],
   "outputRoot": "plugins",
@@ -387,20 +387,20 @@
       "outputs": [
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/LICENSE.txt"
+          "path": "plugins/skillset/skills/skillset/LICENSE.txt"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+          "path": "plugins/skillset/skills/skillset/SKILL.md"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/references/root-guidance-adoption.md"
+          "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         }
       ],
       "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset",
       "standardProfile": "agent-plugins-1.0",
       "status": "rendered"
     },
@@ -427,20 +427,20 @@
       "outputs": [
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/LICENSE.txt"
+          "path": "plugins/skillset/skills/skillset/LICENSE.txt"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+          "path": "plugins/skillset/skills/skillset/SKILL.md"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/references/root-guidance-adoption.md"
+          "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         }
       ],
       "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset",
       "status": "rendered",
       "target": "claude"
     },
@@ -468,20 +468,20 @@
       "outputs": [
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/LICENSE.txt"
+          "path": "plugins/skillset/skills/skillset/LICENSE.txt"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+          "path": "plugins/skillset/skills/skillset/SKILL.md"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/references/root-guidance-adoption.md"
+          "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         }
       ],
       "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset",
       "status": "rendered",
       "target": "codex"
     },
@@ -503,20 +503,20 @@
       "outputs": [
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/LICENSE.txt"
+          "path": "plugins/skillset/skills/skillset/LICENSE.txt"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+          "path": "plugins/skillset/skills/skillset/SKILL.md"
         },
         {
           "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/use-skillset/references/root-guidance-adoption.md"
+          "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         }
       ],
       "schema": "skillset-render-result@2",
-      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
-      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset",
       "status": "rendered",
       "target": "cursor"
     }

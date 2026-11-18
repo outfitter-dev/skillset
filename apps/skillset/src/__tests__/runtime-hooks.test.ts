@@ -26,7 +26,7 @@ import {
 const SESSION_START_GUIDANCE = [
   "Preview: npx skillset build",
   "Write: npx skillset build --yes",
-  "See the use-skillset skill for the build and repair walkthrough.",
+  "See the skillset skill for the build and repair walkthrough.",
 ].join("\n");
 
 test("SET-632: source gate inspects the given root under inherited GIT_DIR", async () => {
@@ -610,7 +610,7 @@ test("session-start emits provider-native stale output for Claude and Codex", as
           "",
           "Preview: npx skillset build",
           "Write: npx skillset build --yes",
-          "See the use-skillset skill for the build and repair walkthrough.",
+          "See the skillset skill for the build and repair walkthrough.",
         ].join("\n"),
         hookEventName: "SessionStart",
       },

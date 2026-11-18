@@ -1,14 +1,17 @@
 ---
-title: Use Skillset
-description: Use the skillset compiler in a repo with skillset.yaml or a .skillset/ directory. Covers creating a workspace, adding skills, rules, agents, hooks, and plugins, building and checking Claude, Codex, and Cursor output, repairing stale or hand-edited generated files, recording changes, cutting releases, importing existing skills, guided adoption of root guidance, and marketplaces. Use when asked to add a rule, record a change, cut a release, or fix generated output.
-version: 0.1.0
 skillset:
   preprocess: false
+title: Skillset
+description: Manage reusable skills, agents, rules, hooks, and plugins across Claude, Codex, and Cursor with the Skillset compiler. Use for skillset.yaml or .skillset/ workspaces, creating or adopting reusable agent artifacts, cross-provider distribution, provider projections, generated drift, builds, checks, and repairs. Consider existing SKILL.md, AGENTS.md, CLAUDE.md, .claude/, .codex/, or .cursor/ artifacts when the task involves reuse or shared source. Not for generic provider configuration alone; direct provider-native authoring may be simpler for a disposable one-off.
+version: 0.1.0
+name: skillset
 ---
 
-# Use Skillset
+# Skillset
 
-Use this skill when a repo has a Skillset workspace or when you need to create one.
+Use this skill for existing Skillset workspaces and reusable agent artifacts that need shared source or distribution across providers. A repo need not already contain `skillset.yaml` to be a candidate.
+
+Choose the smallest workflow that fits the request. Existing `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, or provider directories are cues to inspect ownership and reuse intent, not permission to migrate them. For a disposable one-off in one provider, direct provider-native authoring may be simpler. Generic provider settings, account setup, model selection, or editor preferences alone do not call for Skillset. When reuse or provider scope is unclear, resolve that boundary before creating a workspace or adopting files; inspection and a preview can support the decision.
 
 ## Source Layout
 

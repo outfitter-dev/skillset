@@ -1,0 +1,45 @@
+{
+  "providers": [
+    "claude",
+    "codex",
+    "cursor"
+  ],
+  "cases": [
+    {
+      "id": 1,
+      "kind": "positive",
+      "prompt": "Help me manage my Claude skills across Codex and Cursor too. I want one reusable source instead of copying edits between tools. What should I do first?",
+      "expected": "Select skillset; suggest an inspection or preview and distinguish source compilation from installation."
+    },
+    {
+      "id": 2,
+      "kind": "positive",
+      "prompt": "Our repo has skillset.yaml and .skillset/. Generated Claude and Cursor rules drifted after somebody edited the outputs. How should we repair this?",
+      "expected": "Select skillset; inspect drift and reconcile through source/repair, preserving hand edits until reviewed."
+    },
+    {
+      "id": 3,
+      "kind": "negative",
+      "prompt": "How do I change which model Claude Code uses for this chat?",
+      "expected": "Do not select skillset or suggest creating a workspace for generic provider configuration."
+    },
+    {
+      "id": 4,
+      "kind": "negative",
+      "prompt": "How do I change my Cursor editor color theme?",
+      "expected": "Do not select skillset or suggest creating a workspace for editor preferences."
+    },
+    {
+      "id": 5,
+      "kind": "ambiguous",
+      "prompt": "I need a disposable instruction file for one Claude session. It will never be reused or shared with another tool. What is the simplest approach?",
+      "expected": "Prefer direct provider-native guidance; do not require Skillset adoption. Loading the skill is permitted if the final decision honors the one-off boundary."
+    },
+    {
+      "id": 6,
+      "kind": "ambiguous",
+      "prompt": "I have an AGENTS.md and a .claude directory. Should I move them into a shared source setup?",
+      "expected": "Inspect or ask about reuse and provider scope before recommending migration; filenames alone must not authorize adoption. Skill selection is optional, but the decision boundary must be explicit."
+    }
+  ]
+}
