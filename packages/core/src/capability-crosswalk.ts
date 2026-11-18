@@ -395,5 +395,5 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "docs/reference/features/skills.md", contentHash: "sha256:ca8a77f9780c48bbb0161194c2108ac945c0e040fefe23792dcd9ec5532eee79" },
   { path: "docs/reference/features/agents.md", contentHash: "sha256:e721f30c2fdf7587f0bb7660c6e63b21500453d24b853e6a0fa7ead01d1b14fc" },
   { path: "docs/reference/features/rules.md", contentHash: "sha256:5272d1776cc67e1ad8b974b8ee53126ad588942495e56aeeaec8bd72f7662bad" },
-  { path: "docs/reference/features/hooks.md", contentHash: "sha256:faa4b7233b11dea2ff8343f0cdede8c5a068b512f1c27d5eadaefa8359a37b0c" },
+  { path: "docs/reference/features/hooks.md", contentHash: "sha256:3825a3bc14b20af20d25c16b2c5cd82213786378b3049c826697a2fbabc16732" },
 ] as const;

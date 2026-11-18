@@ -207,6 +207,8 @@ Resolution is nearest-first for named hook references:
 
 Nearest-first resolution only chooses named source definitions. It does not override provider runtime behavior.
 
+Source `move` and `rename` preview compares resolved adaptive hook identities before and after the planned edits. It rejects a change that would make an attachment select a different definition, including shadowing in an untouched skill or draft. Reconcile hook names and scopes explicitly before retrying. A definition rename with its attachment rewrite and a carried skill-local definition preserve identity. Provider filters do not exempt source bindings from this check. An already unresolved draft can remain untouched by an unrelated edit, but moving it fails until its hook reference is resolved.
+
 ### Current Render Support
 
 The implemented render slices support plugin-level command/script hooks, plugin-level `run.env` shell assignments, and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into generated provider plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent.
