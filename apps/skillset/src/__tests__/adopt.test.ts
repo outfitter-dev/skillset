@@ -326,7 +326,7 @@ test("adopt write mode imports everything and builds the mirror", async () => {
   // SET-731: the build owns the catalog now, so its identity is declared and
   // the original joins the cutover list.
   expect(report.cutover).toEqual([".claude-plugin/marketplace.json", "plugins/demo/.claude-plugin/plugin.json", "plugins/demo/skills/demo-skill/SKILL.md"]);
-  expect(report.marketplace).toEqual({
+  expect(report.marketplace).toMatchObject({
     catalog: "demo-marketplace",
     path: ".claude-plugin/marketplace.json",
     skippedPlugins: [],
@@ -1138,7 +1138,7 @@ test("SET-731: adoption keeps an existing marketplace's name, owner and descript
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(true);
-  expect(report.marketplace).toEqual({
+  expect(report.marketplace).toMatchObject({
     catalog: "acme",
     path: ".claude-plugin/marketplace.json",
     skippedPlugins: ["remote"],
@@ -1160,7 +1160,7 @@ test("SET-731: adoption keeps an existing marketplace's name, owner and descript
   expect(rendered).toMatchObject({ description: "Acme tools", name: "acme", owner: { name: "Acme" } });
   const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain(
-    "- declared `.claude-plugin/marketplace.json` as marketplace `acme`, keeping its name, owner and description"
+    "- declared `.claude-plugin/marketplace.json` as marketplace `acme`; field assignments are recorded under Import normalizations"
   );
   expect(markdown).toContain("- warning: marketplace acme entries not imported as Skillset plugins: remote");
 });

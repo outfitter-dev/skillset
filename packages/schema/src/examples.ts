@@ -19,7 +19,7 @@ export interface SkillsetExampleArtifact {
 
 export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
   {
-    description: "Adoption receipt with exact direct Claude manifest metadata round-trip evidence.",
+    description: "Adoption receipt with manifest round-trip proof and marketplace assignment evidence.",
     format: "json", id: "report", path: "report-adoption-manifest-roundtrip.json",
     value: {
       createdAt: "2026-10-30T00:00:00.000Z", id: "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d6",
@@ -41,6 +41,11 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
             evidence: ["docs/adrs/0048-adoption-is-a-reviewable-migration.md", "Selected direct metadata equality in the same successful isolated build."],
           },
           evidence: ["https://code.claude.com/docs/en/plugins/manifest-reference#fields", "Selected direct name assignment."],
+        }, {
+          code: "marketplace.plugin", dialect: "claude", occurrences: 1, fidelity: "unknown",
+          source: { path: ".claude-plugin/marketplace.json", pointer: "/plugins/2/name" },
+          destination: { path: "skillset.yaml", pointer: "/marketplaces/community/plugins/0/plugin" },
+          evidence: ["https://code.claude.com/docs/en/plugins/marketplace-reference", "Observed selected membership assignment; complete curated scope and runtime fidelity are not established."],
         }],
       },
     },

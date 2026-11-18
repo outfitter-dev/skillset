@@ -844,7 +844,7 @@ export function renderAdoptReportMarkdown(
     ""
   );
 
-  lines.push(...renderImportNormalizations(report.imports.flatMap((entry) => entry.normalizations ?? [])));
+  lines.push(...renderImportNormalizations([...report.imports.flatMap((entry) => entry.normalizations ?? []), ...(report.marketplace?.normalizations ?? [])]));
   lines.push(...renderImportCapabilityAssessments(report.imports.flatMap((entry) => entry.capabilityAssessments ?? [])));
   lines.push("## Acquisition", "");
   if (report.acquisition.kind === "git") {
@@ -1026,7 +1026,7 @@ export function renderAdoptReportMarkdown(
     lines.push(
       report.marketplace.catalog === undefined
         ? `- \`${report.marketplace.path}\` was not declared in \`skillset.yaml\``
-        : `- declared \`${report.marketplace.path}\` as marketplace \`${report.marketplace.catalog}\`, keeping its name, owner and description`
+        : `- declared \`${report.marketplace.path}\` as marketplace \`${report.marketplace.catalog}\`; field assignments are recorded under Import normalizations`
     );
     for (const warning of report.marketplace.warnings) lines.push(`- warning: ${warning}`);
     lines.push("");

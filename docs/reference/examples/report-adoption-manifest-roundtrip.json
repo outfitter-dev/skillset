@@ -87,6 +87,24 @@
           "https://code.claude.com/docs/en/plugins/manifest-reference#fields",
           "Selected direct name assignment."
         ]
+      },
+      {
+        "code": "marketplace.plugin",
+        "dialect": "claude",
+        "occurrences": 1,
+        "fidelity": "unknown",
+        "source": {
+          "path": ".claude-plugin/marketplace.json",
+          "pointer": "/plugins/2/name"
+        },
+        "destination": {
+          "path": "skillset.yaml",
+          "pointer": "/marketplaces/community/plugins/0/plugin"
+        },
+        "evidence": [
+          "https://code.claude.com/docs/en/plugins/marketplace-reference",
+          "Observed selected membership assignment; complete curated scope and runtime fidelity are not established."
+        ]
       }
     ]
   }

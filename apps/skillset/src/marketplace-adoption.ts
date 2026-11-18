@@ -1,6 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { getProviderSchemaSnapshot } from "@skillset/registry";
+import { validateImportNormalizations, type ImportNormalization } from "@skillset/schema";
+
 import { updateYamlSourceDocument } from "@skillset/core/internal/source-document";
 import type { JsonRecord } from "@skillset/core/internal/types";
 import { isJsonRecord } from "@skillset/core/internal/yaml";
@@ -23,6 +26,7 @@ export interface AdoptedMarketplace {
   /** Catalog entries adoption could not carry into the declaration. */
   readonly skippedPlugins: readonly string[];
   readonly warnings: readonly string[];
+  readonly normalizations?: readonly ImportNormalization[];
 }
 
 /**
@@ -40,10 +44,10 @@ export async function adoptExistingMarketplace(
     return unadopted([], `${CLAUDE_MARKETPLACE_PATH} is not a JSON object with a name; the next build replaces it with a catalog named after the workspace`);
   }
 
-  const entries = catalogPluginNames(catalog);
+  const entries = catalogPluginEntries(catalog);
   const adopted = new Set(adoptedPlugins);
-  const plugins = entries.filter((name) => adopted.has(name) && PLUGIN_ID.test(name));
-  const skippedPlugins = entries.filter((name) => !plugins.includes(name));
+  const plugins = entries.filter(({ name }) => adopted.has(name) && PLUGIN_ID.test(name));
+  const skippedPlugins = entries.filter((entry) => !plugins.includes(entry)).map((entry) => entry.name);
   const name = typeof catalog.name === "string" ? catalog.name : "";
   if (!CATALOG_NAME.test(name)) {
     return unadopted(skippedPlugins, `${CLAUDE_MARKETPLACE_PATH} name "${name}" is not a valid marketplace id; declare the catalog under marketplaces: by hand before the next build renames it`);
@@ -55,21 +59,32 @@ export async function adoptExistingMarketplace(
   const configPath = join(rootPath, "skillset.yaml");
   const source = await readFile(configPath, "utf8");
   let declared = true;
+  const fields: MarketplaceObservationField[] = [];
   const next = updateYamlSourceDocument(source, configPath, (config) => {
     const marketplaces = isJsonRecord(config.marketplaces) ? config.marketplaces : {};
     if (Object.values(marketplaces).some(targetsClaude)) {
       declared = false;
       return config;
     }
+    const destination = `/marketplaces/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+    const description = descriptionOf(catalog);
+    const owner = withOwner(isJsonRecord(config.skillset) ? config.skillset : {}, catalog.owner);
+    fields.push(
+      { code: "marketplace.name", source: "/name", destination },
+      { code: "marketplace.target", source: "", destination: `${destination}/targets` },
+      ...(description === undefined ? [] : [{ code: "marketplace.description" as const, source: description.pointer, destination: `${destination}/description` }]),
+      ...(owner.destination === undefined ? [] : [{ code: "marketplace.owner" as const, source: "/owner", destination: owner.destination }]),
+      ...plugins.map((entry, index) => ({ code: "marketplace.plugin" as const, source: `/plugins/${entry.index}/name`, destination: `${destination}/plugins/${index}/plugin` })),
+    );
     return {
       ...config,
-      skillset: withOwner(isJsonRecord(config.skillset) ? config.skillset : {}, catalog.owner),
+      skillset: owner.metadata,
       marketplaces: {
         ...marketplaces,
         [name]: {
-          ...descriptionOf(catalog),
+          ...(description === undefined ? {} : { description: description.value }),
           targets: ["claude"],
-          plugins: plugins.map((plugin) => ({ plugin })),
+          plugins: plugins.map(({ name: plugin }) => ({ plugin })),
         },
       },
     };
@@ -77,9 +92,11 @@ export async function adoptExistingMarketplace(
   if (!declared) {
     return unadopted(skippedPlugins, `skillset.yaml already declares a Claude marketplace; ${CLAUDE_MARKETPLACE_PATH} (${name}) was not imported`);
   }
+  const normalizations = marketplaceObservations(fields);
   await writeFile(configPath, next);
   return {
     catalog: name,
+    normalizations,
     path: CLAUDE_MARKETPLACE_PATH,
     skippedPlugins,
     warnings: skippedPlugins.length === 0
@@ -103,19 +120,19 @@ async function readCatalog(path: string): Promise<JsonRecord | "invalid" | undef
   }
 }
 
-function catalogPluginNames(catalog: JsonRecord): readonly string[] {
+function catalogPluginEntries(catalog: JsonRecord): readonly { readonly name: string; readonly index: number }[] {
   const plugins = Array.isArray(catalog.plugins) ? catalog.plugins : [];
-  return plugins.flatMap((entry) =>
-    isJsonRecord(entry) && typeof entry.name === "string" ? [entry.name] : []
+  return plugins.flatMap((entry, index) =>
+    isJsonRecord(entry) && typeof entry.name === "string" ? [{ name: entry.name, index }] : []
   );
 }
 
-function descriptionOf(catalog: JsonRecord): JsonRecord {
+function descriptionOf(catalog: JsonRecord): { readonly value: string; readonly pointer: string } | undefined {
   const metadata = isJsonRecord(catalog.metadata) ? catalog.metadata : {};
   const description = catalog.description ?? metadata.description;
   return typeof description === "string" && description.trim().length > 0
-    ? { description }
-    : {};
+    ? { value: description, pointer: catalog.description == null ? "/metadata/description" : "/description" }
+    : undefined;
 }
 
 /**
@@ -123,12 +140,12 @@ function descriptionOf(catalog: JsonRecord): JsonRecord {
  * `skillset.author`. Ordinary attribution belongs in `author`, so adoption only
  * writes `owner` when the catalog names a publisher distinct from the author.
  */
-function withOwner(metadata: JsonRecord, owner: JsonRecord[string]): JsonRecord {
-  if (!isJsonRecord(owner) || typeof owner.name !== "string") return metadata;
-  if (metadata.owner !== undefined) return metadata;
+function withOwner(metadata: JsonRecord, owner: JsonRecord[string]): { readonly metadata: JsonRecord; readonly destination?: string } {
+  if (!isJsonRecord(owner) || typeof owner.name !== "string") return { metadata };
+  if (metadata.owner !== undefined) return { metadata };
   const author = isJsonRecord(metadata.author) ? metadata.author : undefined;
-  if (author === undefined) return { ...metadata, author: owner };
-  return author.name === owner.name ? metadata : { ...metadata, owner };
+  if (author === undefined) return { metadata: { ...metadata, author: owner }, destination: "/skillset/author" };
+  return author.name === owner.name ? { metadata } : { metadata: { ...metadata, owner }, destination: "/skillset/owner" };
 }
 
 function targetsClaude(catalog: JsonRecord[string]): boolean {
@@ -138,4 +155,35 @@ function targetsClaude(catalog: JsonRecord[string]): boolean {
 
 function unadopted(skippedPlugins: readonly string[], warning: string): AdoptedMarketplace {
   return { path: CLAUDE_MARKETPLACE_PATH, skippedPlugins, warnings: [warning] };
+}
+
+
+interface MarketplaceObservationField {
+  readonly code: ImportNormalization["code"];
+  readonly source: string;
+  readonly destination: string;
+}
+
+/** Evidence of actual assignments; the generated target selector is derived from catalog origin. */
+function marketplaceObservations(fields: readonly MarketplaceObservationField[]): readonly ImportNormalization[] {
+  const snapshot = getProviderSchemaSnapshot("claude-marketplace-schema");
+  const entries: ImportNormalization[] = fields.map((field) => ({
+    code: field.code, dialect: "claude",
+    source: { path: CLAUDE_MARKETPLACE_PATH, pointer: field.source },
+    destination: { path: "skillset.yaml", pointer: field.destination },
+    occurrences: 1, fidelity: "unknown",
+    evidence: [
+      field.code === "marketplace.target"
+        ? "Derived Claude target selection from the Claude marketplace source location; the source root identifies this derivation, not an authored targets field."
+        : "Observed marketplace input assigned to workspace configuration. Runtime equivalence and complete curated scope preservation are not established.",
+      "https://code.claude.com/docs/en/plugins/marketplace-reference",
+      "https://github.com/outfitter-dev/skillset/blob/main/docs/reference/features/marketplaces.md",
+      ...(snapshot === undefined ? [] : [`Structural snapshot ${snapshot.id}: ${snapshot.provenance.contentHash}.`]),
+      ...(snapshot?.provenance.sources.map((entry) => entry.url) ?? []),
+    ],
+    ...(snapshot === undefined ? {} : { observedAt: snapshot.provenance.fetchedAt.slice(0, 10) }),
+  }));
+  const validation = validateImportNormalizations(entries);
+  if (!validation.ok) throw new Error(`skillset: marketplace normalization evidence is not representable: ${validation.diagnostics.map((item) => item.message).join("; ")}`);
+  return entries;
 }
