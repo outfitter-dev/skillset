@@ -81,12 +81,20 @@ export interface ProviderHookConfigEvidence {
   readonly rootFields: readonly string[];
 }
 
+export interface ProviderHookPluginRuntimeEvidence {
+  /** Documented environment names for the installed plugin root, including aliases. */
+  readonly rootEnvironment: readonly [string, ...string[]];
+  readonly source: string;
+  readonly verifiedAt: string;
+}
+
 export interface ProviderHookEvidence {
   readonly config: ProviderHookConfigEvidence;
   readonly events: readonly ProviderHookEventEvidence[];
   readonly evidenceKind: ProviderHookEvidenceKind;
   readonly handlerTypes: readonly ProviderHookHandlerEvidence[];
   readonly outputLimits: readonly ProviderHookOutputLimitEvidence[];
+  readonly pluginRuntime: ProviderHookPluginRuntimeEvidence;
   readonly providerRef: string;
   readonly sources: readonly string[];
   readonly target: ProviderHookEvidenceTarget;
@@ -122,6 +130,11 @@ const CLAUDE_ALL_HANDLER_EVENTS: ReadonlySet<string> = new Set([
 ]);
 
 const claudeHookEvidence = defineProviderHookEvidence({
+  pluginRuntime: {
+    rootEnvironment: ["CLAUDE_PLUGIN_ROOT"],
+    source: "https://code.claude.com/docs/en/plugins-reference#where-each-variable-resolves",
+    verifiedAt: "2026-10-29",
+  },
   config: {
     handlerEnvelope: "grouped",
     groupFields: ["matcher", "hooks", "statusMessage"],
@@ -242,6 +255,11 @@ const CURSOR_HOOK_EVENT_FACTS = [
 ] as const;
 
 const codexHookEvidence = defineProviderHookEvidence({
+  pluginRuntime: {
+    rootEnvironment: ["PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT"],
+    source: "https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks",
+    verifiedAt: "2026-10-29",
+  },
   config: {
     handlerEnvelope: "grouped",
     groupFields: ["matcher", "hooks", "statusMessage"],
@@ -283,6 +301,11 @@ const codexHookEvidence = defineProviderHookEvidence({
 });
 
 const cursorHookEvidence = defineProviderHookEvidence({
+  pluginRuntime: {
+    rootEnvironment: ["CURSOR_PLUGIN_ROOT"],
+    source: "https://cursor.com/docs/hooks#environment-variables",
+    verifiedAt: "2026-10-29",
+  },
   config: {
     handlerEnvelope: "flat",
     groupFields: [],

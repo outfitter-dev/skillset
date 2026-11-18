@@ -366,10 +366,10 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:608f1171d11ce31c910871a2027a2d6909a3a1106e750d5057eea46eebae33c2" },
   { path: "packages/core/src/__tests__/render-standard-instructions.test.ts", contentHash: "sha256:ea2548155b937c075f2d7b5aaf105866ff36a92bee277cba3d812fd94a8297f2" },
   { path: "packages/core/src/hooks.ts", contentHash: "sha256:8659ebcef8468a700f3240075b2f6128fd21cccd2364379734e7057239d75d70" },
-  { path: "packages/core/src/render-hooks.ts", contentHash: "sha256:b5ef546bae66dad2a96fd764f240512169d4ea9e23c9932a486be1958ab973b1" },
+  { path: "packages/core/src/render-hooks.ts", contentHash: "sha256:93d8f313295edd04939190d48497783a06ebec12b2d162255a18dcaec2b4c7a9" },
   { path: "packages/core/src/hook-capabilities.ts", contentHash: "sha256:2f06a181cc347b256d4d4b4a3145a25f37a4d4f6eb1b5b7e448a7ab1af391296" },
   { path: "docs/reference/features/skills.md", contentHash: "sha256:5ac78a6a9907b6528aa04e5450e852791fccd3e201798ffa500e8e7fc3d8bf27" },
   { path: "docs/reference/features/agents.md", contentHash: "sha256:838e466c12e21195998898c009a5297d6d9da4bb98c43f5b4c7ea052cf1d828d" },
   { path: "docs/reference/features/rules.md", contentHash: "sha256:5272d1776cc67e1ad8b974b8ee53126ad588942495e56aeeaec8bd72f7662bad" },
-  { path: "docs/reference/features/hooks.md", contentHash: "sha256:828d3b3b763bcad640e7b66eaa06c26c4125e8bb7cb17ab667809213e552991d" },
+  { path: "docs/reference/features/hooks.md", contentHash: "sha256:faa4b7233b11dea2ff8343f0cdede8c5a068b512f1c27d5eadaefa8359a37b0c" },
 ] as const;

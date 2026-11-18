@@ -80,7 +80,7 @@ Adaptive hook `run.script` references have two source-backed forms:
 
 Flat hook units such as `hooks/<name>.json` cannot use `./...` hook-local scripts because they do not own a private sidecar directory. Use a directory hook unit for colocated sidecars or `{{scripts.dir}}/...` for owner-level shared scripts.
 
-Plugin-level adaptive hook rendering copies referenced scripts into the generated plugin root and rewrites commands to provider runtime roots: `$CLAUDE_PLUGIN_ROOT` for Claude plugin hooks and `$PLUGIN_ROOT` for Codex and Cursor plugin hooks.
+Plugin-level adaptive hook rendering copies referenced scripts into the generated plugin root and quotes their runtime paths. Claude and Codex use `$CLAUDE_PLUGIN_ROOT`, which Codex documents as a compatibility alias for its installed plugin root; this keeps their shared hook file identical. Cursor uses its documented `$CURSOR_PLUGIN_ROOT`. These environment contracts are recorded in the provider hook registry from the [Claude plugin reference](https://code.claude.com/docs/en/plugins-reference#where-each-variable-resolves), [Codex plugin hook documentation](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks), and [Cursor hook environment reference](https://cursor.com/docs/hooks#environment-variables). This adaptation applies to source-backed `run.script`; authored `run.command` strings remain unchanged and require their own runtime review.
 
 ### Runtime Context
 

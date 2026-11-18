@@ -1,3 +1,4 @@
+import { getProviderHookEvidence } from "@skillset/registry";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -188,10 +189,19 @@ function adaptiveHookCommand(
       sourcePath: relative(graph.rootPath, reference.sourcePath),
     });
   }
-  const pluginRoot =
-    target === "claude" ? "$CLAUDE_PLUGIN_ROOT" : "$PLUGIN_ROOT";
+  const rootVariables =
+    getProviderHookEvidence(target).pluginRuntime.rootEnvironment;
+  // Claude and Codex share hooks/hooks.json. Use their documented common alias
+  // so the same script command remains valid for both package consumers.
+  const pluginRoot = rootVariables.includes("CLAUDE_PLUGIN_ROOT")
+    ? "CLAUDE_PLUGIN_ROOT"
+    : rootVariables[0];
   return withAdaptiveHookContextCommand(
-    withAdaptiveHookRunEnv(`${pluginRoot}/${relativeScriptPath}`, item, target),
+    withAdaptiveHookRunEnv(
+      `"$${pluginRoot}"/${shellLiteral(relativeScriptPath)}`,
+      item,
+      target
+    ),
     item,
     target
   );
