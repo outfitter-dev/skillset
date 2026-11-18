@@ -37,7 +37,7 @@ import type {
 } from "./types";
 import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/registry";
 
-const AGENT_SKILLS_OUTPUT_ROOT = ".agents/skills";
+import { AGENT_SKILLS_OUTPUT_ROOT } from "./standard-projections";
 
 type SkillStandardProfile = Extract<
   StandardProfileId,

@@ -9,6 +9,7 @@ import {
   AGENT_PLUGIN_MANIFEST_SCHEMA,
   renderAgentPluginManifest,
 } from "./agent-plugin-manifest";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
 import { pluginDependencySummaries } from "./dependencies";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings, isPathInside } from "./path";
@@ -38,7 +39,6 @@ import { isJsonRecord } from "./yaml";
 export { AGENT_PLUGIN_MANIFEST_SCHEMA } from "./agent-plugin-manifest";
 
 const AGENT_PLUGIN_PROFILE = "agent-plugins-1.0" as const;
-const AGENT_PLUGIN_OUTPUT_ROOT = "plugins";
 // `bin/` is deliberately absent: the Agent Plugins package may include only
 // executables referenced by a standard component. SET-404 owns that typed MCP
 // normalization; copying the directory here would leak unreferenced binaries.
@@ -100,7 +100,7 @@ export async function renderAgentPluginStandardPackages(
   const rendered: RenderedFile[] = [];
   const lockRoot = lockRootsFor(
     lockRoots,
-    AGENT_PLUGIN_OUTPUT_ROOT,
+    DEFAULT_PLUGIN_OUTPUT_ROOT,
     "workspace"
   );
   const rootLicense = await resolveRootLicense(graph);
@@ -122,7 +122,7 @@ export async function renderAgentPluginStandardPackages(
       rootLicense
     );
     const packageRoot = path.posix.join(
-      AGENT_PLUGIN_OUTPUT_ROOT,
+      DEFAULT_PLUGIN_OUTPUT_ROOT,
       plugin.id
     );
     const manifest = renderAgentPluginManifest(graph, plugin, pluginLicense);
@@ -404,18 +404,18 @@ function agentPluginLockItem(
 ): LockItem {
   const relativeFiles = files
     .map((file) =>
-      normalizePath(path.relative(AGENT_PLUGIN_OUTPUT_ROOT, file.path))
+      normalizePath(path.relative(DEFAULT_PLUGIN_OUTPUT_ROOT, file.path))
     )
     .toSorted(compareStrings);
   const dependencies = pluginDependencySummaries(graph, plugin);
   return {
     consumers: [{ phase: "baseline", standardProfile: AGENT_PLUGIN_PROFILE }],
     ...(dependencies.length === 0 ? {} : { dependencies }),
-    fileModes: renderedFileModes(AGENT_PLUGIN_OUTPUT_ROOT, files),
+    fileModes: renderedFileModes(DEFAULT_PLUGIN_OUTPUT_ROOT, files),
     files: relativeFiles,
     kind: "plugin",
     name: plugin.id,
-    outputHash: hashGeneratedOutputFiles(AGENT_PLUGIN_OUTPUT_ROOT, files),
+    outputHash: hashGeneratedOutputFiles(DEFAULT_PLUGIN_OUTPUT_ROOT, files),
     outputPath: `${plugin.id}/plugin.json`,
     owner: { standardProfile: AGENT_PLUGIN_PROFILE },
     role: "standard",

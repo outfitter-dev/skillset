@@ -4,6 +4,8 @@ import {
   type StandardProfileId,
 } from '@skillset/registry'
 
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from './plugin-output'
+
 import type {
   StandardProjectionPlan,
   SourcePlugin,
@@ -103,16 +105,18 @@ function requestedIds(ids: readonly StandardProfileId[]): readonly StandardProfi
   return [...ids].sort()
 }
 
+export const AGENT_SKILLS_OUTPUT_ROOT = '.agents/skills'
+
 export interface StandardProjectionOutputTopology {
-  readonly lockRoot: '.' | '.agents/skills' | 'plugins'
+  readonly lockRoot: '.' | typeof AGENT_SKILLS_OUTPUT_ROOT | typeof DEFAULT_PLUGIN_OUTPUT_ROOT
   readonly path: string
   readonly scope: 'plugins' | 'project' | 'repo'
   readonly standardProfile: StandardProfileId
 }
 
 export const STANDARD_PROJECTION_MANAGED_ROOTS = [
-  { path: '.agents/skills', scope: 'repo' },
-  { path: 'plugins', scope: 'plugins' },
+  { path: AGENT_SKILLS_OUTPUT_ROOT, scope: 'repo' },
+  { path: DEFAULT_PLUGIN_OUTPUT_ROOT, scope: 'plugins' },
 ] as const
 
 /**
@@ -134,8 +138,8 @@ export function standardProjectionTopology(
   }
   if (plan.adopted.includes('agent-skills')) {
     topology.push({
-      lockRoot: '.agents/skills',
-      path: '.agents/skills',
+      lockRoot: AGENT_SKILLS_OUTPUT_ROOT,
+      path: AGENT_SKILLS_OUTPUT_ROOT,
       scope: 'repo',
       standardProfile: 'agent-skills',
     })
@@ -143,8 +147,8 @@ export function standardProjectionTopology(
   if (plan.adopted.includes('agent-plugins-1.0')) {
     for (const pluginId of [...pluginIds].sort()) {
       topology.push({
-        lockRoot: 'plugins',
-        path: 'plugins/' + pluginId,
+        lockRoot: DEFAULT_PLUGIN_OUTPUT_ROOT,
+        path: `${DEFAULT_PLUGIN_OUTPUT_ROOT}/${pluginId}`,
         scope: 'plugins',
         standardProfile: 'agent-plugins-1.0',
       })
@@ -158,8 +162,8 @@ export function standardProjectionManagedOutputRoots(
   plan: StandardProjectionPlan
 ): readonly string[] {
   const roots: string[] = []
-  if (plan.adopted.includes('agent-skills')) roots.push('.agents/skills')
-  if (plan.adopted.includes('agent-plugins-1.0')) roots.push('plugins')
+  if (plan.adopted.includes('agent-skills')) roots.push(AGENT_SKILLS_OUTPUT_ROOT)
+  if (plan.adopted.includes('agent-plugins-1.0')) roots.push(DEFAULT_PLUGIN_OUTPUT_ROOT)
   return roots
 }
 /**
@@ -172,7 +176,7 @@ export function standardProjectionKnownManagedOutputRoots(): readonly {
   readonly path: string
 }[] {
   return STANDARD_PROJECTION_MANAGED_ROOTS.map(root => ({
-    label: root.path === '.agents/skills'
+    label: root.path === AGENT_SKILLS_OUTPUT_ROOT
       ? 'standards.agent-skills'
       : 'standards.agent-plugins-1.0',
     path: root.path,
