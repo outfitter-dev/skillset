@@ -18,6 +18,14 @@ name: skillset-dev-compiler
 
 Read [references/package-map.md](references/package-map.md) when choosing an owner, changing a large implementation anchor, or deciding whether an internal should become a package-root export.
 
+## Review Transform Meaning
+
+Apply the transform review contract in `CONTRIBUTING.md` and the meaning-before-syntax tenet. Require current primary evidence for the source construct and each target representation at the exact recognizer breadth, including regex captures and context assumptions. Do not infer intent from provider prefixes, filenames or ambiguous `@...` syntax; preserve unknown meaning or leave it provider-native.
+
+Review recognition, transformation, automatic dialect declaration and exception validators together. Pair a supported semantic case with nearby negative cases and assert output bytes; one recognized span cannot opt unrelated document text into translation. A reversible `.claude/` prefix replacement can still invent an unsupported destination. Synthetic intent fixtures prove dispatch, not real provider support.
+
+Use existing loss/unsupported result contracts. Exceptions need an owner, rationale, exact target scope, evidence and regressions. Entry metadata and finite coverage are mechanical checks, not semantic proof; inspect evidence freshness and unsupported contexts explicitly. Follow `fixtures/README.md` for conformance and pinned external comparison evidence.
+
 ## Implement And Verify
 
 - Add focused tests for each behavior change and run them with `bun run test:focused -- <test-files...>`.

@@ -56,6 +56,14 @@ bun run conformance:external              # named slow-lane wrapper for run
 
 Each verb accepts an optional entry name to target one repo. A run fails (non-zero exit) when init, import, lint, or build fails; the round-trip comparison is report-only for now and exists to make fidelity gaps visible, not to gate. Runs are local/manual — they touch the network, so they are not part of `bun run check` or PR CI. `bun run conformance:external -- <name>` is the preferred named slow-lane entrypoint when collecting evidence for one pinned repo. Synced clones carry their own test suites, so repo tests run from tracked test files via `bun run test`; a bare `bun test` would scan the clones too. Gaps surfaced by a run should become ordinary product fixes with inline regression fixtures, not edits to the external repo clones.
 
+## Transform and conformance evidence
+
+Follow the [transform review contract](../CONTRIBUTING.md#review-transform-recognition-and-output-together). A reversible rewrite or a successful build does not prove provider equivalence. Keep a supported semantic example and a nearby negative corpus together: handles, CSS at-rules, decorators, package scopes, fences, inline literals, mixed-provider filenames, cache paths and marketplace paths where relevant. Assert preserved bytes and the absence of unintended dialect declaration or transformation for ambiguous inputs.
+
+Test the public recognition and transformation boundaries, including declared directions and exception validation. A synthetic intent protocol proves engine mechanics only; real mappings also need current source and destination contract evidence at the recognizer's full breadth. A reversible provider-prefix mutation that invents a plausible destination is a useful negative control. Coverage lists must require deliberate cases for new built-ins, but neither a list nor evidence metadata proves semantic correctness.
+
+For external adoption comparisons, pin the original tree, preserve it unchanged, and record the exact source revision, input cohort, emitted bytes, fidelity changes and uninspected surfaces. Classify confirmed defects, intended normalizations and unresolved evidence separately. Convert proven failures to focused regressions; do not weaken the corpus or edit the originals to obtain parity. Deterministic output, provider-contract conformance and runtime effectiveness are separate claims.
+
 ## Layout convention
 
 A checked-in case looks like a realistic content repo:
