@@ -125,7 +125,7 @@ describe("SET-419 native target and artifact contract", () => {
         policy: { minimumAllowanceBytes: 1, percent: 10 },
         schemaVersion: 1,
       });
-    expect(unsupportedBaseline).toThrow(/supported range >=1\.4\.0.*pin 1\.4\.0/);
+    expect(unsupportedBaseline).toThrow(/supported range >=1\.4\.0.*pin 1\.4\.4/);
     expect(unsupportedBaseline).toThrow(`observed ${Bun.version}`);
     expect(() =>
       parseNativeSizeBaseline({
@@ -159,12 +159,12 @@ describe("SET-419 native target and artifact contract", () => {
       assertSupportedBunEvidenceVersion("Native size baseline", "1.4.0", "1.4.2")
     ).not.toThrow();
     expect(() => assertSupportedBunRuntimeVersion("1.3.14")).toThrow(
-      /supported range >=1\.4\.0.*pin 1\.4\.0.*observed 1\.3\.14/
+      /supported range >=1\.4\.0.*pin 1\.4\.4.*observed 1\.3\.14/
     );
     expect(() =>
       assertSupportedBunEvidenceVersion("Native manifest", "1.3.14", "1.4.2")
     ).toThrow(
-      /Native manifest Bun 1\.3\.14.*supported range >=1\.4\.0.*pin 1\.4\.0.*observed 1\.4\.2/
+      /Native manifest Bun 1\.3\.14.*supported range >=1\.4\.0.*pin 1\.4\.4.*observed 1\.4\.2/
     );
   });
 

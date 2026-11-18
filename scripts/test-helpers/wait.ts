@@ -89,7 +89,7 @@ export async function waitForPids(
 export type OwnedProcess = {
   readonly pid: number;
   readonly exitCode: number | null;
-  readonly signalCode: NodeJS.Signals | null;
+  readonly signalCode: Bun.Subprocess["signalCode"];
   readonly exited: Promise<unknown>;
   kill(signal?: NodeJS.Signals | number): void;
 };
