@@ -198,7 +198,12 @@ export function scanContent(file: string, content: string): readonly Terminology
   const violations: TerminologyViolation[] = [];
   const lines = content.split(/\r?\n/u);
   for (const [index, text] of lines.entries()) {
-    const allowed = allowlistedSpans(text);
+    // SET-433: this collision fixture uses the existing TransformEntry API,
+    // whose capability field is deferred separately from compiler terminology.
+    const explicitTransformFixture =
+      file === "apps/skillset/src/__tests__/dialect.test.ts" &&
+      text.trim() === 'lowering: "to-codex",';
+    const allowed = explicitTransformFixture ? [[0, text.length] as const] : allowlistedSpans(text);
     for (const term of FORBIDDEN_TERMS) {
       for (const match of text.matchAll(globalize(term.pattern))) {
         const start = match.index ?? 0;

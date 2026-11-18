@@ -111,7 +111,7 @@ describe("SET-580 Claude project instructions", () => {
     expect(outputs).not.toContain("CLAUDE.md");
   });
 
-  it("keeps Claude dialect verbatim in CLAUDE.md and translates it for AGENTS.md", async () => {
+  it("preserves literal instruction filenames in both provider projections", async () => {
     const root = await authoringFixture({ ".skillset/RULES.md": DIALECT_RULES });
 
     await buildSkillset(root);
@@ -119,8 +119,8 @@ describe("SET-580 Claude project instructions", () => {
     const claude = await readFile(join(root, ".claude/CLAUDE.md"), "utf8");
     const agents = await readFile(join(root, "AGENTS.md"), "utf8");
     expect(claude).toContain("Keep CLAUDE.md current.");
-    expect(agents).toContain("Keep AGENTS.md current.");
-    expect(agents).not.toContain("Keep CLAUDE.md current.");
+    expect(agents).toContain("Keep CLAUDE.md current.");
+    expect(agents).not.toContain("Keep AGENTS.md current.");
   });
 
   it("renders the RULES.md front page first in root AGENTS.md [SET-742]", async () => {

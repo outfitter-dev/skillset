@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { lowerTransform, recognizeTransforms } from "../index";
+import { lowerTransform, recognizeTransforms, registerTransformEntry, transformEntries } from "../index";
 
 test("recognizes claude constructs sorted by index", () => {
   const body = "Read CLAUDE.md, then look in .claude/settings.json and pass $ARGUMENTS.";
@@ -31,7 +31,7 @@ test("~/.claude/ spans prefer the user entry; ~/.claude/skills the skills entry"
   ]);
 });
 
-test("subagent mentions are conservative", () => {
+test("ambiguous subagent-shaped mentions are recognized for reporting", () => {
   const matches = recognizeTransforms("Ask @reviewer to take a pass.", "claude");
   expect(matches.map((match) => [match.intent, match.text])).toEqual([
     ["invoke.subagent", "@reviewer"],
@@ -50,20 +50,26 @@ test("@path mentions classify as file references, beating the agent-mention span
   ]);
 });
 
-test("lowerTransform produces codex forms for transformable matches", () => {
-  const lower = (body: string): ReadonlyArray<string | undefined> =>
-    recognizeTransforms(body, "claude").map((match) => lowerTransform(match, "codex"));
-
-  expect(lower(".claude/commands and ~/.claude/agents")).toEqual([".codex/", "~/.codex/"]);
-  expect(lower(".claude/skills/x and ~/.claude/skills")).toEqual([
-    ".agents/skills",
-    "~/.agents/skills",
-  ]);
-  expect(lower("see CLAUDE.md")).toEqual(["AGENTS.md"]);
-  expect(lower("Ask @reviewer first.")).toEqual(["the `reviewer` agent"]);
-  expect(lower("Use the Task tool with subagent_type 'code-reviewer' here.")).toEqual([
-    "Spawn the `code-reviewer` agent",
-  ]);
+test("lowerTransform supports explicit registered semantic mappings", () => {
+  const intent = "test.explicit-intent";
+  registerTransformEntry({
+    intent,
+    description: "Synthetic explicit intent for engine contract testing.",
+    evidence: [{ source: "test-only protocol", verified: "2026-10-29" }],
+    lowering: "to-codex",
+    forms: {
+      claude: { pattern: /source-intent:([a-z]+)/gu },
+      codex: { pattern: /target-intent:([a-z]+)/gu, render: (match) => `target-intent:${match[1]}` },
+    },
+  });
+  try {
+    const [match] = recognizeTransforms("source-intent:demo", "claude");
+    if (match === undefined) throw new Error("expected explicit intent");
+    expect(lowerTransform(match, "codex")).toBe("target-intent:demo");
+    expect(lowerTransform(match, "claude")).toBeUndefined();
+  } finally {
+    transformEntries.delete(intent);
+  }
 });
 
 test("lowerTransform refuses no-faithful-lowering matches and wrong directions", () => {
@@ -76,7 +82,7 @@ test("lowerTransform refuses no-faithful-lowering matches and wrong directions",
 
   const [mention] = recognizeTransforms("Ask @reviewer first.", "claude");
   if (mention === undefined) throw new Error("expected a match");
-  expect(mention.lowering).toBe("to-codex");
+  expect(mention.lowering).toBe("none");
   expect(lowerTransform(mention, "claude")).toBeUndefined();
 });
 
@@ -95,7 +101,7 @@ test("no-lowering dynamics are recognized, including inside code fences", () => 
   ]);
 });
 
-test("codex dialect recognition works for the bidirectional entries", () => {
+test("codex dialect references remain recognizable for reporting", () => {
   const matches = recognizeTransforms(
     "AGENTS.md, .codex/config.toml, ~/.codex/, and .agents/skills/x",
     "codex"
