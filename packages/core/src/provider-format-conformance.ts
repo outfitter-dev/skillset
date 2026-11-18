@@ -31,6 +31,7 @@ import {
   parseTomlRecord,
   type ProviderFormatConformanceFile,
   type ProviderFormatConformanceIssue,
+  type ProviderFormatConformanceRole,
 } from "./provider-format-conformance-validation";
 import { compareStrings } from "./path";
 import { pluginComponentPath } from "./plugin-component-paths";
@@ -57,9 +58,18 @@ export interface ProviderFormatConformanceReport {
 export function checkProviderFormatConformance(
   files: readonly ProviderFormatConformanceFile[]
 ): ProviderFormatConformanceReport {
-  const issues = files.flatMap(checkProviderFormatConformanceFile);
+  const issuesByIdentity = new Map<string, ProviderFormatConformanceIssue>();
+  for (const file of files) {
+    for (const role of file.roles?.length ? file.roles : [file]) {
+      const roleFile = { content: file.content, path: file.path, ...role };
+      for (const finding of checkProviderFormatConformanceFile(roleFile)) {
+        issuesByIdentity.set(issueIdentity(finding), finding);
+      }
+    }
+  }
+  const issues = [...issuesByIdentity.values()];
   return {
-    checkedFiles: files.length,
+    checkedFiles: new Set(files.map((file) => file.path)).size,
     issues: issues.sort(compareIssues),
     ok: issues.length === 0,
   };
@@ -92,24 +102,22 @@ export function providerFormatConformanceFiles(
     for (const output of outcome.outputs) {
       const file = renderedByPath.get(output.path);
       if (file === undefined) continue;
-      const existing = selected.get(file.path);
-      if (
-        existing !== undefined &&
-        (existing.standardProfile !== undefined ||
-          outcome.standardProfile === undefined)
-      ) {
-        continue;
-      }
-      selected.set(file.path, {
-        ...file,
+      const sourcePath = outcome.sourcePath ?? file.sourcePath;
+      const role: ProviderFormatConformanceRole = {
         ...(outcome.destination === undefined ? {} : { destination: outcome.destination }),
         featureId: outcome.featureId,
-        ...(outcome.sourcePath === undefined ? {} : { sourcePath: outcome.sourcePath }),
-        ...(outcome.standardProfile === undefined
-          ? {}
-          : { standardProfile: outcome.standardProfile }),
+        ...(sourcePath === undefined ? {} : { sourcePath }),
+        ...(outcome.standardProfile === undefined ? {} : { standardProfile: outcome.standardProfile }),
         ...(outcome.target === undefined ? {} : { target: outcome.target }),
+      };
+      const roles = [...(selected.get(file.path)?.roles ?? [])];
+      if (!roles.some((existing) => roleIdentity(existing) === roleIdentity(role))) roles.push(role);
+      roles.sort((left, right) => {
+        // Retain the historical standard-first summary fields for callers.
+        const standardOrder = Number(right.standardProfile !== undefined) - Number(left.standardProfile !== undefined);
+        return standardOrder || compareStrings(roleIdentity(left), roleIdentity(right));
       });
+      selected.set(file.path, { ...file, ...roles[0], roles });
     }
   }
 
@@ -118,7 +126,11 @@ export function providerFormatConformanceFiles(
     if (isProviderFormatConformanceFile(file)) selected.set(file.path, file);
   }
 
-  return [...selected.values()];
+  return [...selected.values()].sort((left, right) => compareStrings(left.path, right.path));
+}
+
+function roleIdentity(role: ProviderFormatConformanceRole): string {
+  return JSON.stringify([role.standardProfile, role.target, role.featureId, role.destination, role.sourcePath]);
 }
 
 function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): boolean {
@@ -1016,12 +1028,12 @@ function checkSkillMarkdown(
     // Their recognition is unverified; a closed key list here would contradict
     // the compiler's supported package projection. Standalone skills remain strict.
     return [
-      ...checkRequiredFields(file, frontmatter, "codex", issueRef, [
+      ...checkRequiredFields(file, frontmatter, target, issueRef, [
         "name",
         "description",
       ]),
       ...(file.featureId === "plugin-skills" ? [] : checkUnknownFields(
-        file, frontmatter, "codex", issueRef, AGENT_SKILLS_FRONTMATTER_KEYS
+        file, frontmatter, target, issueRef, AGENT_SKILLS_FRONTMATTER_KEYS
       )),
     ];
   }
@@ -1218,7 +1230,9 @@ function isClaudeHookPath(path: string): boolean {
 }
 
 function isClaudeHookFile(file: ProviderFormatConformanceFile): boolean {
-  return (file.target === "claude" && file.destination === "hooks") || isClaudeHookPath(file.path);
+  return file.destination === "hooks" && file.target !== undefined
+    ? file.target === "claude"
+    : isClaudeHookPath(file.path);
 }
 
 function isCodexHookPath(path: string): boolean {
@@ -1242,7 +1256,9 @@ function hasChatGptPluginSegment(path: string): boolean {
 }
 
 function isCodexHookFile(file: ProviderFormatConformanceFile): boolean {
-  return (file.target === "codex" && file.destination === "hooks") || isCodexHookPath(file.path);
+  return file.destination === "hooks" && file.target !== undefined
+    ? file.target === "codex"
+    : isCodexHookPath(file.path);
 }
 
 function isCursorHookPath(path: string): boolean {
@@ -1250,7 +1266,9 @@ function isCursorHookPath(path: string): boolean {
 }
 
 function isCursorHookFile(file: ProviderFormatConformanceFile): boolean {
-  return (file.target === "cursor" && file.destination === "hooks") || isCursorHookPath(file.path);
+  return file.destination === "hooks" && file.target !== undefined
+    ? file.target === "cursor"
+    : isCursorHookPath(file.path);
 }
 
 function isClaudeSubagentPath(path: string): boolean {
@@ -1328,14 +1346,18 @@ function hasSegmentSequence(path: string, ...sequence: readonly string[]): boole
   );
 }
 
+function issueIdentity(finding: ProviderFormatConformanceIssue): string {
+  return JSON.stringify([
+    finding.outputPath, finding.providerRef, finding.code, finding.message,
+    finding.standardProfile, finding.target, finding.sourcePath,
+  ]);
+}
+
 function compareIssues(
   left: ProviderFormatConformanceIssue,
   right: ProviderFormatConformanceIssue
 ): number {
-  return compareStrings(
-    `${left.outputPath}\0${left.providerRef}\0${left.code}\0${left.message}`,
-    `${right.outputPath}\0${right.providerRef}\0${right.code}\0${right.message}`
-  );
+  return compareStrings(issueIdentity(left), issueIdentity(right));
 }
 
 function includesString(values: readonly string[], value: string): boolean {
