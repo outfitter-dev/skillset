@@ -19,6 +19,33 @@ export interface SkillsetExampleArtifact {
 
 export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
   {
+    description: "Adoption receipt with exact direct Claude manifest metadata round-trip evidence.",
+    format: "json", id: "report", path: "report-adoption-manifest-roundtrip.json",
+    value: {
+      createdAt: "2026-10-30T00:00:00.000Z", id: "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d6",
+      kind: "adoption", schemaVersion: "skillset.report@1", skillset: { version: "0.1.1" },
+      workspace: { id: "workspace--local-12abcdef3456" }, result: { command: "init.adopt", exitCode: 0, ok: true },
+      payload: {
+        alreadyAdopted: false, candidateIds: ["plugin:."], destinations: [], diagnosticCodes: [], importedUnitIds: ["plugin:demo"],
+        listCounts: { candidateIds: 1, destinations: 0, importedUnitIds: 1 }, migrationFlagCodes: [],
+        phases: { build: { count: 3, status: "passed" }, import: { count: 1, status: "passed" }, lint: { count: 0, status: "passed" }, setup: { count: 2, status: "passed" } },
+        renderResults: { failed: 0, rendered: 1, skipped: 0, unsupported: 0 },
+        normalizations: [{
+          code: "manifest.name", dialect: "claude", occurrences: 1, fidelity: "unknown",
+          source: { path: ".claude-plugin/plugin.json", pointer: "/name" },
+          destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/name" },
+          roundTrip: {
+            scope: "claude-manifest-identity", target: "claude", fidelity: "exact",
+            output: { path: ".skillset/cache/latest/plugins/demo/.claude-plugin/plugin.json", pointer: "/name" },
+            outputHash: "sha256:" + "a".repeat(64), authorityHash: "sha256:" + "b".repeat(64),
+            evidence: ["docs/adrs/0048-adoption-is-a-reviewable-migration.md", "Selected direct metadata equality in the same successful isolated build."],
+          },
+          evidence: ["https://code.claude.com/docs/en/plugins/manifest-reference#fields", "Selected direct name assignment."],
+        }],
+      },
+    },
+  },
+  {
     description: "Import receipt retaining value-free MCP, manifest and Agent Plugins normalization observations.",
     format: "json", id: "report", path: "report-import-normalizations.json",
     value: {
@@ -52,6 +79,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           source: { path: ".claude-plugin/plugin.json", pointer: "/name" },
           destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/name" },
           occurrences: 1, fidelity: "unknown", observedAt: "2026-09-11",
+
           evidence: ["https://code.claude.com/docs/en/plugins-reference#metadata-fields", "Observed manifest assignment; runtime fidelity is not established."],
         }, {
           code: "manifest.author", dialect: "claude",

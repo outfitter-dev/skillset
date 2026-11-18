@@ -194,6 +194,13 @@ function renderSchemaReadme(): string {
 
 function validateSchemaValue(value: unknown, schema: SchemaJsonRecord, path: string): string[] {
   const diagnostics: string[] = [];
+  for (const constraint of asSchemaArray(schema.allOf)) {
+    diagnostics.push(...validateSchemaValue(value, constraint, path));
+  }
+  if (isRecord(schema.if)) {
+    const branch = validateSchemaValue(value, schema.if, path).length === 0 ? schema.then : schema.else;
+    if (isRecord(branch)) diagnostics.push(...validateSchemaValue(value, branch, path));
+  }
   if (schema.oneOf !== undefined) {
     const oneOf = asSchemaArray(schema.oneOf);
     const matches = oneOf.filter(

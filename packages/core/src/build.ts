@@ -394,8 +394,8 @@ export async function buildSkillsetResult(
 export interface SkillsetBuildAuthorityHooks {
   readonly afterBackupPersistence?: () => Promise<void> | void;
   readonly afterBackupPlanning?: () => Promise<void> | void;
-  /** Deterministic test seam for edits racing partial settings rendering. */
-  readonly afterRender?: () => Promise<void> | void;
+  /** Observe the exact projection graph; also supports deterministic output-race tests. */
+  readonly afterRender?: (graph: BuildGraph) => Promise<void> | void;
   readonly beforeFinalWriteInspection?: () => Promise<void> | void;
 }
 
@@ -434,7 +434,7 @@ interface SkillsetBuildInternalOptions extends SkillsetBuildInspectionOptions {
   readonly afterBackupPersistence?: () => Promise<void> | void;
   /** @internal Deterministic race injection after backup planning. */
   readonly afterBackupPlanning?: () => Promise<void> | void;
-  readonly afterRender?: () => Promise<void> | void;
+  readonly afterRender?: (graph: BuildGraph) => Promise<void> | void;
   /** @internal Deterministic race injection immediately before final inspection. */
   readonly beforeFinalWriteInspection?: () => Promise<void> | void;
   readonly managedLockRepairPaths?: readonly string[];
@@ -468,7 +468,7 @@ async function runBuildProjection(
   const outPath = outPathMapper(options);
   const repair = normalizeRepairOptions(options.repair, outPath);
   const allRendered = await renderBuildGraph(graph, renderDestination(outPath, resolveOutputPath));
-  await inspectionOptions.afterRender?.();
+  await inspectionOptions.afterRender?.(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
   const renderResults = collectRenderResults(graph, allRendered, {
     claudeMarketplacePlugins: await claudeMarketplaceSourcePlugins(graph),
