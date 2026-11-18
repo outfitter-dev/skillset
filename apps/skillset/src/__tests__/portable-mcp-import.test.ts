@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
@@ -18,6 +18,24 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 }
 
 describe("portable MCP import", () => {
+  test.each(["claude", "cursor"] as const)(
+    "%s import refuses ambiguous or unsupported transport without claiming source",
+    async (provider) => {
+      for (const type of [undefined, "streamableHttp", "streamable_http", "http-extra"]) {
+        const { external, root } = await roots();
+        await writeJson(join(external, `.${provider}-plugin/plugin.json`), { name: "demo", description: "Demo" });
+        const sourceName = provider === "claude" ? ".mcp.json" : "mcp.json";
+        await writeJson(join(external, sourceName), {
+          mcpServers: { remote: { ...(type === undefined ? {} : { type }), url: "https://example.invalid/sse" } },
+        });
+        const original = await readFile(join(external, sourceName), "utf8");
+        await expect(importSource({ kind: "plugin", provider, rootPath: root, sourcePath: external })).rejects.toThrow(/declare type|transport/);
+        expect(await readFile(join(external, sourceName), "utf8")).toBe(original);
+        expect(await readdir(join(root, ".skillset/plugins"))).toEqual([]);
+      }
+    }
+  );
+
   test("rewrites Claude placeholders and transport spelling", async () => {
     const { external, root } = await roots();
     await writeJson(join(external, ".claude-plugin/plugin.json"), {
@@ -98,7 +116,7 @@ describe("portable MCP import", () => {
       expected: {
         mcpServers: {
           remote: {
-            type: "streamable-http",
+            type: "sse",
             url: "https://example.com/mcp",
           },
         },
@@ -108,7 +126,7 @@ describe("portable MCP import", () => {
       sourceName: "mcp.json",
       value: {
         mcpServers: {
-          remote: { url: "https://example.com/mcp" },
+          remote: { type: "sse", url: "https://example.com/mcp" },
         },
       },
     },
@@ -149,7 +167,7 @@ describe("portable MCP import", () => {
     });
     await writeJson(join(external, "config/tools.json"), {
       mcpServers: {
-        remote: { url: "https://example.com/mcp" },
+        remote: { type: "streamable-http", url: "https://example.com/mcp" },
       },
     });
 
@@ -186,6 +204,7 @@ describe("portable MCP import", () => {
       mcpServers: {
         authenticated: {
           headers: { Authorization: "Bearer ${API_TOKEN}" },
+          type: "streamable-http",
           url: "https://secure.example.com/mcp",
         },
       },
