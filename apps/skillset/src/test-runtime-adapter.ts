@@ -1,3 +1,4 @@
+import type { RenderedSkillEvidence } from "@skillset/core/internal/rendered-skill-paths";
 import {
   evaluateSkillsetTestRuntime,
   slugifySkillsetTestProbeName,
@@ -70,7 +71,8 @@ export async function runDeclaredRuntimeTests(
   rootPath: string,
   workspacePath: string,
   declaration: SkillsetTestDeclaration,
-  options: SkillsetRuntimeTestAdapterOptions
+  options: SkillsetRuntimeTestAdapterOptions,
+  evidence: RenderedSkillEvidence
 ): Promise<readonly SkillsetRuntimeTestResult[]> {
   const evidenceByProbe = new Map<string, RuntimeTestEvidence>();
   const keyFor = (
@@ -125,7 +127,8 @@ export async function runDeclaredRuntimeTests(
           state: status.state === "passed" ? "passed" : "failed",
         };
       },
-    }
+    },
+    evidence
   );
 
   return runtimeTests.map((result) => {

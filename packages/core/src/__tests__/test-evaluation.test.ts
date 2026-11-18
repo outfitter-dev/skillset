@@ -153,7 +153,8 @@ demo:
             state: "passed",
           };
         },
-      }
+      },
+      evaluation
     );
 
     expect(evaluation.ok).toBe(true);
@@ -239,7 +240,8 @@ missing:
           calls += 1;
           return { command: [], state: "passed" };
         },
-      }
+      },
+      evaluation
     );
 
     expect(evaluation.ok).toBe(true);

@@ -2,12 +2,13 @@ import { appendFile, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-import { buildSkillset, listSkillEvals } from "@skillset/core";
+import { buildSkillsetResult, SkillsetBuildBlockedError, listSkillEvals } from "@skillset/core";
 import {
   MISSING_PATH_ENOENT,
   pathExists as pathExistsOnDisk,
 } from "@skillset/core/internal/fs-existence";
-import { pluginBundleRoot } from "@skillset/core/internal/plugin-output";
+import { renderedSkillPaths, type RenderedSkillEvidence } from "@skillset/core/internal/rendered-skill-paths";
+import { selectorForPluginSkill, selectorForStandaloneSkill } from "@skillset/core/internal/source-unit-selector";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { stageSkillsetSourceWorkspace } from "@skillset/core/internal/test-evaluation";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
@@ -23,7 +24,6 @@ import {
   type AtomicFilePublicationTestHooks,
   type RetainedRunPaths,
 } from "./retained-runs";
-import { SKILL_FILE } from "@skillset/registry";
 
 const EVAL_ROOT = ".skillset/cache/evals";
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -154,21 +154,28 @@ export async function runSkillsetEvals(
     await appendEvalEvent(paths, "status", "staging source into isolated eval workspace");
     await stageSkillsetSourceWorkspace(root, graph, stagingWorkspacePath);
     if (isAborted(options.signal)) throw abortError();
-    const workspaceGraphByTarget = new Map<TargetName, BuildGraph>();
+    const workspaceByTarget = new Map<TargetName, {
+      readonly graph: BuildGraph;
+      readonly evidence: RenderedSkillEvidence;
+    }>();
     for (const target of uniqueTargets(entries.map((entry) => entry.target))) {
       await appendEvalEvent(paths, "status", `building isolated ${target} eval workspace`);
       const targetStagingPath = join(stagingRoot, `workspace-${target}`);
       const targetWorkspacePath = evalTargetWorkspacePath(paths, target);
       await cp(stagingWorkspacePath, targetStagingPath, { recursive: true });
       failurePhase = "render";
-      await buildSkillset(targetStagingPath, {
+      const build = await buildSkillsetResult(targetStagingPath, {
         buildMode: "all",
         sourceDir: graph.sourceDir,
         targetFilter: [target],
       });
+      if (!build.ok) throw new SkillsetBuildBlockedError(build);
       failurePhase = "setup";
       await cp(targetStagingPath, targetWorkspacePath, { recursive: true });
-      workspaceGraphByTarget.set(target, await loadBuildGraph(targetWorkspacePath));
+      workspaceByTarget.set(target, {
+        graph: await loadBuildGraph(targetWorkspacePath, { targetFilter: [target] }),
+        evidence: { rendered: build.data, renderResults: build.renderResults },
+      });
     }
     status = await writeEvalStatusAt(paths, { ...status, state: "running", updatedAt: new Date().toISOString() });
     let cancelled = false;
@@ -177,9 +184,9 @@ export async function runSkillsetEvals(
         cancelled = true;
         break;
       }
-      const workspaceGraph = workspaceGraphByTarget.get(entry.target);
-      if (workspaceGraph === undefined) throw new Error(`skillset: eval target ${entry.target} was not staged`);
-      trials.push(await runEvalTrial(paths, workspaceGraph, evalTargetWorkspacePath(paths, entry.target), entry, options));
+      const workspace = workspaceByTarget.get(entry.target);
+      if (workspace === undefined) throw new Error(`skillset: eval target ${entry.target} was not staged`);
+      trials.push(await runEvalTrial(paths, workspace.graph, workspace.evidence, evalTargetWorkspacePath(paths, entry.target), entry, options));
       if (isAborted(options.signal)) cancelled = true;
       if (cancelled) break;
     }
@@ -246,6 +253,7 @@ export async function tailSkillsetEvalRun(rootPath: string, runId: string | unde
 async function runEvalTrial(
   paths: EvalRunPaths,
   graph: BuildGraph,
+  evidence: RenderedSkillEvidence,
   baseWorkspacePath: string,
   entry: Awaited<ReturnType<typeof listSkillEvals>>[number],
   options: SkillsetEvalRunOptions
@@ -292,7 +300,7 @@ async function runEvalTrial(
       workspacePath: logicalTrialWorkspacePath,
     };
   }
-  if (!await renderedSkillExists(baseWorkspacePath, graph, entry)) {
+  if (!await renderedSkillExists(trialWorkspacePath, evidence, entry)) {
     return {
       classification: "non_lowering",
       command: [],
@@ -382,21 +390,12 @@ async function runEvalTrial(
   }
 }
 
-async function renderedSkillExists(workspacePath: string, graph: BuildGraph, entry: Awaited<ReturnType<typeof listSkillEvals>>[number]): Promise<boolean> {
-  const sourcePath = join(workspacePath, entry.skillPath);
-  if (entry.owner.kind === "standalone") {
-    const skill = graph.standaloneSkills.find((candidate) => candidate.sourcePath === sourcePath);
-    return skill === undefined
-      ? false
-      : pathExists(join(workspacePath, graph.root.outputs.skills[entry.target], dirname(skill.relativePath), SKILL_FILE));
-  }
-  const owner = entry.owner;
-  if (owner.kind !== "plugin") return false;
-  const plugin = graph.plugins.find((candidate) => candidate.id === owner.plugin);
-  const skill = plugin?.skills.find((candidate) => candidate.sourcePath === sourcePath);
-  return plugin === undefined || skill === undefined
-    ? false
-    : pathExists(join(workspacePath, pluginBundleRoot(graph.root.outputs.plugins[entry.target], entry.target, plugin), "skills", skill.id, SKILL_FILE));
+async function renderedSkillExists(workspacePath: string, evidence: RenderedSkillEvidence, entry: Awaited<ReturnType<typeof listSkillEvals>>[number]): Promise<boolean> {
+  const sourceUnit = entry.owner.kind === "standalone"
+    ? selectorForStandaloneSkill(entry.skill)
+    : selectorForPluginSkill(entry.owner.plugin, entry.skill);
+  const paths = renderedSkillPaths(evidence, entry.target, [{ sourceUnit, sourcePath: entry.skillPath }]);
+  return (await Promise.all(paths.map((path) => pathExists(join(workspacePath, path))))).some(Boolean);
 }
 
 function evalRunPaths(rootPath: string, graph: BuildGraph, runId: string, xdg: SkillsetOptions["xdg"] = undefined): EvalRunPaths {
