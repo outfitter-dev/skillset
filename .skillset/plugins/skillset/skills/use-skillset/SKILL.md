@@ -1,6 +1,6 @@
 ---
 title: Use Skillset
-description: Use the skillset compiler in a repo with skillset.yaml or a .skillset/ directory. Covers creating a workspace, adding skills, rules, agents, hooks, and plugins, building and checking Claude, Codex, and Cursor output, repairing stale or hand-edited generated files, recording changes, cutting releases, importing existing skills, and marketplaces. Use when asked to add a rule, record a change, cut a release, or fix generated output.
+description: Use the skillset compiler in a repo with skillset.yaml or a .skillset/ directory. Covers creating a workspace, adding skills, rules, agents, hooks, and plugins, building and checking Claude, Codex, and Cursor output, repairing stale or hand-edited generated files, recording changes, cutting releases, importing existing skills, guided adoption of root guidance, and marketplaces. Use when asked to add a rule, record a change, cut a release, or fix generated output.
 version: 0.1.0
 skillset:
   preprocess: false
@@ -49,6 +49,8 @@ skillset.yaml
   snapshots/     # ignored Git-backed recovery snapshots; .gitignore sentinel tracked
 skillset.lock
 ```
+
+An unmanaged root `AGENTS.md` can instead be authored front-page source. Setup or the first successful live build records `workspace.nativeAgents: true`; Skillset reads that file literally and never writes it. This mode cannot coexist with `.skillset/RULES.md` or unscoped `.skillset/rules/*.md`. Root `CLAUDE.md` and `.claude/CLAUDE.md` are preserved guidance for reviewed adoption, never native sources. Use [guided root adoption](references/root-guidance-adoption.md) when Claude guidance is the stronger starting point or `AGENTS.md` is absent.
 
 Partials live only under `shared/partials/`. A top-level `.skillset/partials/` is the retired layout and blocks the build until you move it.
 
@@ -126,7 +128,7 @@ Skill and rule bodies are preprocessed before target serialization. Use nested `
 
 Use provider blocks such as `claude: false`, `codex: false`, or `cursor: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not supported, and the schema rejects it: Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
 
-Use portable project agents for reusable project-scoped roles. Source lives at `<source-root>/subagents/*.md` with YAML frontmatter plus a Markdown body. `description` and a non-empty body are required; `name` defaults from the filename and resolves the generated filename. Claude emits `.claude/agents/<resolved-name>.md`; Cursor emits `.cursor/agents/<resolved-name>.md`; Codex emits `.codex/agents/<resolved-name>.toml` with `developer_instructions`. Shared `skills` become a Codex instructions preface (customizable with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`), and shared `initialPrompt` is appended in an `<initial_prompt>...</initial_prompt>` block. Keep target-native fields under `claude` and `codex`; top-level `model` warns unless each enabled target has a target-specific model.
+Use portable project agents for reusable project-scoped roles. Source lives at `<source-root>/subagents/*.md` with YAML frontmatter plus a Markdown body. `description` and a non-empty body are required; `name` defaults from the filename and resolves the generated filename. Claude emits `.claude/agents/<resolved-name>.md`; Cursor emits `.cursor/agents/<resolved-name>.md`; Codex emits `.codex/agents/<resolved-name>.toml` with `developer_instructions`. Shared `skills` become a Codex instructions preface (customizable with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`), and shared `initialPrompt` is appended in an `<initial_prompt>...</initial_prompt>` block. Keep target-native fields under `claude`, `codex`, and `cursor`; top-level `model` warns unless each enabled target has a target-specific model.
 
 Use provider source for explicit provider files that are not adaptive: `<source-root>/_claude/**` mirrors to `.claude/**`, `<source-root>/_codex/**` mirrors to `.codex/**`, `<source-root>/_cursor/**` mirrors to `.cursor/**`, and plugin-local provider source under `<source-root>/plugins/<plugin>/_claude/**`, `_codex/**`, or `_cursor/**` mirrors into that generated plugin bundle only. Project provider source and project agents are workspace-managed files in the root `skillset.lock`, not ownership claims on the whole `.claude/`, `.codex/`, or `.cursor/` directory. Codex `.rules` are command execution policy and pass through only from `<source-root>/_codex/rules/**/*.rules`; adaptive rules never render to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including provider source and project agents.
 
@@ -148,7 +150,7 @@ resources:
 
 Plugin companion paths remain target-native inside one package. The root `plugin.json`, `.claude-plugin/plugin.json`, and `.cursor-plugin/plugin.json` sit side by side under `plugins/<plugin>/`; enabled providers share one immediate-child `skills/<effective-name>/SKILL.md` tree. Authored grouping directories do not appear in output. Compatible provider-only frontmatter keys are combined, while conflicting values or body bytes fail before writes. Authored package presentation assets render once under package-root `assets/`; skill-local assets and declared shared resources stay inside their skill. Authored plugin `subagents/` render to the documented `agents/` component for Claude and Cursor. The closed `extensions.com.openai` delta may reference `./.app.json` and `./hooks/hooks.json`; Cursor paths remain limited to pinned provider facts. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to the portable ChatGPT MCP component for the Codex target and to the target-native destination elsewhere, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional MCP files and Claude `bin/` paths. ChatGPT and Cursor plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Authored plugin `subagents/` are not copied into the ChatGPT bundle; a Codex-enabled plugin with `subagents/` fails loudly because Agent Plugins do not document a plugin agent component. Hooks are rendered definitions only and must be JSON objects. The ChatGPT bundle references normalized hooks at `./hooks/hooks.json`; no legacy Codex provider hook translation or overlay is emitted. `skillset` does not install, trust, or enable hooks in user-level config.
 
-Under the default `compile.unsupportedDestination: error`, a plugin component outside the Agent Plugins envelope blocks the build even when only one provider is enabled. Today only skills and MCP build from plain plugin source; commands, hooks, `subagents/`, LSP, monitors, output styles, themes, `bin/`, and Cursor `rules/` report `unsupported`. Put provider-only components in the plugin's `_claude/` (or `_codex/`, `_cursor/`) provider source, or set a non-error policy for a bounded migration. Workspace hooks attached to a workspace skill (`--attach skill:<id>`) build under the default policy.
+Provider-only plugin components outside a destination's supported envelope are reported as uncovered with provenance and do not block otherwise supported output under the default policy. This does not soften invalid provider content, unsupported MCP transports or dependencies, unsafe paths, or unsupported event mappings. Use the build report to distinguish an uncovered component from a failed render; do not switch policy merely to hide a failure. Workspace hooks attached to a workspace skill (`--attach skill:<id>`) build under the default policy.
 
 Skill source can also use normalized policy keys:
 
@@ -269,6 +271,8 @@ Release and change state own generated artifact versions. Existing plugin `skill
 
 ## Import Existing Source
 
+For a whole existing repository, preview `skillset init`, then use `skillset init --adopt all --yes` for selected source import and isolated output review. Inspect the report with `skillset report show <id>`: Build (isolated) counts mirror writes, and Cutover lists live unmanaged collisions. Preserve or relocate those originals only after approving replacements. For root guidance, follow [guided root adoption](references/root-guidance-adoption.md); the compiler never chooses which authored document is stronger.
+
 ```bash
 skillset import /path/to/SKILL.md --root .
 skillset import /path/to/skill-dir --root .
@@ -290,5 +294,5 @@ skillset import agents --root .
 - Use provider-specific model keys such as `claude.model`, `codex.model`, `cursor.model`, or target defaults for model choices; top-level skill `model` warns in v1.
 - Keep `compile.unsupportedDestination` on its fail-loud `error` default unless a bounded migration or provider-drift exception needs `warn`, `skip`, or `force`. Non-error policies must retain warning diagnostics and lock provenance, and failed render results always block.
 - Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.
-- Do not hand-edit generated outputs as source truth.
+- Do not hand-edit generated outputs as source truth. Native root `AGENTS.md` is authored source and is edited directly.
 - Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.
