@@ -34,7 +34,9 @@ Generated files are derived from source. Never hand-edit or hand-merge them; fix
 ## Build And Check
 
 ```bash
-skillset build --root .
+skillset build --root .          # preview
+# After reviewing the plan and confirming write authority:
+skillset build --yes --root .
 skillset check --root .
 skillset check --only outputs --root .
 skillset diff --root .            # pending generated changes, no writes
@@ -53,7 +55,7 @@ skillset hooks run post-tool-use  # advisory runtime guardrail, source-gated
 skillset hooks run stop           # blocking runtime guardrail, source-gated
 ```
 
-`skillset check` is the comprehensive readiness command. Run it before writing generated output when you changed skills, hooks, resources, tool policy, or portability-sensitive content. Use `skillset change check` for focused pending-entry coverage and `skillset status` for a broader human health view.
+`skillset check` is the comprehensive readiness command. Without a baseline it reports that a first build is needed; it never creates one. Review a build preview, apply the authorized build, then check. With an established baseline, use it to inspect changed skills, hooks, resources, tool policy, or portability-sensitive content. Use `skillset change check` for focused pending-entry coverage and `skillset status` for a broader human health view.
 
 When `skillset change check --since <ref>` reports stale or missing evidence, preview `skillset change refresh --since <ref>` with the exact same baseline, then rerun it with `--yes` to append the planned evidence. Reusing the baseline matters for removed scopes and renames; the default release-state or trunk baseline can select a different historical source hash.
 

@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path -LiteralPath $Root -PathType Container)) { throw 'root must be an existing directory' }
 $contract = @{}
-foreach ($line in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'compatibility.env')) {
+foreach ($line in Get-Content -LiteralPath (Join-Path $PSScriptRoot '../assets/compatibility.env')) {
   $parts = $line.Split('=', 2)
   if ($parts.Length -eq 2) { $contract[$parts[0]] = $parts[1] }
 }

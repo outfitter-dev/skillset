@@ -15,7 +15,7 @@ Homebrew, Bun, and per-repository installs are covered in the [installation guid
 
 ## What the skill covers
 
-The `skillset` skill tells the agent how to:
+The `skillset` router selects the workflow. `skillset-init` owns repository setup and adoption/import; `skillset-maintain` owns build/check/drift and recovery. Each bundles its own shared preflight and references. Together they explain how to:
 
 - set up a workspace with `skillset init` and add skills, rules, agents, hooks, and plugins with `skillset new`;
 - preview and write generated output with `skillset build` and `skillset build --yes`, and verify it with `skillset check`;

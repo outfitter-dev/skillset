@@ -20,6 +20,8 @@
         "skillset/.claude-plugin/plugin.json"
       ],
       "includedSkills": [
+        "skillset-init@0.1.1",
+        "skillset-maintain@0.1.1",
         "skillset@0.1.0"
       ],
       "kind": "plugin",
@@ -29,11 +31,11 @@
       "owner": {
         "target": "claude"
       },
-      "provenanceHash": "sha256:5c8ee7b50f2c8e014cf9bc7c27b57497f5ef3b8810254e81ff3567673d1943d4",
+      "provenanceHash": "sha256:b48a7c4f91951216e517216dc2258236d5f5ca86ffca56cdc486a61b0f29b8d4",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
-      "sourceHash": "sha256:d302427bb9b2817d8b38ef4c79a18844e01709dffd26f76012da67807e3041c2",
+      "sourceHash": "sha256:980b59b240b1332bbcb4e3dc2696cfaf1acaddb08410b9b59f3815a3cc83b002",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -52,6 +54,8 @@
         "skillset/.cursor-plugin/plugin.json"
       ],
       "includedSkills": [
+        "skillset-init@0.1.1",
+        "skillset-maintain@0.1.1",
         "skillset@0.1.0"
       ],
       "kind": "plugin",
@@ -61,11 +65,11 @@
       "owner": {
         "target": "cursor"
       },
-      "provenanceHash": "sha256:0a47aca20bbc50c5f20c4449288941e2bd90689b61901445b273ec512945149a",
+      "provenanceHash": "sha256:c2edb2043910c03721f151802fbd9c7dba8273529ee7f3bfa4450af25b6946fc",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
-      "sourceHash": "sha256:fc396e58d350bfd8866ad39c8c9a1ce3ddc89024b2d4de27875b4efd31e48461",
+      "sourceHash": "sha256:b6392d9f9564fd9002da5bc9e5148d6c2181eafa4192ec208221ec892e8f9251",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -94,20 +98,22 @@
         "skillset/plugin.json"
       ],
       "includedSkills": [
+        "skillset-init@0.1.1",
+        "skillset-maintain@0.1.1",
         "skillset@0.1.0"
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:8afb1b47dd860d962e0731a9ccfb4e2c2289bba6574d165ed03062b7af158314",
+      "outputHash": "sha256:6243f7b6cbfedfafc21adeb891aead5b02e5bf7fd752524abf3715b6daff50a1",
       "outputPath": "skillset/plugin.json",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
-      "provenanceHash": "sha256:eb236cb1e7cf125f97a57c87eeb5f23f1c3b47f6336068574df74f03d16b2371",
+      "provenanceHash": "sha256:04fdeb3b5657172603c9cd9f40404333800e50d0c628a60594945b925858ed41",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "standard",
       "skippedSkills": [],
-      "sourceHash": "sha256:1a3ae9e5733b33df3474f379bc2f670dab2f09241ba93ffdbb7d3d6446df1740",
+      "sourceHash": "sha256:d8fc164d08d2b9f77e11ebb53e365d5c353456288c5f312892ab698c30ecc1bd",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -132,42 +138,166 @@
         }
       ],
       "fileModes": {
+        "skillset/skills/skillset-init/LICENSE.txt": "0644",
+        "skillset/skills/skillset-init/SKILL.md": "0644",
+        "skillset/skills/skillset-init/assets/compatibility.env": "0644",
+        "skillset/skills/skillset-init/references/capability-design.md": "0644",
+        "skillset/skills/skillset-init/references/commands-and-checks.md": "0644",
+        "skillset/skills/skillset-init/references/import-and-rules.md": "0644",
+        "skillset/skills/skillset-init/references/preflight-and-recovery.md": "0644",
+        "skillset/skills/skillset-init/references/public-handoffs.md": "0644",
+        "skillset/skills/skillset-init/references/root-guidance-adoption.md": "0644",
+        "skillset/skills/skillset-init/references/source-authoring.md": "0644",
+        "skillset/skills/skillset-init/scripts/preflight.ps1": "0755",
+        "skillset/skills/skillset-init/scripts/preflight.sh": "0755"
+      },
+      "files": [
+        "skillset/skills/skillset-init/LICENSE.txt",
+        "skillset/skills/skillset-init/SKILL.md",
+        "skillset/skills/skillset-init/assets/compatibility.env",
+        "skillset/skills/skillset-init/references/capability-design.md",
+        "skillset/skills/skillset-init/references/commands-and-checks.md",
+        "skillset/skills/skillset-init/references/import-and-rules.md",
+        "skillset/skills/skillset-init/references/preflight-and-recovery.md",
+        "skillset/skills/skillset-init/references/public-handoffs.md",
+        "skillset/skills/skillset-init/references/root-guidance-adoption.md",
+        "skillset/skills/skillset-init/references/source-authoring.md",
+        "skillset/skills/skillset-init/scripts/preflight.ps1",
+        "skillset/skills/skillset-init/scripts/preflight.sh"
+      ],
+      "kind": "plugin-skill",
+      "name": "skillset-init",
+      "outputHash": "sha256:1203feb2d8f2d6a353db3f1b015a3b339913aefc0f0bdb1d09f6f2ed2d5d5295",
+      "outputPath": "skillset/skills/skillset-init/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-plugins-1.0"
+      },
+      "plugin": "skillset",
+      "provenanceHash": "sha256:a0a88b3ac9b3fc46ab23579574cc4798d38a1766b11de7769254c5990f2590ff",
+      "role": "standard",
+      "sourceHash": "sha256:23d2c877768bcce9230e3a3932b2dfe4819e0470cfcfd3b98757c7f60ee07d31",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-init/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-plugins-1.0"
+        },
+        {
+          "phase": "delta",
+          "target": "claude"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        },
+        {
+          "phase": "delta",
+          "target": "cursor"
+        }
+      ],
+      "fileModes": {
+        "skillset/skills/skillset-maintain/LICENSE.txt": "0644",
+        "skillset/skills/skillset-maintain/SKILL.md": "0644",
+        "skillset/skills/skillset-maintain/assets/compatibility.env": "0644",
+        "skillset/skills/skillset-maintain/references/capability-design.md": "0644",
+        "skillset/skills/skillset-maintain/references/commands-and-checks.md": "0644",
+        "skillset/skills/skillset-maintain/references/import-and-rules.md": "0644",
+        "skillset/skills/skillset-maintain/references/preflight-and-recovery.md": "0644",
+        "skillset/skills/skillset-maintain/references/public-handoffs.md": "0644",
+        "skillset/skills/skillset-maintain/references/root-guidance-adoption.md": "0644",
+        "skillset/skills/skillset-maintain/references/source-authoring.md": "0644",
+        "skillset/skills/skillset-maintain/scripts/preflight.ps1": "0755",
+        "skillset/skills/skillset-maintain/scripts/preflight.sh": "0755"
+      },
+      "files": [
+        "skillset/skills/skillset-maintain/LICENSE.txt",
+        "skillset/skills/skillset-maintain/SKILL.md",
+        "skillset/skills/skillset-maintain/assets/compatibility.env",
+        "skillset/skills/skillset-maintain/references/capability-design.md",
+        "skillset/skills/skillset-maintain/references/commands-and-checks.md",
+        "skillset/skills/skillset-maintain/references/import-and-rules.md",
+        "skillset/skills/skillset-maintain/references/preflight-and-recovery.md",
+        "skillset/skills/skillset-maintain/references/public-handoffs.md",
+        "skillset/skills/skillset-maintain/references/root-guidance-adoption.md",
+        "skillset/skills/skillset-maintain/references/source-authoring.md",
+        "skillset/skills/skillset-maintain/scripts/preflight.ps1",
+        "skillset/skills/skillset-maintain/scripts/preflight.sh"
+      ],
+      "kind": "plugin-skill",
+      "name": "skillset-maintain",
+      "outputHash": "sha256:c9e852f05ecf8cdb0951475b358b4a2ca2cb8bb131fcec7817e289b7286ab7df",
+      "outputPath": "skillset/skills/skillset-maintain/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-plugins-1.0"
+      },
+      "plugin": "skillset",
+      "provenanceHash": "sha256:e484b69ba61308eb43bb6c4755e0fd7022e8a049640c61a3ca78121beb83a681",
+      "role": "standard",
+      "sourceHash": "sha256:29c33e6a4d3795b68699678d81b8b2ef4a9b93a93e48a59ff994463195e5b12a",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-maintain/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-plugins-1.0"
+        },
+        {
+          "phase": "delta",
+          "target": "claude"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        },
+        {
+          "phase": "delta",
+          "target": "cursor"
+        }
+      ],
+      "fileModes": {
         "skillset/skills/skillset/LICENSE.txt": "0644",
         "skillset/skills/skillset/SKILL.md": "0644",
+        "skillset/skills/skillset/assets/compatibility.env": "0644",
         "skillset/skills/skillset/references/capability-design.md": "0644",
         "skillset/skills/skillset/references/commands-and-checks.md": "0644",
         "skillset/skills/skillset/references/import-and-rules.md": "0644",
         "skillset/skills/skillset/references/preflight-and-recovery.md": "0644",
+        "skillset/skills/skillset/references/public-handoffs.md": "0644",
         "skillset/skills/skillset/references/root-guidance-adoption.md": "0644",
         "skillset/skills/skillset/references/source-authoring.md": "0644",
-        "skillset/skills/skillset/scripts/compatibility.env": "0644",
-        "skillset/skills/skillset/scripts/preflight.ps1": "0644",
-        "skillset/skills/skillset/scripts/preflight.sh": "0644"
+        "skillset/skills/skillset/scripts/preflight.ps1": "0755",
+        "skillset/skills/skillset/scripts/preflight.sh": "0755"
       },
       "files": [
         "skillset/skills/skillset/LICENSE.txt",
         "skillset/skills/skillset/SKILL.md",
+        "skillset/skills/skillset/assets/compatibility.env",
         "skillset/skills/skillset/references/capability-design.md",
         "skillset/skills/skillset/references/commands-and-checks.md",
         "skillset/skills/skillset/references/import-and-rules.md",
         "skillset/skills/skillset/references/preflight-and-recovery.md",
+        "skillset/skills/skillset/references/public-handoffs.md",
         "skillset/skills/skillset/references/root-guidance-adoption.md",
         "skillset/skills/skillset/references/source-authoring.md",
-        "skillset/skills/skillset/scripts/compatibility.env",
         "skillset/skills/skillset/scripts/preflight.ps1",
         "skillset/skills/skillset/scripts/preflight.sh"
       ],
       "kind": "plugin-skill",
       "name": "skillset",
-      "outputHash": "sha256:b0a5d53793e791fadd9cfe188037190fa7937e7b45b357585a0e75907600b209",
+      "outputHash": "sha256:ae3305fc0260a4dcaf535989a1794d15c34c1af045cd8b0413806194ad8cf518",
       "outputPath": "skillset/skills/skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:9f26601446281ebd6a10e7e2c237d3994d29a72e513732b07f929fba0e2bfc48",
+      "provenanceHash": "sha256:c74032e2e66cf07b262bc6dd0e534acd6f4483a37733e0e39c3720579f0a193a",
       "role": "standard",
-      "sourceHash": "sha256:24cfb4aab77302cb3e0c1a9c29075960c5459b6232de6e21487942b697782ecc",
+      "sourceHash": "sha256:8246e3c35dcf6dd90e21e88033fbdfe8f21738e80ebb8c234e9602533e7643f2",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
       "version": "0.1.0"
     }
@@ -411,6 +541,10 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/capability-design.md"
         },
         {
@@ -427,15 +561,15 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
-        },
-        {
-          "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
         },
         {
           "kind": "plugin-skill",
@@ -483,6 +617,10 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/capability-design.md"
         },
         {
@@ -499,15 +637,15 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
-        },
-        {
-          "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
         },
         {
           "kind": "plugin-skill",
@@ -556,6 +694,10 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/capability-design.md"
         },
         {
@@ -572,15 +714,15 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
-        },
-        {
-          "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
         },
         {
           "kind": "plugin-skill",
@@ -623,6 +765,10 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/capability-design.md"
         },
         {
@@ -639,15 +785,15 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/root-guidance-adoption.md"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/source-authoring.md"
-        },
-        {
-          "kind": "plugin-skill",
-          "path": "plugins/skillset/skills/skillset/scripts/compatibility.env"
         },
         {
           "kind": "plugin-skill",
@@ -661,6 +807,612 @@
       "schema": "skillset-render-result@2",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
       "sourceUnit": "plugin.skillset.skill:skillset",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 specification",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-init/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-init",
+      "standardProfile": "agent-plugins-1.0",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
+          "ref": "claude-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-init/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-init",
+      "status": "rendered",
+      "target": "claude"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-init/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-init",
+      "status": "rendered",
+      "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:fea0d72f95b04458921655dafe7ef438e5a6c5d270ff984817b4fafdac77df03",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-09-16"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-init/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-init/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-init",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 specification",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-maintain/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-maintain",
+      "standardProfile": "agent-plugins-1.0",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
+          "ref": "claude-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-maintain/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-maintain",
+      "status": "rendered",
+      "target": "claude"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-maintain/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-maintain",
+      "status": "rendered",
+      "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:fea0d72f95b04458921655dafe7ef438e5a6c5d270ff984817b4fafdac77df03",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-09-16"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/assets/compatibility.env"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/commands-and-checks.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/import-and-rules.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/preflight-and-recovery.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/public-handoffs.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/root-guidance-adoption.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/references/source-authoring.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.ps1"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-maintain/scripts/preflight.sh"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-maintain/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-maintain",
       "status": "rendered",
       "target": "cursor"
     }
