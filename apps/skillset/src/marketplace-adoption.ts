@@ -58,12 +58,16 @@ export async function adoptExistingMarketplace(
 
   const configPath = join(rootPath, "skillset.yaml");
   const source = await readFile(configPath, "utf8");
-  let declared = true;
+  let undeclaredReason: string | undefined;
   const fields: MarketplaceObservationField[] = [];
   const next = updateYamlSourceDocument(source, configPath, (config) => {
     const marketplaces = isJsonRecord(config.marketplaces) ? config.marketplaces : {};
+    if (Object.hasOwn(marketplaces, name)) {
+      undeclaredReason = `skillset.yaml already declares marketplaces.${name}; ${CLAUDE_MARKETPLACE_PATH} (${name}) was not imported. Reconcile the catalog name and target membership explicitly.`;
+      return config;
+    }
     if (Object.values(marketplaces).some(targetsClaude)) {
-      declared = false;
+      undeclaredReason = `skillset.yaml already declares a Claude marketplace; ${CLAUDE_MARKETPLACE_PATH} (${name}) was not imported`;
       return config;
     }
     const destination = `/marketplaces/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
@@ -89,8 +93,8 @@ export async function adoptExistingMarketplace(
       },
     };
   });
-  if (!declared) {
-    return unadopted(skippedPlugins, `skillset.yaml already declares a Claude marketplace; ${CLAUDE_MARKETPLACE_PATH} (${name}) was not imported`);
+  if (undeclaredReason !== undefined) {
+    return unadopted(skippedPlugins, undeclaredReason);
   }
   const normalizations = marketplaceObservations(fields);
   await writeFile(configPath, next);
