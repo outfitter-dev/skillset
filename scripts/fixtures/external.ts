@@ -351,9 +351,7 @@ export async function runExternalRepo(
         result.units.map((unit) => `${unit.kind}:${unit.name}`)
       )
     ).size,
-    migrationFlags: adopt.transformPreviews.filter(
-      (preview) => preview.dialectDeclared
-    ).length,
+    migrationFlags: adopt.migrationFlags?.length ?? 0,
     renderResults: summarizeRenderResults(adopt.renderResults),
   };
 
@@ -401,21 +399,23 @@ export async function runExternalRepo(
   );
   stages.push({
     detail:
-      lintErrors.length === 0
+      adopt.migrationError !== undefined
+        ? `not run: ${adopt.migrationError}`
+        : lintErrors.length === 0
         ? `${adopt.lintIssues.length} lint issue(s), 0 errors`
         : `${lintErrors.length} lint error(s): ${lintErrors
             .slice(0, 3)
             .map((issue) => `${issue.path}: ${issue.code}`)
             .join("; ")}`,
-    ok: lintErrors.length === 0,
+    ok: adopt.migrationError === undefined && lintErrors.length === 0,
     stage: "lint",
   });
 
   stages.push({
     detail:
-      adopt.buildError ??
+      (adopt.migrationError === undefined ? adopt.buildError : `not run: ${adopt.migrationError}`) ??
       `wrote ${adopt.builtFiles} generated files under ${ISOLATED_OUT_ROOT}/`,
-    ok: adopt.buildError === undefined,
+    ok: adopt.migrationError === undefined && adopt.buildError === undefined,
     stage: "build",
   });
 
@@ -436,7 +436,7 @@ export async function runExternalRepo(
 
   // A failed isolated build already records the graph-load error. Retrying the
   // load here would prevent the harness from returning its failed report.
-  if (adopt.buildError !== undefined) {
+  if (adopt.buildError !== undefined || adopt.migrationError !== undefined) {
     return { name, ok: false, roundTrips, stages, summary, survey };
   }
 

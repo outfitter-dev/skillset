@@ -225,6 +225,26 @@ test("SET-445: adoption writes a receipt while plans and usage failures do not",
   });
 });
 
+test("adoption receipts retain actual migration codes without copying authored prose", async () => {
+  const fixture = await receiptFixture();
+  await writeFiles({
+    [join(fixture.workspace, ".claude/skills/demo/SKILL.md")]:
+      `---\nname: demo\ndescription: Demo.\n---\n\nAsk @alice about ${PRIVATE_SENTINELS.body}.\n`,
+  });
+  const adopted = await runCli(fixture, "init", "--root", fixture.workspace, "--adopt", "all", "--yes", "--json");
+  expect(adopted.exitCode, adopted.stderr).toBe(0);
+  const result = cliResult(adopted.stdout);
+  expect(result.data.writes).toContain(".skillset/adopt/state.json");
+  const receipt = receiptFrom(result);
+  const shown = cliResult((await runCli(fixture, "report", "show", receipt.id, "--json")).stdout);
+  expect(shown.data.report).toMatchObject({
+    kind: "adoption",
+    payload: { migrationFlagCodes: ["adopt.ambiguous-invoke-subagent"] },
+  });
+  expectNoSentinels(shown.data.report);
+  expect(JSON.stringify(shown.data.report)).not.toContain("@alice");
+});
+
 test("SET-445: blocked guided adoption stores one failure receipt", async () => {
   const fixture = await receiptFixture();
   await writeFiles({

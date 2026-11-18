@@ -16,6 +16,12 @@ Visible labels (`todo`, `fix`), severity (`error`, `warning`, `info`), and revie
 
 An accepted or resolved flag requires a reason and timestamp. Open flags have no current resolution. History retains previous decisions in order when future lifecycle operations replace or reopen a decision. The structural validator does not infer whether a claimed resolution is justified; that requires the lifecycle's evidence checks.
 
+## Initial import findings
+
+Repository adoption may add initial body findings for newly imported primary skill sources. This operation does not reconcile a workspace scan: it retains all existing records exactly and refuses to treat a source path already represented in the ledger as a new import. Initial IDs use the same evidence-and-occurrence identity as reconciliation, without inheriting a review decision.
+
+The producer binds every inspected source preimage and the prior ledger bytes. It installs safe locators and ledger entries in one workspace transaction, updates source/locator line positions together, and verifies that removing owned locators reproduces the exact imported bytes. Nested companion files named `SKILL.md` are resources and do not receive adaptive-source locators. Unrecognized content and provider-field/hook classifications remain outside this initial body producer's coverage.
+
 ## Identity and complete rescans
 
 Core's `reconcileMigrationState` accepts a ledger and a complete observation set:
