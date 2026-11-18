@@ -1,5 +1,11 @@
 # Execution ledger
 
+### SET-442 additional hook declaration guard — October 29
+
+- Confirmed native Claude manifest component removal silently discarded custom path, inline and mixed hook declarations, including plugins without a default hook file. Original manifest preservation alone did not preserve generated behavior.
+- Added a bounded rejection at source-config synthesis before destination claim. Existing authored canonical configuration and explicit default hook declarations remain supported. This is a fail-loud boundary, not automatic additional-hook preservation or complete SET-442 acceptance.
+- Six negative regressions failed before repair; focused hook import coverage now passes 23 tests / 95 assertions. Typecheck passes. Independent exact-head review and full verification follow; native trimming remains deferred.
+
 ### SET-442 Claude native hook source boundary — October 29
 
 - Exceptional repair review found a remaining P1: Markdown hook companions were still treated as documents. A shell-read regression reproduced changed frontmatter, line endings and template text. The explicit opt-out now preserves the entire hook runtime directory, including Markdown, while Markdown outside hooks keeps existing document controls. This closes the same byte-preservation contract rather than narrowing eligibility.
