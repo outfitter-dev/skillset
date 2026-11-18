@@ -318,6 +318,11 @@
           "context": "- [ADR-0003: Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md) - governs provider and standard projections that cannot faithfully represent source.",
           "from": "0028",
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
+        },
+        {
+          "context": "- [ADR-0003](../0003-lossy-and-unsupported-output-policy.md) — unchanged unsupported and failed policy behavior.",
+          "from": "0046",
+          "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
       ],
       "number": "0003",
@@ -780,7 +785,7 @@
           "fromPath": "docs/adrs/0038-change-ledger-append-order.md"
         },
         {
-          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](../0014-source-change-release-provenance.md) - locks record output hashes. This ADR changes how those records are hashed, not what they ",
+          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - locks record output hashes. This ADR changes how those records are hashed, not what they rec",
           "from": "0045",
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
@@ -841,7 +846,7 @@
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
         },
         {
-          "context": "This amends [ADR-0038](../0038-change-ledger-append-order.md). File order stays authoritative for the trunk streams, and pending events get a merge-independent order of their own. It also amends [ADR-",
+          "context": "This amends [ADR-0038](0038-change-ledger-append-order.md). File order stays authoritative for the trunk streams, and pending events get a merge-independent order of their own. It also amends [ADR-001",
           "from": "0045",
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
@@ -984,9 +989,14 @@
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
         },
         {
-          "context": "- `renderResults` keep the [ADR-0018](../0018-render-results.md) record shape and stay unhashed. They are informational in the lock: every consumer reads render results from a fresh render, and `check",
+          "context": "- `renderResults` keep the [ADR-0018](0018-render-results.md) record shape and stay unhashed. They are informational in the lock: every consumer reads render results from a fresh render, and `check` c",
           "from": "0045",
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
+        },
+        {
+          "context": "- [ADR-0018](../0018-render-results.md) — existing result vocabulary and provenance.",
+          "from": "0046",
+          "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         },
         {
           "context": "- [Render Results](../../adrs/0018-render-results.md) defines the active outcome model; [ADR 0017](../../adrs/0017-lowering-outcomes-and-loss-ledger.md) is superseded historical context.",
@@ -1353,7 +1363,7 @@
       "updated": "2026-07-24"
     },
     {
-      "amended_by": ["30", "31", "32", "35", "36", "37", "39"],
+      "amended_by": ["30", "31", "32", "35", "36", "37", "39", "46"],
       "amends": ["1", "5", "18"],
       "created": "2026-08-06",
       "depends_on": ["0", "1", "3", "5", "6", "9", "18", "19"],
@@ -1392,6 +1402,11 @@
           "context": "- **Agent Instructions.** The adopted standard profile keeps its name, its `agent-instructions` identity, and its `instructions` projection family ([ADR-0028](0028-open-standards-are-the-portability-f",
           "from": "0039",
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
+        },
+        {
+          "context": "components. ADR-0028's [minimal-package rule](../0028-open-standards-are-the-portability-floor.md#agent-plugins-is-derived-from-existing-plugin-source)",
+          "from": "0046",
+          "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
       ],
       "number": "0028",
@@ -1731,6 +1746,11 @@
           "context": "[ADR-0037](0037-one-shared-plugin-package-per-plugin.md) records one shared",
           "from": "0036",
           "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
+        },
+        {
+          "context": "The [shared package](../0037-one-shared-plugin-package-per-plugin.md#package-shape)",
+          "from": "0046",
+          "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
       ],
       "number": "0037",
@@ -1749,12 +1769,12 @@
       "depends_on": ["0", "14", "15"],
       "inbound": [
         {
-          "context": "The current mitigation does not reach the place the conflicts are seen. `.gitattributes` marks generated output `-merge` and the change streams `merge=union` (SET-601, [ADR-0038](../0038-change-ledger",
+          "context": "The current mitigation does not reach the place the conflicts are seen. `.gitattributes` marks generated output `-merge` and the change streams `merge=union` (SET-601, [ADR-0038](0038-change-ledger-ap",
           "from": "0045",
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
         {
-          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order: d",
+          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order fo",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         }
@@ -1907,7 +1927,28 @@
       "amends": ["15", "38"],
       "created": "2026-10-27",
       "depends_on": ["14", "15", "18", "38"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "Generated output carries no merge attribute ([ADR-0045](../../adrs/0045-generated-state-merges-as-plain-text.md)). Until SET-769 it was marked `-merge`, which made git conflict every generated path wh",
+          "from": "generated-output-merge-safety",
+          "fromPath": "docs/development/features/generated-output-merge-safety.md"
+        },
+        {
+          "context": "Skillset 0.27.0 made every adopted, applicable Agent standard an inherent projection. Skillset 0.28.0 added explicit `standard`/`project-use`/`bundle` projection roles, placed plugin-owned skills only",
+          "from": "generated-state-rebuild",
+          "fromPath": "docs/guides/generated-state-rebuild.md"
+        },
+        {
+          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order fo",
+          "from": "changes",
+          "fromPath": "docs/reference/features/changes.md"
+        },
+        {
+          "context": "Nearby `skillset.lock` files record source paths, destination ownership, projection role, hashes, and render evidence. Current locks distinguish `standard`, `project-use`, and provider `bundle` roles.",
+          "from": "workspace-layout",
+          "fromPath": "docs/reference/source/workspace-layout.md"
+        }
+      ],
       "number": "0045",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0045-generated-state-merges-as-plain-text.md",
@@ -1916,6 +1957,21 @@
       "superseded_by": null,
       "title": "Generated State Merges as Plain Text",
       "updated": "2026-10-27"
+    },
+    {
+      "amended_by": [],
+      "amends": ["28"],
+      "created": "2026-10-29",
+      "depends_on": ["3", "18", "19", "28", "37"],
+      "inbound": [],
+      "number": "0046",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md",
+      "slug": "provider-only-plugin-components-remain-uncovered",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Provider-only Plugin Components Remain Uncovered Without Blocking",
+      "updated": "2026-10-29"
     }
   ],
   "version": 1

@@ -912,13 +912,11 @@ ${expression}
     await expect(buildSkillset(root)).rejects.toThrow(message);
   });
 
-  it("records authored plugin subagents as unsupported for Codex", async () => {
+  it("records authored plugin subagents as uncovered for Codex", async () => {
     const root = await fixture({
       "skillset.yaml": `
 skillset:
   name: codex-subagents
-compile:
-  unsupportedDestination: warn
 claude: false
 codex:
   plugins: true
@@ -940,7 +938,7 @@ skillset:
         featureId: "plugin-agents",
         sourcePath: ".skillset/plugins/demo/subagents",
         sourceUnit: "plugin.demo.feature:agents",
-        status: "unsupported",
+        status: "intentionally_skipped",
         target: "codex",
       })
     );

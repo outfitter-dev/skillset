@@ -823,7 +823,7 @@ cursor: false
       .filter(
         (result) =>
           result.standardProfile === "agent-plugins-1.0" &&
-          result.status === "unsupported"
+          result.status === "intentionally_skipped"
       )
       .map((result) => result.featureId);
     expect(uncovered).toEqual(
@@ -833,7 +833,6 @@ cursor: false
         "plugin-commands",
         "plugin-themes",
         "future-companion-source-pointers",
-        "dependencies",
       ])
     );
     expect(results).toContainEqual(
@@ -841,7 +840,7 @@ cursor: false
         destination: "settings.json",
         featureId: "future-companion-source-pointers",
         standardProfile: "agent-plugins-1.0",
-        status: "unsupported",
+        status: "intentionally_skipped",
       })
     );
     expect(results).toContainEqual(
@@ -912,7 +911,7 @@ cursor: false
         sourcePath: ".skillset/plugins/demo/skillset.yaml",
         sourceUnit: "plugin.demo.feature:hooks",
         standardProfile: "agent-plugins-1.0",
-        status: "unsupported",
+        status: "intentionally_skipped",
       })
     );
   });
@@ -1085,12 +1084,12 @@ cursor: false
         expect.objectContaining({
           destination: "commands",
           featureId: "plugin-commands",
-          status: "unsupported",
+          status: "intentionally_skipped",
         }),
         expect.objectContaining({
           destination: "rules",
           featureId: "plugin-rules",
-          status: "unsupported",
+          status: "intentionally_skipped",
         }),
       ])
     );

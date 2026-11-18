@@ -104,7 +104,7 @@ from the entry preserves Claude's manifest fallback.
 
 ## Errors and Caveats
 
-Skillset rejects identity conflicts, unsupported config keys, competing field authority, unsafe source pointers, generated-root overlap, divergent features targeting the same path, and unmanaged [destination](../../glossary.md#destination) collisions. It also rejects Codex-enabled plugin agents and Codex plugin `.rules` because neither has a documented Codex plugin surface.
+Skillset rejects identity conflicts, unsupported config keys, competing field authority, unsafe source pointers, generated-root overlap, divergent features targeting the same path, and unmanaged [destination](../../glossary.md#destination) collisions. Provider-only components are recorded as uncovered where a destination has no component contract; they do not block supported provider output. Codex plugin agents are one such omission. Codex plugin `.rules` remains an invalid source path because it has no documented Codex plugin surface.
 
 Import compares native candidates using manifest identity plus deterministic non-manifest evidence. Conflicting portable values or divergent same-identity roots stop adoption instead of choosing a provider arbitrarily. See [importing existing content](../../guides/importing.md) for the workflow.
 
