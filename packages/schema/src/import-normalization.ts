@@ -2,6 +2,7 @@ import { MIGRATION_LOCATION_PATTERN } from "./migration-state-contract";
 import type { SchemaJsonRecord, SkillsetReportTarget } from "./types";
 
 export const IMPORT_NORMALIZATION_CODES = [
+  "native.license-path",
   "agent-plugins.allowed-tools", "agent-plugins.license-metadata", "agent-plugins.license-file", "agent-plugins.license-path", "agent-plugins.manifest-to-source",
   "marketplace.name", "marketplace.target", "marketplace.description", "marketplace.owner", "marketplace.plugin",
   "manifest.name", "manifest.name-remap", "manifest.description", "manifest.author", "manifest.metadata", "manifest.listing",
