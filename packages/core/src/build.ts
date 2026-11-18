@@ -2228,7 +2228,7 @@ async function applyRenderedFileTransaction(
         readOnlyInputs: [
           { path: "AGENTS.md", content: nativeSource.sourceContent },
           { path: ".skillset/RULES.md" },
-          ...(configWrite.length === 0 ? [{ path: nativeSource.configPath, content: nativeSource.configContent }] : []),
+          ...(configWrite.length === 0 ? [{ path: relative(rootPath, nativeSource.configPath), content: nativeSource.configContent }] : []),
           ...(!writes.some((file) => file.path === "skillset.lock")
             ? [{ path: "skillset.lock", ...(nativeSource.lockContent === undefined ? {} : { content: nativeSource.lockContent }) }]
             : []),
