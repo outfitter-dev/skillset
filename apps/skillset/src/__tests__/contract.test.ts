@@ -1560,8 +1560,8 @@ test("SET-10: plugin import reports native hook lift diagnostics without rewriti
   expect(report.renderResults).toContainEqual(expect.objectContaining({
     diagnostics: expect.arrayContaining([
       expect.objectContaining({
-        code: "import-native-hook-lift-candidate",
-        message: expect.stringContaining("provider-scoped-adaptive for claude"),
+        code: "import-native-hook-runtime-unverified",
+        message: expect.stringContaining("supported event/handler structure for claude"),
         path: ".skillset/plugins/native-hooks/hooks/hooks.json#/Notification/0",
       }),
     ]),
@@ -1616,8 +1616,8 @@ test("SET-250: plugin import detects Cursor manifests and native hook lift diagn
   expect(report.renderResults).toContainEqual(expect.objectContaining({
     diagnostics: expect.arrayContaining([
       expect.objectContaining({
-        code: "import-native-hook-lift-candidate",
-        message: expect.stringContaining("provider-scoped-adaptive for cursor"),
+        code: "import-native-hook-runtime-unverified",
+        message: expect.stringContaining("supported event/handler structure for cursor"),
         path: ".skillset/plugins/cursor-hooks/hooks/hooks.json#/sessionStart/0",
       }),
     ]),

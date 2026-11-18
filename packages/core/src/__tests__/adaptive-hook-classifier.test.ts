@@ -230,10 +230,10 @@ describe("adaptive hook intent classifier", () => {
     });
 
     expect(diagnostics).toContainEqual(expect.objectContaining({
-      code: "native-hook-lift-candidate",
+      code: "native-hook-runtime-unverified",
       event: "Notification",
-      message: expect.stringContaining("provider-scoped-adaptive for claude"),
-      status: "provider-scoped-adaptive",
+      message: expect.stringContaining("supported event/handler structure for claude"),
+      status: "unknown",
       target: "claude",
     }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
@@ -244,10 +244,10 @@ describe("adaptive hook intent classifier", () => {
       target: "codex",
     }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
-      code: "native-hook-lift-candidate",
+      code: "native-hook-runtime-unverified",
       event: "PreToolUse",
-      message: expect.stringContaining("lossless-adaptive for codex"),
-      status: "lossless-adaptive",
+      message: expect.stringContaining("supported event/handler structure for codex"),
+      status: "unknown",
       target: "codex",
     }));
     expect(diagnostics).toContainEqual(expect.objectContaining({
