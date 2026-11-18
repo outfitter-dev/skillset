@@ -1,5 +1,12 @@
 # Execution ledger
 
+### SET-442 nested skill and shared invocation boundaries — October 29
+
+- Live audit reproduced nested primary skills bypassing import policy scoping and reporting. Import now uses the compiler's primary-skill discovery, including grouping directories and effective names, while nested companion examples remain resources. Plugin field summaries now include every primary skill, and unknown provider provenance no longer fabricates a Claude-native result.
+- The same audit exposed a shared-output leak: one provider's native invocation restriction was unioned into another provider's absent/default policy. Shared native consumers must now agree on effective invocation policy; explicit false and absence agree, while true conflicts. Current Claude and Cursor docs establish the default; no arbitrary field-name equivalence is inferred.
+- Six regressions failed before repair and now pass. Positive fixture cases that intentionally exercise Cursor-only policy now explicitly disable the other native consumer; dedicated negatives prove incompatible shared cases fail before writes. Import receipts include nested native/unknown field summaries. The initial full run found one further legacy adoption expectation that allowed a Cursor-only flag to alter Claude’s default; it now asserts build rejection with imported source and original files preserved. The other three failures were the deferred native-size tests.
+- Reviewed the capability-pinned renderer diff: canonical invocation inversion, project-agent prefaces and plugin-agent unavailability are unchanged; refreshed only the renderer and adjusted policy-test content hashes. Full verification and independent exact-commit review follow. Remaining frontmatter classification and normalization-evidence scope stays open.
+
 ### SET-442 additional hook declaration preservation — October 29
 
 - Replaced the fail-loud boundary for eligible sole-Claude imports with complete declared-hook inventory: default and additional JSON files retain emitted paths, arrays retain ordering/repeated references, and inline event maps remain in the Claude manifest. Original files remain unchanged. Mixed ownership, path hazards and incompatible authored intent still fail before claim.

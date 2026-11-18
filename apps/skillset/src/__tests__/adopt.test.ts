@@ -481,7 +481,7 @@ test("adoption preserves malformed Claude frontmatter without parsing it as sour
   expect(await exists(join(root, ".skillset/rules/claude.md"))).toBe(false);
 });
 
-test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor", async () => {
+test("SET-522: root Cursor policy cannot change another shared consumer default", async () => {
   const root = await fixture({
     ".cursor-plugin/plugin.json": JSON.stringify({
       description: "Root Cursor plugin.",
@@ -498,7 +498,8 @@ test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor
     write: true,
   });
 
-  expect(report.ok).toBe(true);
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("conflicts at disable-model-invocation");
   expect(report.candidates).toContainEqual({ kind: "plugin", path: "." });
   expect(report.imports.find((result) => result.candidate.kind === "plugin")?.ok).toBe(true);
 
@@ -545,20 +546,10 @@ test("SET-522: root Cursor plugin skill invocation policy stays scoped to Cursor
     },
   });
 
-  await rm(join(root, ".cursor-plugin"), { recursive: true });
-  await rm(join(root, "skills"), { recursive: true });
-  await buildSkillset(root);
-  const outputFrontmatter = async (path: string) =>
-    parseMarkdown(await readFile(path, "utf8"), path).frontmatter;
-  const shared = await outputFrontmatter(
-    join(root, "plugins/cursor-native/skills/helper/SKILL.md")
+  expect(await readFile(join(root, "skills/helper/SKILL.md"), "utf8")).toBe(
+    "---\nname: helper\ndescription: Helper skill.\ndisable-model-invocation: true\n---\n\nBody.\n"
   );
-  expect(shared["disable-model-invocation"]).toBe(true);
-  expect(
-    await Bun.file(
-      join(root, "plugins/cursor-native/skills/helper/agents/openai.yaml")
-    ).exists()
-  ).toBe(false);
+  expect(await Bun.file(join(root, "plugins/cursor-native/skills/helper/SKILL.md")).exists()).toBe(false);
 });
 
 test("SET-522: mixed Claude and Cursor plugin invocation policy does not leak to Codex", async () => {

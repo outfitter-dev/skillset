@@ -32,7 +32,7 @@ import {
   normalizeGeneratedFileMode,
   supportsGeneratedFileModes,
 } from "@skillset/core/internal/generated-file-mode";
-import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
+import { detectWorkspaceSourceDir, findSkillFiles } from "@skillset/core/internal/resolver";
 import {
   selectorForPluginConfig,
   selectorForPluginFeature,
@@ -334,8 +334,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     const scopedPolicyProviders = importedInvocationScopeProviders(providers);
     const pluginSkillFrontmatter = await readImportedPluginSkillFrontmatter(
       stagingPath,
-      options.kind,
-      copiedFiles
+      options.kind
     );
     await scopeImportedSkillPolicyFrontmatter(
       stagingPath,
@@ -399,21 +398,22 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       targetPath,
     });
 
+    const fieldClassifications = [classification, ...pluginSkillFrontmatter.map((skill) => skill.classification)];
     return {
       ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
       baselines: baselineReport.entries,
       copiedFiles,
       files: copiedFiles.length,
-      inferredSourceFields: classification.recognized,
+      inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
       kind: options.kind,
       renderResults,
       ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       name,
       nextChecks: importChecksAtRoot(options.rootPath),
-      preservedTargetNativeFields: classification.targetNative,
+      preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
       sourcePath,
       targetPath,
-      unsupportedFields: classification.unsupported,
+      unsupportedFields: [...new Set(fieldClassifications.flatMap((item) => item.unsupported))].sort(compareStrings),
       warnings: [
         ...importWarnings(classification, scopedPolicyProviders),
         ...pluginSkillFrontmatter.flatMap((skill) =>
@@ -701,7 +701,7 @@ function importFrontmatterProviders(
   provider: ImportProvider | undefined,
   providers: readonly ImportProvider[] | undefined
 ): readonly TargetName[] {
-  const candidates = providers ?? (provider === undefined ? ["claude"] : [provider]);
+  const candidates = providers ?? (provider === undefined ? [] : [provider]);
   return targetNames().filter((target) => candidates.includes(target));
 }
 
@@ -1001,15 +1001,14 @@ function providerSupportsNativeInvocationFrontmatter(provider: TargetName): bool
 
 async function readImportedPluginSkillFrontmatter(
   targetPath: string,
-  kind: SingularImportKind,
-  copiedFiles: readonly string[]
+  kind: SingularImportKind
 ): Promise<readonly ImportedPluginSkillFrontmatter[]> {
-  if (kind !== "plugin") return [];
+  const skillsPath = join(targetPath, "skills");
+  if (kind !== "plugin" || !(await exists(skillsPath))) return [];
   const skills: ImportedPluginSkillFrontmatter[] = [];
-  for (const copiedFile of copiedFiles) {
-    const path = normalizeCopiedImportPath(copiedFile);
-    const match = /^skills\/([^/]+)\/SKILL\.md$/.exec(path);
-    if (match?.[1] === undefined) continue;
+  // Use compiler discovery: nested primaries count, nested companions do not.
+  for (const sourcePath of await findSkillFiles(skillsPath)) {
+    const path = normalizeCopiedImportPath(relative(targetPath, sourcePath));
     const frontmatter = parseMarkdown(
       await readFile(join(targetPath, path), "utf8"),
       join(targetPath, path)
@@ -1017,7 +1016,7 @@ async function readImportedPluginSkillFrontmatter(
     skills.push({
       classification: classifyFrontmatter(frontmatter),
       frontmatter,
-      id: match[1],
+      id: readString(frontmatter, "name") ?? basename(dirname(path)),
       path,
     });
   }

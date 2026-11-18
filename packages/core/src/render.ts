@@ -94,7 +94,7 @@ import type {
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { parseMarkdown, stringifyJson } from "./yaml";
-import { SKILL_FILE } from "@skillset/registry";
+import { listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
 import {
@@ -956,11 +956,23 @@ function mergePluginSkillRenderings(
     ? undefined
     : parseMarkdown(standardRendering.markdown.content, skill.sourcePath).frontmatter;
 
+  let sharedInvocationPolicy: JsonValue | undefined;
   for (const rendering of renderings) {
     const parsed = parseMarkdown(
       rendering.markdown.content,
       `${relative(graph.rootPath, skill.sourcePath)} -> ${rendering.provider}`
     );
+    const provider = targetNames().find((target) => target === rendering.provider);
+    if (provider !== undefined && listProviderSkillFrontmatterFields(provider).includes("disable-model-invocation")) {
+      // Supported consumers default to automatic invocation when this field is
+      // absent. Unioning another consumer's true value would change that policy.
+      const value = parsed.frontmatter["disable-model-invocation"];
+      const effective = value === undefined ? false : value;
+      if (sharedInvocationPolicy !== undefined && !isDeepStrictEqual(sharedInvocationPolicy, effective)) {
+        throwPluginSkillProviderIncompatible(graph, plugin, skill, provider, "disable-model-invocation");
+      }
+      sharedInvocationPolicy = effective;
+    }
     // allowed-tools is a standard policy field, not a provider-only extension.
     // A native delta may not introduce policy absent from the shared baseline.
     // An explicitly authored baseline policy remains owned by that baseline;
