@@ -1,3 +1,4 @@
+import { captureMcpDependencyCandidates, type McpDependencySource } from "@skillset/core/internal/adoption-mcp-dependencies";
 import { normalizeNativePluginLicense } from "./import-native-license";
 import { incompatibleAgentSkillsMetadataKeys } from "@skillset/core/internal/agent-skills-metadata";
 import { captureManifestIdentityCandidates, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
@@ -183,6 +184,7 @@ export interface ImportReport {
   /** Observations from this import; repository adoption persists them in its ledger. */
   readonly frontmatterFindings?: readonly MigrationFlag[];
   readonly frontmatterSources?: readonly FrontmatterFindingSource[];
+  readonly mcpDependencySources?: readonly McpDependencySource[];
   readonly nativeHookSources?: readonly NativeHookFindingSource[];
   readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
@@ -324,9 +326,16 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     });
     const declaredProviders = options.kind === "plugin" ? await declaredNativePluginTargets(stagingPath) : [];
     const providers = importProviders(options) ?? (declaredProviders.length === 0 ? undefined : declaredProviders);
-    const mcpImport = options.kind === "plugin"
+    const mcpImport: Awaited<ReturnType<typeof rewriteImportedPluginMcp>> = options.kind === "plugin"
       ? await rewriteImportedPluginMcp(stagingPath, copied.files, providers, agentPluginImport !== undefined, normalizeCopiedImportPath(relative(options.rootPath, join(targetPath, ".mcp.json"))))
       : { files: copied.files, normalizations: [] };
+    const mcpDependencySources = mcpImport.dependencyCapture === undefined ? [] : [await captureMcpDependencyCandidates(
+      sourcePath, mcpImport.dependencyCapture.parsed, mcpImport.dependencyCapture.content, {
+        path: normalizeCopiedImportPath(relative(options.rootPath, join(targetPath, ".mcp.json"))),
+        configPath: normalizeCopiedImportPath(relative(options.rootPath, join(targetPath, "skillset.yaml"))),
+        ...(options.sourceOrigin === undefined ? {} : { origin: options.sourceOrigin(sourcePath, mcpImport.dependencyCapture.originalPath) }),
+      }
+    )];
     let copiedFiles = mcpImport.files;
     const nativeHookTargets = options.kind === "plugin" ? await importedNativeHookTargets(options, stagingPath) : [];
     const nativeHookBoundary = options.kind === "plugin"
@@ -400,6 +409,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       capabilityAssessments,
       frontmatterSources,
       manifestIdentityCandidates: copied.manifestIdentityCandidates,
+      mcpDependencySources,
       ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
@@ -1250,7 +1260,7 @@ async function rewriteImportedPluginMcp(
   providers: readonly ImportProvider[] | undefined,
   agentPluginImport: boolean,
   destinationPath: string
-): Promise<{ readonly files: readonly string[]; readonly normalizations: readonly ImportNormalization[] }> {
+): Promise<{ readonly files: readonly string[]; readonly normalizations: readonly ImportNormalization[]; readonly dependencyCapture?: { readonly parsed: JsonValue; readonly content: string; readonly originalPath: string } }> {
   const hiddenPath = join(targetPath, ".mcp.json");
   const visiblePath = join(targetPath, "mcp.json");
   const hasHidden = await exists(hiddenPath);
@@ -1314,7 +1324,7 @@ async function rewriteImportedPluginMcp(
     sourcePath: hiddenPath,
   });
 
-  return { normalizations, files: [
+  return { normalizations, ...(dialect === "cursor" ? { dependencyCapture: { parsed, content: serialized, originalPath: normalizeCopiedImportPath(relative(targetPath, sourcePath)) } } : {}), files: [
     ...copiedFiles.filter(
       (file) =>
         normalizeCopiedImportPath(file) !==
