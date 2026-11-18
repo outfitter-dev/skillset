@@ -1,0 +1,32 @@
+import { expect, test } from "bun:test";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { readMigrationState } from "@skillset/core/internal/migration-state";
+import { readReportBundle } from "@skillset/core/internal/report-store";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
+import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
+import { persistAdoptionReceipt } from "../operation-receipt";
+
+test("adoption carries every additional hook source into its report, ledger, and receipt", async () => {
+  const root = await createTestFixtureRoot("skillset-adopt-hook-declarations-");
+  const events = { SessionStart: [{ hooks: [{ type: "command", command: "echo preserved" }] }] };
+  const hooks = ["./config/extra.json", events];
+  const original = JSON.stringify({ name: "native-hooks", hooks });
+  const extra = JSON.stringify({ hooks: events });
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [claude, codex, cursor]\n");
+  await Bun.write(join(root, ".claude-plugin/plugin.json"), original);
+  await Bun.write(join(root, "config/extra.json"), extra);
+  await Bun.write(join(root, "skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\nAsk @alice.\n");
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(true);
+  const flags = (await readMigrationState(root)).state.flags;
+  expect(flags.filter((flag) => flag.code === "adopt.native-hook-runtime-unverified")).toHaveLength(2);
+  expect(flags.some((flag) => flag.origin?.path === ".claude-plugin/plugin.json" && flag.evidence.some((item) => item.summary.includes("#/hooks/1/SessionStart/0")))).toBe(true);
+  expect(flags.some((flag) => flag.origin?.path === "config/extra.json")).toBe(true);
+  expect(report.migrationFlags?.map((flag) => flag.id)).toEqual(flags.map((flag) => flag.id));
+  expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("adopt.native-hook-runtime-unverified");
+  const receipt = await persistAdoptionReceipt(report);
+  expect((await readReportBundle(receipt.id)).report).toMatchObject({ payload: { migrationFlagCodes: expect.arrayContaining(["adopt.native-hook-runtime-unverified"]) } });
+  expect(await readFile(join(root, ".claude-plugin/plugin.json"), "utf8")).toBe(original);
+  expect(await readFile(join(root, "config/extra.json"), "utf8")).toBe(extra);
+});

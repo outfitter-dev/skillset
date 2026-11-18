@@ -35,7 +35,7 @@ test("explicit default declaration remains supported", async () => {
   await Bun.write(join(sourcePath, ".claude-plugin/plugin.json"), JSON.stringify({ name: "native-hooks", hooks: "./hooks/hooks.json" }));
   await Bun.write(join(sourcePath, "hooks/hooks.json"), '{"hooks":{}}');
   const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
-  expect(report.nativeHookSource?.path).toBe(".skillset/plugins/native-hooks/_claude/hooks/hooks.json");
+  expect(report.nativeHookSources?.[0]?.path).toBe(".skillset/plugins/native-hooks/_claude/hooks/hooks.json");
 });
 
 test("existing canonical source configuration remains authoritative", async () => {

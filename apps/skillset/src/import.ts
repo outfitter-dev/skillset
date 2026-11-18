@@ -4,12 +4,10 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import {
-  classifyNativeHookLiftDiagnostics,
   defineRenderResult,
   normalizeImportedMcpSource,
   parsePortableMcpSource,
   type JsonValue,
-  type NativeHookLiftDiagnostic,
   type SkillsetRenderResult,
 } from "@skillset/core";
 import {
@@ -18,8 +16,8 @@ import {
 } from "@skillset/core/internal/directory-rename-no-replace";
 import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
-import { scopeImportedNativeHooks } from "@skillset/core/internal/import-native-hook-boundary";
-import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
+import { scopeImportedNativeHooks, type ImportedNativeHookBoundary } from "@skillset/core/internal/import-native-hook-boundary";
+import { classifyNativeHookSource, type NativeHookFindingSource, type NativeHookSourceDiagnostic } from "@skillset/core/internal/adoption-native-findings";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import {
   readRecord,
@@ -172,7 +170,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
-  readonly nativeHookSource?: NativeHookFindingSource;
+  readonly nativeHookSources?: readonly NativeHookFindingSource[];
   readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly copiedFiles: readonly string[];
@@ -313,13 +311,20 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
             agentPluginImport !== undefined
           )
         : copied.files;
-    const hasNativeHookSource = options.kind === "plugin" && copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json");
-    const nativeHookOrigin = hasNativeHookSource ? options.sourceOrigin?.(sourcePath, "hooks/hooks.json") : undefined;
-    const nativeHookTargets = hasNativeHookSource ? await importedNativeHookTargets(options, stagingPath) : [];
-    const nativeHookBoundary = hasNativeHookSource
-      ? await scopeImportedNativeHooks({ rootPath: options.rootPath, stagingPath, files: copiedFiles, targets: nativeHookTargets })
+    const nativeHookTargets = options.kind === "plugin" ? await importedNativeHookTargets(options, stagingPath) : [];
+    const nativeHookBoundary = options.kind === "plugin"
+      ? await scopeImportedNativeHooks({ rootPath: options.rootPath, stagingPath, files: copiedFiles, targets: nativeHookTargets, synthesizedConfig: copied.synthesizedConfig })
       : undefined;
     if (nativeHookBoundary !== undefined) copiedFiles = nativeHookBoundary.files;
+    const nativeHookSources = nativeHookBoundary?.sources.map((source) => {
+      const origin = options.sourceOrigin?.(sourcePath, source.originalPath);
+      return {
+        path: relative(options.rootPath, join(targetPath, source.path)).replaceAll("\\", "/"),
+        targets: nativeHookTargets,
+        ...(source.pointers === undefined ? {} : { pointers: source.pointers }),
+        ...(origin === undefined ? {} : { origin }),
+      };
+    });
 
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
@@ -402,11 +407,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       inferredSourceFields: classification.recognized,
       kind: options.kind,
       renderResults,
-      ...(nativeHookBoundary !== undefined ? { nativeHookSource: {
-        path: relative(options.rootPath, join(targetPath, nativeHookBoundary.hookPath)).replaceAll("\\", "/"),
-        targets: nativeHookTargets,
-        ...(nativeHookOrigin === undefined ? {} : { origin: nativeHookOrigin }),
-      } } : {}),
+      ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       name,
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: classification.targetNative,
@@ -570,7 +571,7 @@ function importWarnings(
 
 async function importRenderResults(args: {
   readonly classification: FrontmatterClassification;
-  readonly nativeHookBoundary?: { readonly hookPath: string; readonly evidence?: string };
+  readonly nativeHookBoundary?: ImportedNativeHookBoundary;
   readonly copiedFiles: readonly string[];
   readonly kind: SingularImportKind;
   readonly name: string;
@@ -715,7 +716,7 @@ async function importedNativeHookTargets(
 }
 
 async function importNativeHookRenderResults(args: {
-  readonly nativeHookBoundary?: { readonly hookPath: string; readonly evidence?: string };
+  readonly nativeHookBoundary?: ImportedNativeHookBoundary;
   readonly copiedFiles: readonly string[];
   readonly kind: SingularImportKind;
   readonly name: string;
@@ -725,32 +726,30 @@ async function importNativeHookRenderResults(args: {
   readonly targetPath: string;
 }): Promise<readonly SkillsetRenderResult[]> {
   if (args.kind !== "plugin" || args.nativeHookBoundary === undefined) return [];
-  const hookPath = join(args.targetPath, args.nativeHookBoundary.hookPath);
-  const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
   const targets = await importedNativeHookTargets(args, args.targetPath);
   const results: SkillsetRenderResult[] = [];
-  if (args.nativeHookBoundary.evidence !== undefined) {
-    results.push(defineRenderResult({
-      destination: "hooks", featureId: "plugin-hooks", target: "claude", status: "target_native",
-      sourcePath, sourceUnit: selectorForPluginFeature(args.name, "hooks"),
-      outputs: [{ kind: "imported-source", path: sourcePath }],
-      diagnostics: [{ code: "import-native-hook-provider-scoped", path: sourcePath,
-        message: `Preserved the hook directory in a Claude native island with structured preprocessing disabled; emitted config paths, command bytes and companion paths are unchanged. Evidence: ${args.nativeHookBoundary.evidence}` }],
-    }));
+  for (const source of args.nativeHookBoundary.sources) {
+    const hookPath = join(args.targetPath, source.path);
+    const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
+    if (args.nativeHookBoundary.evidence !== undefined) {
+      results.push(defineRenderResult({
+        destination: "hooks", featureId: "plugin-hooks", target: "claude", status: "target_native",
+        sourcePath, sourceUnit: selectorForPluginFeature(args.name, "hooks"),
+        outputs: [{ kind: "imported-source", path: sourcePath }],
+        diagnostics: [{ code: "import-native-hook-provider-scoped", path: sourcePath,
+          message: `Preserved the Claude hook declaration and referenced hook files at their emitted paths; file bytes and inline configuration values are unchanged. Arbitrary runtime dependencies still require review. Evidence: ${args.nativeHookBoundary.evidence}` }],
+      }));
+    }
+    let content: string;
+    try { content = await readFile(hookPath, "utf8"); }
+    catch (error) {
+      results.push(...targets.map((target) => importNativeHookParseResult(args, sourcePath, target, errorMessage(error))));
+      continue;
+    }
+    const diagnostics = classifyNativeHookSource({ path: sourcePath, targets, ...(source.pointers === undefined ? {} : { pointers: source.pointers }) }, content);
+    results.push(...diagnostics.map((diagnostic) => importNativeHookRenderResult(args, sourcePath, diagnostic)));
   }
-  let parsed: JsonValue;
-  try {
-    parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
-  } catch (error) {
-    return [...results, ...targets.map((target) => importNativeHookParseResult(args, sourcePath, target, errorMessage(error)))];
-  }
-  const diagnostics = classifyNativeHookLiftDiagnostics({
-    parsed,
-    scope: { kind: "plugin", pluginId: args.name },
-    sourcePath,
-    targets,
-  });
-  return [...results, ...diagnostics.map((diagnostic) => importNativeHookRenderResult(args, sourcePath, diagnostic))];
+  return results;
 }
 
 function importNativeHookParseResult(
@@ -786,7 +785,7 @@ function importNativeHookRenderResult(
     readonly name: string;
   },
   sourcePath: string,
-  diagnostic: NativeHookLiftDiagnostic
+  diagnostic: NativeHookSourceDiagnostic
 ): SkillsetRenderResult {
   return defineRenderResult({
     destination: "hooks",
@@ -1106,6 +1105,7 @@ async function copyImportSource(options: {
 }): Promise<{
   readonly baselineVersion?: string;
   readonly files: readonly string[];
+  readonly synthesizedConfig: boolean;
   readonly warnings: readonly string[];
 }> {
   const { agentPluginImport, kind, name, rootPath, sourcePath, targetPath } = options;
@@ -1120,6 +1120,7 @@ async function copyImportSource(options: {
   const rootPluginImport = kind === "plugin" && await isSamePath(copyRoot, rootPath);
   const copied: string[] = [];
   let baselineVersion: string | undefined;
+  let synthesizedConfig = false;
   let warnings: readonly string[] = [];
   const exclude =
     rootPluginImport || agentPluginImport !== undefined
@@ -1158,11 +1159,13 @@ async function copyImportSource(options: {
       if (manifestIndex >= 0) copied.splice(manifestIndex, 1);
     }
     copied.push("skillset.yaml");
+    synthesizedConfig = true;
   }
 
   return {
     ...(baselineVersion === undefined ? {} : { baselineVersion }),
     files: copied.sort(compareStrings),
+    synthesizedConfig,
     warnings,
   };
 }
@@ -1829,11 +1832,6 @@ function importedManifestOverride(
   canonicalManifestDescription: string,
   keepUnreadableAuthor: boolean
 ): JsonRecord {
-  // Component fields are regenerated below. Additional hook declarations
-  // cannot be discarded until import inventories their files and inline maps.
-  if (provider === "claude" && manifest.hooks !== undefined && manifest.hooks !== "./hooks/hooks.json") {
-    throw new Error("skillset: additional Claude hook declarations require explicit source configuration; automatic import cannot preserve them yet. Original files are unchanged and no destination was claimed.");
-  }
   const override: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(manifest)) {
     if (!SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS.has(key) && value !== undefined) {
@@ -1846,6 +1844,9 @@ function importedManifestOverride(
     override.author = manifest.author;
   }
   for (const field of listProviderPluginComponentManifestFields(provider)) {
+    // Claude's declaration supplements default discovery. The staging boundary
+    // inventories it before claim and keeps native files at their emitted paths.
+    if (provider === "claude" && field === "hooks") continue;
     removeManifestField(override, field.split("."));
   }
   if (provider === "codex") delete override.interface;

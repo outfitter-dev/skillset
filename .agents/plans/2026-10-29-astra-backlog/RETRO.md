@@ -1,5 +1,12 @@
 # Execution ledger
 
+### SET-442 additional hook declaration preservation — October 29
+
+- Replaced the fail-loud boundary for eligible sole-Claude imports with complete declared-hook inventory: default and additional JSON files retain emitted paths, arrays retain ordering/repeated references, and inline event maps remain in the Claude manifest. Original files remain unchanged. Mixed ownership, path hazards and incompatible authored intent still fail before claim.
+- Native findings now have one physical file owner plus optional inline pointers. The same classifier supplies import diagnostics and durable flags, retaining original per-file provenance and distinct inline identities without weakening whole-file transaction preimages.
+- Three positive end-to-end cases failed before implementation. Added output, runtime config-read, collision, pointer identity, concurrent-edit rollback, and adoption ledger/receipt proof. Arbitrary undeclared command dependencies remain SET-439 work; provider-host activation is not claimed.
+- Focused checks pass 53 tests / 261 assertions, with a further 15-case path/form suite after adding inferred ownership and malformed-file coverage. Typecheck, docs, containment/topology guards and fast conformance pass. Independent exact-head review and full verification follow. Native trimming remains deferred; no readiness, merge or release.
+
 ### SET-442 additional hook declaration guard — October 29
 
 - Confirmed native Claude manifest component removal silently discarded custom path, inline and mixed hook declarations, including plugins without a default hook file. Original manifest preservation alone did not preserve generated behavior.
