@@ -628,3 +628,18 @@ function readFiniteResult(
   expect(parsed.exitCode).toBe(result.exitCode);
   return parsed;
 }
+
+
+test("SET-447: capability aliases compare selected providers in human and JSON output", async () => {
+  const args = ["lookup", "capability", "developer_instructions", "--compat", "codex"];
+  const human = await runSkillsetCli(...args);
+  const json = readFiniteResult(await runSkillsetCli(...args, "--json"));
+  expect(human.exitCode).toBe(0);
+  expect(human.stdout).toContain("[codex] project-agents/project-agents: partial");
+  expect(human.stdout).toContain("source: .skillset/subagents/*.md");
+  expect(human.stdout).toContain("destination: codex-subagent");
+  expect(json).toMatchObject({ command: "lookup", ok: true, data: { capabilities: [{ capabilityId: "project-agents", target: "codex", fidelity: "partial" }] } });
+  const missing = await runSkillsetCli("lookup", "capability", "missing-native-alias", "--json");
+  expect(missing.exitCode).toBe(1);
+  expect(readFiniteResult(missing)).toMatchObject({ diagnostics: [{ code: "lookup/capability/not-found" }] });
+});

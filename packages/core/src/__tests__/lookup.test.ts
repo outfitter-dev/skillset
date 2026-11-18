@@ -14,6 +14,7 @@ describe("lookupSkillsetReference", () => {
 
     expect(report.subject).toBeUndefined();
     expect(report.subjects.map((subject) => subject.subject)).toEqual([
+      "capability",
       "activation",
       "locations",
       "skill",
@@ -591,5 +592,25 @@ describe("lookupSkillsetReference", () => {
       message: "skill lookup does not have hook events; use subject hooks for --events.",
       severity: "error",
     });
+  });
+});
+
+
+describe("capability lookup", () => {
+  it("resolves native aliases and selected providers through existing authorities", () => {
+    const report = lookupSkillsetReference({ subject: "capability", aspects: ["developer_instructions"], targets: ["codex"] });
+    expect(report.diagnostics).toEqual([]);
+    expect(report.capabilities).toHaveLength(1);
+    expect(report.capabilities[0]).toMatchObject({ capabilityId: "project-agents", featureId: "project-agents", target: "codex", destination: { id: "codex-subagent" }, canonical: { contracts: ["agent-frontmatter"] } });
+    expect(report.capabilities[0]?.evidence.length).toBeGreaterThan(0);
+  });
+  it("keeps unavailable destination rows visible without inventing semantic proof", () => {
+    const report = lookupSkillsetReference({ subject: "capability", aspects: ["plugin-agents"], targets: ["codex"] });
+    expect(report.capabilities[0]).toMatchObject({ realization: { destinationSupport: "unsupported" }, fidelity: "unavailable" });
+    expect(report.capabilities[0]?.limitations.join(" ")).toContain("plugin agents");
+  });
+  it("rejects unknown aliases and unsupported views", () => {
+    expect(lookupSkillsetReference({ subject: "capability", aspects: ["not-a-capability"] }).diagnostics[0]?.code).toBe("lookup/capability/not-found");
+    expect(lookupSkillsetReference({ subject: "capability", views: ["fields"] }).diagnostics[0]?.code).toBe("lookup/capability/view-not-applicable");
   });
 });
