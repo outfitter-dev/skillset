@@ -9,288 +9,32 @@ name: skillset
 
 # Skillset
 
-Use this skill for existing Skillset workspaces and reusable agent artifacts that need shared source or distribution across providers. A repo need not already contain `skillset.yaml` to be a candidate.
+Use this skill for reusable agent artifacts, existing Skillset workspaces, and shared source across providers. Existing filenames are inspection cues, not permission to adopt them. Resolve reuse and ownership intent before creating a workspace. A disposable one-off can stay provider-native; generic account, model, or editor settings alone do not need Skillset.
 
-Choose the smallest workflow that fits the request. Existing `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, or provider directories are cues to inspect ownership and reuse intent, not permission to migrate them. For a disposable one-off in one provider, direct provider-native authoring may be simpler. Generic provider settings, account setup, model selection, or editor preferences alone do not call for Skillset. When reuse or provider scope is unclear, resolve that boundary before creating a workspace or adopting files; inspection and a preview can support the decision.
+## Observe Before Routing
 
-## Source Layout
+Run the bundled read-only preflight from the requested repository, using this skill's actual installed path:
 
-Repos keep workspace config at the root and Skillset source inside `.skillset/`:
+- POSIX: `sh "<skill-directory>/scripts/preflight.sh" "." repo`
+- Windows PowerShell: `& "<skill-directory>/scripts/preflight.ps1" -Root "." -Scope repo`
 
-```text
-skillset.yaml
-.skillset/
-  RULES.md       # front page for root AGENTS.md and .claude/CLAUDE.md
-  rules/
-    <topic>.md
-  skills/
-    <skill-name>/
-      SKILL.md
-  subagents/
-  hooks/
-  plugins/
-    <plugin-name>/
-      skillset.yaml
-      skills/
-      subagents/
-      shared/
-        partials/
-        references/
-        scripts/
-      _claude/   # plugin-local provider source
-  shared/
-    assets/
-    partials/
-    references/
-    scripts/
-    templates/
-  _claude/       # mirrors to .claude/**
-  _codex/        # mirrors to .codex/**
-  _cursor/       # mirrors to .cursor/**
-  changes/
-  cache/         # logical cache boundary; .gitignore sentinel tracked
-  snapshots/     # ignored Git-backed recovery snapshots; .gitignore sentinel tracked
-skillset.lock
-```
+For an explicit user-scope request, pass `user` instead of `repo`; this records intent and does not scan or change the home directory. The helpers need no compiler or language runtime. If shell execution is unavailable or blocked by policy, inspect workspace markers and command availability manually; report CLI compatibility as unknown and follow [preflight and recovery](references/preflight-and-recovery.md). Do not bypass execution policy.
 
-An unmanaged root `AGENTS.md` can instead be authored front-page source. Setup or the first successful live build records `workspace.nativeAgents: true`; Skillset reads that file literally and never writes it. This mode cannot coexist with `.skillset/RULES.md` or unscoped `.skillset/rules/*.md`. Root `CLAUDE.md` and `.claude/CLAUDE.md` are preserved guidance for reviewed adoption, never native sources. Use [guided root adoption](references/root-guidance-adoption.md) when Claude guidance is the stronger starting point or `AGENTS.md` is absent.
+`compatible` means only the exact version and entry-preview operations in the bundled contract are qualified. Missing, incompatible, or unknown CLI status routes to recovery. Mixed `skillset.yaml` / `.skillset/` evidence needs inspection, not automatic initialization. Artifact presence alone establishes neither ownership nor portability.
 
-Partials live only under `shared/partials/`. A top-level `.skillset/partials/` is the retired layout and blocks the build until you move it.
+## Choose One Route
 
-The workspace manifest controls provider defaults, output roots, source identity, schema, version, owner, and root support metadata. Repos use root `skillset.yaml` with source in `.skillset/`. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupportedDestination: error | warn | skip | force` for explicit lossy or unsupported destination policy. `error` remains the fail-loud default; non-error policies preserve warning diagnostics and lock provenance, and never soften failed render results. `skillset build` plans by default and writes only with `--yes`; `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `<source-root>/plugins/<plugin-name>/skillset.yaml`. Plugin content is not copied into project-local provider roots unless root `plugins.internal_use` selects it; omitting that key selects none. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level provider blocks such as `claude`, `codex`, and `cursor`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
+| Intent | Available route | Specialist ownership |
+| --- | --- | --- |
+| New workspace or existing unmanaged material | Review reuse/provider scope; preview `skillset init --root .`; read [import and rules](references/import-and-rules.md) or [root guidance adoption](references/root-guidance-adoption.md) only as needed. | `skillset-init` is planned, not bundled. |
+| Existing workspace health or drift | Start with `skillset status --root .`, `skillset check --root .`, or `skillset diff --root .`; read [commands and checks](references/commands-and-checks.md) for the relevant repair. | `skillset-maintain` and `skillset-help` are planned, not bundled. |
+| Author reusable source | Read [source authoring](references/source-authoring.md); edit canonical source and preview output. | Use this bundled reference until specialists ship. |
+| Static provider activation information | `skillset lookup activation mcp --compat codex` reports static evidence, not runtime proof. | Detailed claims and tests are in [commands and checks](references/commands-and-checks.md). |
+| User-scope distribution, temporary links, settings suggestions, or migration lifecycle | Inventory the requested material and establish the desired scope; verify the actual CLI help before proposing a command. | User sync, link/unlink, settings and migration routes are not qualified here; `skillset-agent-settings` is planned, not bundled. |
+| Generic provider settings or disposable one-off | Use the provider's native workflow if it meets the request. | No Skillset workspace needed. |
 
-If the optional project SessionStart hook reports stale generated output, preview with `skillset build`, write with `skillset build --yes`, then confirm with `skillset check --only outputs`; this skill's Build And Check section covers the rest. The hook only advises and never rebuilds automatically. `compile.session_start_hook` selects `auto`, `on`, or `off`, and its project-local settings entry is separate from plugin hooks.
+Read only the reference needed for the selected route. Do not pretend a planned specialist is available. The shared [preflight and recovery](references/preflight-and-recovery.md) reference owns CLI recovery for every route.
 
-Agent standards are a separate inherent axis: applicable adaptive source produces every adopted standard profile, with no `compile.agents`, root `agents`, plugin, or frontmatter opt-out. Standalone skills use the Agent Skills standard placement under `.agents/skills/`; plugin-owned skills use one immediate-child tree under `plugins/<plugin>/skills/` shared by the Agent Plugins baseline and enabled providers. Root `plugins.internal_use` selections create separately owned project-use copies in fixed provider skill roots. Workspace skills keep the bare leaf name; colliding plugin copies use `<plugin-id>-<leaf>`. With default `internal_marker: true`, live project-use copies receive boolean `metadata.internal: true`; project draft copies always receive it. Their lock entries expose the source unit, effective name, selection rule, and target owner, plus draft origin, applied draft policy, and a same-container shipped sibling when applicable. Referenced skill resources accompany copies, but plugin hooks, unrelated shared trees, MCP servers, and executables do not and may surface as unsupported component results. `.skillset/subagents/` remains project-agent source, and `defaults.<provider>.agents` remains provider-specific project-agent configuration. Build scopes filter destinations without selecting standards.
+## Preserve Authority
 
-Use setup commands when a repo does not have source yet:
-
-```bash
-skillset init --root .                 # preview root skillset.yaml + .skillset/
-skillset init --root . --yes           # write the scaffold
-skillset create team-loadout           # preview a named child source repo
-skillset create team-loadout --yes     # create it and initialize Git
-skillset new skill "Docs CLI Expert"   # preview a new source skill
-skillset new skill --id docs-cli --name "Docs CLI Expert" --yes
-skillset new agent "Release Reviewer" --scope repo --yes
-skillset new rule "Review Guidance" --yes
-skillset new hook "Shell Policy" --event PreToolUse --command "echo check" --attach skill:docs-cli --yes
-```
-
-`skillset init` is plan-first like `build`: it writes only with `--yes`. It handles existing repositories or directories, resolves the Git root when no directory is given, and creates root `skillset.yaml` plus `.skillset/` source placeholders. Init creates operational ignore sentinels, detects adoptable repo-local provider artifacts, skips generated output roots with Skillset locks, and can import all or selected detected candidates through `--adopt`. Use `skillset import` for external existing work. `skillset create [name]` creates a normalized named child under the current directory or explicit `--root` parent, defaults to all supported providers, and initializes a local Git repository. Operational cache payloads reported under `.skillset/cache/` physically resolve to the repo's Skillset-owned XDG cache bucket; Git-backed recovery snapshots stay repo-local under `.skillset/snapshots/`. `--targets claude,codex,cursor` controls generated `compile.targets`; `--include ci` writes a user-owned `.github/workflows/skillset-ci.yml` running `skillset check --ci`.
-
-`skillset new` scaffolds source units in `.skillset/` and never builds automatically. Use `--yes` to write, `--id` to choose a stable kebab-case identity, `--name` to set display text, and `--in <plugin-name>` to place a skill or rule under an existing plugin container. `skillset new skill <name> --draft` creates `<source-root>/skills/_drafts/<id>/SKILL.md`; combine it with `--in <plugin-name>` for a plugin-local draft. The command remains plan-first and authored frontmatter keeps the ordinary leaf name. `--preset support` adds `references/`, `assets/`, and `scripts/`; `--preset evals` adds a portable `evals/evals.json` with the matching `skill_name`; `--preset reference-file` and `--preset examples-file` add `REFERENCE.md` or `EXAMPLES.md`. `skillset eval list` validates those declarations and shows the read-only case/target matrix. `skillset eval run` is the separate opt-in, ungraded provider-execution surface: it retains isolated case workspaces and evidence under logical `.skillset/cache/evals/`, but never changes deterministic `skillset test`, checks, or CI. `expected_output` and `expectations` remain authored context, not automatic grades. A completed eval run records execution/infrastructure success only, never a quality verdict; use `eval status` and `eval tail` to inspect its retained evidence. Declared tests can add `activation[].runtime.claims` to name canonical capability/subject pairs that their successful provider run proves. Current structured runtime evidence supports only `mcp-server` claims; `app` and `plugin-dependency` claims fail preflight before a provider starts. Eval runs cannot declare activation claims or mint proof receipts. Skillset rejects invalid or unavailable claims before launch and considers retained proof current only while its source, rendering, projection, target, and runtime adapter identity still match; ordinary ad hoc tests never make activation claims. `skillset new agent <name>` writes project-agent source under `<source-root>/subagents/`; `skillset new rule <name>` writes canonical Markdown under `<source-root>/rules/`. `skillset new hook` takes registry-defined `--event` values, exactly one `--command` or `--script` action, and an existing `--attach` source-unit selector. The attachment owner determines canonical adaptive-hook placement; compatible providers are derived unless narrowed with `--provider`. Bare interactive `skillset new` searches the same live attachment/event inventories, displays registry/classifier compatibility, and feeds the same report.
-
-Organize skills beneath plain or parenthesized group directories without changing their identity. Put unpublished work under `_drafts/<skill>/` or declare `status: draft`; `skillset list` and `skillset explain` report the group, status, and draft origin. Workspace drafts render in project skill roots as `draft-<leaf>`. Selected plugin skills inherit a paired same-container draft when `plugins.internal_use.drafts.<plugin>` is omitted; `true` or a list selects drafts explicitly and `false` excludes them. `only` emits only in-scope plugin drafts, while `override` substitutes a paired draft at its live project-use leaf, preserves selected live skills without drafts, and keeps in-scope unpaired drafts under `draft-<leaf>`. Selection and exclusions resolve before either mode. Project drafts use a `[SKILLSET DRAFT] ` description prefix and boolean `metadata.internal: true`, while plugin packages and marketplace output exclude all drafts. Under `rules/`, only `[.]` and `[...]` are reserved scope segments. Other bracketed or parenthesized names are literal and remain unchanged in provider paths; rename the Unicode `[…]` spelling to `[...]`.
-
-New skill ids follow Agent Skills naming: 1 to 64 lowercase letters or digits separated by single hyphens. `skillset new skill` rejects overlong ids, consecutive hyphens, and trailing hyphens before writing.
-
-Fork an existing shipped skill with `skillset draft <shipped-path>`. Preview is
-read-only and shows the exact copy, generated effects, plan hash, and source
-hash; add `--yes` to create the same-container `_drafts/<leaf>` sibling while
-leaving the shipped source in place. Edit that draft, then run `skillset
-promote <draft-path>` to preview the authored diff. Paired promotion replaces
-the shipped sibling atomically; unpaired promotion moves the draft to the
-ordinary path. If the shipped bytes changed after the fork, promotion warns
-but still accepts explicit `--yes`. The append-only fork and promotion events
-preserve the shipped selector and release history without exposing the private
-baseline in frontmatter. Refusal, stale plans, blocked output effects, and
-interrupted writes restore source, history, generated output, and lock state.
-For a manually paired draft without a recorded fork, promotion diffs against
-the current shipped sibling and warns that changes since drafting are unknown;
-review that diff before `--yes`.
-Same-leaf skills in other containers remain independent.
-
-Move a shipped skill between the workspace and one plugin collection with
-`skillset move <from> <to>`. Both paths must be in the same workspace and keep
-the same leaf. Preview is read-only; add `--yes` to apply the displayed plan
-hash. The transaction carries a same-container `_drafts/<leaf>` sibling,
-rewrites current selectors and references, updates generated outputs and lock
-provenance, and appends identity history. On plugin-to-workspace moves it
-removes direct `plugins.internal_use` skill or draft selections for that leaf
-and prints a notice rather than converting them into implicit workspace
-selection. `skillset rename` remains the command for changing a leaf inside
-one collection and refuses cross-collection destinations.
-
-Use `.skillset/rules/**/*.md` for durable repo rules. A rule's directory is the directory it governs: `rules/<topic>.md` applies to the whole repository and `rules/docs/<topic>.md` governs `docs/`. `paths` narrows within that scope and is relative to it, so this `rules/docs/writing.md` covers `docs/**/*.md`:
-
-```yaml
----
-paths:
-  - "**/*.md"
----
-
-# Docs Rules
-
-- Keep docs concise and current.
-```
-
-Claude rules are generated under `.claude/rules/**/*.md`, mirroring the source path, with `paths` frontmatter derived from the scope (`docs/**/*.md` here). Root `<source-root>/RULES.md` becomes the bare first section of root `AGENTS.md` and is also written to `.claude/CLAUDE.md` (or root `CLAUDE.md` with `compile.instruction_front_page: repo-root`); do not hand-author that Claude file beside it, because `check` reports a duplicate root. `RULES.md` does not render into Claude or Cursor rule directories, and Cursor has no supported root `AGENTS.md` placement, so the scaffolded `RULES.md` carries `cursor: false`; keep it when Cursor is a target. Cursor rules are generated as `.cursor/rules/**/<name>.mdc` with the same derived `globs`, or `alwaysApply: true` for an unscoped rule with no `paths`. Each rule also lands in its scope directory's `AGENTS.md` (root `AGENTS.md` when unscoped); Codex cannot narrow below a directory, so `paths` there is reported as a `degraded` render result in `skillset explain`. Bracketed and parenthesized directory names are literal and mirror into generated paths, so `rules/app/[slug]/routing.md` writes `app/[slug]/AGENTS.md`; quote such paths in a shell (`cat 'app/[slug]/AGENTS.md'`), because brackets are glob characters there. Only `[.]` and `[...]` are reserved, and rules under them render nothing until wildcard expansion lands. Multiple rules that land at the same `AGENTS.md` are concatenated in source order, each wrapped in an XML section such as `<coding_guidance source=".skillset/rules/engineering/coding-guidance.md" applies_to="engineering/**" >`; a lone rule without `paths` and the `RULES.md` front page stay bare. Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset` warns when generated output crosses it — split instructions across nested directories or raise the limit. An existing unmanaged root `AGENTS.md` is retained as authored source through native root mode; applying setup or first build records that source choice without replacing the file. Native root mode rejects a competing `<source-root>/RULES.md` or unscoped root rule. Directory-scoped rules still generate nested `AGENTS.md` files. Managed output edits remain drift/reconciliation cases, and other unmanaged destinations retain their collision protection.
-
-Skill and rule bodies are preprocessed before target serialization. Use nested `{{this.<field>}}` for current-frontmatter references, `{{{this.description}}}` to keep a literal `{{this.description}}` token, and `{{skillset.source_path}}` or `{{parent.tree depth:2}}` for source context. Exact workspace partials use `{{> intro}}` or `{{> writing/tone}}` and resolve only under `<source-root>/shared/partials/`; a plugin skill uses `{{> plugin:intro}}` for its own `shared/partials/` root. Explicit includes such as `{{> shared:references/common.md}}` and `{{> plugin:references/checklist.md}}` resolve under the corresponding shared root. There is no workspace-to-plugin fallback or basename search. Skill links use `@{{shared:references/common.md}}` or `@{{plugin:references/checklist.md}}`; the leading `@` remains in generated Markdown and the linked file is copied beside `SKILL.md`. Marked links accept only `references`, `scripts`, `assets`, and `templates` groups. Markdown code spans and fences keep marked links and partial/include directives literal; reserved variables such as `{{this.description}}` still expand there. Use triple braces for a literal variable. Copied Markdown is not recursively preprocessed, and `skillset.preprocess: false` preserves all recognized syntax without implied copies. Missing files, traversal, cycles, invalid groups, symlink escapes, and collisions fail. Object and array frontmatter values render as fenced `json` blocks in Markdown prose unless already inside a fenced code block, while structured sidecars receive compact JSON. Rule bodies can also use `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`; these render per generated file, so a nested `docs/AGENTS.md` can point back to `..` while a root `AGENTS.md` points to `.`. Missing `this` fields and unknown Skillset variables fail the build.
-
-Use provider blocks such as `claude: false`, `codex: false`, or `cursor: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not supported, and the schema rejects it: Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
-
-Use portable project agents for reusable project-scoped roles. Source lives at `<source-root>/subagents/*.md` with YAML frontmatter plus a Markdown body. `description` and a non-empty body are required; `name` defaults from the filename and resolves the generated filename. Claude emits `.claude/agents/<resolved-name>.md`; Cursor emits `.cursor/agents/<resolved-name>.md`; Codex emits `.codex/agents/<resolved-name>.toml` with `developer_instructions`. Shared `skills` become a Codex instructions preface (customizable with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`), and shared `initialPrompt` is appended in an `<initial_prompt>...</initial_prompt>` block. Keep target-native fields under `claude`, `codex`, and `cursor`; top-level `model` warns unless each enabled target has a target-specific model.
-
-Use provider source for explicit provider files that are not adaptive: `<source-root>/_claude/**` mirrors to `.claude/**`, `<source-root>/_codex/**` mirrors to `.codex/**`, `<source-root>/_cursor/**` mirrors to `.cursor/**`, and plugin-local provider source under `<source-root>/plugins/<plugin>/_claude/**`, `_codex/**`, or `_cursor/**` mirrors into that generated plugin bundle only. Project provider source and project agents are workspace-managed files in the root `skillset.lock`, not ownership claims on the whole `.claude/`, `.codex/`, or `.cursor/` directory. Codex `.rules` are command execution policy and pass through only from `<source-root>/_codex/rules/**/*.rules`; adaptive rules never render to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including provider source and project agents.
-
-Use source-only `resources` frontmatter for directories, unlinked files, or destination remaps from root `<source-root>/shared/` or plugin-local `<source-root>/plugins/<plugin-name>/shared/`:
-
-```yaml
-resources:
-  references:
-    - shared:references/common.md
-    - plugin:references/plugin.md
-  scripts:
-    - plugin:scripts/check.sh
-  templates:
-    - from: shared:templates/report.md
-      to: templates/report.md
-```
-
-`shared:` resolves under root `<source-root>/shared/`. `plugin:` resolves under the current plugin's `shared/` directory and is not valid for standalone skills. A marked link implies the same copy with a default `<group>/<rest>` target; an exact or directory `resources.to` mapping wins. Declared and implied resources share copying, modes, collisions, lock provenance, hashing, explain, and drift behavior. Ordinary Markdown `shared:` or `plugin:` links still require an explicit declaration. Resource mappings cannot write outside the generated skill, overwrite generated control files, escape through symlinks, or collide with skill-local files. Cursor receives the same literal leading-`@` text; Skillset does not claim that Cursor treats it as a native UI mention.
-
-Plugin companion paths remain target-native inside one package. The root `plugin.json`, `.claude-plugin/plugin.json`, and `.cursor-plugin/plugin.json` sit side by side under `plugins/<plugin>/`; enabled providers share one immediate-child `skills/<effective-name>/SKILL.md` tree. Authored grouping directories do not appear in output. Compatible provider-only frontmatter keys are combined, while conflicting values or body bytes fail before writes. Authored package presentation assets render once under package-root `assets/`; skill-local assets and declared shared resources stay inside their skill. Authored plugin `subagents/` render to the documented `agents/` component for Claude and Cursor. The closed `extensions.com.openai` delta may reference `./.app.json` and `./hooks/hooks.json`; Cursor paths remain limited to pinned provider facts. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to the portable ChatGPT MCP component for the Codex target and to the target-native destination elsewhere, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional MCP files and Claude `bin/` paths. Plugin `bin` has no supported Codex or Cursor destination; those target results are recorded as intentionally skipped under the default policy while supported provider output remains. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Authored plugin `subagents/` have no supported Codex plugin agent destination and receive an intentionally skipped result under the default policy. Claude and Cursor can still emit their `agents/` component into the shared package; its presence does not imply Codex support. Hooks are rendered definitions only and must be JSON objects. The ChatGPT bundle references normalized hooks at `./hooks/hooks.json`; no legacy Codex provider hook translation or overlay is emitted. `skillset` does not install, trust, or enable hooks in user-level config.
-
-Provider-only plugin components outside a destination's supported envelope are reported as uncovered with provenance and do not block otherwise supported output under the default policy. This does not soften invalid provider content, unsupported MCP transports or dependencies, unsafe paths, or unsupported event mappings. Use the build report to distinguish an uncovered component from a failed render; do not switch policy merely to hide a failure. Workspace hooks attached to a workspace skill (`--attach skill:<id>`) build under the default policy.
-
-Skill source can also use normalized policy keys:
-
-```yaml
-implicit_invocation:
-  claude: false
-  codex: false
-  cursor: false
-allowed_tools:
-  claude:
-    - Read
-  codex: false
-  cursor: false
-```
-
-`implicit_invocation` renders to Claude and Cursor `disable-model-invocation` with inverted polarity, and to Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. Target-native frontmatter overrides the derived Claude or Cursor value when both are present. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex and Cursor have no confirmed skill-local allowed-tools equivalent, so leave their target values unset or set them to `false`.
-
-Use portable `tools` for known tool policy. The block records open-world policy and metadata; it is not a complete target-enforced sandbox on every provider:
-
-```yaml
-tools:
-  read: true
-  search: true
-  write: false
-  shell:
-    - git status
-    - git diff *
-  mcp: false
-
-  claude:
-    deny:
-      - Bash(rm *)
-```
-
-`tools: readonly` expands to `read: true`, `search: true`, and `write: false`. Portable keys are `read`, `search`, `write`, `shell`, and `mcp`; unknown keys fail lint/build. Provider-native strings belong under `tools.<provider>.allow` or `tools.<provider>.deny`, not at the top level and not under target-local `claude.tools` / `codex.tools`. Claude renders supported portable policy and `tools.claude` strings to `allowed-tools` and `disallowed-tools` (preapproval and denial rules, not a complete sandbox). A nonempty effective portable `mcp` server map is rejected for Claude because portable server identities are not bound to native permission identities. Global `mcp: false` remains supported; explicit native MCP permission strings can be authored under `tools.claude.allow` or `tools.claude.deny` using the intended native identity. Native strings do not establish portable per-server equivalence. Codex renders generated `.skillset.tools.yaml` metadata for portable and target-native policy; it does not install, trust, or mutate user-level Codex configuration.
-
-## Command Map
-
-| Task | Commands |
-| --- | --- |
-| Start a workspace | `skillset init`, `skillset create <name>` |
-| Add source | `skillset new skill\|plugin\|agent\|rule\|hook`, `skillset import <path> [--from <provider>] [--name <name>]` |
-| Reorganize source | `skillset draft`, `skillset promote`, `skillset move`, `skillset rename` |
-| Build output | `skillset build` (preview), `skillset build --yes`, `skillset dev [--write]`, `skillset update` |
-| Verify | `skillset check`, `skillset check --only outputs`, `skillset check --ci [--fix] [--report <path>]`, `skillset test` |
-| Inspect | `skillset diff`, `skillset explain <path>`, `skillset list`, `skillset status`, `skillset lookup [features\|hooks\|...]` |
-| Repair output | `skillset build --repair`, `skillset resolve`, `skillset restore --list`, `skillset restore <backup-id>`, `skillset reconcile` |
-| Record changes | `skillset change add\|list\|show\|status\|check\|refresh` |
-| Release | `skillset release plan\|apply\|audit` |
-| Distribute | `skillset distribute plan`, `skillset marketplace check\|update` |
-| Hooks | `skillset hooks print\|run\|context` |
-
-Every command that writes previews first and writes only with `--yes`. Run `skillset <command> --help` for the exact flags.
-
-## Repair Generated Output
-
-Generated files are derived from source. Never hand-edit or hand-merge them; fix the source and rebuild.
-
-1. Check whether a path is generated: `skillset explain <path>` labels it `(generated)` and names its source.
-2. Outside a rebase or merge, preview a repair with `skillset build --repair [path...]`. It reports a verdict per path: `clean`, `output-missing`, `source-ahead`, `output-obsolete`, `output-edited`, `lock-untrusted`, or `diverged`. When every verdict is one of the first four, rerun with `--yes` to restore, regenerate, and remove.
-3. `output-edited` means someone edited the generated file and not its source. Capture the edit with `git diff -- <path>`, apply it to the source `explain` names, then rebuild. Use `--discard-edits` only once the edit is in source or confirmed unwanted.
-4. `lock-untrusted` means `skillset.lock` failed its integrity check, not that the output is wrong. Rebuild with `skillset build --yes`, then repeat the repair preview.
-5. `diverged` means both the generated file and its source changed. Stop and report the paths; do not pick a side.
-6. Branches that change different source units merge without conflicts: each `skillset.lock` line belongs to one unit, and change commands record ledger events in new write-once files under `.skillset/changes/events/` (never edit or delete those by hand; `skillset release apply` folds them). When a rebase or merge does conflict in generated output, run `skillset resolve` to see which conflicts are generated, authored, or hand-edited. Resolve authored files yourself, then run `skillset resolve --yes` to repair and stage only the generated paths, and continue the rebase or merge.
-7. Confirmed builds back up files they replace. `skillset restore --list` shows those backups and `skillset restore <backup-id> --yes` restores one.
-8. Finish with `skillset check --only outputs`; it must pass.
-
-## Build And Check
-
-```bash
-skillset build --root .
-skillset check --root .
-skillset check --only outputs --root .
-skillset diff --root .            # pending generated changes, no writes
-skillset explain <path> --root .  # rendering + lock provenance; add --activation for matching local evidence
-skillset lookup                   # guided schema/compatibility lookup in a TTY; subject list otherwise
-skillset lookup hooks --events --compat codex
-skillset lookup activation mcp --compat codex # static provider observability and supported claims
-skillset marketplace update       # choose a catalog when needed, preview, and confirm
-skillset marketplace update outfitter # explicit catalog; still confirms in a TTY
-skillset restore <backup> --root . # preview restore; add --yes to write
-skillset status --root .          # deterministic health, drift, warnings, and rendering advisories
-skillset status --activation --root . # add bounded local provider evidence; use --json for records
-skillset hooks print --runner lefthook --pre-commit --pre-push
-skillset hooks print --target codex --agent-runtime
-skillset hooks run post-tool-use  # advisory runtime guardrail, source-gated
-skillset hooks run stop           # blocking runtime guardrail, source-gated
-```
-
-`skillset check` is the comprehensive readiness command. Run it before writing generated output when you changed skills, hooks, resources, tool policy, or portability-sensitive content. Use `skillset change check` for focused pending-entry coverage and `skillset status` for a broader human health view.
-
-When `skillset change check --since <ref>` reports stale or missing evidence, preview `skillset change refresh --since <ref>` with the exact same baseline, then rerun it with `--yes` to append the planned evidence. Reusing the baseline matters for removed scopes and renames; the default release-state or trunk baseline can select a different historical source hash.
-
-`skillset check --only outputs` is generated-output freshness. Run it after `skillset build --yes`, before handoff, and whenever you need to prove managed outputs still match source. It reports missing or stale managed files and version drift; it is not a source-authoring linter.
-
-Skillset diagnostics carry a stable scope, severity, and rule id. Scopes are `source`, `workspace`, `provider`, `resource`, `runtime`, `generated`, and `release`. Parser and schema checks cover YAML, TOML, JSON, Markdown frontmatter, workspace config, skills, agents, and hook definitions. Resource, runtime, and provider diagnostics only report facts; they never install hooks, trust plugins, execute scripts, or change provider settings.
-
-`diff`, `explain`, `lookup`, and `status` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. Bare `status` and `explain` launch no provider process; `--activation` explicitly adds bounded, sanitized local observations and never changes the ordinary status exit contract. `explain <path> --activation` filters requirements and observations by source provenance. `lookup activation` remains static and Core-derived from Skillset policy joined to Registry provider evidence. Bare `skillset lookup` guides TTY users through canonical subjects, applicable views, compatibility targets, and searchable schema fields, then renders one ordinary report. Explicit lookup arguments, JSON, pipes, and non-TTY execution remain prompt-free. `explain --json` and `status --json` include full render-result records for agents and automation. `status` exits non-zero on source issues, drift, or a build error, and summarizes notable rendering advisories such as degraded or unsupported render results.
-
-Use `skillset report show <id-or-path>` to inspect a completed immutable operational report from Skillset's user-global XDG state store. Prefer the full report UUID; an owned completed bundle directory or its exact `report.json` or `report.md` path is also accepted. The reader validates the closed `skillset.report@1` envelope and its deterministic Markdown view, rejects paths outside the store, and emits the shared finite result envelope with `--json`. Existing test, eval, CI, adoption, and fixture reports keep their producer-specific cache paths and readers until explicitly migrated; `report show` is not an arbitrary-file or legacy-report viewer.
-
-Use `skillset reconcile [generated-path]` for an intentional managed-output conflict. In a TTY, a missing path is collected before the canonical report is rendered; source-wins and output-wins availability comes directly from that report, refused directions stay disabled with their existing reason, and confirmation defaults to No before the same operation writes. `--use source` or `--use output` skips direction selection but still previews and confirms in a TTY unless paired with `--yes`. JSON, pipes, and non-TTY execution never prompt. Decline and cancellation leave source and generated bytes unchanged; confirmed source-wins retains output backup/restore guidance, and output-wins retains source rollback.
-
-Use `skillset marketplace update [catalog]` to preview the existing marketplace readiness/update report and then confirm a Core-owned transaction. A TTY derives catalog names cheaply from the local build graph and prompts only when multiple catalogs exist and none was supplied; opening the picker does not resolve external repositories. Core binds confirmation to the complete provider-output and lock plan, refusing without writes if a floating ref or local input changes after preview. An explicit catalog skips selection, while `--yes`, JSON, pipes, and non-TTY execution skip all prompts. Decline, cancellation, and changed-plan refusal leave provider output and `skillset.lock` byte-identical.
-
-Across interactive routes, prompts collect only missing intent. Canonical setup/source/test/lookup/reconcile/marketplace reports and registries own facts, disabled reasons, diagnostics, plans, and writes. Prompt eligibility requires TTY input and output outside CI and machine modes; Ctrl-C exits 130, rendering follows the active terminal width, and mutation confirmation defaults to No.
-
-`hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local provider runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main` followed by the comprehensive `skillset check`. Runtime snippets call `skillset hooks run post-tool-use` and `skillset hooks run stop`; both first inspect only Skillset source/change-entry paths, including untracked files. `post-tool-use` is advisory and never blocks on `change status`; `stop` runs `change check` and the comprehensive `check` only when relevant Skillset source changed. Set `SKILLSET_HOOK_COMMAND` in reviewed runtime config only when the default local/installable CLI resolution needs an explicit override.
-
-Generated plugins use one package at `plugins/<plugin-name>/` with shared provenance under `plugins/skillset.lock`. The portable root manifest, provider manifest directories, immediate-child skill tree, and package assets are siblings. Custom package placement is not yet supported. Standalone generated skills default to provider-native skill roots such as `.claude/skills`, `.agents/skills`, and `.cursor/skills`; plugin-owned standard skills stay inside their Agent Plugins package. Generated roots include `skillset.lock` files for deterministic provenance, including each item's `standard`, `project-use`, or `bundle` role.
-
-Release and change state own generated artifact versions. Existing plugin `skillset.version` and skill top-level `version` fields remain semantic-version compatibility baselines during migration; new source should not add them for ordinary content edits. `skillset check --only outputs` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
-
-## Import Existing Source
-
-For a whole existing repository, preview `skillset init`, then use `skillset init --adopt all --yes` for selected source import and isolated output review. Inspect the report with `skillset report show <id>`: Build (isolated) counts mirror writes, and Cutover lists live unmanaged collisions. Preserve or relocate those originals only after approving replacements. For root guidance, follow [guided root adoption](references/root-guidance-adoption.md); the compiler never chooses which authored document is stronger.
-
-```bash
-skillset import /path/to/SKILL.md --root .
-skillset import /path/to/skill-dir --root .
-skillset import /path/to/skills-root --kind skills --root .
-skillset import /path/to/plugin-dir --root .
-skillset import /path/to/plugins-root --kind plugins --root .
-skillset import claude --root .
-skillset import codex --root .
-skillset import cursor --root .
-skillset import agents --root .
-```
-
-`skillset import <path>` infers `skill`, `skills`, `plugin`, or `plugins` from the filesystem. Use `--kind` when a directory is ambiguous. Passing `SKILL.md` imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `.codex/`, and other sidecars. The provider shortcuts import from provider skill roots such as `~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills`, or `~/.agents/skills`; skills-root imports de-dupe symlinked skill directories by real path. Plugin imports write plugin-local `skillset.yaml`, synthesizing a minimal one when importing an Agent Plugins package with root `plugin.json` or a native plugin with `.claude-plugin/plugin.json` or `.cursor-plugin/plugin.json`. Legacy `.codex-plugin/plugin.json` remains a compatibility input whose supported meaning must map into the typed OpenAI boundary before modern ChatGPT output is written. Imports do not publish, install, symlink, trust, mutate registries, or change user-level config. When the destination has a buildable Skillset root, import reuses init's version-baseline machinery so imported versions become starting release-state truth rather than a fake release or one-time inline-version migration.
-
-## Rules
-
-- Use root `compile.targets` for provider selection. Do not use bare top-level `targets:`.
-- Keep target adapter config in provider-specific blocks such as `claude`, `codex`, or `cursor`; use `defaults.<target>` only as shorthand for target defaults.
-- Use provider-specific model keys such as `claude.model`, `codex.model`, `cursor.model`, or target defaults for model choices; top-level skill `model` warns in v1.
-- Keep `compile.unsupportedDestination` on its fail-loud `error` default unless a bounded migration or provider-drift exception needs `warn`, `skip`, or `force`. Non-error policies must retain warning diagnostics and lock provenance, and failed render results always block.
-- Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.
-- Do not hand-edit generated outputs as source truth. Native root `AGENTS.md` is authored source and is edited directly.
-- Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.
+Preview before writes. Inspect diagnostics and preserve unmanaged originals. Inspect ownership before editing root guidance. Source edits normally belong under `.skillset/` or in `skillset.yaml`; in native-root mode, edit the authored root `AGENTS.md` directly and do not create a conflicting `.skillset/RULES.md`. Use explicit reconciliation for edits to managed destinations. Build does not install, enable, trust, or activate provider output. Missing CLI, drift, and a generated plan do not authorize those actions or a package installation.

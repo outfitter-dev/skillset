@@ -19,6 +19,11 @@ const PACKAGE_RUNNER = /(?<![A-Za-z0-9_-])(?:bun|npm|pnpm|yarn)(?![A-Za-z0-9_-])
 const FROZEN_PACKAGE_RUNNER_LINES: readonly string[] = [
   "plugins/skillset/README.md: The skill drives the `skillset` command line tool. Install it from npm:",
   "plugins/skillset/README.md: npm install --global skillset",
+  "plugins/skillset/skills/skillset/references/preflight-and-recovery.md: - Persistent install: `npm install --global skillset`. This changes the user's environment; obtain authorization when not already granted, then rerun preflight. The latest release may be outside this guidance's qualified range.",
+  "plugins/skillset/skills/skillset/references/preflight-and-recovery.md: - Ephemeral exact package: `npm exec --yes --package=skillset@0.30.0 -- skillset --version`, followed by `npm exec --yes --package=skillset@0.30.0 -- skillset init --root .` for a new-workspace preview. These exact commands were executed against the published package. They can download code and write a package cache; run only when that is permitted and chosen. The package runner's `--yes` accepts its download prompt; it is not Skillset's applying `--yes`. Do not add the latter to a preview.",
+  "plugins/skillset/skills/skillset/references/preflight-and-recovery.md: The npm launcher requires Node 18 or later and an available platform binary; Bun is not required. If the required runtime, platform binary, network or registry access is unavailable, report that specific limitation and continue inspection or native work within scope. Never install silently or weaken workspace confirmation, provider trust, or shell execution policy to recover.",
+  "plugins/skillset/skills/skillset/scripts/preflight.ps1: foreach ($runtime in @('node', 'npm', 'bun')) {",
+  "plugins/skillset/skills/skillset/scripts/preflight.sh: for runtime in node npm bun; do"
 ];
 
 async function publicFiles(directory: string): Promise<readonly string[]> {

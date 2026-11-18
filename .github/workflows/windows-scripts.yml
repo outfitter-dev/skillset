@@ -16,6 +16,8 @@ on:
       - package.json
       - bun.lock
       - scripts/**
+      - .skillset/plugins/skillset/skills/skillset/**
+      - plugins/skillset/skills/skillset/**
       - packages/**
       - apps/skillset/src/**
 
@@ -42,6 +44,7 @@ jobs:
         run: >-
           bun run test:focused --
           scripts/__tests__/pinned-bun.test.ts
+          scripts/__tests__/public-router-preflight.test.ts
           scripts/__tests__/test-shard-workspace.test.ts
           packages/core/src/__tests__/path.test.ts
           packages/core/src/__tests__/diagnostic-path.test.ts

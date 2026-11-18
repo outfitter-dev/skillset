@@ -1,0 +1,13 @@
+$ bun run test:sandbox -- bun test --timeout 15000 scripts/__tests__/public-router-package-smoke.test.ts
+$ bun scripts/test-sandbox.ts bun test --timeout "15000" scripts/__tests__/public-router-package-smoke.test.ts
+skillset: collected 0 stale test sandbox(es); 14 retained; 4 unowned or invalid
+bun test v1.4.4 (38afee6c8)
+
+scripts/__tests__/public-router-package-smoke.test.ts:
+{"command":["npm","exec","--yes","--package=skillset@0.30.0","--","skillset","--version"],"code":0,"stdout":"0.30.0\n","stderr":"npm notice\nnpm notice New major version of npm available! 11.20.0 -> 12.2.1\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1\nnpm notice To update run: npm install -g npm@12.2.1\nnpm notice\n"}
+{"command":["npm","exec","--yes","--package=skillset@0.30.0","--","skillset","init","--root","."],"code":0,"stdout":"  + skillset.yaml\n  + .skillset/.gitkeep\n  + .skillset/RULES.md\n  + .skillset/subagents/.gitkeep\n  + .skillset/hooks/.gitkeep\n  + .skillset/plugins/.gitkeep\n  + .skillset/rules/.gitkeep\n  + .skillset/shared/.gitkeep\n  + .skillset/skills/.gitkeep\n  + .skillset/changes/.gitkeep\n  + .skillset/.gitignore\n  + .skillset/snapshots/.gitignore\nskillset: init 12 to create, 0 already present (write confirmation required)\n  root: /private/var/folders/hr/vn76bzz12c36g2pkkjtnz05m0000gn/T/skillset-test-OGCmaF/skillset-router-package-KYHwvj/workspace\nskillset: rerun init with --yes to write setup files\n","stderr":""}
+
+ 1 pass
+ 0 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [2.62s]
