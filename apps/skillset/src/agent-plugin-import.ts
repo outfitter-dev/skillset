@@ -133,7 +133,7 @@ export async function inspectAgentPluginImport(
   }
   validateVersionField(parsed, "Agent Plugins manifest version");
   const sourceMetadataValidation = validateSourceMetadata(
-    sourceMetadataForManifest(parsed, "agent-plugin-import"),
+    sourceMetadataForManifest(parsed, "agent-plugin-import").metadata,
     "Agent Plugins manifest"
   );
   if (!sourceMetadataValidation.ok) {
@@ -162,23 +162,29 @@ export async function inspectAgentPluginImport(
 export function agentPluginSourceMetadata(
   inspection: AgentPluginImportInspection,
   name: string
-): JsonRecord {
+): { readonly metadata: JsonRecord; readonly copiedMetadataFields: readonly string[] } {
   return sourceMetadataForManifest(inspection.manifest, name);
 }
 
 function sourceMetadataForManifest(
   manifest: JsonRecord,
   name: string
-): JsonRecord {
-  return omitUndefined({
+): { readonly metadata: JsonRecord; readonly copiedMetadataFields: readonly string[] } {
+  const copiedMetadataFields: string[] = [];
+  const copy = (field: string) => {
+    if (manifest[field] !== undefined) copiedMetadataFields.push(field);
+    return manifest[field];
+  };
+  const metadata = omitUndefined({
     name,
     description: manifest.description,
     author: manifest.author,
-    homepage: manifest.homepage,
-    repository: manifest.repository,
-    license: manifest.license,
-    keywords: manifest.keywords,
+    homepage: copy("homepage"),
+    repository: copy("repository"),
+    license: copy("license"),
+    keywords: copy("keywords"),
   });
+  return { metadata, copiedMetadataFields };
 }
 
 export function agentPluginIdentityWarnings(

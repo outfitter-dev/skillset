@@ -1,3 +1,4 @@
+import { importedListing, hasListingConflict } from "./import-plugin-listing";
 import { manifestIdentityObservations, manifestNormalizationObservations } from "./import-manifest-observations";
 import { recordMcpNormalizations } from "@skillset/core/internal/import-normalization-evidence";
 import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -67,11 +68,10 @@ import {
 } from "@skillset/core/internal/yaml";
 
 import {
-  firstPortablePluginMetadataValue,
+  firstPortablePluginMetadataSource,
   resolveNativeAuthor,
   nativeListingMetadataConflicts,
   type NativeListingMetadataConflict,
-  type NativeListingMetadataField,
   portablePluginMetadataConflicts,
   PORTABLE_PLUGIN_METADATA_FIELDS,
   unreadableNativeAuthorProviders,
@@ -1732,8 +1732,15 @@ async function writeImportedPluginConfig(
     );
   }
   const listingConflicts = nativeListingMetadataConflicts(nativeManifests);
-  const firstMetadataValue = (field: (typeof PORTABLE_PLUGIN_METADATA_FIELDS)[number]) =>
-    firstPortablePluginMetadataValue(nativeManifests, field);
+  const metadataNormalizations: ImportNormalization[] = [];
+  const firstMetadataValue = (field: Exclude<(typeof PORTABLE_PLUGIN_METADATA_FIELDS)[number], "author">) => {
+    const selected = firstPortablePluginMetadataSource(nativeManifests, field);
+    if (selected === undefined) return undefined;
+    metadataNormalizations.push(...manifestNormalizationObservations(selected.provider, [{
+      code: "manifest.metadata", source: `/${field}`, destination: `/skillset/${field}`,
+    }], configDestination));
+    return selected.value;
+  };
   const nativeVersions = [...nativeManifests.entries()].map(
     ([provider, manifest]) => ({
       provider,
@@ -1783,11 +1790,8 @@ async function writeImportedPluginConfig(
     readString(nativeCodexInterface ?? {}, "shortDescription") ??
     readString(nativeCodexInterface ?? {}, "longDescription") ??
     name;
-  const listing = importedListing(
-    nativeManifests,
-    listingConflicts,
-    canonicalManifestDescription
-  );
+  const importedListingResult = importedListing(nativeManifests, listingConflicts, canonicalManifestDescription, configDestination);
+  const listing = importedListingResult.value;
   const metadata: JsonRecord = {
     name,
     description: canonicalManifestDescription,
@@ -1839,6 +1843,8 @@ async function writeImportedPluginConfig(
   return {
     ...(version === undefined ? {} : { baselineVersion: version }),
     normalizations: [
+      ...metadataNormalizations,
+      ...importedListingResult.normalizations,
       ...[...nativeManifests.entries()].flatMap(([provider, manifest]) => manifestIdentityObservations(
       provider, manifest, name, provider === nameSource,
       typeof description === "string"
@@ -1896,10 +1902,11 @@ async function writeImportedAgentPluginConfig(
       "Agent Plugins manifest version"
     );
   }
+  const sourceMetadata = agentPluginSourceMetadata(inspection, name);
   await writeFile(
     join(targetPath, "skillset.yaml"),
     stringifyYamlSourceDocument({
-      skillset: agentPluginSourceMetadata(inspection, name),
+      skillset: sourceMetadata.metadata,
     })
   );
   return {
@@ -1908,6 +1915,9 @@ async function writeImportedAgentPluginConfig(
       : { baselineVersion: inspection.version }),
     warnings: agentPluginIdentityWarnings(inspection, name),
     normalizations: [
+      ...manifestNormalizationObservations("agent-plugins", sourceMetadata.copiedMetadataFields.map((field) => ({
+        code: "manifest.metadata", source: `/${field}`, destination: `/skillset/${field}`,
+      })), configDestination),
       ...manifestIdentityObservations("agent-plugins", inspection.manifest, name, nameSource === "agent-plugins", typeof inspection.manifest.description === "string" ? "/description" : undefined, configDestination),
       ...(inspection.manifest.author === undefined ? [] : manifestNormalizationObservations("agent-plugins", [{ code: "manifest.author", source: "/author", destination: "/skillset/author" }], configDestination)),
     ],
@@ -2030,85 +2040,6 @@ function shouldKeepCodexInterfaceField(
   if (field === "logo")
     return hasListingConflict(conflicts, "listing.logo");
   return false;
-}
-
-function importedListing(
-  manifests: ReadonlyMap<TargetName, JsonRecord>,
-  conflicts: readonly NativeListingMetadataConflict[],
-  canonicalManifestDescription: string
-): JsonRecord | undefined {
-  const codexInterface = readRecord(manifests.get("codex") ?? {}, "interface");
-  const claudeManifest = manifests.get("claude");
-  const cursorManifest = manifests.get("cursor");
-  const nativeShortDescription = readString(codexInterface ?? {}, "shortDescription");
-  const nativeLongDescription = readString(codexInterface ?? {}, "longDescription");
-  const summary =
-    nativeShortDescription === canonicalManifestDescription
-      ? nativeShortDescription
-      : undefined;
-  const description =
-    summary !== undefined || nativeLongDescription === canonicalManifestDescription
-      ? nativeLongDescription
-      : undefined;
-  const listing: JsonRecord = {
-    display_name:
-      hasListingConflict(conflicts, "listing.display_name")
-        ? undefined
-        : readString(codexInterface ?? {}, "displayName") ??
-          readString(claudeManifest ?? {}, "displayName") ??
-          readString(cursorManifest ?? {}, "displayName"),
-    summary,
-    description,
-    category:
-      hasListingConflict(conflicts, "listing.category")
-        ? undefined
-        : readString(codexInterface ?? {}, "category"),
-    capabilities: copyJsonStringArray(
-      (codexInterface ?? {}).capabilities
-    ),
-    color: readString(codexInterface ?? {}, "brandColor"),
-    website_url: readString(codexInterface ?? {}, "websiteURL"),
-    privacy_policy_url: readString(
-      codexInterface ?? {},
-      "privacyPolicyURL"
-    ),
-    terms_of_service_url: readString(
-      codexInterface ?? {},
-      "termsOfServiceURL"
-    ),
-    default_prompt: copyJsonStringArray(
-      (codexInterface ?? {}).defaultPrompt
-    ),
-    composer_icon: readString(codexInterface ?? {}, "composerIcon"),
-    logo:
-      hasListingConflict(conflicts, "listing.logo")
-        ? undefined
-        : readString(codexInterface ?? {}, "logo") ??
-          readString(cursorManifest ?? {}, "logo"),
-    screenshots: copyJsonStringArray(
-      (codexInterface ?? {}).screenshots
-    ),
-    keywords: copyJsonStringArray(
-      firstPortablePluginMetadataValue(manifests, "keywords")
-    ),
-  };
-  return Object.values(listing).some((value) => value !== undefined)
-    ? listing
-    : undefined;
-}
-
-function hasListingConflict(
-  conflicts: readonly NativeListingMetadataConflict[],
-  field: NativeListingMetadataField
-): boolean {
-  return conflicts.some((conflict) => conflict.field === field);
-}
-
-function copyJsonStringArray(value: JsonValue | undefined): string[] | undefined {
-  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
-    return undefined;
-  }
-  return [...value];
 }
 
 function removeManifestField(record: Record<string, JsonValue>, path: readonly string[]): void {

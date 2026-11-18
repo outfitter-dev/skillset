@@ -2,7 +2,7 @@ import { MIGRATION_LOCATION_PATTERN } from "./migration-state-contract";
 import type { SchemaJsonRecord, SkillsetReportTarget } from "./types";
 
 export const IMPORT_NORMALIZATION_CODES = [
-  "manifest.name", "manifest.name-remap", "manifest.description", "manifest.author",
+  "manifest.name", "manifest.name-remap", "manifest.description", "manifest.author", "manifest.metadata", "manifest.listing",
   "mcp.claude-http-transport", "mcp.codex-url-transport", "mcp.codex-header-field",
   "mcp.claude-root-token", "mcp.claude-data-token", "mcp.source-path", "mcp.json-serialization",
 ] as const;
