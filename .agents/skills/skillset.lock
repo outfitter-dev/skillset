@@ -31,6 +31,7 @@
         "skillset-adrs/scripts/lib/git.ts": "0644",
         "skillset-adrs/scripts/lib/index.ts": "0644",
         "skillset-adrs/scripts/lib/paths.ts": "0644",
+        "skillset-adrs/scripts/lib/reference-inventory.ts": "0644",
         "skillset-adrs/scripts/lib/references.ts": "0644"
       },
       "files": [
@@ -47,18 +48,19 @@
         "skillset-adrs/scripts/lib/git.ts",
         "skillset-adrs/scripts/lib/index.ts",
         "skillset-adrs/scripts/lib/paths.ts",
+        "skillset-adrs/scripts/lib/reference-inventory.ts",
         "skillset-adrs/scripts/lib/references.ts"
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:fdde4042c06e38a09ce0f61dbd2447c8240282e95ea397aea26a0c7b11304e18",
+      "outputHash": "sha256:8e610ed8bbe5017e68d6f2c782765611a7f01034c744fe850a5dad38dddc35c3",
       "outputPath": "skillset-adrs/SKILL.md",
       "owner": {
         "standardProfile": "agent-skills"
       },
-      "provenanceHash": "sha256:2f4a7e1965142051898f6f801163fff137feac2279138bcde1e21583f47d127f",
+      "provenanceHash": "sha256:b1b0b2e3ac2509d1120ba53a99f9833459be947854206d87c3624938a300da36",
       "role": "standard",
-      "sourceHash": "sha256:95730df9286010535e57195dad5a9979395cce1cfa1aa15593a04287504d6b1b",
+      "sourceHash": "sha256:9249dcddc1f02a9d49f3ec0496327001921a0698fe631374c6dc44223ff15e31",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -287,6 +289,10 @@
         },
         {
           "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/reference-inventory.ts"
+        },
+        {
+          "kind": "standalone-skill",
           "path": ".agents/skills/skillset-adrs/scripts/lib/references.ts"
         }
       ],
@@ -369,6 +375,10 @@
         {
           "kind": "standalone-skill",
           "path": ".agents/skills/skillset-adrs/scripts/lib/paths.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/reference-inventory.ts"
         },
         {
           "kind": "standalone-skill",

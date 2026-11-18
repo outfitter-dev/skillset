@@ -21,6 +21,7 @@
  *   bun scripts/adr.ts map
  */
 
+import { referenceDocuments, referenceText, type ReferenceDocument } from './lib/reference-inventory.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -41,7 +42,7 @@ import { extractTitle, serializeFrontmatter } from './lib/frontmatter.ts';
 import type { AdrFile, Frontmatter } from './lib/frontmatter.ts';
 import { gitMove } from './lib/git.ts';
 import { rebuildIndex } from './lib/index.ts';
-import { ADR_DIR, DRAFTS_DIR, INDEX_PATH, MAP_PATH } from './lib/paths.ts';
+import { ADR_DIR, DRAFTS_DIR, INDEX_PATH, MAP_PATH, ROOT } from './lib/paths.ts';
 import {
   fixCrossReferences,
   rewriteDraftLinks,
@@ -74,7 +75,7 @@ const replaceAdr = (
 // Commands
 // ---------------------------------------------------------------------------
 
-const cmdCreate = (args: Args): void => {
+const cmdCreate = (args: Args, documents: readonly ReferenceDocument[]): void => {
   const { title } = args;
   const slug =
     args.slug ??
@@ -128,10 +129,10 @@ const cmdCreate = (args: Args): void => {
   writeFileSync(path, content, 'utf8');
   console.log(`Created ${path}`);
 
-  writeDecisionMap();
+  writeDecisionMap(documents);
 };
 
-const cmdPromote = (args: Args): void => {
+const cmdPromote = (args: Args, documents: readonly ReferenceDocument[]): void => {
   const ref = args._[1];
   if (!ref) {
     console.error('Error: provide a slug, path, or filename to promote');
@@ -245,7 +246,7 @@ const cmdPromote = (args: Args): void => {
 
   // Rewrite all references from draft filename to new numbered filename
   console.log('Rewriting draft references...');
-  rewriteDraftLinks(adr.filename, newFilename);
+  rewriteDraftLinks(adr.filename, newFilename, documents);
 
   // Rewrite frontmatter depends_on/superseded_by references in peer drafts
   // from the promoted slug to the new numeric id, so the decision map keeps
@@ -265,10 +266,10 @@ const cmdPromote = (args: Args): void => {
   }
 
   rebuildIndex();
-  writeDecisionMap();
+  writeDecisionMap(documents);
 };
 
-const cmdDemote = (args: Args): void => {
+const cmdDemote = (args: Args, documents: readonly ReferenceDocument[]): void => {
   const ref = args._[1];
   if (!ref) {
     console.error('Error: provide a slug, path, number, or filename to demote');
@@ -315,10 +316,10 @@ const cmdDemote = (args: Args): void => {
   gitMove(adr.path, newPath);
 
   rebuildIndex();
-  writeDecisionMap();
+  writeDecisionMap(documents);
 };
 
-const cmdCheck = (args: Args): void => {
+const cmdCheck = (args: Args, documents: readonly ReferenceDocument[]): void => {
   let errors = 0;
   let warnings = 0;
   let fixes = 0;
@@ -560,7 +561,7 @@ const cmdCheck = (args: Args): void => {
   if (fix && fixes > 0) {
     console.log(`\nApplied ${fixes} fixes. Rebuilding index and map...`);
     rebuildIndex();
-    writeDecisionMap();
+    writeDecisionMap(documents);
   }
 
   console.log(`\n${errors} errors, ${warnings} warnings`);
@@ -569,11 +570,11 @@ const cmdCheck = (args: Args): void => {
   }
 };
 
-const cmdMap = (): void => {
-  writeDecisionMap();
+const cmdMap = (documents: readonly ReferenceDocument[]): void => {
+  writeDecisionMap(documents);
 };
 
-const cmdUpdate = (args: Args): void => {
+const cmdUpdate = (args: Args, documents: readonly ReferenceDocument[]): void => {
   const ref = args._[1];
   if (!ref) {
     console.error('Error: provide a slug, path, number, or filename to update');
@@ -703,10 +704,10 @@ const cmdUpdate = (args: Args): void => {
   }
 
   rebuildIndex();
-  writeDecisionMap();
+  writeDecisionMap(documents);
 };
 
-const cmdFix = (args: Args): void => {
+const cmdFix = (args: Args, documents: readonly ReferenceDocument[]): void => {
   const apply = shouldApply(args);
   previewBanner(args);
   let fixes = 0;
@@ -749,7 +750,7 @@ const cmdFix = (args: Args): void => {
     console.log('Updating cross-references...');
     fixCrossReferences();
     rebuildIndex();
-    writeDecisionMap();
+    writeDecisionMap(documents);
   }
 
   console.log(`\n${fixes} fixes ${apply ? '' : 'would be '}applied`);
@@ -759,7 +760,7 @@ const cmdFix = (args: Args): void => {
 // Main
 // ---------------------------------------------------------------------------
 
-const main = (): void => {
+const main = async (): Promise<void> => {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help || args._.length === 0) {
@@ -768,34 +769,36 @@ const main = (): void => {
   }
 
   const command = args._[0];
+  const documents = await referenceDocuments(ROOT);
+  for (const adr of [...listNumberedAdrs(), ...listDrafts()]) referenceText(adr.path);
 
   switch (command) {
     case 'create': {
-      cmdCreate(args);
+      cmdCreate(args, documents);
       break;
     }
     case 'promote': {
-      cmdPromote(args);
+      cmdPromote(args, documents);
       break;
     }
     case 'demote': {
-      cmdDemote(args);
+      cmdDemote(args, documents);
       break;
     }
     case 'update': {
-      cmdUpdate(args);
+      cmdUpdate(args, documents);
       break;
     }
     case 'fix': {
-      cmdFix(args);
+      cmdFix(args, documents);
       break;
     }
     case 'check': {
-      cmdCheck(args);
+      cmdCheck(args, documents);
       break;
     }
     case 'map': {
-      cmdMap();
+      cmdMap(documents);
       break;
     }
     default: {
@@ -806,4 +809,7 @@ const main = (): void => {
   }
 };
 
-main();
+await main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

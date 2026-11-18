@@ -98,7 +98,7 @@ const listFiles = async (
   return stdout.split("\0").filter((line) => line.length > 0);
 };
 
-const isLockPath = (candidatePath: string): boolean =>
+export const isLockPath = (candidatePath: string): boolean =>
   candidatePath === LOCK_FILE || candidatePath.endsWith(`/${LOCK_FILE}`);
 
 const outputFiles = (item: {
@@ -111,33 +111,35 @@ const outputFiles = (item: {
   return item.outputPath === undefined ? [] : [item.outputPath];
 };
 
-/** Every generated path the committed locks claim, plus the locks themselves. */
+/** Generated claims from tracked locks and caller-supplied current lock locations. */
 export const readGeneratedPaths = async (
-  rootPath: string
+  rootPath: string,
+  currentLockPaths: readonly string[] = []
 ): Promise<readonly string[]> => {
-  const locks = await listFiles(rootPath, [LOCK_FILE, `*/${LOCK_FILE}`]);
+  const trackedLocks = await listFiles(rootPath, [LOCK_FILE, `*/${LOCK_FILE}`]);
+  const locks = [...new Set([...trackedLocks, ...currentLockPaths])];
   const generated = new Set<string>();
   const parsedLocks = await Promise.all(
     locks.filter(isLockPath).map(async (lock) => {
-      // SET-638: this guard inspects committed locks for merge-policy claims
-      // only. It uses the Core fail-closed disk reader with an explicit legacy
+      // SET-638: inspect ownership claims; the guard supplies tracked locks and
+      // authoring callers may add current lock locations. Use the explicit legacy
       // inspect policy so pre-v4 committed state stays readable and corruption
       // cannot be treated as an empty generated set.
       const read = await readLegacyGeneratedLockFromDisk(
         path.join(rootPath, lock),
         {
           logicalPath: lock,
-          missing: "error",
+          missing: trackedLocks.includes(lock) ? "error" : "absent",
           provenance: "inspect",
         }
       );
-      if (read.kind !== "present") {
-        throw new Error(`skillset: committed lock ${lock} is missing`);
-      }
+      if (read.kind !== "present") return undefined;
       return { lock, parsed: read.lock };
     })
   );
-  for (const { lock, parsed } of parsedLocks) {
+  for (const entry of parsedLocks) {
+    if (entry === undefined) continue;
+    const { lock, parsed } = entry;
     generated.add(lock);
     const outputRoot = path.posix.dirname(lock);
     for (const item of parsed.items) {

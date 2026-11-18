@@ -21,6 +21,7 @@
         "skillset-adrs/scripts/lib/git.ts": "0644",
         "skillset-adrs/scripts/lib/index.ts": "0644",
         "skillset-adrs/scripts/lib/paths.ts": "0644",
+        "skillset-adrs/scripts/lib/reference-inventory.ts": "0644",
         "skillset-adrs/scripts/lib/references.ts": "0644"
       },
       "files": [
@@ -37,15 +38,16 @@
         "skillset-adrs/scripts/lib/git.ts",
         "skillset-adrs/scripts/lib/index.ts",
         "skillset-adrs/scripts/lib/paths.ts",
+        "skillset-adrs/scripts/lib/reference-inventory.ts",
         "skillset-adrs/scripts/lib/references.ts"
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:fdde4042c06e38a09ce0f61dbd2447c8240282e95ea397aea26a0c7b11304e18",
+      "outputHash": "sha256:8e610ed8bbe5017e68d6f2c782765611a7f01034c744fe850a5dad38dddc35c3",
       "outputPath": "skillset-adrs/SKILL.md",
-      "provenanceHash": "sha256:9a450cc98951a2a7829473c76216230c86df5414ecd7719d9a04d9c5ed297825",
+      "provenanceHash": "sha256:9c12570bb15ee8557e3e01cc421f114d5578ce1685239b937efff35e2a56589f",
       "role": "bundle",
-      "sourceHash": "sha256:95730df9286010535e57195dad5a9979395cce1cfa1aa15593a04287504d6b1b",
+      "sourceHash": "sha256:9249dcddc1f02a9d49f3ec0496327001921a0698fe631374c6dc44223ff15e31",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -210,6 +212,10 @@
         {
           "kind": "standalone-skill",
           "path": ".cursor/skills/skillset-adrs/scripts/lib/paths.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/reference-inventory.ts"
         },
         {
           "kind": "standalone-skill",

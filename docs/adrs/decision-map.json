@@ -648,6 +648,11 @@
       "depends_on": ["0", "5", "11"],
       "inbound": [
         {
+          "context": "1. Read `docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md`, `docs/adrs/0019-deterministic-projection-and-adapter-conformance.md`, and `fixtures/README.md`.",
+          "from": "SKILL",
+          "fromPath": ".skillset/skills/skillset-dev-testing/SKILL.md"
+        },
+        {
           "context": "- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - fixture, test, and dogfood boundaries.",
           "from": "0004",
           "fromPath": "docs/adrs/0004-core-library-boundary.md"
@@ -1009,7 +1014,7 @@
           "fromPath": "docs/adrs/0048-adoption-is-a-reviewable-migration.md"
         },
         {
-          "context": "- [ADR-0018](../0018-render-results.md): rendering and evidence reporting boundaries.",
+          "context": "- [ADR-0018](0018-render-results.md): rendering and evidence reporting boundaries.",
           "from": "0049",
           "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
         },
@@ -1039,6 +1044,11 @@
       "created": "2026-06-13",
       "depends_on": ["0", "4", "5", "12", "18"],
       "inbound": [
+        {
+          "context": "1. Read `docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md`, `docs/adrs/0019-deterministic-projection-and-adapter-conformance.md`, and `fixtures/README.md`.",
+          "from": "SKILL",
+          "fromPath": ".skillset/skills/skillset-dev-testing/SKILL.md"
+        },
         {
           "context": "- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - conformance model that consumes registry support and render results together.",
           "from": "0005",
@@ -1121,7 +1131,7 @@
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
-          "context": "[ADR-0020's MCP examples](../0020-portable-skill-tools-policy.md#mcp) interpolate literal portable server names into Claude tool rules. That does not establish the identity of the intended server. Cla",
+          "context": "[ADR-0020's MCP examples](0020-portable-skill-tools-policy.md#mcp) interpolate literal portable server names into Claude tool rules. That does not establish the identity of the intended server. Claude",
           "from": "0049",
           "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
         }
@@ -1383,7 +1393,7 @@
           "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
         },
         {
-          "context": "- [ADR-0027](../0027-runtime-activation-readiness-is-observational.md): runtime evidence remains observational and separate from builds.",
+          "context": "- [ADR-0027](0027-runtime-activation-readiness-is-observational.md): runtime evidence remains observational and separate from builds.",
           "from": "0049",
           "fromPath": "docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"
         },
@@ -1680,7 +1690,7 @@
       "depends_on": ["9", "33"],
       "inbound": [
         {
-          "context": "- [ADR-0034: Exact Shared References](0034-exact-shared-references.md) -",
+          "context": "[ADR-0034's exact shared-reference decision](0034-exact-shared-references.md#decision), implemented by SET-556, owns the current grammar. Its implementation was already settled when this record was ac",
           "from": "0040",
           "fromPath": "docs/adrs/0040-path-references-resolve-and-rename-together.md"
         }
@@ -1769,8 +1779,8 @@
       "inbound": [
         {
           "context": "- Emit one shared plugin package per plugin at `plugins/<plugin>/`, with target-native manifests beside the portable baseline and shared generated provenance in `plugins/skillset.lock` (ADR-0037, `doc",
-          "from": "AGENTS",
-          "fromPath": "AGENTS.md"
+          "from": "RULES",
+          "fromPath": ".skillset/RULES.md"
         },
         {
           "context": "> **Amended by [ADR-0037](0037-one-shared-plugin-package-per-plugin.md#superseded-statements):** Cursor's plugin manifest renders at `plugins/<plugin>/.cursor-plugin/plugin.json` inside the shared pac",
@@ -1834,7 +1844,7 @@
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
         {
-          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order fo",
+          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: non-amendment record IDs stay unique within each stream, and trunk's records keep their order. Ame",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         }
@@ -1902,7 +1912,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Source References Resolve And Rename Together",
-      "updated": "2026-10-22"
+      "updated": "2026-10-30"
     },
     {
       "amended_by": [],
@@ -2009,7 +2019,7 @@
           "fromPath": "docs/guides/generated-state-rebuild.md"
         },
         {
-          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: record ids stay unique, and trunk's records keep their order. File order is the only fold order fo",
+          "context": "Union is line-level and cannot validate the result. Two invariants still need checking after a merge: non-amendment record IDs stay unique within each stream, and trunk's records keep their order. Ame",
           "from": "changes",
           "fromPath": "docs/reference/features/changes.md"
         },
@@ -2081,6 +2091,11 @@
       "created": "2026-10-29",
       "depends_on": ["0", "9", "18", "22", "23", "24", "33", "43", "47"],
       "inbound": [
+        {
+          "context": "D1 cannot follow from string equality, schema validity or a source URL alone. [ADR-0048](../../adrs/0048-adoption-is-a-reviewable-migration.md) names a narrow positive: unchanged selected Claude manif",
+          "from": "2026-10-30-set-433-transform-inventory",
+          "fromPath": "docs/development/evidence/2026-10-30-set-433-transform-inventory.md"
+        },
         {
           "context": "[ADR-0048](../adrs/0048-adoption-is-a-reviewable-migration.md) separates mutable workspace review state from immutable operation reports. The shared `skillset.migration-state@1` contract lives in `@sk",
           "from": "migration-state",

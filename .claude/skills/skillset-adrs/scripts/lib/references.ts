@@ -1,11 +1,11 @@
 /* oxlint-disable max-statements -- cross-reference scanning and rewriting */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { ADR_DIR, ROOT } from './paths.ts';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { ADR_DIR } from './paths.ts';
 import { listNumberedAdrs, listDrafts } from './discovery.ts';
 import { serializeFrontmatter } from './frontmatter.ts';
 import type { Frontmatter } from './frontmatter.ts';
+import { rewriteReferenceText, type ReferenceDocument } from './reference-inventory.ts';
 
 /**
  * Fix cross-references after number padding changes.
@@ -58,45 +58,6 @@ export const fixCrossReferences = (): void => {
   }
 };
 
-/** All files that might contain ADR cross-references. */
-const allReferencingFiles = (): { path: string; filename: string }[] => {
-  const files: { path: string; filename: string }[] = [];
-
-  // ADR and draft files
-  for (const f of [...listNumberedAdrs(), ...listDrafts()]) {
-    files.push({ filename: f.filename, path: f.path });
-  }
-
-  // Non-ADR docs
-  const docsDir = join(ROOT, 'docs');
-  const visitDocs = (dir: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (path === ADR_DIR) {
-          continue;
-        }
-        visitDocs(path);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        files.push({ filename: entry.name, path });
-      }
-    }
-  };
-  if (existsSync(docsDir)) {
-    visitDocs(docsDir);
-  }
-
-  // AGENTS.md
-  const agentsPath = join(ROOT, 'AGENTS.md');
-  if (existsSync(agentsPath)) {
-    files.push({ filename: 'AGENTS.md', path: agentsPath });
-  }
-
-  return files;
-};
-
 /**
  * Rewrite references from a draft filename to a new numbered filename.
  * Called during promote to update all cross-references.
@@ -106,21 +67,21 @@ const allReferencingFiles = (): { path: string; filename: string }[] => {
  */
 export const rewriteDraftLinks = (
   oldDraftFilename: string,
-  newNumberedFilename: string
+  newNumberedFilename: string,
+  documents: readonly ReferenceDocument[]
 ): void => {
   const draftRef = `drafts/${oldDraftFilename}`;
 
-  for (const file of allReferencingFiles()) {
+  for (const file of [...listNumberedAdrs(), ...listDrafts(), ...documents]) {
     let content = readFileSync(file.path, 'utf8');
-    let changed = false;
+    const original = content;
 
     // Replace "drafts/YYYYMMDD-slug.md" with the numbered filename
     // In ADR files, the relative path from docs/adrs/ is just the filename.
     // In docs files, use "adrs/NNNN-slug.md" instead of
     // "adrs/drafts/YYYYMMDD-slug.md".
     if (content.includes(draftRef)) {
-      content = content.replaceAll(draftRef, newNumberedFilename);
-      changed = true;
+      content = rewriteReferenceText(content, new RegExp(draftRef.replaceAll('.', '\\.'), 'g'), newNumberedFilename);
     }
 
     // Replace bare "YYYYMMDD-slug.md" references (not preceded by "drafts/")
@@ -128,13 +89,9 @@ export const rewriteDraftLinks = (
       `(?<!drafts/)${oldDraftFilename.replaceAll('.', '\\.')}`,
       'g'
     );
-    const before = content;
-    content = content.replaceAll(barePattern, newNumberedFilename);
-    if (content !== before) {
-      changed = true;
-    }
+    content = rewriteReferenceText(content, barePattern, newNumberedFilename);
 
-    if (changed) {
+    if (content !== original) {
       writeFileSync(file.path, content, 'utf8');
       console.log(
         `  ${file.filename}: ${oldDraftFilename} → ${newNumberedFilename}`

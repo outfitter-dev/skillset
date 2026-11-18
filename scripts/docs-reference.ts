@@ -321,7 +321,7 @@ function assertFeatureSupportPath(relativePath: string): void {
   }
 }
 
-function hasGeneratedOwnership(content: string): boolean {
+export function hasGeneratedOwnership(content: string): boolean {
   const normalized = content.replaceAll("\r\n", "\n");
   if (!normalized.startsWith("---\n")) return false;
   const frontmatterEnd = normalized.indexOf("\n---\n", 4);

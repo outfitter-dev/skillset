@@ -66,6 +66,8 @@ bun scripts/adr.ts map
 
 The script handles file creation, git moves, title/slug/number updates, index rebuilding, decision-map generation for numbered and draft ADRs, and cross-reference updates.
 
+Reference scans and draft-link rewrites use canonical source and authored documentation. Generated guidance, generated documentation pages and blocks, provider-native islands, operational caches, snapshots, and release records are excluded. An explicitly authored native root `AGENTS.md` remains source. The helper validates ownership and generated-block boundaries before applying commands; incomplete workspace or corrupt lock state stops the operation. After a source reference changes, rebuild Skillset to update its generated copies. Documentation-only repositories remain supported.
+
 For manual ADR management without the script, see [assets/adr-management.md](assets/adr-management.md).
 
 ## Titles
