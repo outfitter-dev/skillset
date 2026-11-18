@@ -111,10 +111,14 @@ the repository's XDG cache bucket; they are not physical repo directories.
 | Immutable operational reports | `$XDG_STATE_HOME/skillset/reports/<report-id>/` | User-global, create-only UUIDv4 identity; retained until a future explicit pruning contract | Durable operation receipt, not generated output or workspace cache |
 
 Use [`skillset report show <id-or-path>`](../features/operational-reports.md)
-to inspect a completed immutable report. Existing test, eval, CI, adoption, and
-fixture evidence keeps its producer-specific cache path and reader until an
-explicit migration; a cache report does not become a global receipt merely
-because both contain structured results.
+to inspect a completed immutable report. Current applying adoption, direct import,
+and external-fixture producers write typed global receipts, including supported
+failure outcomes. Detailed fixture evidence and existing test/eval run data retain
+their repository-bucketed cache lifecycle; CI Markdown stays at the caller's chosen
+path. Legacy adoption/import/fixture files are not converted on read. A cache report
+does not become a global receipt merely because both contain structured results;
+the [producer table](../features/operational-reports.md#current-producer-boundary)
+names the current readers.
 
 | Kind | Environment variable | Default base | Skillset directory |
 | --- | --- | --- | --- |

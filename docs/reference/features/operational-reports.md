@@ -115,25 +115,21 @@ the store and bundle directories are `0700` and the two files are `0600`.
 
 ## Current Producer Boundary
 
-The first release establishes the store, structured contract, secure
-child-to-parent export primitive, and `report show` reader. It does not expose a
-generic public command for constructing arbitrary reports.
+Current adoption, direct import, and external-fixture producers write typed global receipts that `skillset report show` reads. A receipt can record a successful, partial, or failed operation; successful retrieval does not mean the recorded operation passed. There is no generic public command for constructing arbitrary reports.
 
-Existing producer-specific evidence keeps its current path and reader until
-that producer receives an explicit migration:
-
-| Existing evidence | Current owner | Current reader |
+| Evidence | Current producer and storage | Current reader |
 | --- | --- | --- |
+| Adoption receipt (`adoption`) | Applying `skillset init --adopt ... --yes`; immutable global report bundle | `skillset report show <id-or-path>` |
+| Direct import receipt (`import`) | `skillset import`; immutable global report bundle, including reported partial import failures | `skillset report show <id-or-path>` |
+| External-fixture receipt (`external-fixture`) | External fixture runner; immutable global report bundle with bounded phase results and evidence descriptors | `skillset report show <id-or-path>` |
+| Detailed external-fixture evidence | Logical `.skillset/cache/fixtures/...` in the repo's XDG cache bucket | Fixture workflow and retained files; separate from the global receipt |
 | Deterministic and ad hoc test runs | Logical `.skillset/cache/tests/` in the repo's XDG cache bucket | `skillset test status`, `test tail`, and `test list` |
 | Ungraded eval runs | Logical `.skillset/cache/evals/` in the repo's XDG cache bucket | `skillset eval status` and `eval tail` |
 | CI readiness Markdown | Caller-selected `skillset check --ci --report <path>` | The caller or CI artifact surface |
-| Adoption, import, and external-fixture evidence | Their existing logical cache paths and command output | Their current producer-specific workflows |
 
-`skillset report show` deliberately does not infer a legacy report kind, wrap an
-old file on demand, or read arbitrary filesystem content. Defining the typed
-payload does not migrate a producer by itself. Producer migrations must project
-only into their assigned closed kind and preserve any detailed cache evidence
-under its existing lifecycle.
+Adoption previews and usage failures do not publish operation receipts. Applying adoption and direct import return a receipt reference separately from their workspace write set; the bundle belongs to global state. External receipts summarize the phases actually reached, including acquisition failures, while detailed logs and comparisons retain their own cache lifecycle. A completed bundle is durable evidence of the recorded outcome, not cutover approval or provider-runtime verification.
+
+`skillset report show` does not infer a legacy report kind, wrap an old file on demand, or read arbitrary filesystem content. Earlier adoption/import/fixture cache reports remain legacy evidence; only completed bundles with the validated `skillset.report@1` envelope are global receipts. Typed receipts do not add unimplemented migration or bridge commands, and new producers still need an explicit projection into a supported closed report kind.
 
 ## Failure Behavior
 
