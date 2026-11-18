@@ -99,6 +99,7 @@ test("Agent Plugins manifest observations survive removal of the copied native m
   expect(report.normalizations?.map((entry) => [entry.code, entry.dialect, entry.source])).toEqual([
     ["manifest.name", "agent-plugins", { path: "plugin.json", pointer: "/name" }],
     ["manifest.description", "agent-plugins", { path: "plugin.json", pointer: "/description" }],
+    ["agent-plugins.manifest-to-source", "agent-plugins", { path: "plugin.json", pointer: "" }],
   ]);
   expect(await Bun.file(join(report.targetPath, "plugin.json")).exists()).toBe(false);
   expect(await readFile(join(sourcePath, "plugin.json"), "utf8")).toBe(original);

@@ -28,7 +28,7 @@ The examples are generated from typed fixtures and checked against the same sche
 
 | Contract | Example | Purpose |
 | --- | --- | --- |
-| `report` | [`report-import-normalizations.json`](../examples/report-import-normalizations.json) | Import receipt retaining value-free MCP and manifest normalization observations. |
+| `report` | [`report-import-normalizations.json`](../examples/report-import-normalizations.json) | Import receipt retaining value-free MCP, manifest and Agent Plugins normalization observations. |
 | `migration-state` | [`migration-state.json`](../examples/migration-state.json) | Workspace migration ledger with inline and sidecar review flags. |
 | `report` | [`report.json`](../examples/report.json) | Immutable Skillset typed operational report receipt. |
 | `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest; defaults.codex.agents configures project-agent rendering, not Agent standards selection. |

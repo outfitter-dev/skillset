@@ -64,6 +64,24 @@
         ]
       },
       {
+        "code": "agent-plugins.allowed-tools",
+        "dialect": "agent-plugins",
+        "source": {
+          "path": "skills/review/SKILL.md",
+          "pointer": "/allowed-tools"
+        },
+        "destination": {
+          "path": ".skillset/plugins/demo/skills/review/SKILL.md",
+          "pointer": "/allowed_tools/agents"
+        },
+        "occurrences": 1,
+        "fidelity": "unknown",
+        "evidence": [
+          "https://agentskills.io/specification",
+          "Observed source conversion; tool enforcement is not established."
+        ]
+      },
+      {
         "code": "manifest.name",
         "dialect": "claude",
         "source": {

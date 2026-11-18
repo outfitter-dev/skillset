@@ -184,6 +184,11 @@
                 "properties": {
                   "code": {
                     "enum": [
+                      "agent-plugins.allowed-tools",
+                      "agent-plugins.license-metadata",
+                      "agent-plugins.license-file",
+                      "agent-plugins.license-path",
+                      "agent-plugins.manifest-to-source",
                       "manifest.name",
                       "manifest.name-remap",
                       "manifest.description",
@@ -551,6 +556,11 @@
                 "properties": {
                   "code": {
                     "enum": [
+                      "agent-plugins.allowed-tools",
+                      "agent-plugins.license-metadata",
+                      "agent-plugins.license-file",
+                      "agent-plugins.license-path",
+                      "agent-plugins.manifest-to-source",
                       "manifest.name",
                       "manifest.name-remap",
                       "manifest.description",
