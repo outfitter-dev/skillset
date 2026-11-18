@@ -1199,7 +1199,7 @@ export async function snapshotGitIndex(rootPath: string): Promise<string> {
 }
 
 async function defaultMergeBase(rootPath: string): Promise<string> {
-  for (const candidate of ["origin/main", "main"]) {
+  for (const candidate of ["origin/HEAD", "origin/main", "main"]) {
     const mergeBase = await runCommand(
       ["git", "-C", rootPath, "merge-base", "HEAD", candidate],
       rootPath,

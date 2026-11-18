@@ -43,7 +43,7 @@ skillset change check --since origin/main
 
 After `skillset move`, status reports the old selector removed and the new one added. A reason whose scope names the new selector also covers the old selector's removal when the ledger records that move, and releasing it retires the old selector. The moved unit's source hash changes with its identity, so refresh the reason's evidence after a move.
 
-The baseline is selected in this order: an explicit `--since`; ledger-derived release state; compatibility `state.json`; source-inventory locks; then the Git merge base. If a failed check used `--since`, use the same baseline when refreshing evidence:
+The baseline is selected in this order: an explicit `--since`; ledger-derived release state; compatibility `state.json`; source-inventory locks; then the Git merge base. The Git fallback tries the merge base with locally recorded `origin/HEAD`, then `origin/main`, then `main`, and finally uses `HEAD` if no candidate resolves. It does not fetch or update remote refs. If a failed check used `--since`, use the same baseline when refreshing evidence:
 
 ```bash
 skillset change refresh @a1b2c3 --since origin/main
