@@ -1002,17 +1002,18 @@ test("adopt preserves ambiguous references without declaring a dialect", async (
     preview?.matches.map((match) => [match.intent, match.text, match.lowering, match.codexForm])
   ).toEqual([
     ["path.skills-dir", ".claude/skills", "none", undefined],
+    ["dynamic.arguments", "$ARGUMENTS", "none", undefined],
     ["invoke.subagent", "@alice", "none", undefined],
     ["dynamic.env-substitution", "${CLAUDE_SKILL_DIR}", "none", undefined],
   ]);
 
-  // Ambiguous reference spellings preserve prose; explicit argument normalization remains separate.
+  // Recognized argument and reference spellings remain authored text.
   expect(preview?.dialectDeclared).toBe(false);
   expect(preview?.matches.every((match) => (match.reason?.length ?? 0) > 0)).toBe(true);
   const imported = await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8");
   expect(imported).not.toContain("dialect: claude");
   expect(imported).toContain("Skills live in .claude/skills/x today.");
-  expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @alice about ${CLAUDE_SKILL_DIR}.");
+  expect(imported).toContain("Pass $ARGUMENTS along, then ask @alice about ${CLAUDE_SKILL_DIR}.");
 
   const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain("## Transforms (preview)");
@@ -1021,7 +1022,7 @@ test("adopt preserves ambiguous references without declaring a dialect", async (
   expect(markdown).toContain("Preserved for review (no automatic translation):");
   expect(markdown).toContain("`@alice` (invoke.subagent): A mention or quoted tool invocation does not establish portable agent identity or invocation semantics.");
   expect(markdown).toContain("`${CLAUDE_SKILL_DIR}` (dynamic.env-substitution): Codex skills have no templating:");
-  expect(markdown).not.toContain("`$ARGUMENTS` (dynamic.arguments)");
+  expect(markdown).toContain("`$ARGUMENTS` (dynamic.arguments)");
 
   // No recognized constructs -> the section is omitted entirely.
   const quietReport = await adoptSkillset(await fixture(MARKETPLACE_FIXTURE), { write: true });
@@ -1056,7 +1057,7 @@ test("adopt leaves files with only no-lowering matches undeclared", async () => 
   );
 });
 
-test("adopt normalizes Claude arguments to Skillset prompt argument placeholders", async () => {
+test("adopt preserves Claude argument tokens for an explicit migration decision", async () => {
   const root = await fixture({
     "skillset.yaml": "compile:\n  targets: [claude]\n  unsupportedDestination: warn\n",
     ".claude/skills/args/SKILL.md":
@@ -1066,10 +1067,11 @@ test("adopt normalizes Claude arguments to Skillset prompt argument placeholders
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(true);
-  expect(report.transformPreviews).toEqual([]);
+  expect(report.transformPreviews[0]?.matches.map((match) => match.text)).toEqual(["$ARGUMENTS", "$ARGUMENTS[0]", "$ARGUMENTS[1]", "$ARGUMENTS.limit"]);
+  expect(report.migrationFlags).toHaveLength(4);
   const imported = await readFile(join(root, ".skillset/skills/args/SKILL.md"), "utf8");
   expect(imported).toContain("description: Uses $ARGUMENTS literally in metadata.");
-  expect(imported).toContain("Run {{$ARGUMENTS}}, {{$ARGUMENTS[0]}}, {{$ARGUMENTS[1]}}, and {{$ARGUMENTS.limit}}.");
+  expect(imported).toContain("Run $ARGUMENTS, $ARGUMENTS[0], $ARGUMENTS[1], and $ARGUMENTS.limit.");
   expect(imported).toContain("Keep {{$ARGUMENTS}} literal.");
   expect(imported).not.toContain("{{{{$ARGUMENTS}}}}");
 });

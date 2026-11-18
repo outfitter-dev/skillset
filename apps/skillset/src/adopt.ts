@@ -1,4 +1,4 @@
-import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -41,7 +41,6 @@ import {
   removePreparedPluginAdoptionSource,
 } from "./plugin-adoption-source";
 import type { LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
-import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 import type { ImportProvider } from "./source-arg-values";
 import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory, SKILL_FILE } from "@skillset/registry";
@@ -561,14 +560,11 @@ async function importCandidate(
   allCandidates: readonly SetupImportCandidate[],
   previewSources: string[]
 ): Promise<AdoptImportResult> {
-  let landedImports: readonly ImportReport[] = [];
   try {
     const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
-    landedImports = batch.imports;
     const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
       for (const file of importedPrimarySkillFiles(report)) {
-        await normalizeImportedPromptArguments(join(report.targetPath, file));
         previewSources.push(
           relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/")
         );
@@ -586,7 +582,7 @@ async function importCandidate(
       warnings: batch.warnings,
     };
   } catch (error) {
-    const partialImports = error instanceof ImportBatchError ? error.imports : landedImports;
+    const partialImports = error instanceof ImportBatchError ? error.imports : [];
     for (const report of partialImports) {
       for (const file of importedPrimarySkillFiles(report)) {
         previewSources.push(relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/"));
@@ -724,44 +720,6 @@ function relativeOriginPath(rootPath: string, sourcePath: string, copiedFile?: s
       : join(sourcePath, copiedFile);
   const path = relative(rootPath, sourceFile).replaceAll("\\", "/");
   return path.length === 0 ? "." : path;
-}
-
-async function normalizeImportedPromptArguments(path: string): Promise<void> {
-  const raw = await readFile(path, "utf8");
-  let updated: string;
-  try {
-    const parts = parseMarkdown(raw, path);
-    const body = rewriteClaudePromptArguments(parts.body);
-    updated = body === parts.body
-      ? raw
-      : updateMarkdownSourceDocument(raw, path, (current) => ({ ...current, body }));
-  } catch {
-    updated = rewriteClaudePromptArguments(raw);
-  }
-  if (updated !== raw) await writeFile(path, updated);
-}
-
-function rewriteClaudePromptArguments(content: string): string {
-  const pattern = /\$ARGUMENTS(?:\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*|\b(?![\[.]))/gu;
-  let rewritten = "";
-  let cursor = 0;
-
-  for (const match of content.matchAll(pattern)) {
-    const token = match[0];
-    const index = match.index;
-    if (isAlreadySkillsetPromptArgument(content, index, index + token.length)) continue;
-    rewritten += content.slice(cursor, index);
-    rewritten += `{{${token}}}`;
-    cursor = index + token.length;
-  }
-
-  return `${rewritten}${content.slice(cursor)}`;
-}
-
-function isAlreadySkillsetPromptArgument(content: string, start: number, end: number): boolean {
-  const before = content.slice(Math.max(0, start - 4), start);
-  const after = content.slice(end, Math.min(content.length, end + 4));
-  return /\{\{\s*$/u.test(before) && /^\s*\}\}/u.test(after);
 }
 
 /** Recognize imported body constructs without changing the authored dialect. */
@@ -948,7 +906,7 @@ export function renderAdoptReportMarkdown(
   if (report.transformPreviews.length > 0) {
     lines.push("## Transforms (preview)", "");
     lines.push(
-      "Claude `$ARGUMENTS` forms are normalized to Skillset prompt argument placeholders. Other bodies are untouched. Recognition does not enable a document dialect; any translation requires an explicit authored source decision.",
+      "Raw argument tokens and other recognized constructs are preserved for review. Recognition does not establish portable runtime behavior or enable a document dialect; any translation requires evidence and an explicit authored source decision.",
       ""
     );
     for (const preview of report.transformPreviews) {

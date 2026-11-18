@@ -141,7 +141,7 @@ test("a removed landed source returns a failed receipt with the partial write in
     expect(removed).toBe(true);
     expect(report.ok).toBe(false);
     expect(report.migrationError).toContain("ENOENT");
-    expect(report.imports.some((entry) => !entry.ok)).toBe(true);
+    expect(report.imports.every((entry) => entry.ok)).toBe(true);
     expect(report.writtenPaths).toContain(".skillset/skills/demo");
     expect(report.builtFiles).toBe(0);
     expect(report.writtenPaths).not.toContain(MIGRATION_STATE_PATH);
