@@ -61,3 +61,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0044](0044-machine-scope-lifecycle-commands.md) | Machine-Scope Lifecycle Commands | Accepted |
 | [0045](0045-generated-state-merges-as-plain-text.md) | Generated State Merges as Plain Text | Accepted |
 | [0046](0046-provider-only-plugin-components-remain-uncovered.md) | Provider-only Plugin Components Remain Uncovered Without Blocking | Accepted |
+| [0047](0047-native-root-agents-md-is-authored-rule-source.md) | Native Root AGENTS.md Is Authored Rule Source | Accepted |

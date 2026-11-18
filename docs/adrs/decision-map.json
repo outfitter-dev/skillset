@@ -320,7 +320,7 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "- [ADR-0003](../0003-lossy-and-unsupported-output-policy.md) — unchanged unsupported and failed policy behavior.",
+          "context": "- [ADR-0003](0003-lossy-and-unsupported-output-policy.md) — unchanged unsupported and failed policy behavior.",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
@@ -994,7 +994,7 @@
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
         {
-          "context": "- [ADR-0018](../0018-render-results.md) — existing result vocabulary and provenance.",
+          "context": "- [ADR-0018](0018-render-results.md) — existing result vocabulary and provenance.",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         },
@@ -1404,7 +1404,7 @@
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
         },
         {
-          "context": "components. ADR-0028's [minimal-package rule](../0028-open-standards-are-the-portability-floor.md#agent-plugins-is-derived-from-existing-plugin-source)",
+          "context": "components. ADR-0028's [minimal-package rule](0028-open-standards-are-the-portability-floor.md#agent-plugins-is-derived-from-existing-plugin-source)",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
@@ -1543,6 +1543,11 @@
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
         },
         {
+          "context": "- [ADR-0032](0032-standards-compilation-is-inherent.md) — inherent standards applicability remains intact.",
+          "from": "0047",
+          "fromPath": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md"
+        },
+        {
           "context": "`compile.targets` remains the provider-selection list. Under [ADR-0032](../adrs/0032-standards-compilation-is-inherent.md), standards have no source selection field: the compiler derives every applica",
           "from": "schema-contracts",
           "fromPath": "docs/development/schema-contracts.md"
@@ -1558,7 +1563,7 @@
       "updated": "2026-09-12"
     },
     {
-      "amended_by": ["37", "39"],
+      "amended_by": ["37", "39", "47"],
       "amends": ["2", "6", "9"],
       "created": "2026-09-16",
       "depends_on": ["0", "2", "6", "9"],
@@ -1604,6 +1609,11 @@
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
         },
         {
+          "context": "- [ADR-0033](0033-workspace-authoring-model.md#decision):",
+          "from": "0047",
+          "fromPath": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md"
+        },
+        {
           "context": "- [ADR-0033: Workspace Authoring Model](../0033-workspace-authoring-model.md) - direct internal cutover and canonical repository source.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-declarative-user-scope-config.md"
@@ -1640,7 +1650,7 @@
       "updated": "2026-09-17"
     },
     {
-      "amended_by": [],
+      "amended_by": ["47"],
       "amends": ["28"],
       "created": "2026-09-16",
       "depends_on": ["18", "28", "32", "33"],
@@ -1654,6 +1664,11 @@
           "context": "[ADR-0033](0033-workspace-authoring-model.md#decision) and [ADR-0035](0035-rule-scope-and-provenanced-instruction-sections.md#decision) moved authored source back to `.skillset/RULES.md` and `.skillse",
           "from": "0039",
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
+        },
+        {
+          "context": "- [ADR-0035](0035-rule-scope-and-provenanced-instruction-sections.md#decision):",
+          "from": "0047",
+          "fromPath": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md"
         }
       ],
       "number": "0035",
@@ -1748,7 +1763,7 @@
           "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
         },
         {
-          "context": "The [shared package](../0037-one-shared-plugin-package-per-plugin.md#package-shape)",
+          "context": "The [shared package](0037-one-shared-plugin-package-per-plugin.md#package-shape)",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
@@ -1789,7 +1804,7 @@
       "updated": "2026-10-22"
     },
     {
-      "amended_by": [],
+      "amended_by": ["47"],
       "amends": ["18", "28", "33"],
       "created": "2026-09-24",
       "depends_on": ["15", "18", "28", "33", "35"],
@@ -1803,6 +1818,11 @@
           "context": "> **Amended by [ADR-0039](0039-rules-name-authored-guidance-source.md#superseded-statements):** `RULES.md` is now named the unscoped rule source.",
           "from": "0033",
           "fromPath": "docs/adrs/0033-workspace-authoring-model.md"
+        },
+        {
+          "context": "- [ADR-0039](0039-rules-name-authored-guidance-source.md#rule-is-the-skillset-vocabulary):",
+          "from": "0047",
+          "fromPath": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md"
         },
         {
           "context": "[ADR-0039](../../adrs/0039-rules-name-authored-guidance-source.md) may also",
@@ -1963,7 +1983,13 @@
       "amends": ["28"],
       "created": "2026-10-29",
       "depends_on": ["3", "18", "19", "28", "37"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "Provider-only plugin components outside a destination's component contract are uncovered: they use `intentionally_skipped`, `policy: default`, an explicit support reason, and `plugin-component-uncover",
+          "from": "render-results",
+          "fromPath": "docs/development/features/render-results.md"
+        }
+      ],
       "number": "0046",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md",
@@ -1971,6 +1997,21 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Provider-only Plugin Components Remain Uncovered Without Blocking",
+      "updated": "2026-10-29"
+    },
+    {
+      "amended_by": [],
+      "amends": ["33", "35", "39"],
+      "created": "2026-10-29",
+      "depends_on": ["0", "32", "33", "35", "39"],
+      "inbound": [],
+      "number": "0047",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0047-native-root-agents-md-is-authored-rule-source.md",
+      "slug": "native-root-agents-md-is-authored-rule-source",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Native Root AGENTS.md Is Authored Rule Source",
       "updated": "2026-10-29"
     }
   ],
