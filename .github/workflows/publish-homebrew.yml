@@ -98,7 +98,7 @@ jobs:
           cp "$RUNNER_TEMP/skillset.rb" homebrew-tap/Formula/skillset.rb
           bun scripts/homebrew.ts update-readme --readme homebrew-tap/README.md
       - name: Open or update Homebrew tap pull request
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
