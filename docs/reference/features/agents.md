@@ -68,7 +68,7 @@ Claude and Cursor receive native project-agent fields. Codex receives TOML with 
 
 Skillset rejects missing descriptions, empty bodies, duplicate or invalid resolved names, unresolved or target-disabled managed skills, invalid qualified references, and unsafe initial-prompt content. A top-level `model` warns unless every enabled [target](../../glossary.md#target) resolves an explicit provider model.
 
-Plugin agents remain uncovered in Codex and Agent Plugins results without blocking supported Claude or Cursor output. The shared package does not imply those consumers support its agents. Move a portable project role to `.skillset/subagents/` when project-agent rendering is intended. Skillset never writes user-global agent directories during build.
+Plugin agents remain [uncovered](plugins.md#uncovered-components) in Codex and Agent Plugins results without blocking supported Claude or Cursor output. The shared package does not imply those consumers support its agents. Move a portable project role to `.skillset/subagents/` when project-agent rendering is intended. Skillset never writes user-global agent directories during build.
 
 ## Provenance
 

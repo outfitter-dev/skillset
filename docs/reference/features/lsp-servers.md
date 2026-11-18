@@ -24,14 +24,16 @@ Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. Discover
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `<source-root>/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable contract. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `<source-root>/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | no output (planned) | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable contract. |
+
+The Agent Plugins baseline records this component as [uncovered](plugins.md#uncovered-components) without blocking valid provider output. Cursor support remains planned; no Cursor component is emitted.
 
 ## Diagnostics
 
 - Refuse malformed generated JSON.
-- Back up unmanaged [generated-output](../../glossary.md#generated-output) collisions before replacing them in confirmed builds.
+- Refuse unmanaged [generated-output](../../glossary.md#generated-output) collisions until the originals are explicitly reconciled; `build --yes` does not authorize overwriting them.
 - Reject divergent provider source that tries to emit the same `.lsp.json` path.
 - Do not copy Claude LSP configuration into Codex plugin output.
 

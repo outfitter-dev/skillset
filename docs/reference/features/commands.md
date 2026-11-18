@@ -29,9 +29,11 @@ Place command files under `.skillset/plugins/<plugin>/commands/`. Discovery is a
 | --- | --- | --- | --- | --- | --- |
 | `<source-root>/plugins/<plugin>/commands/` | plugin root `commands/` plus manifest `commands: "./commands"` | n/a | plugin root `commands/` | `target_native` / `implemented` | Opaque pass-through; command semantics remain provider-native. |
 
+The Agent Plugins baseline records commands as [uncovered](plugins.md#uncovered-components), so valid Claude and Cursor commands build under the default policy. Codex receives no command component.
+
 ## Diagnostics
 
-- Back up unmanaged [generated-output](../../glossary.md#generated-output) collisions before replacing them in confirmed builds.
+- Refuse unmanaged [generated-output](../../glossary.md#generated-output) collisions until the originals are explicitly reconciled; `build --yes` does not authorize overwriting them.
 - Reject divergent provider source that tries to emit the same generated command path.
 - Do not copy commands into Codex plugin output.
 

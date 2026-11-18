@@ -25,10 +25,12 @@ Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Co
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `.app.json` | n/a | `.app.json` plus `extensions.com.openai.apps` | `target_native` / `implemented` | Opaque pass-through today. |
-| Future `apps.source` | n/a | n/a | `planned` | Reserved for a later adapter if app manifests need feature-key validation and provenance. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `.app.json` | n/a | `.app.json` plus `extensions.com.openai.apps` | no output (planned) | `target_native` / `implemented` | Opaque pass-through today. |
+| Future `apps.source` | n/a | n/a | no output (planned) | `planned` | Reserved for a later adapter if app manifests need feature-key validation and provenance. |
+
+The Agent Plugins baseline records this component as [uncovered](plugins.md#uncovered-components) without blocking valid provider output. Cursor support remains planned; no Cursor component is emitted.
 
 ## Diagnostics
 

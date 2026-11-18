@@ -24,15 +24,17 @@ Place monitor source under `.skillset/plugins/<plugin>/monitors/`. Discovery is 
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `<source-root>/plugins/<plugin>/monitors/` | plugin root `monitors/` | n/a | `target_native` / `implemented` | Opaque directory pass-through for Claude. |
-| `<source-root>/plugins/<plugin>/monitors/monitors.json` | manifest `experimental.monitors: "./monitors/monitors.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `<source-root>/plugins/<plugin>/monitors/` | plugin root `monitors/` | n/a | no output (planned) | `target_native` / `implemented` | Opaque directory pass-through for Claude. |
+| `<source-root>/plugins/<plugin>/monitors/monitors.json` | manifest `experimental.monitors: "./monitors/monitors.json"` | n/a | no output (planned) | `target_native` / `implemented` | JSON utility output is parsed after generation. |
+
+The Agent Plugins baseline records this component as [uncovered](plugins.md#uncovered-components) without blocking valid provider output. Cursor support remains planned; no Cursor component is emitted.
 
 ## Diagnostics
 
 - Refuse malformed generated JSON for known JSON files.
-- Back up unmanaged [generated-output](../../glossary.md#generated-output) collisions before replacing them in confirmed builds.
+- Refuse unmanaged [generated-output](../../glossary.md#generated-output) collisions until the originals are explicitly reconciled; `build --yes` does not authorize overwriting them.
 - Reject divergent provider source that tries to emit the same monitor paths.
 - Do not copy Claude monitors into Codex plugin output.
 

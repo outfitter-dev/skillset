@@ -19,7 +19,7 @@ Output safety uses `skillset.lock` ownership to protect hand-authored files near
 | Case | Behavior |
 | --- | --- |
 | Unmanaged neighbor inside an output root | Diff, output check, and stale cleanup ignore it |
-| Unmanaged file at an exact [destination](../../glossary.md#destination) Skillset must write | Confirmed build backs it up, warns, then replaces it |
+| Unmanaged file at an exact [destination](../../glossary.md#destination) Skillset must write | Ordinary build refuses; reconcile or relocate the authored file before rebuilding |
 | Managed generated file edited since the last lock | Confirmed replacement or deletion backs it up first |
 | Managed file missing | Plan warns and a confirmed build regenerates it |
 | Corrupt lock | Build and output inspection fail before making ownership decisions |
@@ -47,7 +47,7 @@ An unconfirmed build writes nothing. Unmanaged output collisions block an ordina
 | Managed file is missing | Preview and confirm a build |
 | Generated edit should be discarded | Preview `skillset reconcile <path> --use source`, then confirm |
 | Clean generated body edit should become source | Preview `skillset reconcile <path> --use output`, then confirm if eligible |
-| Unmanaged collision was replaced | Inspect the reported backup and preview restore |
+| Unmanaged destination collision | Preserve the authored file and reconcile or relocate it before rebuilding |
 | Lock is corrupt | Stop; repair or regenerate ownership evidence from trusted source |
 | Generated changelog wording is wrong | Use `change reason`, `change amend`, or `release amend`, not reverse patching |
 
