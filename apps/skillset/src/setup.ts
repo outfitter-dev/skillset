@@ -1,3 +1,6 @@
+import { applyWorkspaceTransaction } from "@skillset/core/internal/workspace-transaction";
+import { resolveNativeRootRuleSource } from "@skillset/core/internal/native-root-rules";
+import { readSkillsetWorkspaceConfig } from "@skillset/core/internal/xdg";
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
@@ -72,7 +75,7 @@ export interface SetupOptions {
 
 export interface SetupFile {
   readonly path: string;
-  readonly status: "create" | "exists";
+  readonly status: "create" | "exists" | "update";
 }
 
 export interface SetupGit {
@@ -81,6 +84,7 @@ export interface SetupGit {
 }
 
 export interface SetupReport {
+  readonly nativeAgents?: true;
   readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly files: readonly SetupFile[];
@@ -163,7 +167,7 @@ export async function createSkillset(options: SetupOptions = {}): Promise<SetupR
       throw new Error(`skillset: create target exists and is not a directory: ${rootPath}`);
     }
     const entries = await readdir(rootPath);
-    if (entries.length > 0) {
+    if (entries.some((entry) => entry !== "AGENTS.md")) {
       throw new Error(`skillset: create target must be empty: ${rootPath}`);
     }
   }
@@ -189,6 +193,14 @@ async function applySetupPlan(
   // the repo look pre-adopted to the survey.
   const alreadyAdopted = await setupWorkspaceExists(rootPath, layout);
   const targets = normalizeTargets(options.targets);
+  const configPath = join(rootPath, workspaceManifestPath);
+  const currentConfig = await readExistingFile(configPath);
+  const nativeSource = options.global === true ? undefined : await resolveNativeRootRuleSource(
+    rootPath,
+    configPath,
+    currentConfig ?? workspaceManifest(name, targets, scaffoldUnsupportedDestination),
+    currentConfig !== undefined && readSkillsetWorkspaceConfig(parseYamlRecord(currentConfig, workspaceManifestPath), workspaceManifestPath).nativeAgents === true
+  );
   const plannedFiles = setupFiles({
     ...options,
     kind,
@@ -196,16 +208,24 @@ async function applySetupPlan(
     name,
     targets,
     workspaceManifestPath,
+    nativeAgents: nativeSource !== undefined,
     ...(scaffoldUnsupportedDestination === undefined
       ? {}
       : { scaffoldUnsupportedDestination }),
   });
+  const updateNativeConfig = currentConfig !== undefined && nativeSource !== undefined &&
+    nativeSource.configContent !== nativeSource.effectiveConfigContent;
   const git = await setupGit(kind, rootPath, options);
   const files: SetupFile[] = [];
 
   for (const file of plannedFiles) {
     const absolutePath = join(rootPath, file.path);
     const existing = await readExistingFile(absolutePath);
+    if (file.path === workspaceManifestPath && updateNativeConfig) {
+      await validateExistingRootConfig(absolutePath);
+      files.push({ path: file.path, status: "update" });
+      continue;
+    }
     if (existing !== undefined && existing !== file.content) {
       if (kind === "init" && file.path === workspaceManifestPath) {
         await validateExistingRootConfig(absolutePath);
@@ -228,12 +248,36 @@ async function applySetupPlan(
     if (kind === "create" && !(await pathExists(rootPath))) {
       await mkdir(rootPath, { recursive: true });
     }
-    for (const file of plannedFiles) {
-      const absolutePath = join(rootPath, file.path);
-      const existing = await readExistingFile(absolutePath);
-      if (existing !== undefined) continue;
-      await prepareRepositoryMutationPath(rootPath, absolutePath);
-      await writeFile(absolutePath, file.content);
+    if (nativeSource !== undefined) {
+      const writes = plannedFiles.flatMap((file) => {
+        const state = files.find((entry) => entry.path === file.path)?.status;
+        if (state === "exists") return [];
+        return [{
+          path: file.path,
+          content: state === "update" ? nativeSource.effectiveConfigContent : file.content,
+          ...(state === "update" ? { expectedContent: nativeSource.configContent } : { expectedAbsent: true }),
+        }];
+      });
+      await applyWorkspaceTransaction(rootPath, {
+        absentDirectoryFiles: [{ directory: ".skillset/rules", suffix: ".md" }],
+        readOnlyInputs: [
+          { path: "AGENTS.md", content: nativeSource.sourceContent },
+          ...(!writes.some((file) => file.path === "skillset.lock")
+            ? [{ path: "skillset.lock", ...(nativeSource.lockContent === undefined ? {} : { content: nativeSource.lockContent }) }] : []),
+          { path: ".skillset/RULES.md" },
+          ...(!writes.some((file) => file.path === workspaceManifestPath)
+            ? [{ path: workspaceManifestPath, content: nativeSource.configContent }] : []),
+        ],
+        writes,
+      });
+    } else {
+      for (const file of plannedFiles) {
+        const absolutePath = join(rootPath, file.path);
+        const existing = await readExistingFile(absolutePath);
+        if (existing !== undefined) continue;
+        await prepareRepositoryMutationPath(rootPath, absolutePath);
+        await writeFile(absolutePath, file.content);
+      }
     }
     if (git?.status === "create") await initializeGit(rootPath);
   }
@@ -248,7 +292,7 @@ async function applySetupPlan(
   const surveySkips = kind === "init" ? await detectSurveySkips(rootPath) : [];
   const nextSteps = await setupNextSteps(
     rootPath,
-    importSurvey.candidates,
+    importSurvey.candidates.filter((candidate) => nativeSource === undefined || candidate.path !== "AGENTS.md"),
     options.write === true || alreadyAdopted
   );
 
@@ -257,7 +301,8 @@ async function applySetupPlan(
     baselines,
     files,
     ...(git === undefined ? {} : { git }),
-    importCandidates: importSurvey.candidates,
+    importCandidates: importSurvey.candidates.filter((candidate) => nativeSource === undefined || candidate.path !== "AGENTS.md"),
+    ...(nativeSource === undefined ? {} : { nativeAgents: true as const }),
     kind,
     nextSteps,
     rootPath,
@@ -980,6 +1025,7 @@ function setupFiles(
   options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions & {
     readonly kind: SetupReport["kind"];
     readonly resolvedLayout: SetupLayout;
+    readonly nativeAgents: boolean;
     readonly scaffoldUnsupportedDestination?: "warn";
     readonly workspaceManifestPath: string;
   }
@@ -992,20 +1038,21 @@ function setupFiles(
       content: workspaceManifest(
         options.name,
         options.targets,
-        options.scaffoldUnsupportedDestination
+        options.scaffoldUnsupportedDestination,
+        options.nativeAgents
       ),
     },
     {
       path: `${sourceRoot}/.gitkeep`,
       content: "",
     },
-    {
+    ...(options.nativeAgents ? [] : [{
       path: `${sourceRoot}/RULES.md`,
       content:
         options.kind === "create" && options.global !== true
           ? createRulesGuide(options.name)
           : `---\ncursor: false\n---\n\n# ${options.name}\n\nAdd rules here.\n`,
-    },
+    }]),
     ...SETUP_SOURCE_PLACEHOLDERS.map((directory) => ({
       path: `${sourceRoot}/${directory}/.gitkeep`,
       content: "",
@@ -1109,13 +1156,15 @@ function rootConfig(
 function workspaceManifest(
   name: string,
   targets: readonly TargetName[],
-  unsupportedDestination?: "warn"
+  unsupportedDestination?: "warn",
+  nativeAgents = false
 ): string {
   return [
     `# yaml-language-server: $schema=${schemaUri("workspace-config")}`,
     "skillset:",
     `  name: ${name}`,
     rootConfig(targets, unsupportedDestination).trimEnd(),
+    ...(nativeAgents ? ["workspace:", "  nativeAgents: true"] : []),
     "",
   ].join("\n");
 }

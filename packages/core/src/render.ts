@@ -329,7 +329,7 @@ export async function renderBuildGraph(
     }
   }
   rendered.push(...(await renderChangelogs(graph, lockRoots)));
-  if (Object.keys(graph.root.marketplaces).length > 0) {
+  if (Object.keys(graph.root.marketplaces).length > 0 || graph.nativeRootRuleSource !== undefined) {
     lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
   }
   assertPluginPackagePathCompatibility(graph, rendered);
@@ -3158,7 +3158,9 @@ async function hashMarketplaceSource(
   for (const path of paths) {
     hash.update(relative(graph.rootPath, path).replaceAll("\\", "/"));
     hash.update("\0");
-    hash.update(await readFile(path));
+    hash.update(path === graph.rootConfigPath && graph.nativeRootRuleSource !== undefined
+      ? graph.nativeRootRuleSource.effectiveConfigContent
+      : await readFile(path));
     hash.update("\0");
   }
   hash.update(JSON.stringify(graph.releaseState));

@@ -24,6 +24,7 @@ import { codexAgentsMdFormat } from "@skillset/registry";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
+  readonly nativeRootGuidance?: boolean;
   readonly ignoredRoots: readonly string[];
   readonly outputRoots: readonly string[];
   readonly rootPath: string;
@@ -127,6 +128,7 @@ export async function createDevWatchPlan(
 
   return {
     configPaths,
+    ...(graph.nativeRootRuleSource === undefined ? {} : { nativeRootGuidance: true }),
     ignoredRoots,
     outputRoots: graph.outputRoots,
     rootPath: graph.rootPath,
@@ -142,6 +144,7 @@ export function shouldRunDevPreviewForPath(
   if (eventPath === undefined || eventPath.length === 0) return true;
   const relativeEventPath = normalizeEventPath(plan.rootPath, eventPath);
   if (relativeEventPath === undefined) return false;
+  if (plan.nativeRootGuidance === true && relativeEventPath === "AGENTS.md") return true;
   if (isIgnoredDevWatchPath(plan, relativeEventPath)) return false;
   return isSameOrInside(relativeEventPath, plan.sourceRoot) || plan.configPaths.includes(relativeEventPath);
 }
@@ -184,8 +187,9 @@ export async function runDevWatchPreview(
   options: SkillsetOptions = {},
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan: DevWatchPlan | undefined;
   try {
+    plan = await createDevWatchPlan(rootPath, options);
     const lint = await lintSkillset(rootPath, options);
     const diff = await diffSkillsetResult(rootPath, options);
     return {
@@ -214,9 +218,9 @@ export async function runDevWatchPreview(
       error: error instanceof Error ? error.message : String(error),
       mode: "preview",
       ok: false,
-      outputRoots: plan.outputRoots,
+      outputRoots: plan?.outputRoots ?? [],
       reason,
-      sourceRoot: plan.sourceRoot,
+      sourceRoot: plan?.sourceRoot ?? ".skillset",
       warnings: [],
     };
   }
@@ -227,8 +231,9 @@ export async function runDevWatchApply(
   options: SkillsetOptions = {},
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan: DevWatchPlan | undefined;
   try {
+    plan = await createDevWatchPlan(rootPath, options);
     const lint = await lintSkillset(rootPath, options);
     const build = await buildSkillsetResult(rootPath, options);
     return {
@@ -252,9 +257,9 @@ export async function runDevWatchApply(
       error: error instanceof Error ? error.message : String(error),
       mode: "write",
       ok: false,
-      outputRoots: plan.outputRoots,
+      outputRoots: plan?.outputRoots ?? [],
       reason,
-      sourceRoot: plan.sourceRoot,
+      sourceRoot: plan?.sourceRoot ?? ".skillset",
       warnings: [],
     };
   }
@@ -335,7 +340,7 @@ export async function runDevWatch(
     watch,
   }
 ): Promise<void> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan = await createDevWatchPlan(rootPath, options);
   const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
   const recordStreamFailure = (error: unknown, stage: string): void => {
     stream?.failed(error instanceof Error ? error.message : String(error), stage);
@@ -347,6 +352,13 @@ export async function runDevWatch(
   else stream.started(plan, mode);
   const writeOperation = async (reason = "initial") => {
     const report = await runtime.runOnce(rootPath, options, mode, reason);
+    // A config edit can change whether root AGENTS.md is authored or generated.
+    // Keep the last valid plan while a transition is temporarily incomplete.
+    try {
+      plan = await createDevWatchPlan(rootPath, options);
+    } catch {
+      // The preview reports source errors; a later edit can complete the transition.
+    }
     if (initialSignalReceived) return;
     if (stream === undefined) output.write(renderDevWatchPreview(report));
     else stream.operation(report);

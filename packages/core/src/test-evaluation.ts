@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import {
@@ -474,6 +474,9 @@ async function copyTestSource(
     graph.rootConfigPath,
     join(stagingWorkspacePath, "skillset.yaml")
   );
+  if (graph.nativeRootRuleSource !== undefined) {
+    await writeFile(join(stagingWorkspacePath, "AGENTS.md"), graph.nativeRootRuleSource.sourceContent);
+  }
   await cp(graph.sourcePath, join(stagingWorkspacePath, graph.sourceDir), {
     filter: (path) =>
       !ignoredOperationalPaths.some((ignoredPath) =>
