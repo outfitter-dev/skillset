@@ -55,7 +55,7 @@ Every enabled [target](../../glossary.md#target) receives its native `SKILL.md` 
 
 Release state supplies generated version metadata after `skillset release apply`; inline versions remain the fallback before release state exists. Disabling generated Skillset metadata does not remove lock provenance.
 
-`{{$ARGUMENTS...}}` expressions become native Claude placeholders. The Agent Skills baseline preserves the marker and adds a one-line replacement notice, and Codex reuses that same `.agents/skills/<skill>/SKILL.md`. Codex output rendered outside the shared baseline carries the same notice. Plugin skills in a shared Agent Plugins package keep the marker without the notice, so every provider reading that package sees the same bytes. Cursor preserves the marker without the notice.
+Whole `{{$ARGUMENTS}}` and indexed `{{$ARGUMENTS[N]}}` expressions become native Claude placeholders. Named forms such as `{{$ARGUMENTS.topic}}` have no supported Claude conversion and fail before output is written; use an explicit positional binding or author provider-native arguments. The Agent Skills baseline preserves the marker and adds a one-line replacement notice, and Codex reuses that same `.agents/skills/<skill>/SKILL.md`. Codex output rendered outside the shared baseline carries the same notice. Plugin skills in a shared Agent Plugins package keep the marker without the notice, so every provider reading that package sees the same bytes. Enabled provider bodies must match that shared body: a differing Claude substitution is rejected, and named markers fail Claude preprocessing before the comparison. Cursor preserves the marker without the notice.
 
 ## Standalone Agent Skills Publication
 
