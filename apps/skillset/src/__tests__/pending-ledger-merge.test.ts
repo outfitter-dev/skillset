@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
@@ -48,22 +48,48 @@ test("ADR-0045 change entries from two branches merge as plain text and fold on 
     "Change beta on its own branch, recorded in its own pending file.",
   ]);
 
-  // Readers take no lock. Reads that overlap the fold must neither throw nor
-  // lose a pending record while it moves into ledger.jsonl.
+  // Exercise each stable state of the fold: copied records can temporarily
+  // exist in both the ledger and pending files, then pending files disappear.
+  const ledgerPath = join(root, ".skillset/changes/ledger.jsonl");
+  const pendingContents = await Promise.all(pending.map(async (path) =>
+    [path, await readFile(join(root, path), "utf8")] as const
+  ));
+  const expectedIds = folded.map((event) => event.id);
+  for (const [, content] of pendingContents) {
+    await appendFile(ledgerPath, content);
+    expect((await readChangeLedger(root)).map((event) => event.id)).toEqual(expectedIds);
+  }
+  for (const path of pending) {
+    await rm(join(root, path));
+    expect((await readChangeLedger(root)).map((event) => event.id)).toEqual(expectedIds);
+  }
+  // Restore the merged state so the real release still performs the fold.
+  await rm(ledgerPath);
+  await Promise.all(pendingContents.map(([path, content]) => writeFile(join(root, path), content)));
+
+  // Sample unlocked reads during release; the staged checks above establish
+  // the intermediate states because sampling alone cannot guarantee overlap.
   let applying = true;
   const release = applyRelease(root).finally(() => {
     applying = false;
   });
-  const overlapping: Promise<readonly string[]>[] = [];
-  while (applying) {
-    overlapping.push(readChangeLedger(root).then((events) => events.map((event) => event.id)));
-    await Bun.sleep(0);
-  }
-  const report = await release;
-  expect(overlapping.length).toBeGreaterThan(0);
-  for (const ids of await Promise.all(overlapping)) {
-    expect(ids.slice(0, folded.length)).toEqual(folded.map((event) => event.id));
-  }
+  const readOverlaps = async () => {
+    let reads = 0;
+    // Await each read so the probe cannot flood the filesystem queue while
+    // release apply needs that same queue to finish the fold.
+    do {
+      const ids = (await readChangeLedger(root)).map((event) => event.id);
+      expect(ids.slice(0, folded.length)).toEqual(folded.map((event) => event.id));
+      reads += 1;
+    } while (applying);
+    return reads;
+  };
+  // Settle both operations even if either the release or a read assertion fails.
+  const [released, overlapping] = await Promise.allSettled([release, readOverlaps()]);
+  if (released.status === "rejected") throw released.reason;
+  if (overlapping.status === "rejected") throw overlapping.reason;
+  const report = released.value;
+  expect(overlapping.value).toBeGreaterThan(0);
   expect(report.plan.entries).toHaveLength(2);
   expect(await pendingLedgerEventFiles(root)).toEqual([]);
   const ledger = await readFoldedLedgerRecords(root);
