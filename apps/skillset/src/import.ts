@@ -80,6 +80,7 @@ import {
   type NativeListingMetadataConflict,
   portablePluginMetadataConflicts,
   PORTABLE_PLUGIN_METADATA_FIELDS,
+  cursorKeywordBoundary,
   unreadableNativeAuthorProviders,
 } from "./plugin-manifest-authority";
 import { CliUsageError } from "./cli-output";
@@ -1739,6 +1740,7 @@ async function writeImportedPluginConfig(
   // keep their raw native author on their own manifest override instead, and
   // migration warns rather than dropping it.
   const unreadableAuthors = unreadableNativeAuthorProviders(nativeManifests);
+  const keywordBoundary = cursorKeywordBoundary(nativeManifests);
   const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);
   if (metadataConflicts.length > 0) {
     throw new Error(
@@ -1818,13 +1820,13 @@ async function writeImportedPluginConfig(
   };
   const providerOverrides = Object.fromEntries(
     [...nativeManifests.entries()].flatMap(([provider, manifest]) => {
-      const override = importedManifestOverride(
+      const override: JsonRecord = { ...importedManifestOverride(
         provider,
         manifest,
         listingConflicts,
         canonicalManifestDescription,
         unreadableAuthors.includes(provider)
-      );
+      ), ...(provider === "cursor" && keywordBoundary !== undefined ? { keywords: keywordBoundary.cursor } : {}) };
       const providerConfig: Record<string, JsonValue> = {};
       if (Object.keys(override).length > 0) providerConfig.manifest = override;
       if (provider === "codex") {
@@ -1844,9 +1846,9 @@ async function writeImportedPluginConfig(
         : [[provider, providerConfig]];
     })
   );
-  const cursorNativeDiscoveryFields = ["category", "tags"].filter(
+  const cursorNativeDiscoveryFields = [...["category", "tags"].filter(
     (field) => nativeManifests.get("cursor")?.[field] !== undefined
-  );
+  ), ...(keywordBoundary === undefined ? [] : ["keywords"])];
   await writeFile(
     join(targetPath, "skillset.yaml"),
     stringifyYamlSourceDocument({
@@ -1855,6 +1857,7 @@ async function writeImportedPluginConfig(
     })
   );
   const normalizations: readonly ImportNormalization[] = [
+      ...(keywordBoundary === undefined ? [] : manifestNormalizationObservations("cursor", [{ code: "manifest.metadata", source: "/keywords", destination: "/cursor/manifest/keywords" }], configDestination)),
       ...licenseNormalizations,
       ...metadataNormalizations,
       ...importedListingResult.normalizations,

@@ -34,11 +34,37 @@ export interface NativeListingMetadataConflict {
   readonly providers: readonly TargetName[];
 }
 
+/** Preserve the observed native divergence; never union discovery lists or infer equivalent search behavior. */
+export function cursorKeywordBoundary(manifests: Iterable<ProviderPluginManifestEntry>): {
+  readonly canonical: { readonly provider: "claude"; readonly value: string[] };
+  readonly cursor: string[];
+} | undefined {
+  const entries = [...manifests];
+  const exactList = (provider: TargetName): string[] | undefined => {
+    const values = entries.filter(([target]) => target === provider).map(([, manifest]) => manifest.keywords);
+    const value = values[0];
+    if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) return undefined;
+    if (!validateSourceMetadata({ listing: { keywords: value } }).ok) return undefined;
+    if (values.some((candidate) => JSON.stringify(candidate) !== JSON.stringify(value))) return undefined;
+    return [...value];
+  };
+  // Codex's shared standard manifest cannot accept an arbitrary native root override.
+  // Require explicit Claude/Codex agreement and retain Cursor's distinct authored list.
+  const claude = exactList("claude");
+  const codex = exactList("codex");
+  const cursor = exactList("cursor");
+  if (claude === undefined || codex === undefined || cursor === undefined) return undefined;
+  if (JSON.stringify(claude) !== JSON.stringify(codex) || JSON.stringify(cursor) === JSON.stringify(claude)) return undefined;
+  return { canonical: { provider: "claude", value: claude }, cursor };
+}
+
 export function portablePluginMetadataConflicts(
   manifests: Iterable<ProviderPluginManifestEntry>
 ): readonly PortablePluginMetadataConflict[] {
   const entries = [...manifests];
+  const keywordBoundary = cursorKeywordBoundary(entries);
   return PORTABLE_PLUGIN_METADATA_FIELDS.flatMap((field) => {
+    if (field === "keywords" && keywordBoundary !== undefined) return [];
     if (field === "author") {
       return authorMetadataConflicts(entries);
     }
@@ -111,7 +137,12 @@ export function firstPortablePluginMetadataSource(
   manifests: Iterable<ProviderPluginManifestEntry>,
   field: Exclude<PortablePluginMetadataField, "author">
 ): { readonly provider: TargetName; readonly value: JsonValue } | undefined {
-  for (const [provider, manifest] of manifests) {
+  const entries = [...manifests];
+  if (field === "keywords") {
+    const boundary = cursorKeywordBoundary(entries);
+    if (boundary !== undefined) return boundary.canonical;
+  }
+  for (const [provider, manifest] of entries) {
     const value = manifest[field];
     if (value !== undefined) return { provider, value };
   }
