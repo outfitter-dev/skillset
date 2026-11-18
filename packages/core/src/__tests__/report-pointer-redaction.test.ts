@@ -47,3 +47,22 @@ test("bundle reads reject escaped credentials even when JSON and Markdown agree"
   await writeFile(join(stored.resolvedPath, "report.md"), renderSkillsetReportMarkdown(unsafe));
   await expect(readReportBundleAtBoundary(safe.id, { boundary })).rejects.toThrow("sensitive");
 });
+
+
+test("bundle reads reject unapproved native field locations even with matching normalized Markdown", async () => {
+  const { join } = await import("node:path");
+  const { writeFile } = await import("node:fs/promises");
+  const { createTestFixtureRoot } = await import("../../../../scripts/test-helpers/fixture-root");
+  const { createReportBundle, readReportBundleAtBoundary } = await import("../report-store");
+  const root = await createTestFixtureRoot("skillset-field-pointer-read-");
+  const boundary = { reportRoot: join(root, "reports"), trustedBase: root };
+  const input = report("/mcpServers/ordinary/type");
+  const assessment = { construct: "native-skill-frontmatter", source: { path: ".skillset/skills/demo/SKILL.md", pointer: "/disable-model-invocation" }, candidateTarget: "claude", fidelity: "unknown", eligibility: "unknown-source", reasons: ["Unknown source"], evidence: ["crosswalk"] };
+  const safe = sanitizeAndValidateSkillsetReport({ ...input, payload: { ...input.payload, capabilityAssessments: [assessment] } });
+  const stored = await createReportBundle(safe, { boundary });
+  const unsafe = { ...safe, payload: { ...safe.payload, capabilityAssessments: [{ ...assessment, source: { ...assessment.source, pointer: "/private_customer_key" } }] } } as typeof safe;
+  expect(containsSensitiveReportContent(JSON.stringify(unsafe))).toBe(true);
+  await writeFile(join(stored.resolvedPath, "report.json"), JSON.stringify(unsafe));
+  await writeFile(join(stored.resolvedPath, "report.md"), renderSkillsetReportMarkdown(unsafe));
+  await expect(readReportBundleAtBoundary(safe.id, { boundary })).rejects.toThrow("sensitive");
+});

@@ -1,3 +1,4 @@
+import type { ImportCapabilityAssessment } from "./import-capability-assessment";
 import type { ImportNormalization } from "./import-normalization";
 import type { TARGET_NAMES } from "./contracts";
 
@@ -99,6 +100,7 @@ export interface SkillsetReportRenderResultCounts {
 }
 
 export interface SkillsetAdoptionReportPayload {
+  readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly guidancePaths?: readonly string[];
   readonly cutover?: {
@@ -127,6 +129,7 @@ export interface SkillsetAdoptionReportPayload {
 }
 
 export interface SkillsetImportReportPayload {
+  readonly capabilityAssessments?: readonly ImportCapabilityAssessment[];
   readonly normalizations?: readonly ImportNormalization[];
   readonly destinations: readonly string[];
   readonly diagnosticCodes: readonly string[];

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { listProviderSkillFrontmatterFields, providerDestinationFormatSnapshots } from "@skillset/registry";
 import type { MigrationFlag } from "@skillset/schema";
-import { assessCapabilityFidelity } from "./capability-crosswalk";
+import { assessImportedFrontmatter, capabilityFindingEvidence } from "./import-capability-assessment";
 import { readRecord } from "./config";
 import { createInitialMigrationFlag } from "./migration-state-reconcile";
 import { compareStrings } from "./path";
@@ -17,7 +17,6 @@ export interface FrontmatterFindingSource {
 
 /** Attribution is not proof of portable semantics, including for structurally known fields. */
 export function importedFrontmatterFindings(source: FrontmatterFindingSource, content: string): readonly MigrationFlag[] {
-  const fidelity = assessCapabilityFidelity(undefined, []);
   const { frontmatter } = parseMarkdown(content, source.path);
   const providers = [...new Set(source.providers)].sort(compareStrings);
   return [...new Set(source.fields)].sort(compareStrings).flatMap((field) =>
@@ -38,7 +37,7 @@ export function importedFrontmatterFindings(source: FrontmatterFindingSource, co
         fingerprints: { content: digest(JSON.stringify(value)), context: importedFrontmatterContext(provider, field) },
         placement: { kind: "sidecar", reason: "Frontmatter cannot contain inline migration locators." },
         evidence: [
-          { summary: `Capability fidelity: ${fidelity.fidelity}. ${fidelity.reasons.join(" ")}` },
+          ...capabilityFindingEvidence(assessImportedFrontmatter({ path: source.path, fields: [field], providers: provider === undefined ? [] : [provider] })),
           { summary: provider === undefined ? "No source provider was declared; no provider was inferred from field spelling." : `Declared source provider: ${provider}. Preservation does not establish native support for unknown fields.` },
           ...(known && snapshot !== undefined ? snapshot.provenance.sources.map((item) => ({ reference: item.url, summary: `Structural snapshot ${snapshot.id}, fetched ${snapshot.provenance.fetchedAt}, lists ${field}. This is not cross-provider equivalence or runtime verification.` })) : [{ summary: "No matching pinned structural field evidence; meaning remains unknown." }]),
           ...(source.origin?.repo === undefined ? [] : [{ summary: "Original repository.", reference: source.origin.repo }]),

@@ -1,3 +1,5 @@
+import { renderInlineCode } from "./report-markdown";
+import { renderImportCapabilityAssessments, sanitizeImportCapabilityAssessments, containsUnapprovedCapabilityLocations } from "./import-capability-report";
 import { renderImportNormalizations } from "./import-normalization-report";
 import { randomUUID } from "node:crypto";
 
@@ -400,7 +402,8 @@ export function containsSensitiveReportContent(
   // The final serialized scan must also inspect pointer semantics: ~1/~0 can
   // hide a credential's word boundary or an explicitly supplied sentinel.
   try {
-    return containsSensitivePointers(JSON.parse(value), sentinels);
+    const parsed: unknown = JSON.parse(value);
+    return containsSensitivePointers(parsed, sentinels) || containsUnapprovedCapabilityLocations(parsed);
   } catch {
     return false;
   }
@@ -457,6 +460,7 @@ function cloneAdoptionPayload(
   value: SkillsetAdoptionReportPayload
 ): SkillsetAdoptionReportPayload {
   return {
+    ...(value.capabilityAssessments === undefined ? {} : { capabilityAssessments: sanitizeImportCapabilityAssessments(value.capabilityAssessments) }),
     ...(value.normalizations === undefined ? {} : { normalizations: structuredClone(value.normalizations) }),
     ...(value.cutover === undefined ? {} : { cutover: { paths: [...value.cutover.paths], total: value.cutover.total } }),
     ...(value.guidancePaths === undefined ? {} : { guidancePaths: [...value.guidancePaths] }),
@@ -484,6 +488,7 @@ function cloneImportPayload(
   value: SkillsetImportReportPayload
 ): SkillsetImportReportPayload {
   return {
+    ...(value.capabilityAssessments === undefined ? {} : { capabilityAssessments: sanitizeImportCapabilityAssessments(value.capabilityAssessments) }),
     ...(value.normalizations === undefined ? {} : { normalizations: structuredClone(value.normalizations) }),
     destinations: [...value.destinations],
     diagnosticCodes: [...value.diagnosticCodes],
@@ -551,6 +556,7 @@ function renderAdoptionPayload(
 ): readonly string[] {
   return [
     ...renderImportNormalizations(payload.normalizations ?? []),
+    ...renderImportCapabilityAssessments(payload.capabilityAssessments ?? []),
     "",
     "## Adoption",
     "",
@@ -598,6 +604,7 @@ function renderImportPayload(
 ): readonly string[] {
   return [
     ...renderImportNormalizations(payload.normalizations ?? []),
+    ...renderImportCapabilityAssessments(payload.capabilityAssessments ?? []),
     "",
     "## Import",
     "",
@@ -732,26 +739,4 @@ function scrubUnknown(value: unknown, sentinels: readonly string[]): unknown {
         : scrubUnknown(item, sentinels),
     ])
   );
-}
-
-function renderInlineCode(value: string): string {
-  let longestRun = 0;
-  let currentRun = 0;
-  for (const character of value) {
-    if (character === "`") {
-      currentRun += 1;
-      longestRun = Math.max(longestRun, currentRun);
-    } else {
-      currentRun = 0;
-    }
-  }
-  const fence = "`".repeat(longestRun + 1);
-  const pad =
-    value.startsWith(" ") ||
-    value.endsWith(" ") ||
-    value.startsWith("`") ||
-    value.endsWith("`")
-      ? " "
-      : "";
-  return `${fence}${pad}${value}${pad}${fence}`;
 }

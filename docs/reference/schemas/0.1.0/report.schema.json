@@ -42,6 +42,109 @@
               "type": "array",
               "uniqueItems": true
             },
+            "capabilityAssessments": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "authorityHash": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "candidateTarget": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor"
+                    ]
+                  },
+                  "capabilityId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "construct": {
+                    "enum": [
+                      "native-skill-frontmatter",
+                      "native-hook-runtime",
+                      "mcp-conversion",
+                      "manifest-conversion"
+                    ]
+                  },
+                  "eligibility": {
+                    "enum": [
+                      "unknown-source",
+                      "no-capability",
+                      "no-judgment",
+                      "stale-evidence",
+                      "scope-mismatch"
+                    ]
+                  },
+                  "evidence": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "featureId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "fidelity": {
+                    "const": "unknown"
+                  },
+                  "judgmentScope": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "reasons": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                        "type": "string"
+                      },
+                      "pointer": {
+                        "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "pointer"
+                    ],
+                    "type": "object"
+                  },
+                  "sourceProvider": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor",
+                      "agent-plugins"
+                    ]
+                  }
+                },
+                "required": [
+                  "construct",
+                  "source",
+                  "candidateTarget",
+                  "fidelity",
+                  "eligibility",
+                  "reasons",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "cutover": {
               "additionalProperties": false,
               "properties": {
@@ -469,6 +572,109 @@
         "payload": {
           "additionalProperties": false,
           "properties": {
+            "capabilityAssessments": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "authorityHash": {
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "candidateTarget": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor"
+                    ]
+                  },
+                  "capabilityId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "construct": {
+                    "enum": [
+                      "native-skill-frontmatter",
+                      "native-hook-runtime",
+                      "mcp-conversion",
+                      "manifest-conversion"
+                    ]
+                  },
+                  "eligibility": {
+                    "enum": [
+                      "unknown-source",
+                      "no-capability",
+                      "no-judgment",
+                      "stale-evidence",
+                      "scope-mismatch"
+                    ]
+                  },
+                  "evidence": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "featureId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "fidelity": {
+                    "const": "unknown"
+                  },
+                  "judgmentScope": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "reasons": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                        "type": "string"
+                      },
+                      "pointer": {
+                        "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "pointer"
+                    ],
+                    "type": "object"
+                  },
+                  "sourceProvider": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor",
+                      "agent-plugins"
+                    ]
+                  }
+                },
+                "required": [
+                  "construct",
+                  "source",
+                  "candidateTarget",
+                  "fidelity",
+                  "eligibility",
+                  "reasons",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "destinations": {
               "items": {
                 "maxLength": 256,

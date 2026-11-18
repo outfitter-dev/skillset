@@ -30,6 +30,11 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         fileCount: 2, importedUnitIds: ["plugin:demo"], listCounts: { destinations: 1, importedUnitIds: 1 },
         partial: false, requestedKind: "plugin", requestedProvider: "claude", warningCodes: [],
         renderResults: { failed: 0, rendered: 0, skipped: 0, unsupported: 0 },
+        capabilityAssessments: [{
+          construct: "native-skill-frontmatter", source: { path: ".skillset/skills/demo/SKILL.md", pointer: "/claude/frontmatter/allowed-tools" },
+          sourceProvider: "claude", candidateTarget: "codex", fidelity: "unknown", eligibility: "no-capability",
+          reasons: ["No matching semantic capability judgment."], evidence: ["docs/adrs/0048-adoption-is-a-reviewable-migration.md"],
+        }],
         normalizations: [{
           code: "mcp.claude-http-transport", dialect: "claude",
           source: { path: ".mcp.json", pointer: "/mcpServers/demo/type" },
