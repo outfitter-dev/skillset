@@ -30,13 +30,13 @@
     },
     "apps/cli": {
       "name": "@skillset/cli",
-      "version": "0.29.0",
+      "version": "0.30.0",
       "bin": {
         "skillset": "dist/cli.js",
       },
       "dependencies": {
         "@clack/prompts": "^1.7.0",
-        "yaml": "^2.8.1",
+        "yaml": "^2.9.1",
       },
       "devDependencies": {
         "@skillset/core": "workspace:*",
@@ -49,27 +49,27 @@
     },
     "apps/native-darwin-arm64": {
       "name": "@skillset/native-darwin-arm64",
-      "version": "0.29.0",
+      "version": "0.30.0",
     },
     "apps/native-darwin-x64": {
       "name": "@skillset/native-darwin-x64",
-      "version": "0.29.0",
+      "version": "0.30.0",
     },
     "apps/native-linux-arm64-glibc": {
       "name": "@skillset/native-linux-arm64-glibc",
-      "version": "0.29.0",
+      "version": "0.30.0",
     },
     "apps/native-linux-x64-glibc": {
       "name": "@skillset/native-linux-x64-glibc",
-      "version": "0.29.0",
+      "version": "0.30.0",
     },
     "apps/native-windows-x64": {
       "name": "@skillset/native-win32-x64",
-      "version": "0.29.0",
+      "version": "0.30.0",
     },
     "apps/skillset": {
       "name": "skillset",
-      "version": "0.29.0",
+      "version": "0.30.0",
       "bin": {
         "skillset": "dist/cli.js",
       },
@@ -90,7 +90,7 @@
         "@skillset/schema": "workspace:*",
         "@skillset/transforms": "workspace:*",
         "jsonc-parser": "^3.3.1",
-        "yaml": "^2.8.1",
+        "yaml": "^2.9.1",
       },
     },
     "packages/lint": {
@@ -613,7 +613,7 @@
 
     "wrap-ansi": ["wrap-ansi@10.0.2", "", { "dependencies": { "ansi-styles": "^6.2.3", "string-width": "^8.2.0" } }, "sha512-6OLRNZqRntVGBm26ghZ5eZhCuWWyOkRCSn8XsOIuq5stpCE/tjLbdozd93naILZig0lmD8ANfRwnhn0DLeXGlg=="],
 
-    "yaml": ["yaml@2.9.0", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA=="],
+    "yaml": ["yaml@2.9.1", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw=="],
 
     "yoctocolors": ["yoctocolors@2.2.0", "", {}, "sha512-xYqdZFUK/VYazNl/oCDYN+3WloWQwMfZxBoiNt6qNyk+xfOdi598muWE42rNZFp1kNOiqW936q5RhUdnpqElSg=="],
 
