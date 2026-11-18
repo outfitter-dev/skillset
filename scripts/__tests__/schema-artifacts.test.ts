@@ -42,7 +42,7 @@ test("SET-182: generated example files validate against generated schemas", asyn
 });
 
 test("SET-445: report artifacts enforce discriminants, bounds, and pipeline state", () => {
-  const example = skillsetSchemaExamples.find((candidate) => candidate.id === "report")?.value;
+  const example = skillsetSchemaExamples.find((candidate) => candidate.id === "report" && candidate.value.kind === "external-fixture")?.value;
   if (example === undefined) throw new Error("missing report example");
   expect(validateAgainstSchema(example, reportContract.schema)).toEqual([]);
 
@@ -117,7 +117,7 @@ test("SET-445: report artifacts enforce discriminants, bounds, and pipeline stat
 });
 
 test("SET-445: external fixture repository identity has runtime and schema parity", () => {
-  const example = skillsetSchemaExamples.find((candidate) => candidate.id === "report")?.value;
+  const example = skillsetSchemaExamples.find((candidate) => candidate.id === "report" && candidate.value.kind === "external-fixture")?.value;
   if (example === undefined) throw new Error("missing report example");
   const invalidIdentity = structuredClone(example);
   const payload = invalidIdentity.payload as Record<string, unknown>;
@@ -146,4 +146,20 @@ test("SET-182: schema freshness rejects stale generated artifacts", () => {
     join("docs", "reference", "examples", "retired.yaml"),
     join("docs", "reference", "schemas", "0.1.0", "retired.schema.json"),
   ]);
+});
+
+
+test("MCP normalization receipt examples have runtime and generated-schema parity", () => {
+  const example = skillsetSchemaExamples.find((candidate) => candidate.path === "report-import-normalizations.json")?.value;
+  if (example === undefined) throw new Error("missing normalization report example");
+  expect(validateSkillsetReport(example).ok).toBe(true);
+  expect(validateAgainstSchema(example, reportContract.schema)).toEqual([]);
+  for (const patch of [{ code: "unknown" }, { fidelity: "exact" }, { evidence: [] }, { rawValue: "private" }, { source: { path: "../outside", pointer: "" } }]) {
+    const invalid = structuredClone(example);
+    const payload = invalid.payload as Record<string, unknown>;
+    const entries = payload.normalizations as Record<string, unknown>[];
+    entries[0] = { ...entries[0], ...patch };
+    expect(validateSkillsetReport(invalid).ok).toBe(false);
+    expect(validateAgainstSchema(invalid, reportContract.schema)).not.toEqual([]);
+  }
 });

@@ -178,6 +178,103 @@
               "type": "array",
               "uniqueItems": true
             },
+            "normalizations": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "mcp.claude-http-transport",
+                      "mcp.codex-url-transport",
+                      "mcp.codex-header-field",
+                      "mcp.claude-root-token",
+                      "mcp.claude-data-token",
+                      "mcp.source-path",
+                      "mcp.json-serialization"
+                    ]
+                  },
+                  "destination": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                        "type": "string"
+                      },
+                      "pointer": {
+                        "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "pointer"
+                    ],
+                    "type": "object"
+                  },
+                  "dialect": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor",
+                      "agent-plugins"
+                    ]
+                  },
+                  "evidence": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "fidelity": {
+                    "const": "unknown"
+                  },
+                  "observedAt": {
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+                    "type": "string"
+                  },
+                  "occurrences": {
+                    "maximum": 9007199254740991,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "providerVersion": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                        "type": "string"
+                      },
+                      "pointer": {
+                        "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "pointer"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "code",
+                  "dialect",
+                  "source",
+                  "destination",
+                  "occurrences",
+                  "fidelity",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
             "phases": {
               "additionalProperties": false,
               "properties": {
@@ -441,6 +538,103 @@
                 "importedUnitIds"
               ],
               "type": "object"
+            },
+            "normalizations": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "mcp.claude-http-transport",
+                      "mcp.codex-url-transport",
+                      "mcp.codex-header-field",
+                      "mcp.claude-root-token",
+                      "mcp.claude-data-token",
+                      "mcp.source-path",
+                      "mcp.json-serialization"
+                    ]
+                  },
+                  "destination": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                        "type": "string"
+                      },
+                      "pointer": {
+                        "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "pointer"
+                    ],
+                    "type": "object"
+                  },
+                  "dialect": {
+                    "enum": [
+                      "claude",
+                      "codex",
+                      "cursor",
+                      "agent-plugins"
+                    ]
+                  },
+                  "evidence": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "fidelity": {
+                    "const": "unknown"
+                  },
+                  "observedAt": {
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+                    "type": "string"
+                  },
+                  "occurrences": {
+                    "maximum": 9007199254740991,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "providerVersion": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))[^\\u0000-\\u001f/]+(?:/[^\\u0000-\\u001f/]+)*$",
+                        "type": "string"
+                      },
+                      "pointer": {
+                        "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "pointer"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "code",
+                  "dialect",
+                  "source",
+                  "destination",
+                  "occurrences",
+                  "fidelity",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "type": "array"
             },
             "partial": {
               "type": "boolean"

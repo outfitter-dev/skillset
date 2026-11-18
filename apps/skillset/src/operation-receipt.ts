@@ -109,6 +109,7 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
       ? { cutover: { paths: cutover.items, total: cutover.total } }
       : {}),
     guidancePaths: report.surveySkips.filter((skip) => skip.surface === "guided-root-guidance").map((skip) => skip.path),
+    normalizations: report.imports.flatMap((entry) => entry.normalizations ?? []),
     alreadyAdopted: report.alreadyAdopted,
     candidateIds: candidateIds.items,
     destinations: destinations.items,
@@ -165,6 +166,7 @@ function importPayload(input: ImportReceiptInput): SkillsetImportReportPayload {
     reports.map((report) => `${report.kind}:${report.name}`)
   );
   return {
+    normalizations: reports.flatMap((report) => report.normalizations ?? []),
     destinations: destinations.items,
     diagnosticCodes: input.failed
       ? [reports.length > 0 ? "import.partial" : "import.failed"]

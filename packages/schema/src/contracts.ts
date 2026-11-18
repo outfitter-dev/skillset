@@ -1,3 +1,4 @@
+import { importNormalizationSchema } from "./import-normalization";
 import { migrationStateSchema } from "./migration-state-contract";
 export { MIGRATION_STATE_SCHEMA_VERSION, MIGRATION_FLAG_STATES, MIGRATION_FLAG_SEVERITIES, MIGRATION_FLAG_DISPOSITIONS, MIGRATION_MARKER_LABELS } from "./migration-state-contract";
 import { sortSchemaRecord } from "./json";
@@ -2081,6 +2082,7 @@ function reportListCountsSchema(keys: readonly string[]): SchemaJsonRecord {
 function reportAdoptionPayloadSchema(): SchemaJsonRecord {
   return requiredObjectSchema(
     {
+      normalizations: arraySchema(importNormalizationSchema(TARGET_NAMES)),
       alreadyAdopted: { type: "boolean" },
       candidateIds: reportIdListSchema(),
       cutover: requiredObjectSchema({ paths: reportIdListSchema(), total: reportBoundedCountSchema() }, ["paths", "total"]),
@@ -2123,6 +2125,7 @@ function reportAdoptionPayloadSchema(): SchemaJsonRecord {
 function reportImportPayloadSchema(): SchemaJsonRecord {
   return requiredObjectSchema(
     {
+      normalizations: arraySchema(importNormalizationSchema(TARGET_NAMES)),
       destinations: reportIdListSchema(),
       diagnosticCodes: reportCodeListSchema(),
       fields: requiredObjectSchema(

@@ -1,0 +1,68 @@
+{
+  "createdAt": "2026-10-30T00:00:00.000Z",
+  "id": "6ba7b810-9dad-4c8e-8a46-7e8dd6f4e6d5",
+  "kind": "import",
+  "schemaVersion": "skillset.report@1",
+  "skillset": {
+    "version": "0.1.1"
+  },
+  "workspace": {
+    "id": "workspace--local-12abcdef3456"
+  },
+  "result": {
+    "command": "import",
+    "exitCode": 0,
+    "ok": true
+  },
+  "payload": {
+    "destinations": [
+      ".skillset/plugins/demo"
+    ],
+    "diagnosticCodes": [],
+    "fields": {
+      "inferred": 0,
+      "preserved": 0,
+      "unsupported": 0
+    },
+    "fileCount": 2,
+    "importedUnitIds": [
+      "plugin:demo"
+    ],
+    "listCounts": {
+      "destinations": 1,
+      "importedUnitIds": 1
+    },
+    "partial": false,
+    "requestedKind": "plugin",
+    "requestedProvider": "claude",
+    "warningCodes": [],
+    "renderResults": {
+      "failed": 0,
+      "rendered": 0,
+      "skipped": 0,
+      "unsupported": 0
+    },
+    "normalizations": [
+      {
+        "code": "mcp.claude-http-transport",
+        "dialect": "claude",
+        "source": {
+          "path": ".mcp.json",
+          "pointer": "/mcpServers/demo/type"
+        },
+        "destination": {
+          "path": ".skillset/plugins/demo/.mcp.json",
+          "pointer": "/mcpServers/demo/type"
+        },
+        "occurrences": 1,
+        "fidelity": "unknown",
+        "providerVersion": "2.1.269",
+        "observedAt": "2026-09-12",
+        "evidence": [
+          "https://code.claude.com/docs/en/mcp",
+          "Observed source conversion; runtime fidelity is not established."
+        ]
+      }
+    ]
+  }
+}

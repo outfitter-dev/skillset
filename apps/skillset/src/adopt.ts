@@ -1,3 +1,5 @@
+import type { ImportNormalization } from "@skillset/schema";
+import { renderImportNormalizations } from "@skillset/core/internal/import-normalization-report";
 import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -81,6 +83,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly normalizations?: readonly ImportNormalization[];
   readonly migrationFlags?: readonly MigrationFlag[];
   readonly migrationWritePaths?: readonly string[];
   readonly frontmatterSources?: readonly FrontmatterFindingSource[];
@@ -589,6 +592,7 @@ async function importCandidate(
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
+      normalizations: batch.imports.flatMap((report) => report.normalizations ?? []),
       migrationFlags: batch.imports.flatMap((report) => report.migrationFlags ?? []),
       migrationWritePaths: batch.imports.flatMap((report) => report.migrationWritePaths ?? []),
       frontmatterSources: batch.imports.flatMap((report) => report.frontmatterSources ?? []),
@@ -611,6 +615,7 @@ async function importCandidate(
       candidate,
       detail: errorMessage(error),
       renderResults: partialImports.flatMap((report) => report.renderResults),
+      normalizations: partialImports.flatMap((report) => report.normalizations ?? []),
       migrationFlags: partialImports.flatMap((report) => report.migrationFlags ?? []),
       migrationWritePaths: partialImports.flatMap((report) => report.migrationWritePaths ?? []),
       frontmatterSources: partialImports.flatMap((report) => report.frontmatterSources ?? []),
@@ -821,6 +826,7 @@ export function renderAdoptReportMarkdown(
     ""
   );
 
+  lines.push(...renderImportNormalizations(report.imports.flatMap((entry) => entry.normalizations ?? [])));
   lines.push("## Acquisition", "");
   if (report.acquisition.kind === "git") {
     lines.push(

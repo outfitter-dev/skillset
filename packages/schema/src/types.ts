@@ -1,3 +1,4 @@
+import type { ImportNormalization } from "./import-normalization";
 import type { TARGET_NAMES } from "./contracts";
 
 export type SchemaJsonScalar = boolean | null | number | string;
@@ -98,6 +99,7 @@ export interface SkillsetReportRenderResultCounts {
 }
 
 export interface SkillsetAdoptionReportPayload {
+  readonly normalizations?: readonly ImportNormalization[];
   readonly guidancePaths?: readonly string[];
   readonly cutover?: {
     readonly paths: readonly string[];
@@ -125,6 +127,7 @@ export interface SkillsetAdoptionReportPayload {
 }
 
 export interface SkillsetImportReportPayload {
+  readonly normalizations?: readonly ImportNormalization[];
   readonly destinations: readonly string[];
   readonly diagnosticCodes: readonly string[];
   readonly fields: {

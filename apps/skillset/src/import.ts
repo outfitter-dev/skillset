@@ -1,3 +1,4 @@
+import { recordMcpNormalizations } from "@skillset/core/internal/import-normalization-evidence";
 import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
@@ -18,7 +19,7 @@ import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatter
 
 import { AGENT_SKILLS_FRONTMATTER_KEYS } from "@skillset/core/internal/render-agent-skills-standard";
 import { recordImportedFindings } from "@skillset/core/internal/adoption-findings";
-import { COMMON_FRONTMATTER_KEYS, type MigrationFlag } from "@skillset/schema";
+import { COMMON_FRONTMATTER_KEYS, type ImportNormalization, type MigrationFlag } from "@skillset/schema";
 import { importedFrontmatterFindings, type FrontmatterFindingSource } from "@skillset/core/internal/adoption-frontmatter-findings";
 import { scopeImportedSkillFrontmatter } from "@skillset/core/internal/import-skill-frontmatter";
 import { scopeImportedNativeHooks, type ImportedNativeHookBoundary } from "@skillset/core/internal/import-native-hook-boundary";
@@ -130,6 +131,7 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
 
 /** Test-only hooks that observe or substitute the import directory claim. */
 export interface ImportTestHooks {
+  readonly afterBaselineSeed?: () => Promise<void>;
   readonly beforeFindings?: () => Promise<void>;
   /** Fires after the import commits, before release baselines are seeded. */
   readonly beforeBaselineSeed?: () => Promise<void>;
@@ -166,6 +168,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly normalizations?: readonly ImportNormalization[];
   readonly migrationFlags?: readonly MigrationFlag[];
   readonly migrationWritePaths?: readonly string[];
   /** Observations from this import; repository adoption persists them in its ledger. */
@@ -189,6 +192,7 @@ export interface ImportReport {
 }
 
 export interface ImportBatchReport {
+  readonly normalizations?: readonly ImportNormalization[];
   readonly files: number;
   readonly imports: readonly ImportReport[];
   readonly kind: ImportKind;
@@ -247,6 +251,7 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
   }
 
   return {
+    normalizations: imports.flatMap((report) => report.normalizations ?? []),
     files: imports.reduce((total, report) => total + report.files, 0),
     imports,
     kind: plan.kind,
@@ -292,6 +297,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   const stagingPath = await mkdtemp(join(targetParent, `.${basename(targetPath)}.tmp-`));
   let committed = false;
   let mergedOriginal: string | undefined;
+  let retainedReport: ImportReport | undefined;
 
   try {
     const copied = await copyImportSource({
@@ -304,15 +310,10 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     });
     const declaredProviders = options.kind === "plugin" ? await declaredNativePluginTargets(stagingPath) : [];
     const providers = importProviders(options) ?? (declaredProviders.length === 0 ? undefined : declaredProviders);
-    let copiedFiles =
-      options.kind === "plugin"
-        ? await rewriteImportedPluginMcp(
-            stagingPath,
-            copied.files,
-            providers,
-            agentPluginImport !== undefined
-          )
-        : copied.files;
+    const mcpImport = options.kind === "plugin"
+      ? await rewriteImportedPluginMcp(stagingPath, copied.files, providers, agentPluginImport !== undefined, normalizeCopiedImportPath(relative(options.rootPath, join(targetPath, ".mcp.json"))))
+      : { files: copied.files, normalizations: [] };
+    let copiedFiles = mcpImport.files;
     const nativeHookTargets = options.kind === "plugin" ? await importedNativeHookTargets(options, stagingPath) : [];
     const nativeHookBoundary = options.kind === "plugin"
       ? await scopeImportedNativeHooks({ rootPath: options.rootPath, stagingPath, files: copiedFiles, targets: nativeHookTargets, synthesizedConfig: copied.synthesizedConfig })
@@ -357,6 +358,24 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       claimImportedSourceDirectory(stagingPath, targetPath, options.testHooks);
     }
     committed = true;
+    const fieldClassifications = [classification, ...pluginSkillFrontmatter.map((skill) => skill.classification)];
+    const committedReport: ImportReport = {
+      baselines: [], copiedFiles, files: copiedFiles.length,
+      inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
+      kind: options.kind, renderResults: [], name,
+      normalizations: mcpImport.normalizations,
+      ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
+      nextChecks: importChecksAtRoot(options.rootPath),
+      preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
+      sourcePath, targetPath,
+      unsupportedFields: [...new Set(fieldClassifications.flatMap((item) => item.unsupported))].sort(compareStrings),
+      warnings: [
+        ...importWarnings(classification, scopedPolicyProviders),
+        ...pluginSkillFrontmatter.flatMap((skill) => importWarnings(skill.classification, scopedPolicyProviders)),
+        ...copied.warnings,
+      ],
+    };
+    retainedReport = committedReport;
     let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
       await options.testHooks?.beforeBaselineSeed?.();
@@ -370,16 +389,17 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       });
     } catch (error) {
       if (mergedOriginal === undefined) {
-        throw new Error(
+        throw new ImportBatchError(
           `skillset: import baseline failed for ${targetPath}: ${errorMessage(error)}. ` +
             "Inspect the destination; after fixing the baseline error, remove it and rerun only if it is the intended import.",
-          { cause: error }
+          [committedReport]
         );
       } else {
         const targetSkillPath = join(targetPath, SKILL_FILE);
         try {
           await prepareRepositoryMutationPath(options.rootPath, targetSkillPath);
           await writeFile(targetSkillPath, mergedOriginal);
+          retainedReport = undefined;
         } catch (restoreError) {
           throw new Error(
             `skillset: import baseline failed and restoring ${targetSkillPath} failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`,
@@ -390,6 +410,12 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       throw error;
     }
 
+    retainedReport = {
+      ...committedReport,
+      baselines: baselineReport.entries,
+      ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
+    };
+    await options.testHooks?.afterBaselineSeed?.();
     const renderResults = await importRenderResults({
       classification,
       copiedFiles,
@@ -403,6 +429,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       targetPath,
     });
 
+    retainedReport = { ...retainedReport, renderResults };
     const frontmatterSources: FrontmatterFindingSource[] = (options.kind === "skill"
       ? [{ path: SKILL_FILE, classification }]
       : pluginSkillFrontmatter).flatMap((skill) => {
@@ -427,36 +454,23 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     } catch (error) {
       findingError = `skillset: imported source is preserved with unresolved frontmatter, but recording review findings failed: ${errorMessage(error)}`;
     }
-    const fieldClassifications = [classification, ...pluginSkillFrontmatter.map((skill) => skill.classification)];
     const report: ImportReport = {
+      ...committedReport,
       ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
       baselines: baselineReport.entries,
-      copiedFiles,
-      files: copiedFiles.length,
-      inferredSourceFields: [...new Set(fieldClassifications.flatMap((item) => item.recognized))].sort(compareStrings),
-      kind: options.kind,
       renderResults,
-      ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       frontmatterSources,
       frontmatterFindings,
       migrationFlags: persisted.flags,
       migrationWritePaths: persisted.writtenPaths,
-      name,
-      nextChecks: importChecksAtRoot(options.rootPath),
-      preservedTargetNativeFields: [...new Set(fieldClassifications.flatMap((item) => item.targetNative))].sort(compareStrings),
-      sourcePath,
-      targetPath,
-      unsupportedFields: [...new Set(fieldClassifications.flatMap((item) => item.unsupported))].sort(compareStrings),
-      warnings: [
-        ...importWarnings(classification, scopedPolicyProviders),
-        ...pluginSkillFrontmatter.flatMap((skill) =>
-          importWarnings(skill.classification, scopedPolicyProviders)
-        ),
-        ...copied.warnings,
-      ],
     };
     if (findingError !== undefined) throw new ImportBatchError(findingError, [report]);
     return report;
+  } catch (error) {
+    if (retainedReport !== undefined && !(error instanceof ImportBatchError)) {
+      throw new ImportBatchError(errorMessage(error), [retainedReport]);
+    }
+    throw error;
   } finally {
     if (!committed) {
       await rm(stagingPath, { force: true, recursive: true });
@@ -1221,8 +1235,9 @@ async function rewriteImportedPluginMcp(
   targetPath: string,
   copiedFiles: readonly string[],
   providers: readonly ImportProvider[] | undefined,
-  agentPluginImport: boolean
-): Promise<readonly string[]> {
+  agentPluginImport: boolean,
+  destinationPath: string
+): Promise<{ readonly files: readonly string[]; readonly normalizations: readonly ImportNormalization[] }> {
   const hiddenPath = join(targetPath, ".mcp.json");
   const visiblePath = join(targetPath, "mcp.json");
   const hasHidden = await exists(hiddenPath);
@@ -1232,7 +1247,7 @@ async function rewriteImportedPluginMcp(
     providers
   );
   if (manifestSource === undefined && !hasHidden && !hasVisible) {
-    return copiedFiles;
+    return { files: copiedFiles, normalizations: [] };
   }
   if (manifestSource === undefined && hasHidden && hasVisible) {
     throw new Error(
@@ -1264,23 +1279,29 @@ async function rewriteImportedPluginMcp(
     providers,
     agentPluginImport
   );
+  const original = await readFile(sourcePath, "utf8");
   let parsed: JsonValue;
   try {
-    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
+    parsed = JSON.parse(original) as JsonValue;
   } catch (error) {
     throw new Error(
       `skillset: imported MCP source ${sourcePath} is not valid JSON: ${errorMessage(error)}`
     );
   }
   const normalized = normalizeImportedMcpSource(parsed, dialect);
-  await writeFile(hiddenPath, stringifyJson(normalized));
+  const serialized = stringifyJson(normalized.source);
+  const changes = [...normalized.changes];
+  if (sourcePath !== hiddenPath) changes.push({ code: "mcp.source-path", sourcePointer: "", destinationPointer: "", occurrences: 1 });
+  if (serialized !== original) changes.push({ code: "mcp.json-serialization", sourcePointer: "", destinationPointer: "", occurrences: 1 });
+  const normalizations = recordMcpNormalizations(changes, dialect, normalizeCopiedImportPath(relative(targetPath, sourcePath)), destinationPath);
+  await writeFile(hiddenPath, serialized);
   if (sourcePath !== hiddenPath) await rm(sourcePath);
   await parsePortableMcpSource({
     pluginRoot: targetPath,
     sourcePath: hiddenPath,
   });
 
-  return [
+  return { normalizations, files: [
     ...copiedFiles.filter(
       (file) =>
         normalizeCopiedImportPath(file) !==
@@ -1289,7 +1310,7 @@ async function rewriteImportedPluginMcp(
         normalizeCopiedImportPath(file) !== "mcp.json"
     ),
     ".mcp.json",
-  ].sort(compareStrings);
+  ].sort(compareStrings) };
 }
 
 async function importedManifestMcpSource(
