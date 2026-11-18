@@ -18,13 +18,12 @@ tools:
   shell:
     - git status
     - git diff *
-  mcp:
-    github:
-      - get_*
-      - list_*
+  mcp: false
 ```
 
 The portable keys are `read`, `search`, `write`, `shell`, and `mcp`. Unset means provider default. Boolean values grant or constrain where the provider has an appropriate surface; lists narrow shell patterns or MCP tools.
+
+Claude supports global MCP denial (`mcp: false`), but rejects nonempty portable per-server maps because source keys do not bind native server identity or collision-safe scope. Codex and Cursor can retain those maps as metadata. For Claude-specific server rules, use explicit native rules after checking the provider tool names and matching behavior. Empty maps emit nothing; provider maps merge with inherited entries rather than clearing them.
 
 For the common read-only intent, use the macro:
 

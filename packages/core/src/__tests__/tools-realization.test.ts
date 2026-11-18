@@ -29,6 +29,10 @@ describe("tools realization registry", () => {
     for (const provider of targetNames()) {
       for (const aspect of PORTABLE_TOOL_ASPECTS) {
         for (const direction of ["constrain", "grant"] as const) {
+          if (provider === "claude" && aspect === "mcp" && direction === "grant") {
+            expect(() => getRenderedToolsRealization(provider, aspect, direction)).toThrow("exactly one rendered fact");
+            continue;
+          }
           const fact = getRenderedToolsRealization(provider, aspect, direction);
           expect(fact.rendered).toBe(true);
           expect(fact.provider).toBe(provider);
@@ -74,7 +78,7 @@ describe("tools realization registry", () => {
     expect(advisory.every((fact) => !fact.rendered && fact.provider === "codex")).toBe(true);
 
     const unsupported = byTier("unsupported");
-    expect(unsupported.map((fact) => `${fact.provider}:${fact.aspects.join(",")}`)).toEqual(["cursor:mcp"]);
+    expect(unsupported.map((fact) => `${fact.provider}:${fact.aspects.join(",")}`)).toEqual(["claude:mcp", "cursor:mcp"]);
     expect(unsupported.every((fact) => !fact.rendered && fact.surface === "none")).toBe(true);
 
     // No derived or approximate row is claimed until a provider realization is
@@ -187,9 +191,9 @@ describe("tools realization planner", () => {
   });
 
   it("treats deny-only MCP maps as constraints and surfaces unsupported residual risks", () => {
-    const claudePlan = planToolsRealization(policyFor("claude", { tools: { mcp: { slack: false } } }));
+    const claudePlan = planToolsRealization(policyFor("claude", { tools: { mcp: false } }));
     const claudeMcp = claudePlan.entries.find((entry) => entry.aspect === "mcp");
-    expect(claudeMcp?.emits).toEqual(["disallowed-tools: mcp__slack"]);
+    expect(claudeMcp?.emits).toEqual(["disallowed-tools: mcp__*"]);
 
     const cursorPlan = planToolsRealization(
       policyFor("cursor", { tools: { mcp: { github: ["get_*"], slack: false } } })
@@ -198,11 +202,9 @@ describe("tools realization planner", () => {
     expect(cursorMcp?.tier).toBe("metadata-only");
     expect(cursorMcp?.diagnostics.join(" ")).toContain("inherited MCP tools may remain available");
 
-    const claudeMixed = planToolsRealization(
+    expect(() => planToolsRealization(
       policyFor("claude", { tools: { mcp: { github: true, slack: false } } })
-    );
-    const mixed = claudeMixed.entries.find((entry) => entry.aspect === "mcp");
-    expect(mixed?.emits).toEqual(["allowed-tools: mcp__github", "disallowed-tools: mcp__slack"]);
+    )).toThrow("cannot render portable per-server MCP policy for Claude");
   });
 
   it("still fails loud when native allow contradicts an effective portable false", () => {

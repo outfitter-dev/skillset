@@ -94,6 +94,14 @@ const CLAUDE_ROW_EVIDENCE: readonly SkillsetFeatureEvidence[] = [
   test("apps/skillset/src/__tests__/skillset.test.ts", "portable tools render to Claude allowed-tools and disallowed-tools rules"),
 ];
 
+const CLAUDE_MCP_EVIDENCE: readonly SkillsetFeatureEvidence[] = [
+  docs(TOOLS_POLICY_DOCS),
+  docs("docs/adrs/0049-claude-per-server-mcp-policy-requires-bound-identity.md"),
+  source(SKILL_POLICY_SOURCE),
+  test("packages/core/src/__tests__/claude-mcp-policy-boundary.test.ts", "Global denial and native rules remain valid; unbound per-server maps fail before writes."),
+  externalDocs("https://code.claude.com/docs/en/permissions#mcp", "2026-10-30"),
+];
+
 const METADATA_ROW_EVIDENCE: readonly SkillsetFeatureEvidence[] = [
   docs(TOOLS_POLICY_DOCS),
   source(RENDER_SOURCE),
@@ -122,7 +130,7 @@ function claudeAspectRow(args: {
     direction: args.direction,
     emits: args.emits,
     enforcement: args.enforcement,
-    evidence: CLAUDE_ROW_EVIDENCE,
+    evidence: args.aspect === "mcp" ? CLAUDE_MCP_EVIDENCE : CLAUDE_ROW_EVIDENCE,
     provider: "claude",
     rendered: true,
     surface: "skill-frontmatter",
@@ -187,16 +195,21 @@ export const toolsRealizationFacts: readonly ToolsRealizationFact[] = [
     emits: "disallowed-tools: Bash",
     enforcement: "provider-enforced",
   }),
-  claudeAspectRow({
-    aspect: "mcp",
+  {
+    aspects: ["mcp"],
+    diagnostic: "Claude per-server MCP policy requires a bound native server identity and collision-safe matching; portable server maps are unsupported. Author explicit native rules after verifying their scope.",
     direction: "grant",
-    emits: "allowed-tools: mcp__<server> / mcp__<server>__<tool-glob>",
-    enforcement: "preapproval",
-  }),
+    enforcement: "none",
+    evidence: CLAUDE_MCP_EVIDENCE,
+    provider: "claude",
+    rendered: false,
+    surface: "none",
+    tier: "unsupported",
+  },
   claudeAspectRow({
     aspect: "mcp",
     direction: "constrain",
-    emits: "disallowed-tools: mcp__<server> / mcp__*",
+    emits: "disallowed-tools: mcp__* (global false only; per-server maps are rejected)",
     enforcement: "provider-enforced",
   }),
   {
@@ -401,13 +414,17 @@ export function planToolsRealization(policy: EffectiveToolsPolicy): ToolsRealiza
 
   for (const [key, value] of Object.entries(policy.portable)) {
     if (value === undefined || !isToolsAspect(key)) continue;
+    // An empty MCP map has no policy intent. Resolve provider rules before
+    // selecting a fact so unsupported values cannot advertise a realization.
+    if (key === "mcp" && isJsonRecord(value) && Object.keys(value).length === 0) continue;
+    const emits = portableEmitsFor(policy.target, key, value);
     const direction = portableDirectionFor(value);
     const fact = getRenderedToolsRealization(policy.target, key, direction);
     entries.push({
       aspect: key,
       decidingLayer: policy.portableLayers[key] ?? "base",
       diagnostics: portableDiagnosticsFor(policy.target, key, direction, fact),
-      emits: portableEmitsFor(policy.target, key, value),
+      emits,
       evidence: fact.evidence,
       kind: "portable",
       surface: fact.surface,
