@@ -72,7 +72,7 @@ for (const [description, pointer, value] of [
 for (const [metadata, owner, destination] of [
   [{}, { name: "Publisher" }, "/skillset/author"],
   [{ author: { name: "Author" } }, { name: "Publisher" }, "/skillset/owner"],
-  [{ author: { name: "Publisher", email: "existing@example.com" } }, { name: "Publisher", email: "ignored@example.com" }, undefined],
+  [{ author: { name: "Publisher", email: "existing@example.com" } }, { name: "Publisher", email: "ignored@example.com" }, "/skillset/owner"],
   [{ owner: { name: "Existing" } }, { name: "Publisher" }, undefined],
   [{}, { email: "missing-name@example.com" }, undefined],
   [{}, "Publisher", undefined],
