@@ -355,7 +355,11 @@ function resourceMatchesRename(
   );
 }
 
-function reportUnmarkedMention(args: MarkdownUpdateArgs, body: string): void {
+/** Warning-only scan; callers decide whether their source supports live references. */
+export function reportUnmarkedMention(
+  args: Pick<MarkdownUpdateArgs, "documentPath" | "fromPath" | "graph" | "warnings">,
+  body: string
+): void {
   const path = display(args.graph.rootPath, args.fromPath);
   const name = basename(args.fromPath);
   if (
