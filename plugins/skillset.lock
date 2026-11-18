@@ -134,6 +134,7 @@
       "fileModes": {
         "skillset/skills/skillset/LICENSE.txt": "0644",
         "skillset/skills/skillset/SKILL.md": "0644",
+        "skillset/skills/skillset/references/capability-design.md": "0644",
         "skillset/skills/skillset/references/commands-and-checks.md": "0644",
         "skillset/skills/skillset/references/import-and-rules.md": "0644",
         "skillset/skills/skillset/references/preflight-and-recovery.md": "0644",
@@ -146,6 +147,7 @@
       "files": [
         "skillset/skills/skillset/LICENSE.txt",
         "skillset/skills/skillset/SKILL.md",
+        "skillset/skills/skillset/references/capability-design.md",
         "skillset/skills/skillset/references/commands-and-checks.md",
         "skillset/skills/skillset/references/import-and-rules.md",
         "skillset/skills/skillset/references/preflight-and-recovery.md",
@@ -157,15 +159,15 @@
       ],
       "kind": "plugin-skill",
       "name": "skillset",
-      "outputHash": "sha256:a974a9d13dcf6f6b8172797fa93696c84dd981feb7f472a48d7f346713ae6e90",
+      "outputHash": "sha256:b0a5d53793e791fadd9cfe188037190fa7937e7b45b357585a0e75907600b209",
       "outputPath": "skillset/skills/skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:88d373c51d859257bdb03c930f365f7b2e891ba5641b3149be4c7ec3cf0a41e7",
+      "provenanceHash": "sha256:9f26601446281ebd6a10e7e2c237d3994d29a72e513732b07f929fba0e2bfc48",
       "role": "standard",
-      "sourceHash": "sha256:57181ca5a9e3774823ee5eca8d584e807bf5bf1cf0adc3970c199b359679b548",
+      "sourceHash": "sha256:24cfb4aab77302cb3e0c1a9c29075960c5459b6232de6e21487942b697782ecc",
       "sourcePath": ".skillset/plugins/skillset/skills/skillset/SKILL.md",
       "version": "0.1.0"
     }
@@ -409,6 +411,10 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/commands-and-checks.md"
         },
         {
@@ -474,6 +480,10 @@
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/capability-design.md"
         },
         {
           "kind": "plugin-skill",
@@ -546,6 +556,10 @@
         },
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/capability-design.md"
+        },
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/references/commands-and-checks.md"
         },
         {
@@ -606,6 +620,10 @@
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset/references/capability-design.md"
         },
         {
           "kind": "plugin-skill",

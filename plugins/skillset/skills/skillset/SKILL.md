@@ -24,6 +24,8 @@ For an explicit user-scope request, pass `user` instead of `repo`; this records 
 
 ## Choose One Route
 
+When choosing what to author, use the [capability-design guide](references/capability-design.md) to select the smallest useful artifact, write a precise description, and assess provider boundaries. The same guide is shared with future specialists; it does not require creating a new skill or plugin.
+
 | Intent | Available route | Specialist ownership |
 | --- | --- | --- |
 | New workspace or existing unmanaged material | Review reuse/provider scope; preview `skillset init --root .`; read [import and rules](references/import-and-rules.md) or [root guidance adoption](references/root-guidance-adoption.md) only as needed. | `skillset-init` is planned, not bundled. |

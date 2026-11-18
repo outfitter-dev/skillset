@@ -46,6 +46,7 @@ Choose the question you are trying to answer. Each linked page states what it ow
 
 These pages cover common author and maintainer workflows:
 
+- [Design an Agent Capability](guides/capability-design.md) helps choose the smallest artifact, write selection cues, and assess provider boundaries.
 - [Build Your First Skill](start/quickstart.md) walks through the current first-author scaffold and build.
 - [Import Existing Work](guides/importing.md) separates whole-repository adoption from one explicit source import.
 - [Development Loop](guides/development-loop.md) covers preview, write, watch, reconciliation, and recovery.
