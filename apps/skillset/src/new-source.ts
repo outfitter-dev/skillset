@@ -326,9 +326,9 @@ async function planSourceUnit(
 ): Promise<readonly NewSourcePlannedFile[]> {
   switch (options.kind) {
     case "agent":
-      return planAgent(sourceRoot, id, displayName, options);
+      return planAgent(sourceRoot, id, options);
     case "rule":
-      return planRule(rootPath, sourceRoot, id, displayName, options);
+      return planRule(rootPath, sourceRoot, id, options);
     case "skill":
       return planSkill(rootPath, sourceRoot, id, displayName, options);
     case "plugin":
@@ -370,7 +370,7 @@ async function planPlugin(
   }
   return [
     {
-      content: renderPluginConfig(id, displayName),
+      content: renderPluginConfig(id),
       path: join(pluginRoot, "skillset.yaml"),
     },
     { content: "", path: join(pluginRoot, "skills", ".gitkeep") },
@@ -544,7 +544,6 @@ async function planRule(
   rootPath: string,
   sourceRoot: string,
   id: string,
-  displayName: string,
   options: NewSourceOptions
 ): Promise<readonly NewSourcePlannedFile[]> {
   if (options.presets !== undefined && options.presets.length > 0) {
@@ -566,7 +565,7 @@ async function planRule(
     : join(sourceRoot, "plugins", container, "rules");
   return [
     {
-      content: renderRule(displayName),
+      content: renderRule(),
       path: join(rulesRoot, `${id}.md`),
     },
   ];
@@ -575,7 +574,6 @@ async function planRule(
 function planAgent(
   sourceRoot: string,
   id: string,
-  displayName: string,
   options: NewSourceOptions
 ): readonly NewSourcePlannedFile[] {
   if (options.container !== undefined) {
@@ -586,7 +584,7 @@ function planAgent(
   }
   return [
     {
-      content: renderAgent(id, displayName),
+      content: renderAgent(id),
       path: join(sourceRoot, "subagents", `${id}.md`),
     },
   ];
@@ -670,25 +668,23 @@ function uniquePlans(plans: readonly NewSourcePlannedFile[]): readonly NewSource
 }
 
 function renderSkill(id: string, displayName: string): string {
-  const description = `Use when working with ${displayName} workflows.`;
-  return `---\nname: ${id}\ntitle: ${yamlString(displayName)}\ndescription: ${yamlString(description)}\n---\n\n# ${displayName}\n\nUse this skill when working with ${displayName} workflows.\n\n## Workflow\n\n- Add the domain-specific guidance here.\n`;
+  return `---\nname: ${id}\ntitle: ${yamlString(displayName)}\n---\n`;
 }
 
-function renderAgent(id: string, displayName: string): string {
-  const description = `Use this agent for ${displayName} work.`;
-  return `---\nname: ${id}\ndescription: ${yamlString(description)}\n---\n\nUse this agent for ${displayName} work.\n`;
+function renderAgent(id: string): string {
+  return `---\nname: ${id}\n---\n`;
 }
 
-function renderRule(displayName: string): string {
-  return `---\n# Uncomment paths to scope this rule to matching files.\n# paths:\n#   - "src/**"\n---\n\n# ${displayName}\n\nAdd rules here.\n`;
+function renderRule(): string {
+  return "---\n---\n";
 }
 
-function renderPluginConfig(id: string, displayName: string): string {
-  return `skillset:\n  schema: 1\n  name: ${id}\n  description: ${yamlString(`${displayName} plugin container.`)}\n`;
+function renderPluginConfig(id: string): string {
+  return `skillset:\n  schema: 1\n  name: ${id}\n`;
 }
 
 function renderPluginReadme(displayName: string): string {
-  return `# ${displayName}\n\nAdd portable skills and plugin-owned source to this container.\n`;
+  return `# ${displayName}\n`;
 }
 
 function kebabCase(value: string): string {

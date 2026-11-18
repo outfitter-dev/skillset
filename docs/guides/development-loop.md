@@ -79,3 +79,9 @@ When the workspace uses Skillset's change ledger, run `skillset change status` a
 - No build result is mistaken for runtime [activation](../glossary.md#activation).
 
 When the loop does not behave as expected, start with [troubleshooting](../troubleshooting.md).
+
+## Complete new source before building
+
+`skillset new` creates minimal source shape. It does not infer a trigger, role, or workflow from a name. Author skill and agent descriptions and bodies, rule guidance and scope, or plugin documentation and source units before building. A new agent deliberately fails validation until its required description and body are supplied. Hooks already require explicit events and a command or script; review those and the attachment before building.
+
+This is not a build-exclusion mechanism. Skills with no authored description can render a display-name or identity fallback; ordinary and draft skills remain eligible for project output. Drafts are excluded from published plugin packages, not project use. See the [completed minimal example](../../examples/minimal/README.md) for source that is ready to preview, build, and check.

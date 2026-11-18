@@ -50,7 +50,7 @@ test("SET-584: new plugin previews, writes, receives a skill, and builds", async
       "utf8"
     )
   ).toBe(
-    'skillset:\n  schema: 1\n  name: review-tools\n  description: "Review Tools plugin container."\n'
+    'skillset:\n  schema: 1\n  name: review-tools\n'
   );
   expect(
     await readFile(
@@ -58,7 +58,7 @@ test("SET-584: new plugin previews, writes, receives a skill, and builds", async
       "utf8"
     )
   ).toBe(
-    "# Review Tools\n\nAdd portable skills and plugin-owned source to this container.\n"
+    "# Review Tools\n"
   );
   expect(
     await fileExists(
@@ -145,13 +145,13 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   const written = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("created skill docs-cli-expert");
-  expect(written.stdout).toContain("next: skillset build --yes");
-  expect(written.stdout).toContain("next: skillset check");
+  expect(written.stdout).toContain("author the description and body");
+  expect(written.stdout).not.toContain("next: skillset build");
 
   const skill = await readFile(join(root, ".skillset/skills/docs-cli-expert/SKILL.md"), "utf8");
   expect(skill).toContain("name: docs-cli-expert");
   expect(skill).toContain('title: "Docs CLI Expert"');
-  expect(skill).toContain('description: "Use when working with Docs CLI Expert workflows."');
+  expect(skill).toBe('---\nname: docs-cli-expert\ntitle: "Docs CLI Expert"\n---\n');
 
   const jsonWritten = await runSkillsetCli("new", "skill", "JSON Skill", "--root", root, "--yes", "--json");
   expect(jsonWritten.exitCode).toBe(0);
@@ -212,7 +212,7 @@ test("SET-555: new skill --draft is plan-first and supports plugin containers", 
     "--yes"
   );
   expect(written.exitCode).toBe(0);
-  expect(await readFile(path, "utf8")).toContain("name: future-review");
+  expect(await readFile(path, "utf8")).toBe('---\nname: future-review\ntitle: "Future Review"\n---\n');
 
   const invalid = await runSkillsetCli(
     "new",
@@ -294,29 +294,14 @@ test("SET-464: new guidance preserves the selected workspace root", async () => 
     "--yes"
   );
   expect(written.exitCode).toBe(0);
-  const quotedRoot = `'${root.replaceAll("'", `'"'"'`)}'`;
-  expect(written.stdout).toContain(
-    `next: skillset build --root ${quotedRoot}\n`
-  );
-  expect(written.stdout).toContain(
-    `next: skillset build --yes --root ${quotedRoot}\n`
-  );
-  expect(written.stdout).toContain(
-    `next: skillset check --root ${quotedRoot}\n`
-  );
+  expect(written.stdout).toContain(root);
+  expect(written.stdout).toContain("author the description and body");
+  expect(written.stdout).not.toContain("next: skillset build");
 
-  const local = await runSkillsetCliIn(
-    root,
-    "new",
-    "skill",
-    "Local Guidance",
-    "--yes"
-  );
+  const local = await runSkillsetCliIn(root, "new", "skill", "Local Guidance", "--yes");
   expect(local.exitCode).toBe(0);
-  expect(local.stdout).toContain("next: skillset build\n");
-  expect(local.stdout).toContain("next: skillset build --yes\n");
-  expect(local.stdout).toContain("next: skillset check\n");
-  expect(local.stdout).not.toContain("next: skillset build --root");
+  expect(local.stdout).toContain("author the description and body");
+  expect(local.stdout).not.toContain("next: skillset build");
 });
 
 test("SET-165: new skill separates stable id and display name in dedicated source repos", async () => {
@@ -417,7 +402,7 @@ test("SET-309: new rule previews and writes canonical workspace source", async (
   expect(result.data.writes).toEqual([".skillset/rules/review-guidance.md"]);
   expect(
     await readFile(join(root, ".skillset/rules/review-guidance.md"), "utf8")
-  ).toBe('---\n# Uncomment paths to scope this rule to matching files.\n# paths:\n#   - "src/**"\n---\n\n# Review Guidance\n\nAdd rules here.\n');
+  ).toBe('---\n---\n');
 
   await expect(
     runSkillsetCli("build", "--root", root, "--yes")
@@ -734,7 +719,18 @@ test("SET-165/310: new supports project agents and requires complete hook intent
   expect(agent.stdout).toContain("+ .skillset/subagents/release-reviewer.md");
   const source = await readFile(join(root, ".skillset/subagents/release-reviewer.md"), "utf8");
   expect(source).toContain("name: release-reviewer");
-  expect(source).toContain('description: "Use this agent for Release Reviewer work."');
+  expect(source).toBe('---\nname: release-reviewer\n---\n');
+  const incomplete = await runSkillsetCli("build", "--root", root);
+  expect(incomplete.exitCode).toBe(1);
+  expect(incomplete.stderr).toContain("description");
+  await Bun.write(join(root, ".skillset/subagents/release-reviewer.md"),
+    '---\nname: release-reviewer\ndescription: Review release evidence before publication.\n---\n');
+  const withoutBody = await runSkillsetCli("build", "--root", root);
+  expect(withoutBody.exitCode).toBe(1);
+  expect(withoutBody.stderr).toContain("requires a Markdown body");
+  await Bun.write(join(root, ".skillset/subagents/release-reviewer.md"),
+    '---\nname: release-reviewer\ndescription: Review release evidence before publication.\n---\n\nCompare the release notes with the recorded verification results.\n');
+  expect((await runSkillsetCli("build", "--root", root)).exitCode).toBe(0);
 
   const hook = await runSkillsetCli("new", "hook", "source-change-guard", "--root", root);
   expect(hook.exitCode).toBe(2);

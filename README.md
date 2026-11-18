@@ -32,7 +32,7 @@ skillset build --yes
 skillset check --only outputs
 ```
 
-`init` and `build` preview by default. `--yes` confirms the exact plan. Start with the [first-author journey](docs/start/README.md) or run the checked-in [first-author example](examples/first-author/README.md).
+`init` and `build` preview by default. `--yes` confirms the exact plan. Start with the [first-author journey](docs/start/README.md) or run the checked-in [minimal example](examples/minimal/README.md).
 
 ## Why Skillset
 

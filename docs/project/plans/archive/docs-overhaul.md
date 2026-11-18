@@ -79,7 +79,7 @@ docs/
   start/                       The guided path
     README.md                  The spine: Start → Adopt → Work → Ship, pointing into guides/
     quickstart.md              (Start) task-first rewrite
-    first-author.md            (Start) walkthrough wrapping examples/first-author
+    first-author.md            (Start) walkthrough wrapping examples/minimal
     how-rendering-works.md     (Start) concept stop
     build-versus-activation.md (Start) concept stop; canonical home of the invariant
   guides/                      Flat, outcome-named
@@ -159,7 +159,7 @@ Shared standards live in the doctrine (§5–§6 there) and are not restated. Sk
 - **The invariant** uses the exact standardized wording and canonical link everywhere it appears (checker-verified): "Skillset renders files. It does not install, trust, activate, symlink, or mutate user-level provider configuration."
 - **Terminology:** current derive/render/destination vocabulary only; retired terms enforced by the existing denylist check, scoped per the ratchet.
 - **Tenets boundary:** preserve doctrine meaning; volatile contract details (command names, config keys, provider lists, output paths) move to reference or ADR links. Tenet meaning changes are out of scope.
-- **The recurring worked example** is `examples/first-author`; prose commands correspond to the smoke-tested fixture.
+- **The recurring worked example** is `examples/minimal`; prose commands correspond to the smoke-tested fixture.
 
 ## 7. Checks, enforcement, migration accounting
 

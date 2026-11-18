@@ -48,7 +48,7 @@ const REQUIRED_INVARIANT_PAGES = [
   "docs/README.md",
   "docs/start/build-versus-activation.md",
   "docs/why-skillset.md",
-  "examples/first-author/README.md",
+  "examples/minimal/README.md",
 ] as const;
 
 export function authoredCommandDiagnostics(
