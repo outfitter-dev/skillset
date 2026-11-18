@@ -878,7 +878,7 @@ test("adopt carries native hook lift diagnostics into its domain report", async 
       expect.objectContaining({
         code: "import-native-hook-runtime-unverified",
         message: expect.stringContaining("supported event/handler structure for claude"),
-        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/hooks/SessionStart/0",
+        path: ".skillset/plugins/native-hooks/_claude/hooks/hooks.json#/hooks/SessionStart/0",
       }),
     ]),
     featureId: "plugin-hooks",

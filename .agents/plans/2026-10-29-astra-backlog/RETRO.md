@@ -1,5 +1,19 @@
 # Execution ledger
 
+### SET-442 Claude native hook source boundary — October 29
+
+- Exceptional repair review found a remaining P1: Markdown hook companions were still treated as documents. A shell-read regression reproduced changed frontmatter, line endings and template text. The explicit opt-out now preserves the entire hook runtime directory, including Markdown, while Markdown outside hooks keeps existing document controls. This closes the same byte-preservation contract rather than narrowing eligibility.
+
+- Hosted review at f3e6ab34 exposed two P1 gaps beyond the local rounds: assessment selection was mistaken for sole ownership, and native island preprocessing interpreted literal hook tokens during baseline seeding/rendering. Both were reproduced. The repair inspects all copied provider manifests, opts new structured native source out with existing skillset.preprocess:false, preserves authored preprocessing intent, and shares the opaque decision across rendering and inventory with provenance hash coverage. This is a justified scoped hosted-feedback repair, not a third routine review.
+- Full immutable f3e6ab34 run completed 4089 pass, 2 skip, 4 todo and only three known native-size failures across 4098 tests/369 files (301.68s). That does not prove the hosted edge cases; the repaired head requires fresh verification. The render.ts evidence pin was refreshed after inspecting the diff: invocation-policy and project/plugin agent judgments remain unchanged.
+
+- Round-one exact fe981435 review scored 4/5 with one P2: parse failure returned before scoping evidence was appended. A malformed-JSON regression reproduced the omission; scoping evidence now precedes parsing and survives either result. Related adoption proof is green and typecheck passes; final exact review and full verification follow.
+
+- A documented custom config path was explored, then rejected before commit because arbitrary scripts may read their own hooks/hooks.json. The implemented layer keeps every emitted hook directory path and byte, scopes the staged source under _claude/hooks, and makes Cursor explicitly suppress default discovery when its shared package contains only another provider's native hook source. Existing Cursor hook declarations retain precedence. Codex root output gains no hooks extension.
+- Scope is an identified Claude-only default hook directory without extra hook declarations. Unknown/multiple provenance and custom declarations remain unresolved; existing native island collisions fail before source claim. Arbitrary command semantics retain open review findings. Current Codex loader 708e3e2c70142c75682a375669ca60754f76976d explicitly skips hooks for AgentPlugin manifests; this is source evidence, not a provider activation test.
+- Regression proves source/output bytes, companion paths, and a shell script reading its emitted hook config through CLAUDE_PLUGIN_ROOT. Related import/adoption tests, conformance, typecheck, docs and topology checks run before exact review. SET-442 remains incomplete for other provenance/declaration cases.
+- Parent draft #773 final 1013e97f verification: 4082 pass, 2 skip, 4 todo, three deferred native-size failures; hosted feedback addressed and resolved, scoped repair review 5/5.
+
 ### SET-442 durable native hook findings — October 29
 
 - Hosted review exposed two additional reporting gaps: empty handler arrays lost assessed targets, and parse failures used the runtime-uncertainty code. Regressions failed for both, then passed after target selection was shared independently of diagnostic emission and unclassified sidecars received their own code. Import, ledger, Markdown and stored receipt proof: 16 tests / 74 assertions. This is a scoped hosted-feedback repair after the two routine reviews.

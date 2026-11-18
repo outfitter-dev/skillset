@@ -356,7 +356,7 @@ const judgments: readonly CapabilityJudgment[] = [
 export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
-  { path: "packages/core/src/render.ts", contentHash: "sha256:d50cd3f66a126c9c8884a5b6c26ecadb019d7c3607677e2ab446669a44d9e4f3" },
+  { path: "packages/core/src/render.ts", contentHash: "sha256:8fe81b37fe2b05e677d6ecd0250b9ff257260d9b78d010d458d6744ae3b8b222" },
   { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:a3de6ef0d5e691ec12f53d5f7d66965b38c25d54e79ace39c500e7c3072f7715" },
   { path: "packages/core/src/__tests__/skill-invocation-policy.test.ts", contentHash: "sha256:3cd2a7199c8e64f49162939376a017052aa011404455482adda7e3b3f6240561" },
   { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:61ec143b8422d29aa96334d1ece03d4d12c7d874087a95f2762595644980a281" },

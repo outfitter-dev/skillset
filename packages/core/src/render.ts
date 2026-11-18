@@ -1,3 +1,4 @@
+import { isOpaquePluginIsland } from "./native-island-preprocess";
 import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -1425,7 +1426,7 @@ async function renderIslandFile(
   island: SourceIslandFile,
   targetPath: string
 ): Promise<RenderedIslandFile> {
-  if (isTextIslandFile(island.relativePath)) {
+  if (isTextIslandFile(island.relativePath) && !isOpaquePluginIsland(graph, island)) {
     const preprocessDependencies = new Set<string>();
     const content = await renderTextIslandFile(graph, island, targetPath, preprocessDependencies);
     return {
@@ -2684,7 +2685,7 @@ function lockItemForIsland(args: {
     ),
     preprocessDependencies: args.result.preprocessDependencies,
     role: "bundle",
-    sourceHash: hashIslandSource(args.island, args.result.preprocessDependencies, args.graph.rootPath),
+    sourceHash: hashIslandSource(args.island, args.result.preprocessDependencies, args.graph.rootPath, isOpaquePluginIsland(args.graph, args.island)),
     sourcePath: relative(args.graph.rootPath, args.island.sourcePath),
     validation: args.result.validation,
     version: rootVersion(args.graph),
@@ -2783,10 +2784,12 @@ async function lockItemForSkill(args: {
 function hashIslandSource(
   island: SourceIslandFile,
   preprocessDependencies: readonly string[],
-  rootPath: string
+  rootPath: string,
+  opaque: boolean
 ): string {
   const hash = createHash("sha256");
   hash.update("skillset-island-source-v2\0");
+  if (opaque) hash.update("preprocess-disabled\0");
   hash.update(island.target);
   hash.update("\0");
   hash.update(island.plugin ?? "");

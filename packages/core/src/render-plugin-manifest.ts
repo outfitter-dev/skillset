@@ -644,9 +644,15 @@ function pluginComponentManifestValue(
     if (target === "cursor" && pluginHasTargetNativePath(graph, plugin, target, sourcePath)) {
       return path;
     }
-    return pluginHasPath(plugin, sourcePath) || hasAdaptivePluginHookOutput(graph, plugin, target)
-      ? pluginPackageComponentPath(target, kind)
-      : undefined;
+    if (pluginHasPath(plugin, sourcePath) || hasAdaptivePluginHookOutput(graph, plugin, target)) {
+      return pluginPackageComponentPath(target, kind);
+    }
+    // Cursor otherwise discovers another provider's native default hook file
+    // in the shared package. An explicit empty object replaces that discovery.
+    if (target === "cursor" && graph.projectIslands.some((island) =>
+      island.plugin === plugin.id && island.target !== target && island.relativePath === sourcePath
+    )) return {};
+    return undefined;
   }
   if (kind === "mcp") {
     return pluginHasFeature(plugin, "mcp")
