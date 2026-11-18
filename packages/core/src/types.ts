@@ -1,3 +1,4 @@
+import type { SkillsetRenderResult } from "./render-result";
 import type { NativeRootRuleSource } from "./native-root-rules";
 
 import type { StandardProfileId } from "@skillset/registry";
@@ -518,6 +519,8 @@ export type GeneratedFileMode = number;
 
 export interface RenderedFile {
   readonly content: Uint8Array;
+  /** Evidence captured with these bytes; scoped and mapped by result collection, never emitted into the file. */
+  readonly renderResults?: readonly SkillsetRenderResult[];
   /** Normalized portable file mode applied to generated Unix outputs. */
   readonly mode: GeneratedFileMode;
   readonly path: string;

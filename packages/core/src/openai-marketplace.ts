@@ -1,5 +1,6 @@
 import { realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { OPENAI_MARKETPLACE_PATH_RULES } from "@skillset/registry";
 
 import {
   mergeRecords,
@@ -7,6 +8,8 @@ import {
   readString,
   readStringArray,
 } from "./config";
+import { marketplaceAssetLossResults } from "./marketplace-asset-loss";
+import type { SkillsetRenderResult } from "./render-result";
 import type { ResolvedLicense } from "./licenses";
 import { isPathInside } from "./path";
 import { pluginBundleRoot } from "./plugin-output";
@@ -20,13 +23,6 @@ import type {
 } from "./types";
 import { isJsonRecord } from "./yaml";
 
-const REMOTE_INTERFACE_PATH_FIELDS = [
-  "composerIcon",
-  "logo",
-  "logoDark",
-  "screenshots",
-] as const;
-
 /**
  * Renders one closed OpenAI marketplace entry. The generated ChatGPT manifest
  * remains the package metadata authority; catalog configuration can only
@@ -37,7 +33,7 @@ export function renderOpenAiMarketplacePlugin(args: {
   readonly graph: BuildGraph;
   readonly license: ResolvedLicense | undefined;
   readonly plugin: SourcePlugin | undefined;
-}): JsonRecord {
+}): { readonly entry: JsonRecord; readonly renderResults: readonly SkillsetRenderResult[] } {
   const options =
     readRecord(args.entry as unknown as JsonRecord, "codex") ?? {};
   const source = openAiMarketplaceSource(
@@ -89,8 +85,8 @@ export function renderOpenAiMarketplacePlugin(args: {
     : Object.fromEntries(
         Object.entries(effectiveInterface).filter(
           ([field]) =>
-            !REMOTE_INTERFACE_PATH_FIELDS.includes(
-              field as (typeof REMOTE_INTERFACE_PATH_FIELDS)[number]
+            !OPENAI_MARKETPLACE_PATH_RULES.assetFields.includes(
+              field as (typeof OPENAI_MARKETPLACE_PATH_RULES.assetFields)[number]
             )
         )
       );
@@ -105,7 +101,7 @@ export function renderOpenAiMarketplacePlugin(args: {
 
   const policy = readRecord(options, "policy") ?? {};
   const products = readStringArray(policy, "products");
-  return stripUndefined({
+  const entry = stripUndefined({
     name: args.entry.id,
     source,
     policy: {
@@ -133,6 +129,10 @@ export function renderOpenAiMarketplacePlugin(args: {
     homepage,
     interface: listingInterface,
   });
+  return {
+    entry,
+    renderResults: local ? [] : marketplaceAssetLossResults({ ...args, effectiveInterface, listingInterface }),
+  };
 }
 
 function openAiMarketplaceSource(

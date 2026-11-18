@@ -211,6 +211,22 @@ export function collectRenderResults(
     }
   }
   outcomes.push(...lockOutcomes);
+  for (const file of rendered) {
+    for (const result of file.renderResults ?? []) {
+      const included = options.includedPaths.has(file.path);
+      const { diagnostics, outputs, ...facts } = result;
+      outcomes.push(defineRenderResult(included ? {
+        ...facts,
+        ...(diagnostics === undefined ? {} : { diagnostics }),
+        ...(outputs === undefined ? {} : { outputs: outputs.map((output) => ({ ...output, path: mapOutputPath(output.path) })) }),
+      } : {
+        ...facts,
+        policy: "scope:excluded",
+        reason: `${result.destination ?? "output"} excluded by build scope`,
+        status: "intentionally_skipped",
+      }));
+    }
+  }
 
   for (const item of adaptivePluginHookOutcomes(
     graph,

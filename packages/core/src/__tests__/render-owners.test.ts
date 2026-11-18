@@ -150,6 +150,7 @@ describe("render owner boundaries", () => {
 
     expect(leafEdges).toEqual([
       "render-hooks->render-support",
+      "render-marketplaces->render-result",
       "render-marketplaces->render-support",
       "render-plugin-manifest->render-hooks",
       "render-rules->render-result",
