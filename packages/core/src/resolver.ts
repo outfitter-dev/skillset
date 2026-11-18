@@ -1,3 +1,5 @@
+import { createMigrationSourceReader, type MigrationSourceReader, type MigrationMarkdownParts } from "./migration-source";
+import { MIGRATION_STATE_PATH, readMigrationState } from "./migration-state";
 import { resolveNativeRootRuleSource } from "./native-root-rules";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, posix, relative } from "node:path";
@@ -99,7 +101,7 @@ import type {
 } from "./types";
 import { validateSchemaField, validateVersionField } from "./versioning";
 import { workspaceChangesDir } from "./workspace-state";
-import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
+import { isJsonRecord, parseYamlRecord } from "./yaml";
 import { readSkillsetWorkspaceConfig } from "./xdg";
 import {
   resolveStandardProjectionPlan,
@@ -226,6 +228,9 @@ export async function loadBuildGraph(
     warnings.push("AGENTS.md is authored root guidance; build will record native mode in skillset.yaml without writing AGENTS.md");
   }
   const externalInputPaths = new Set<string>();
+  const migrationSnapshot = await readMigrationState(rootPath);
+  const migration = createMigrationSourceReader(migrationSnapshot.state);
+  if (migrationSnapshot.content !== undefined) externalInputPaths.add(resolveInside(rootPath, MIGRATION_STATE_PATH));
   appendSourceMetadataCompatibilityWarnings(
     warnings,
     metadata,
@@ -242,7 +247,8 @@ export async function loadBuildGraph(
     filteredTargets,
     warnings,
     outputs,
-    externalInputPaths
+    externalInputPaths,
+    migration
   );
   try {
     validatePluginDependencyGraph(plugins);
@@ -259,7 +265,8 @@ export async function loadBuildGraph(
     sourceRootDir,
     filteredTargets,
     warnings,
-    externalInputPaths
+    externalInputPaths,
+    migration
   );
   ({ plugins, standaloneSkills: discoveredStandaloneSkills } = applyRootConfiguredDrafts(
     drafts,
@@ -275,6 +282,7 @@ export async function loadBuildGraph(
     filteredTargets,
     warnings,
     externalInputPaths,
+    migration,
     workspaceConfig.nativeAgents === true
   );
   const projectAgents = await loadProjectAgents(
@@ -283,7 +291,8 @@ export async function loadBuildGraph(
     sourceRootDir,
     filteredTargets,
     warnings,
-    externalInputPaths
+    externalInputPaths,
+    migration
   );
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
   const adaptiveHooks = [
@@ -378,6 +387,7 @@ export async function loadBuildGraph(
     standaloneSkills,
     warnings,
   };
+  migration.finish();
   validateProjectAgentSkills(graph);
   return graph;
 }
@@ -622,7 +632,8 @@ async function loadProjectAgents(
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  migration: MigrationSourceReader
 ): Promise<readonly SourceProjectAgent[]> {
   const agentsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PROJECT_AGENTS_DIR));
   if (!(await exists(agentsPath))) return [];
@@ -632,7 +643,7 @@ async function loadProjectAgents(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     const sourcePath = join(agentsPath, entry.name);
-    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings, externalInputPaths));
+    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings, externalInputPaths, migration));
   }
 
   validateProjectAgentCollisions(rootPath, agents);
@@ -646,10 +657,11 @@ async function loadProjectAgent(
   sourcePath: string,
   parentTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  migration: MigrationSourceReader
 ): Promise<SourceProjectAgent> {
   const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
-  const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourceLabel);
+  const parts = migration.read(await readFile(sourcePath, "utf8"), sourceLabel);
   validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
@@ -676,6 +688,7 @@ async function loadProjectAgent(
   return {
     adaptiveHooks,
     body: parts.body,
+    ...(parts.bodySourceLines === undefined ? {} : { bodySourceLines: parts.bodySourceLines }),
     filename: basename(sourcePath),
     frontmatter: parts.frontmatter,
     hookAttachments,
@@ -745,6 +758,7 @@ async function loadRules(
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
   externalInputPaths: Set<string>,
+  migration: MigrationSourceReader,
   nativeAgents = false
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly rulesDir: string }> {
   const sourceRootPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
@@ -774,9 +788,9 @@ async function loadRules(
     const content = await readFile(sourcePath, "utf8");
     const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
     const rootFrontPage = sourcePath === rootRulesPath;
-    const parts = nativeAgents && rootFrontPage
+    const parts: MigrationMarkdownParts = nativeAgents && rootFrontPage
       ? { body: content, frontmatter: {} }
-      : parseMarkdown(content, sourceLabel);
+      : migration.read(content, sourceLabel);
     const relativePath = rootFrontPage ? ROOT_RULES_FILE : relative(canonicalPath, sourcePath);
     const segments = rootFrontPage
       ? []
@@ -816,6 +830,7 @@ async function loadRules(
 
     rules.push({
       body: parts.body,
+      ...(parts.bodySourceLines === undefined ? {} : { bodySourceLines: parts.bodySourceLines }),
       ...(dialect === undefined ? {} : { dialect }),
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
@@ -1124,7 +1139,8 @@ async function loadPlugins(
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
   outputs: BuildGraph["root"]["outputs"],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  migration: MigrationSourceReader
 ): Promise<readonly SourcePlugin[]> {
   const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return [];
@@ -1136,7 +1152,7 @@ async function loadPlugins(
     if (!entry.isDirectory()) continue;
     validatePluginOutputName(entry.name);
     const id = validateSlug(entry.name, "plugin directory");
-    plugins.push(await loadPlugin(rootPath, sourceDir, sourceRootDir, id, rootTargets, warnings, outputs, externalInputPaths));
+    plugins.push(await loadPlugin(rootPath, sourceDir, sourceRootDir, id, rootTargets, warnings, outputs, externalInputPaths, migration));
   }
 
   return plugins;
@@ -1155,7 +1171,8 @@ async function loadPlugin(
   parentTargets: BuildGraph["root"]["targets"],
   warnings: string[],
   outputs: BuildGraph["root"]["outputs"],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  migration: MigrationSourceReader
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath, logicalDiagnosticPath(rootPath, pluginPath));
@@ -1235,7 +1252,8 @@ async function loadPlugin(
       inheritedTargets,
       warnings,
       id,
-      externalInputPaths
+      externalInputPaths,
+      migration
     ),
     configuredDrafts,
     configRelativePath,
@@ -1580,11 +1598,12 @@ async function loadSkills(
   parentTargets: SourcePlugin["targets"],
   warnings: string[],
   pluginId: string,
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  migration: MigrationSourceReader
 ): Promise<SourceSkill[]> {
   const skillsPath = join(pluginPath, SKILLS_DIR);
   if (!(await exists(skillsPath))) return [];
-  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, { kind: "plugin", pluginId }, externalInputPaths, pluginPath);
+  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, { kind: "plugin", pluginId }, externalInputPaths, migration, pluginPath);
 }
 
 async function loadSkillsFromDirectory(
@@ -1597,6 +1616,7 @@ async function loadSkillsFromDirectory(
   warnings: string[],
   parentScope: SourceAdaptiveHook["scope"],
   externalInputPaths: Set<string>,
+  migration: MigrationSourceReader,
   pluginPath?: string
 ): Promise<SourceSkill[]> {
   const skillFiles = await findSkillFiles(skillsPath);
@@ -1605,7 +1625,7 @@ async function loadSkillsFromDirectory(
   for (const sourcePath of skillFiles) {
     const content = await readFile(sourcePath, "utf8");
     const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
-    const parts = parseMarkdown(content, sourceLabel);
+    const parts = migration.read(content, sourceLabel);
     validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
     await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourceLabel);
@@ -1660,7 +1680,9 @@ async function loadSkillsFromDirectory(
 
     skills.push({
       adaptiveHooks,
+      ...(parts.semanticSourceContent === undefined ? {} : { semanticSourceContent: parts.semanticSourceContent }),
       body: parts.body,
+      ...(parts.bodySourceLines === undefined ? {} : { bodySourceLines: parts.bodySourceLines }),
       ...(dialect === undefined ? {} : { dialect }),
       ...(evalDeclaration === undefined ? {} : { evalDeclaration }),
       frontmatter: parts.frontmatter,
@@ -1769,12 +1791,13 @@ async function loadStandaloneSkills(
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  migration: MigrationSourceReader
 ): Promise<readonly StandaloneSkill[]> {
   const skillsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, SKILLS_DIR));
   if (!(await exists(skillsPath))) return [];
 
-  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings, { kind: "root" }, externalInputPaths);
+  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings, { kind: "root" }, externalInputPaths, migration);
   return skills;
 }
 

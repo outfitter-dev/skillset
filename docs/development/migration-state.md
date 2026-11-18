@@ -6,7 +6,7 @@ description: The versioned workspace migration ledger preserves flag identity, e
 
 [ADR-0048](../adrs/0048-adoption-is-a-reviewable-migration.md) separates mutable workspace review state from immutable operation reports. The shared `skillset.migration-state@1` contract lives in `@skillset/schema`; its generated [JSON Schema](../reference/schemas/0.1.0/migration-state.schema.json) and [example](../reference/examples/migration-state.json) come from that package. Core owns identity reconciliation and transaction planning. Workbench delegates structural checks to the same validator.
 
-This is the state foundation for the migration lifecycle. It does not add a CLI command, automatically emit or strip inline markers, or enable a readiness gate. Safe marker parsing and semantic hash exclusion belong to SET-436; lifecycle operations and readiness belong to SET-438.
+This is the state and marker foundation for the migration lifecycle. Adaptive source loading validates and removes ledger-owned inline locators before compilation. It does not add a migration CLI command or enable a readiness gate; lifecycle operations, scanner completeness, and status/show presentation remain SET-438 work.
 
 ## Record and storage
 
@@ -34,4 +34,29 @@ An observations array cannot prove its own completeness: an omitted matching obs
 
 `readMigrationState` distinguishes an absent snapshot from malformed or unreadable state and refuses existing symlink ancestry. It retains the exact disk bytes. `planMigrationStateWrite` produces one write for the existing workspace transaction, binding either expected absence or those bytes. The transaction checks preimages and containment, preserves concurrent author changes, and rolls back a failed installation. A successful scan does not independently authorize a write.
 
-`hashMigrationState` returns a domain-separated `migration-state:sha256:` identity. Object keys, flags, report-ID sets, and evidence ordering are canonicalized; decision history remains ordered. Review decisions and locations affect this hash. The ledger is outside the enumerated source inventory, so sidecar state changes do not create package-facing source release changes. Inline marker exclusion is deliberately not implemented by this snapshot contract; arbitrary comments are never stripped by a broad regular expression.
+`hashMigrationState` returns a domain-separated `migration-state:sha256:` identity. Object keys, flags, report-ID sets, and evidence ordering are canonicalized; decision history remains ordered. Review decisions and locations affect this hash. The ledger is outside the enumerated source inventory, so sidecar state changes do not create package-facing source release changes. Inline locators are excluded through the validated source-loading boundary described below; arbitrary comments are never stripped by a broad regular expression.
+
+
+## Inline marker grammar and ownership
+
+Schema owns the exact single-line comment form:
+
+```markdown
+<!-- skillset:todo ::: #adopt-k3m9 [ambiguous-reference] Review the authored reference. -->
+```
+
+The label is `todo` or `fix`. IDs and diagnostic codes use the migration-state contract. Message text must be nonempty, trimmed, and representable in one HTML comment: control characters, line breaks, and `--` are refused. Grammar recognition alone grants no removal authority.
+
+Core requires an exact ledger match for the ID, source path, placement line, label, diagnostic code, and message. A missing record, duplicate anchor, malformed reserved comment, or disagreement fails source loading with an authored-path/line diagnostic. Every inline ledger record must occur in a loaded adaptive source, including draft skills. Missing anchors never resolve a flag, and this source-loading check does not establish the complete sidecar scan required by the future lifecycle.
+
+Only standalone top-level HTML comment blocks are locators. Fenced and inline code examples and unrelated comments remain authored content. Frontmatter, tables, list interiors, quoted blocks, copied resources, partials, provider-native islands, JSON, binary material, and native root `AGENTS.md` cannot receive inline anchors. Those findings use a sidecar record with a deterministic reason. A locator that the ledger expects in one of those contexts fails validation rather than acquiring ownership through its spelling.
+
+`planMigrationMarker` is a read-only insertion plan for a top-level paragraph, heading, or complete list boundary. It preserves source line endings and returns sidecar placement when the location or message is unsafe. It does not write source or state. Its caller must account for shifted existing locations and commit source plus ledger together through the existing transaction boundary; the migration lifecycle owns that operation.
+
+## Semantic source and diagnostics
+
+The resolver removes validated marker lines before preprocessing or transform recognition for rules, standalone and plugin skills, and project agents. Adjacent text and whitespace are preserved. Rule and agent hashes consume the semantic body; skill hashes substitute the exact marker-free primary `SKILL.md` bytes while retaining raw companion/resource bytes. Provider output, output hashes, and release-source hashes therefore match the equivalent unannotated source. Review state retains its separate hash.
+
+Deleting lines changes semantic coordinates, so marked sources retain a semantic-body-to-authored-line map. Workbench callers can provide the same validated `migrationState` snapshot to document parsing or source-contract checks; diagnostics and headings are mapped back to authored lines and annotation prose is excluded from Markdown checks. Without a snapshot, Workbench retains the ordinary authored-document behavior and does not infer marker ownership.
+
+Reverse reconciliation refuses to replace an annotated source body from generated output because that would discard locators. Source moves and renames that would leave the ledger inconsistent fail their projected-graph validation. Edit source and migration state together through the lifecycle when that workflow becomes available; do not remove comments to imply that review is complete.

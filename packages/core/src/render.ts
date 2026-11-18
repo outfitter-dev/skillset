@@ -2740,6 +2740,7 @@ async function lockItemForSkill(args: {
     ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
     role: "bundle",
     sourceHash: await hashSkillSource(
+      args.skill,
       args.sourceDir,
       args.resources,
       args.skill.targets,
@@ -3048,6 +3049,7 @@ async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<st
 }
 
 async function hashSkillSource(
+  skill: SourceSkill,
   sourceDir: string,
   resources: readonly SourceResource[],
   targets: SourceSkill["targets"],
@@ -3068,7 +3070,7 @@ async function hashSkillSource(
     hash.update("\0");
     hash.update(normalizeGeneratedFileMode((await stat(file)).mode).toString(8));
     hash.update("\0");
-    hash.update(await readFile(file));
+    hash.update(file === skill.sourcePath && skill.semanticSourceContent !== undefined ? skill.semanticSourceContent : await readFile(file));
     hash.update("\0");
   }
 

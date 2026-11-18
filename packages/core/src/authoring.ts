@@ -504,6 +504,12 @@ export async function suggestSource(
   }
   const generatedParts = parseMarkdown(generatedSource, generatedPath);
   const sourceDocument = await readFile(sourceAbsolute, "utf8");
+  const annotatedSkill = (graph.discoveredSkills ?? []).find((skill) => skill.sourcePath === sourceAbsolute);
+  if (annotatedSkill?.semanticSourceContent !== undefined) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries,
+      "Source contains migration anchors; replacing its body from generated output would discard review locators.",
+      ["Edit the authored source and its migration records together, then rebuild the generated output."], sourcePath);
+  }
   const sourceParts = parseMarkdown(sourceDocument, sourcePath);
   if (sourceParts.body === generatedParts.body) {
     const lockPath = lockPathForEntry(primaryEntry);

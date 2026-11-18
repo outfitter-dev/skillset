@@ -104,6 +104,8 @@ export interface WorkbenchTomlParseResult {
 }
 
 export interface WorkbenchMarkdownParseResult {
+  /** Semantic body line to authored document line when migration state was supplied. */
+  readonly bodySourceLines?: readonly number[];
   readonly body?: string;
   readonly bodyStartLine?: number;
   readonly diagnostics: readonly WorkbenchDiagnostic[];
