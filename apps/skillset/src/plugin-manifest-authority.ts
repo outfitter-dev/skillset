@@ -112,7 +112,7 @@ export function firstPortablePluginMetadataValue(
   field: PortablePluginMetadataField
 ): JsonValue | undefined {
   if (field === "author") {
-    return canonicalAuthorValue(manifests);
+    return resolveNativeAuthor(manifests).value;
   }
   for (const [, manifest] of manifests) {
     const value = manifest[field];
@@ -180,19 +180,31 @@ function authorMetadataConflicts(
     : [];
 }
 
-/** Assumes `unreadableNativeAuthorProviders` already rejected malformed values. */
-function canonicalAuthorValue(
+/** Retain the first valid contribution to each field; callers check conflicts separately. */
+export function resolveNativeAuthor(
   manifests: Iterable<ProviderPluginManifestEntry>
-): JsonRecord | undefined {
+): {
+  readonly value: JsonRecord | undefined;
+  readonly contributions: readonly { readonly provider: TargetName; readonly sourcePointer: string; readonly destinationPointer: string }[];
+} {
   const author: Record<string, JsonValue> = {};
-  for (const [, manifest] of manifests) {
+  const contributions: { provider: TargetName; sourcePointer: string; destinationPointer: string }[] = [];
+  for (const [provider, manifest] of manifests) {
     const normalized = canonicalNativeAuthorRecord(manifest.author);
     if (normalized === undefined) continue;
     for (const [key, value] of Object.entries(normalized)) {
-      if (value !== undefined && author[key] === undefined) author[key] = value;
+      if (value !== undefined && author[key] === undefined) {
+        author[key] = value;
+        const pointerKey = key.replaceAll("~", "~0").replaceAll("/", "~1");
+        contributions.push({
+          provider,
+          sourcePointer: typeof manifest.author === "string" ? "/author" : `/author/${pointerKey}`,
+          destinationPointer: `/skillset/author/${pointerKey}`,
+        });
+      }
     }
   }
-  return Object.keys(author).length === 0 ? undefined : author;
+  return { value: Object.keys(author).length === 0 ? undefined : author, contributions };
 }
 
 function stableJson(value: JsonValue): string {

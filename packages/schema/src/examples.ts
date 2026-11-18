@@ -42,6 +42,12 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/name" },
           occurrences: 1, fidelity: "unknown", observedAt: "2026-09-11",
           evidence: ["https://code.claude.com/docs/en/plugins-reference#metadata-fields", "Observed manifest assignment; runtime fidelity is not established."],
+        }, {
+          code: "manifest.author", dialect: "claude",
+          source: { path: ".claude-plugin/plugin.json", pointer: "/author" },
+          destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/author/name" },
+          occurrences: 1, fidelity: "unknown",
+          evidence: ["https://code.claude.com/docs/en/plugins-reference#metadata-fields", "Observed author contribution; runtime fidelity is not established."],
         }],
       },
     },
