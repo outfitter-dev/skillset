@@ -80,9 +80,9 @@ export interface ProviderValidationLane {
 }
 
 const RETRIEVED_AT = "2026-09-11T23:20:27.000Z";
-const LAST_SUCCESSFUL_VALIDATION_AT = "2026-10-13T14:31:12.000Z";
+const LAST_SUCCESSFUL_VALIDATION_AT = "2026-11-18T16:36:19.000Z";
 const LAST_SUCCESSFUL_VALIDATION_URL =
-  "https://github.com/outfitter-dev/skillset/actions/runs/38413936666/job/115353218414";
+  "https://github.com/outfitter-dev/skillset/actions/runs/44349022830/job/134959221028";
 
 const validationLanes = [
   {
