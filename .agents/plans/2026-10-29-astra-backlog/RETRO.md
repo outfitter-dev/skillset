@@ -657,3 +657,9 @@ Regenerated decision-map output includes canonical testing/RULES links and refre
 SET-791 draft826 final repaired head32b7269e: review5/5, full4653pass plus three deferred native-size failures, no receipt. PR and Linear updated. SET788 stale Backlog status reconciled to InProgress against live open draft816 headc838a1a; no completion/readiness claim.
 
 SET-792 first review at cc23050f: 4/5, one P2. Generated-block masking used a Unicode regex that reduced astral characters to one space, shifting UTF-16 offsets for later edits. New exact-byte integration regression reproduced corruption after a generated emoji block. The shared range mask now preserves code units; 62 focused tests/197 assertions and final fast gate pass. Initial-commit full verification is historical only; repaired head receives final review and its own immutable run.
+
+SET-792 final repaired c908ee3a: independent review 5/5; immutable verification 4,663 pass, three deferred native-size failures, no receipt. Draft #827 and Linear updated with final-head evidence.
+
+## SET-793 complete provider runtime copy exclusions — 2026-10-30
+
+Deterministic projection copies now exclude provider project roots from the canonical target registry, retaining .agents and existing non-target exclusions and using the canonical shared plugin root constant. This closes stale .cursor leakage with Cursor disabled and no lock; it does not implement future package placement. The new regression failed before repair. Both projection callbacks prove all registry runtime sentinels absent, authored source/files retained and caller exclusions respected, with unchanged originals. Existing explicit source selection remains covered. Focused suite: 11 pass /48 assertions; fast gate passes. Exact review and immutable verification follow. Parent SET-543 remains partial.
