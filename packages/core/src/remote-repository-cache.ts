@@ -96,7 +96,9 @@ export function resolveRemoteRepositoryCache(
 ): RemoteRepositoryCacheLocation {
   const parsed = parseRemoteRepositoryReference(repository);
   validateRemoteRepositoryRevision(revision);
-  const repositoryKey = `${slug(parsed.canonical)}--${digest(parsed.canonical, 24)}`;
+  // Git URL rewrites can route canonical aliases to different repositories.
+  // Share a cache only when the actual fetch address is identical.
+  const repositoryKey = `${slug(parsed.canonical)}--${digest(parsed.fetchUrl, 24)}`;
   const revisionIdentity = stableRevisionIdentity(revision);
   const revisionKey = `${slug(revisionIdentity)}--${digest(revisionIdentity, 16)}`;
   const cacheKey = `${repositoryKey}/${revisionKey}`;
@@ -234,13 +236,8 @@ async function acquireExisting(
     "read origin",
     true
   );
-  let cached: ParsedRemoteRepositoryReference;
-  try {
-    cached = parseRemoteRepositoryReference(origin);
-  } catch {
-    throw new Error(`skillset: origin mismatch in remote cache ${location.cacheKey}`);
-  }
-  if (cached.canonical !== parsed.canonical) {
+  // Stored origins are Git addresses, not Skillset source shorthand.
+  if (origin !== parsed.fetchUrl) {
     throw new Error(`skillset: origin mismatch in remote cache ${location.cacheKey}`);
   }
   const resolved = await synchronizeRevision(location.path, parsed.canonical, revision, xdg);
