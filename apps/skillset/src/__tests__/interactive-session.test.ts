@@ -471,7 +471,7 @@ describe("SET-291 prompt adapters", () => {
 
   test("the init orchestration boundary previews then leaves default-No repositories untouched", async () => {
     const root = await createTestFixtureRoot("skillset-interactive-init-");
-    await writeFile(join(root, "CLAUDE.md"), "# Existing instructions\n");
+    await Bun.write(join(root, ".claude/skills/helper/SKILL.md"), "---\nname: helper\ndescription: Help.\n---\nHelp.\n");
     const adapter = new ScriptedPromptAdapter([
       { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
@@ -508,12 +508,12 @@ describe("SET-291 prompt adapters", () => {
       "checkbox",
       "confirm",
     ]);
-    expect(await readdir(root)).toEqual(["CLAUDE.md"]);
+    expect(await readdir(root)).toEqual([".claude"]);
   });
 
   test("explicit adoption skips the matching prompt but collects missing choices", async () => {
     const root = await createTestFixtureRoot("skillset-explicit-init-");
-    await writeFile(join(root, "CLAUDE.md"), "# Existing instructions\n");
+    await Bun.write(join(root, ".claude/skills/helper/SKILL.md"), "---\nname: helper\ndescription: Help.\n---\nHelp.\n");
     const adapter = new ScriptedPromptAdapter([
       { kind: "checkbox", value: ["claude", "codex"] },
       { kind: "checkbox", value: [] },
@@ -530,7 +530,7 @@ describe("SET-291 prompt adapters", () => {
     await runInitCommand(
       {
         directory: undefined,
-        initAdopt: ["rules:CLAUDE.md"],
+        initAdopt: ["skills:.claude/skills"],
         jsonOutput: false,
         options: {},
         rootExplicit: true,
@@ -548,7 +548,7 @@ describe("SET-291 prompt adapters", () => {
       "checkbox",
       "confirm",
     ]);
-    expect(await readdir(root)).toEqual(["CLAUDE.md"]);
+    expect(await readdir(root)).toEqual([".claude"]);
   });
 
   test("machine init bypasses an injected interactive session", async () => {

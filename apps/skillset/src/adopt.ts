@@ -14,6 +14,7 @@ import {
 import type { ReleaseBaselineEntry } from "./adoption";
 import {
   buildSkillsetResult,
+  diffSkillsetResult,
   ISOLATED_OUT_ROOT,
   SkillsetBuildBlockedError,
 } from "@skillset/core";
@@ -38,9 +39,9 @@ import {
   preparedPluginOriginPath,
   removePreparedPluginAdoptionSource,
 } from "./plugin-adoption-source";
-import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import type { LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
-import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
+import { parseMarkdown } from "@skillset/core/internal/yaml";
 import type { ImportProvider } from "./source-arg-values";
 import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory, SKILL_FILE } from "@skillset/registry";
 
@@ -128,6 +129,8 @@ export interface AdoptReport {
    * protection is the cutover safety net.
    */
   readonly cutover: readonly string[];
+  /** Live inspection failed; the collision inventory is unknown. */
+  readonly cutoverError?: string;
   readonly imports: readonly AdoptImportResult[];
   readonly lintIssues: readonly LintIssue[];
   /** The repo's existing Claude catalog, and what adoption kept of it. */
@@ -150,8 +153,6 @@ export interface AdoptReport {
   /** Logical paths actually written by this adoption attempt, including audit artifacts. */
   readonly writtenPaths: readonly string[];
 }
-
-const RULES_DIR = ".skillset/rules";
 
 export function adoptCandidateId(candidate: { readonly kind: string; readonly path: string }): string {
   return `${candidate.kind}:${candidate.path}`;
@@ -381,21 +382,19 @@ async function adoptResolvedRoot(
         acquisition,
         candidate,
         survey.importCandidates,
-        cutover,
         previewSources
       )
     );
   }
   // Builds own the Claude catalog, so an existing one's identity has to land in
-  // skillset.yaml before the build below renders it, and the original joins
-  // the cutover list like any other path a live build now owns.
+  // skillset.yaml before the build below renders it. Live inspection below
+  // determines which catalog and plugin paths require cutover.
   const marketplace = await adoptExistingMarketplace(
     init.rootPath,
     imports.flatMap((result) =>
       result.units.flatMap((unit) => (unit.kind === "plugin" ? [unit.name] : []))
     )
   );
-  if (marketplace !== undefined) cutover.push(marketplace.path);
   // Dialect declaration must land before the graph loads: the isolated build
   // below is what translates the Codex projection of the marked files.
   const transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
@@ -409,6 +408,7 @@ async function adoptResolvedRoot(
     buildError = errorMessage(error);
   }
 
+  let cutoverError: string | undefined;
   let builtFiles = 0;
   let buildWritePaths: readonly string[] = [];
   let renderResults: readonly SkillsetRenderResult[] = [
@@ -423,8 +423,17 @@ async function adoptResolvedRoot(
         ...build.renderResults,
       ];
       if (!build.ok) throw new SkillsetBuildBlockedError(build);
-      builtFiles = build.data.length;
+      builtFiles = build.writes.writtenPaths.length;
       buildWritePaths = build.writes.paths;
+      try {
+        const live = await diffSkillsetResult(init.rootPath, buildOptions);
+        cutover.push(...live.diagnostics.flatMap((diagnostic) =>
+          diagnostic.code === "unmanaged-output-collision" && diagnostic.outputPath !== undefined
+            ? [diagnostic.outputPath] : []
+        ));
+      } catch (error) {
+        cutoverError = errorMessage(error);
+      }
     } catch (error) {
       buildError = errorMessage(error);
     }
@@ -437,7 +446,7 @@ async function adoptResolvedRoot(
   ])];
   const writtenPaths = [...new Set([
     ...acquisitionWrittenPaths,
-    ...init.files.filter((file) => file.status === "create").map((file) => file.path),
+    ...init.files.filter((file) => file.status !== "exists").map((file) => file.path),
     ...imports.flatMap((entry) => [
       ...(entry.destination === undefined ? [] : [entry.destination]),
       ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
@@ -454,7 +463,8 @@ async function adoptResolvedRoot(
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
     candidates,
-    cutover,
+    cutover: [...new Set(cutover)].sort(),
+    ...(cutoverError === undefined ? {} : { cutoverError }),
     imports,
     lintIssues,
     ...(marketplace === undefined ? {} : { marketplace }),
@@ -462,7 +472,7 @@ async function adoptResolvedRoot(
     ok:
       imports.every((result) => result.ok) &&
       lintErrors.length === 0 &&
-      buildError === undefined,
+      buildError === undefined && cutoverError === undefined,
     rootPath: init.rootPath,
     setupFiles: init.files,
     surveyDiagnostics: survey.surveyDiagnostics,
@@ -543,39 +553,8 @@ async function importCandidate(
   acquisition: AdoptAcquisition,
   candidate: SetupImportCandidate,
   allCandidates: readonly SetupImportCandidate[],
-  cutover: string[],
   previewSources: string[]
 ): Promise<AdoptImportResult> {
-  if (candidate.kind === "rules") {
-    const expectedDestination = ruleDestination(candidate.path);
-    const destinationExisted = await exists(join(rootPath, expectedDestination));
-    try {
-      const destination = await importInstructionFile(rootPath, candidate.path);
-      await writeMarkdownSourceOrigin(
-        join(rootPath, destination),
-        sourceOriginFor(acquisition, candidate.path)
-      );
-      await normalizeImportedPromptArguments(join(rootPath, destination));
-      // The original instruction file stays in place; a live build would
-      // regenerate it from the imported source and hit the unmanaged-overwrite
-      // protection, so it belongs on the cutover list.
-      cutover.push(candidate.path);
-      previewSources.push(destination);
-      return { baselinePaths: [], candidate, destination, detail: destination, renderResults: [], ok: true, units: [], warnings: [] };
-    } catch (error) {
-      const copiedBeforeFailure = !destinationExisted && await exists(join(rootPath, expectedDestination));
-      return {
-        baselinePaths: [],
-        candidate,
-        ...(copiedBeforeFailure ? { destination: expectedDestination } : {}),
-        detail: errorMessage(error),
-        renderResults: [],
-        ok: false,
-        units: [],
-        warnings: [],
-      };
-    }
-  }
 
   try {
     const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
@@ -639,9 +618,6 @@ async function importCandidateSources(
   candidate: SetupImportCandidate,
   allCandidates: readonly SetupImportCandidate[]
 ) {
-  if (candidate.kind === "rules") {
-    throw new Error("skillset: rule candidates use the dedicated instruction-file importer");
-  }
   const providers = await providersForAdoptCandidate(rootPath, candidate);
   const prepared = await preparePluginAdoptionSource(
     rootPath,
@@ -713,32 +689,6 @@ async function providersForAdoptCandidate(
   return providers;
 }
 
-/**
- * Minimal rule import: copy a root instruction file body into
- * `.skillset/rules/` under its lowercased name (`AGENTS.md` ->
- * `agents.md`), adding source-only provenance metadata. The ADR's
- * transform-on-adopt is a later slice; adopt never overwrites an existing
- * destination.
- */
-async function importInstructionFile(rootPath: string, sourceName: string): Promise<string> {
-  const destinationRelative = ruleDestination(sourceName);
-  const destination = join(rootPath, destinationRelative);
-  if (await exists(destination)) {
-    throw new Error(
-      `skillset: rule import target already exists: ${destinationRelative}. ` +
-        "Adopt never overwrites; remove the existing file or merge by hand."
-    );
-  }
-  const content = await readFile(join(rootPath, sourceName));
-  await mkdir(dirname(destination), { recursive: true });
-  await writeFile(destination, content);
-  return destinationRelative;
-}
-
-function ruleDestination(sourceName: string): string {
-  return `${RULES_DIR}/${sourceName.toLowerCase()}`;
-}
-
 function sourceOriginFor(acquisition: AdoptAcquisition, path: string): SourceOrigin {
   return acquisition.kind === "git"
     ? { path, ref: acquisition.ref, repo: acquisition.repo }
@@ -753,36 +703,6 @@ function relativeOriginPath(rootPath: string, sourcePath: string, copiedFile?: s
       : join(sourcePath, copiedFile);
   const path = relative(rootPath, sourceFile).replaceAll("\\", "/");
   return path.length === 0 ? "." : path;
-}
-
-async function writeMarkdownSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
-  const source = await readFile(path, "utf8");
-  await writeFile(
-    path,
-    updateMarkdownSourceDocument(source, path, (parts) => ({
-      ...parts,
-      frontmatter: withSkillsetOrigin(parts.frontmatter, origin),
-    }))
-  );
-}
-
-function withSkillsetOrigin(record: JsonRecord, origin: SourceOrigin): JsonRecord {
-  const existing = isJsonRecord(record.skillset) ? record.skillset : {};
-  return {
-    ...record,
-    skillset: {
-      ...existing,
-      origin: sourceOriginRecord(origin),
-    },
-  };
-}
-
-function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
-  return {
-    path: origin.path,
-    ...(origin.ref === undefined ? {} : { ref: origin.ref }),
-    ...(origin.repo === undefined ? {} : { repo: origin.repo }),
-  };
 }
 
 async function normalizeImportedPromptArguments(path: string): Promise<void> {
@@ -1107,23 +1027,30 @@ export function renderAdoptReportMarkdown(
   }
 
   lines.push("## Cutover", "");
-  lines.push(
-    `1. Review the generated mirror under \`${ISOLATED_OUT_ROOT}/\` against the originals.`
-  );
-  if (report.cutover.length > 0) {
-    lines.push("2. Remove or relocate these originals — a live build owns their paths:");
-    for (const path of report.cutover) {
-      lines.push(`   - \`${path}\``);
-    }
+  if (report.cutoverError !== undefined) {
+    lines.push(
+      "Live cutover inspection failed; the collision inventory is unknown. Resolve the inspection error and rerun `skillset diff` before planning live writes.",
+      "", "```", report.cutoverError.trimEnd(), "```", ""
+    );
   } else {
-    lines.push("2. No original paths need to move before a live build.");
+    lines.push(
+      `1. Review the generated mirror under \`${ISOLATED_OUT_ROOT}/\` against the originals.`
+    );
+    if (report.cutover.length > 0) {
+      lines.push("2. Remove or relocate these originals — a live build owns their paths:");
+      for (const path of report.cutover) {
+        lines.push(`   - \`${path}\``);
+      }
+    } else {
+      lines.push("2. No original paths need to move before a live build.");
+    }
+    lines.push(
+      "3. Run `skillset build --yes` to write live output.",
+      "",
+      "Until the originals move, live builds refuse to overwrite them as unmanaged files — that protection is the safety net; nothing is lost by building too early.",
+      ""
+    );
   }
-  lines.push(
-    "3. Run `skillset build --yes` to write live output.",
-    "",
-    "Until the originals move, live builds refuse to overwrite them as unmanaged files — that protection is the safety net; nothing is lost by building too early.",
-    ""
-  );
 
   lines.push(
     "## Next steps",

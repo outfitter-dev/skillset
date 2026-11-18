@@ -111,7 +111,7 @@ test.skipIf(!existsSync(EXPECT))(
     const xdgRoot = await createTestFixtureRoot("skillset-surface-pty-xdg-");
     const initRoot = path.join(surfaceRoot, "init");
     await mkdir(initRoot);
-    await Bun.write(path.join(initRoot, "CLAUDE.md"), "# Existing guidance\n");
+    await Bun.write(path.join(initRoot, ".claude/skills/helper/SKILL.md"), "---\nname: helper\ndescription: Help.\n---\nHelp.\n");
     await initializeTestGitRepository(initRoot, {
       disposableRoot: surfaceRoot,
     });

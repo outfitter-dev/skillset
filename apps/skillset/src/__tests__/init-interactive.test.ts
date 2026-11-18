@@ -47,7 +47,7 @@ function scriptedSession(
 describe("SET-312 existing-directory init", () => {
   test("describes detected entries concretely and imports everything", async () => {
     const candidates = [
-      { kind: "rules" as const, path: "AGENTS.md" },
+      { kind: "plugin" as const, path: "plugins/demo" },
       { kind: "skills" as const, path: ".agents/skills" },
     ];
     const { adapter, readTranscript, session } = scriptedSession([
@@ -56,7 +56,7 @@ describe("SET-312 existing-directory init", () => {
 
     await expect(
       promptForInteractiveCandidates(candidates, session)
-    ).resolves.toEqual(["rules:AGENTS.md", "skills:.agents/skills"]);
+    ).resolves.toEqual(["plugin:plugins/demo", "skills:.agents/skills"]);
     adapter.assertComplete();
     expect(adapter.prompts[0]).toEqual({
       kind: "select",
@@ -67,7 +67,7 @@ describe("SET-312 existing-directory init", () => {
     });
     expect(readTranscript()).toContain("Found in this repository");
     expect(readTranscript()).toContain("1 skill collection");
-    expect(readTranscript()).toContain("1 instruction file");
+    expect(readTranscript()).toContain("1 plugin");
     expect(readTranscript()).not.toContain("material");
   });
 
@@ -84,11 +84,11 @@ describe("SET-312 existing-directory init", () => {
         },
       },
       { kind: "skills" as const, path: ".agents/skills" },
-      { kind: "rules" as const, path: "CLAUDE.md" },
+      { kind: "skills" as const, path: ".claude/skills" },
     ];
     const selected = [
       "plugin:plugins/outfitter/claude",
-      "rules:CLAUDE.md",
+      "skills:.claude/skills",
     ];
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "choose" },
@@ -108,7 +108,6 @@ describe("SET-312 existing-directory init", () => {
     expect(prompt.prompt.groups.map((group) => group.name)).toEqual([
       "Plugins",
       "Skills",
-      "Instruction files",
     ]);
     expect(prompt.prompt.groups[0]?.choices[0]).toEqual(
       expect.objectContaining({ name: "outfitter (Claude, Codex)" })
@@ -121,7 +120,7 @@ describe("SET-312 existing-directory init", () => {
     ]);
     await expect(
       promptForInteractiveCandidates(
-        [{ kind: "rules", path: "AGENTS.md" }],
+        [{ kind: "plugin", path: "plugins/demo" }],
         session
       )
     ).resolves.toEqual([]);
@@ -180,7 +179,8 @@ describe("SET-312 existing-directory init", () => {
     const root = await mkdtemp(join(disposableRoot, "repo-"));
     const nested = join(root, "packages/demo");
     await mkdir(nested, { recursive: true });
-    await writeFile(join(root, "CLAUDE.md"), "# Root instructions\n");
+    await mkdir(join(root, ".claude/skills/helper"), { recursive: true });
+    await writeFile(join(root, ".claude/skills/helper/SKILL.md"), "---\nname: helper\ndescription: Help.\n---\nHelp.\n");
     await initializeTestGitRepository(root, { disposableRoot });
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "all" },
@@ -214,7 +214,7 @@ describe("SET-312 existing-directory init", () => {
     expect(rendered).toContain(
       `Initialize Skillset in ${await realpath(root)}`
     );
-    expect(rendered).toContain("Import 1 instruction file");
+    expect(rendered).toContain("Import 1 skill collection");
     expect(await readdir(nested)).toEqual([]);
   });
 

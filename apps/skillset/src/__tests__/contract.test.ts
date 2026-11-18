@@ -7142,7 +7142,7 @@ test("SET-62: nested plugin scan dedupes marketplace sources and guards containm
   expect(report.importCandidates).toEqual([{ kind: "plugin", path: "plugins/alpha" }]);
 });
 
-test("SET-62: init retains native AGENTS and surfaces other handwritten rule candidates", async () => {
+test("SET-62: init retains native AGENTS and reports Claude guidance for synthesis", async () => {
   const root = await contractFixture({
     "AGENTS.md": "# Agents\n\nHandwritten guidance.",
     "CLAUDE.md": "# Claude\n\nHandwritten guidance.",
@@ -7150,9 +7150,8 @@ test("SET-62: init retains native AGENTS and surfaces other handwritten rule can
 
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
 
-  expect(report.importCandidates).toEqual([
-    { kind: "rules", path: "CLAUDE.md" },
-  ]);
+  expect(report.importCandidates).toEqual([]);
+  expect(report.surveySkips).toContainEqual(expect.objectContaining({ path: "CLAUDE.md", surface: "guided-root-guidance" }));
 });
 
 test("SET-62: init never suggests importing skillset-generated instruction files", async () => {
@@ -7164,7 +7163,8 @@ test("SET-62: init never suggests importing skillset-generated instruction files
 
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
 
-  expect(report.importCandidates).toEqual([{ kind: "rules", path: "CLAUDE.md" }]);
+  expect(report.importCandidates).toEqual([]);
+  expect(report.surveySkips).toContainEqual(expect.objectContaining({ path: "CLAUDE.md", surface: "guided-root-guidance" }));
 });
 
 test("SET-62: already-adopted repos suppress instruction candidates", async () => {

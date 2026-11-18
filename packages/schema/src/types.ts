@@ -97,6 +97,11 @@ export interface SkillsetReportRenderResultCounts {
 }
 
 export interface SkillsetAdoptionReportPayload {
+  readonly guidancePaths?: readonly string[];
+  readonly cutover?: {
+    readonly paths: readonly string[];
+    readonly total: number;
+  };
   readonly alreadyAdopted: boolean;
   readonly candidateIds: readonly string[];
   readonly destinations: readonly string[];

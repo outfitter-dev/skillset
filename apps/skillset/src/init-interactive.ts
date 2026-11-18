@@ -238,8 +238,6 @@ function candidateGroups(candidates: readonly SetupImportCandidate[]) {
 
 function candidateGroupName(kind: SetupImportCandidate["kind"]): string {
   switch (kind) {
-    case "rules":
-      return "Instruction files";
     case "plugin":
     case "plugins":
       return "Plugins";
@@ -364,7 +362,6 @@ function candidateCountLabels(
     ...label("plugin", "plugin", "plugins"),
     ...label("plugins", "plugin collection", "plugin collections"),
     ...label("skills", "skill collection", "skill collections"),
-    ...label("rules", "instruction file", "instruction files"),
   ];
 }
 

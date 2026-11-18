@@ -42,6 +42,31 @@
               "type": "array",
               "uniqueItems": true
             },
+            "cutover": {
+              "additionalProperties": false,
+              "properties": {
+                "paths": {
+                  "items": {
+                    "maxLength": 256,
+                    "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|rules|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
+                    "type": "string"
+                  },
+                  "maxItems": 200,
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "total": {
+                  "maximum": 1000000,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "paths",
+                "total"
+              ],
+              "type": "object"
+            },
             "destinations": {
               "items": {
                 "maxLength": 256,
@@ -56,6 +81,16 @@
               "items": {
                 "maxLength": 96,
                 "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "guidancePaths": {
+              "items": {
+                "maxLength": 256,
+                "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.(?:/|$))(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.git(?:/|$))(?:(?:plugin:\\.)|(?:(?:instructions|plugin|plugins|rules|skills):(?!(?:\\.|\\.git)(?:/|$))(?:[A-Za-z0-9]|\\.[A-Za-z0-9_])[A-Za-z0-9._/-]*)|(?:skill:[a-z0-9][a-z0-9._-]*)|(?:[A-Za-z0-9.][A-Za-z0-9._/-]*))$",
                 "type": "string"
               },
               "maxItems": 200,
