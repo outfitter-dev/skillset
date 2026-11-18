@@ -329,7 +329,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     });
 
     if (options.sourceOrigin !== undefined) {
-      await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
+      await stampImportedOrigins(stagingPath, sourcePath, options.kind, options.sourceOrigin);
     }
     const canonicalSource = providers?.includes("skillset") === true || agentPluginImport !== undefined;
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
@@ -1373,7 +1373,6 @@ async function importedMcpDialect(
 async function stampImportedOrigins(
   targetPath: string,
   sourcePath: string,
-  copiedFiles: readonly string[],
   kind: SingularImportKind,
   sourceOrigin: (sourcePath: string, copiedFile?: string) => SourceOrigin
 ): Promise<void> {
@@ -1381,9 +1380,15 @@ async function stampImportedOrigins(
     await writeYamlSourceOrigin(join(targetPath, "skillset.yaml"), sourceOrigin(sourcePath));
   }
 
-  for (const file of copiedFiles) {
-    if (basename(file) !== SKILL_FILE) continue;
-    await writeMarkdownSourceOrigin(join(targetPath, file), sourceOrigin(sourcePath, file));
+  const skillsPath = join(targetPath, "skills");
+  // Only compiler-discovered primaries own source metadata. A companion named
+  // SKILL.md is runtime content, including inside an opaque provider island.
+  const primaryPaths = kind === "skill"
+    ? [join(targetPath, SKILL_FILE)]
+    : await exists(skillsPath) ? await findSkillFiles(skillsPath) : [];
+  for (const path of primaryPaths) {
+    const file = normalizeCopiedImportPath(relative(targetPath, path));
+    await writeMarkdownSourceOrigin(path, sourceOrigin(sourcePath, file));
   }
 }
 
