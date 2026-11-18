@@ -994,3 +994,18 @@ cursor: false
     );
   });
 });
+
+ it.each(["CLAUDE", "CODEX", "CURSOR"])(
+  "%s plugin variable validation respects complete bare identifiers", async (provider) => {
+    for (const kind of ["ROOT", "DATA"]) {
+      const token = `$${provider}_PLUGIN_${kind}`;
+      const args = [`${token}ED`, `${token}_OLD`, `${token}2`];
+      const input = await fixture({ mcpServers: { x: { command: "node", args, env: { VALUE: args.join(" ") } } } });
+      await expect(parsePortableMcpSource(input)).resolves.toBeDefined();
+      for (const value of [token, `${token}/x`, `${token}.suffix`, `\${${provider}_PLUGIN_${kind}}`]) {
+        const exact = await fixture({ mcpServers: { x: { command: "node", args: [value] } } });
+        await expect(parsePortableMcpSource(exact)).rejects.toThrow(`use \${PLUGIN_${kind}}`);
+      }
+    }
+  }
+);
