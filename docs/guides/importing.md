@@ -62,6 +62,8 @@ Plugin imports accept Skillset source plugins, supported Claude, Codex, or Curso
 
 Import preserves recognized source frontmatter, provider-native fields, and unknown fields instead of silently dropping them. Review the report's copied files, inferred source fields, preserved provider-native fields, unsupported fields, warnings, and next checks before building. These categories describe what Skillset understood and what still needs human judgment; they do not claim every preserved field is portable.
 
+When the import explicitly identifies a Claude origin, native skill `allowed-tools`, `disallowed-tools`, and `user-invocable` values are retained under `claude.frontmatter`, alongside the existing native invocation-policy handling. They do not become shared tool or invocation policy for another provider. This applies to standalone skills and skills inside plugins. Conflicting top-level and provider-scoped values block the import before the source unit is installed. An unknown origin keeps its fields verbatim with warnings; it does not establish Claude ownership or cross-provider support.
+
 ## Review what became source
 
 After either workflow:
