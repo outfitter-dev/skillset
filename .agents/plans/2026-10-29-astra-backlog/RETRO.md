@@ -1,5 +1,14 @@
 # Execution ledger
 
+### SET-442 body and shared-policy boundary — October 29
+
+- Removed adoption's automatic whole-document dialect declaration. A synthetic positive recognizer plus unrelated provider paths/social text proves that recognized spans remain report evidence and do not authorize other rewrites. Authored bodies and original provider files are preserved; durable classifications and migration flags remain the next layer.
+- Confirmed #767's shared-artifact concern for `allowed-tools`: a native delta could add a standard policy field absent from the baseline. The shared renderer now rejects that addition before writing. An explicitly authored Agent Skills baseline policy stays authoritative; provider-only extension keys may still coexist under ADR-0037, and conflicting values still fail. This does not claim runtime isolation for every extension key.
+- Native policy projection tests now use standalone skills, retaining emitted policy and metadata assertions. Shared-package tests explicitly reject the unsafe case, including a Cursor opt-out and adaptive native tool rendering. Standard baseline policy plus Codex sidecars remains supported. The reviewed capability judgments for invocation inversion and agent rendering are unchanged; their renderer/test content pins were refreshed after inspecting the scoped diff and rerunning their proof.
+- Initial full working-tree gate: 4012 pass, 2 skip, 4 todo, 18 fail across 4036 tests. Three are deferred native-size checks, three were stale evidence pins, and twelve exposed fixtures assuming the unsafe shared merge. After repair, 264 focused tests / 1259 assertions pass. Initial terminology failure was corrected with an exact-file/exact-line exemption for the existing TransformEntry API field, matching the existing dialect fixture exemption.
+- Exact-commit independent review, full verification, and draft publication follow this checkpoint. SET-442 remains incomplete: classification evidence, durable flags, unknown-field/native-hook boundaries, and external semantic fixture acceptance remain open. Native trimming stays deferred; no readiness, merge, release, or passing aggregate receipt is claimed.
+
+
 ### SET-442 provider-field layer — October 29
 
 - Parent SET-436 is draft #766 at `18e4ff78`; full exact verification completed with 4016 pass, 2 skip, 4 todo and only three deferred native-size failures. Draft hosted checks pass; full hosted check is skipped under draft policy. Final-head independent acceptance remains pending settlement after two routine rounds and locally proven repairs.

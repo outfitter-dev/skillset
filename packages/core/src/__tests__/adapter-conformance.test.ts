@@ -30,6 +30,8 @@ cursor: true
 ---
 name: repo-skill
 description: Repo skill.
+tools:
+  read: true
 ---
 
 Use the repo skill.
@@ -66,8 +68,6 @@ mcp: false
 ---
 name: plugin-skill
 description: Plugin skill.
-tools:
-  read: true
 ---
 
 Use the plugin skill.
@@ -94,8 +94,8 @@ compile:
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "cursor" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },
-      { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
-      { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "cursor" },
+      { featureId: "tools-policy", sourceUnit: "skill:repo-skill", target: "claude" },
+      { featureId: "tools-policy", sourceUnit: "skill:repo-skill", target: "cursor" },
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "cursor" },
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "cursor" },
     ]);

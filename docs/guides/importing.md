@@ -79,3 +79,5 @@ Provider-specific material may remain explicit rather than being forced into a f
 If import refuses a path or adoption reports a conflict, follow [troubleshooting](../troubleshooting.md) before changing source by hand.
 
 Importing changes repository source only. [Activation](../glossary.md#activation), installation, trust, and user-level provider configuration remain separate workflows.
+
+Adoption transform previews are recognition evidence. A recognized construct does not automatically declare a whole-document dialect or authorize translation of other text in the file. Explicit authored dialect settings remain source decisions.

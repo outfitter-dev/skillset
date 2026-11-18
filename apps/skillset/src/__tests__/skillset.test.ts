@@ -4051,11 +4051,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
-skillset:
-  name: alpha
-`,
-    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
+    ".skillset/skills/policy/SKILL.md": `
 ---
 title: Policy Skill
 description: Uses normalized policy.
@@ -4070,7 +4066,7 @@ allowed_tools:
 
 Policy body.
 `,
-    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
+    ".skillset/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Uses shared policy.
@@ -4087,11 +4083,11 @@ Shared policy body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins/alpha/skills/policy/SKILL.md"),
+    join(root, ".claude/skills/policy/SKILL.md"),
     "utf8"
   );
   const sharedClaudeSkill = await readFile(
-    join(root, "plugins/alpha/skills/shared/SKILL.md"),
+    join(root, ".claude/skills/shared/SKILL.md"),
     "utf8"
   );
 
@@ -4110,11 +4106,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
-skillset:
-  name: alpha
-`,
-    ".skillset/plugins/alpha/skills/escape/SKILL.md": `
+    ".skillset/skills/escape/SKILL.md": `
 ---
 name: escape
 description: Uses target-native tool escapes.
@@ -4135,7 +4127,7 @@ Escape body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins/alpha/skills/escape/SKILL.md"),
+    join(root, ".claude/skills/escape/SKILL.md"),
     "utf8"
   );
   expect(claudeSkill).toContain(`allowed-tools:
@@ -4154,11 +4146,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
-skillset:
-  name: alpha
-`,
-    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+    ".skillset/skills/tools/SKILL.md": `
 ---
 name: tools
 description: Uses portable tool registry.
@@ -4184,7 +4172,7 @@ Tools body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins/alpha/skills/tools/SKILL.md"),
+    join(root, ".claude/skills/tools/SKILL.md"),
     "utf8"
   );
   expect(claudeSkill).toContain("Read");
@@ -4198,7 +4186,7 @@ Tools body.
   expect(claudeSkill).toContain("AskUserQuestion");
 });
 
-test("SET-130: shared package explains Cursor tools metadata without provider sidecars", async () => {
+test("SET-130: standalone skills explain Cursor tools metadata without leaking Claude policy", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -4207,11 +4195,7 @@ claude: true
 codex: false
 cursor: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
-skillset:
-  name: alpha
-`,
-    ".skillset/plugins/alpha/skills/readonly-verifier/SKILL.md": `
+    ".skillset/skills/readonly-verifier/SKILL.md": `
 ---
 name: readonly-verifier
 description: Readonly verifier with a Cursor override and native overlay.
@@ -4235,21 +4219,21 @@ Verifier body.
   await buildSkillset(root);
 
   const cursorSkill = await readFile(
-    join(root, "plugins/alpha/skills/readonly-verifier/SKILL.md"),
+    join(root, ".cursor/skills/readonly-verifier/SKILL.md"),
     "utf8"
   );
-  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, ".cursor/skills/skillset.lock"), "utf8");
 
   expect(cursorSkill).not.toContain("\ntools:\n");
-  expect(cursorSkill).toContain("allowed-tools:");
+  expect(cursorSkill).not.toContain("allowed-tools:");
   expect(
     await exists(
-      join(root, "plugins/alpha/skills/readonly-verifier/.skillset.tools.yaml")
+      join(root, ".cursor/skills/readonly-verifier/.skillset.tools.yaml")
     )
-  ).toBe(false);
-  expect(lock).not.toContain(`"alpha/skills/readonly-verifier/.skillset.tools.yaml"`);
+  ).toBe(true);
+  expect(lock).toContain("readonly-verifier/.skillset.tools.yaml");
 
-  const explained = await explainPath(root, ".skillset/plugins/alpha/skills/readonly-verifier/SKILL.md");
+  const explained = await explainPath(root, ".skillset/skills/readonly-verifier/SKILL.md");
   expect(explained.kind).toBe("source-skill");
   expect(explained.toolsRealization.map((plan) => plan.target)).toEqual(["claude", "cursor"]);
 
@@ -4546,7 +4530,7 @@ Tools body.
   await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Cursor skill-local lowering");
 });
 
-test("shared package retains Claude allowed_tools when Cursor opts out", async () => {
+test("shared package rejects Claude allowed_tools leaking through a Cursor opt-out", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -4572,14 +4556,10 @@ Tools body.
 `,
   });
 
-  await buildSkillset(root);
-
-  const cursorSkill = await readFile(
-    join(root, "plugins/alpha/skills/tools/SKILL.md"),
-    "utf8"
+  await expect(buildSkillset(root)).rejects.toThrow(
+    "plugin alpha skill tools provider claude conflicts at allowed-tools"
   );
-  expect(cursorSkill).not.toContain("allowed_tools:");
-  expect(cursorSkill).toContain("allowed-tools:");
+  expect(await exists(join(root, "plugins/alpha/skills/tools/SKILL.md"))).toBe(false);
 });
 
 test("allowed_tools arrays must not be empty", async () => {

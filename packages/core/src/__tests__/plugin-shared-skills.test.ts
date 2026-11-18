@@ -140,6 +140,46 @@ cursor:
     );
   });
 
+  it("rejects provider-scoped allowed-tools leaking into the shared standard", async () => {
+    const root = await fixture(`
+claude:
+  frontmatter:
+    allowed-tools: Read
+`);
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "plugin demo skill review provider claude conflicts at allowed-tools"
+    );
+    expect(await Bun.file(join(root, "plugins/demo/skills/review/SKILL.md")).exists()).toBe(false);
+  });
+
+  it("rejects adaptive tool policy whose native rendering would alter the shared baseline", async () => {
+    const root = await fixture("tools:\n  read: true");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "plugin demo skill review provider claude conflicts at allowed-tools"
+    );
+  });
+
+  it("retains an explicitly authored baseline policy when provider deltas omit it", async () => {
+    const root = await fixture(`
+allowed_tools:
+  agents: [Read]
+`);
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const output = parseMarkdown(await readFile(join(root, "plugins/demo/skills/review/SKILL.md"), "utf8"), "shared skill");
+    expect(output.frontmatter["allowed-tools"]).toBe("Read");
+  });
+
+  it("keeps an explicitly authored standard policy in a standards-only package", async () => {
+    const root = await fixture(`
+allowed_tools:
+  agents: [Read]
+`);
+    await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: shared-plugin-skill\n  license: none\nclaude: false\ncodex: false\ncursor: false\n");
+    expect((await buildSkillsetResult(root)).ok).toBe(true);
+    const output = parseMarkdown(await readFile(join(root, "plugins/demo/skills/review/SKILL.md"), "utf8"), "standard skill");
+    expect(output.frontmatter["allowed-tools"]).toBe("Read");
+  });
+
   it("rejects the first conflicting provider field", async () => {
     const root = await fixture(`
 claude:
