@@ -108,12 +108,12 @@
     "ajv-formats": "3.0.1",
     "commonmark": "0.31.2",
     "lefthook": "2.1.9",
-    "oxfmt": "0.54.0",
-    "oxlint": "1.69.0",
+    "oxfmt": "0.70.0",
+    "oxlint": "1.86.0",
     "tree-sitter": "0.25.1",
     "tree-sitter-bash": "0.25.1",
     "typescript": "^5.8.3",
-    "ultracite": "7.8.3",
+    "ultracite": "7.12.4",
     "yaml": "^2.8.1"
   },
   "engines": {
