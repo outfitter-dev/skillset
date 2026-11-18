@@ -12,13 +12,16 @@ Preparation branch: docs/agents/astra-backlog-execution. Baseline: 24800e02ed4e7
 
 ## Current execution state
 
-- Owner/model: not launched; intended owner Astra.
-- Owned worktree and stack: not established.
+- Owner: primary Astra campaign thread; user activated the goal October 29.
+- Owned worktree: `/Users/mg/Developer/outfitter/skillset-astra`; primary stack is `main` ← `docs/agents/astra-backlog-execution` ← `set-770-capture-bun-140-baseline-and-map-skillsets-144-compatibility`. Trunk/base `24800e02e`; planning head and baseline start `771bb0057`.
 - First candidate: SET-770 baseline, then SET-603 → SET-771 → SET-772 Bun foundation after live ownership/dependency checks. SET-748 follows as the first ordinary backlog candidate.
 - Existing work to reconcile: SET-554 In Review; SET-708 In Progress; refresh all live evidence.
-- Active review/repair threads: none.
-- Deferred findings and blockers: none introduced by preparation; existing issue blockers remain in Linear.
-- Next action: launch Astra with PLAN.md's copyable kickoff, reconcile current state, and begin eligible work.
+- Review: Terra high round 1 accepted packet `24800e02e..771bb0057` at 5/5, no actionable findings; no separate fast control exposed. Reviewer worktree `/Users/mg/Developer/outfitter/skillset-astra-review-plan` is read-only. Read-only research mapped Bun exposure; no implementation delegated yet.
+- SET-770 is In Progress. [Bun baseline](BUN-BASELINE.md) records exact identity, artifacts, failures and runtime-only parity for 221 generated files. SET-774 tracks the reproduced pending-ledger overlap-test runaway; it blocks final qualification.
+- External work: #735 release head `e7610c87` has successful check/skillset-ci/provider validation, still unmerged; #726/#727 Dagger and #623 prerelease work remain externally owned. Matt said to move past #623 as an overlap blocker; scoped Bun documentation edits may proceed without touching that PR branch or release behavior.
+- Existing evidence: SET-554's PR #514 merged September 21, but acceptance/status reconciliation remains pending; SET-708's PR #659 merged and its comment preserves two residual docs items (collision entry and all-or-nothing repair wording). Do not restart either implementation.
+- Cumulative primary-stack touched paths currently consist of the four packet Markdown files plus BUN-BASELINE.md. No production edits or runtime pin changes yet; baseline capture driver/raw artifacts are ignored local evidence.
+- Next action: commit the baseline checkpoint, repair SET-774 in the same stack, then finish the full baseline and proceed with the Bun foundation.
 
 ## Preparation validation and review
 
