@@ -62,3 +62,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0045](0045-generated-state-merges-as-plain-text.md) | Generated State Merges as Plain Text | Accepted |
 | [0046](0046-provider-only-plugin-components-remain-uncovered.md) | Provider-only Plugin Components Remain Uncovered Without Blocking | Accepted |
 | [0047](0047-native-root-agents-md-is-authored-rule-source.md) | Native Root AGENTS.md Is Authored Rule Source | Accepted |
+| [0048](0048-adoption-is-a-reviewable-migration.md) | Adoption Is a Reviewable Migration | Accepted |
