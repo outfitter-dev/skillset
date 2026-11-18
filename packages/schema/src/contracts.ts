@@ -167,9 +167,6 @@ export const PLUGIN_CONFIG_KEYS = [
   "mcp",
 ] as const;
 
-/** @deprecated Use SINGLE_FILE_ROOT_CONFIG_KEYS for a root `skillset.yaml`. */
-export const WORKSPACE_CONFIG_KEYS = SINGLE_FILE_ROOT_CONFIG_KEYS;
-
 export const SOURCE_METADATA_KEYS = [
   "author",
   "category",
