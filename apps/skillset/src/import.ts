@@ -1,3 +1,4 @@
+import { incompatibleAgentSkillsMetadataKeys } from "@skillset/core/internal/agent-skills-metadata";
 import { captureManifestIdentityCandidates, type ManifestIdentityCandidate } from "@skillset/core/internal/import-manifest-roundtrip";
 import { assessImportedFrontmatter, assessImportedHookRuntime, assessImportedNormalizations } from "@skillset/core/internal/import-capability-assessment";
 import { normalizeImportedAgentPluginPackage, agentPluginUnitObservation } from "./import-agent-plugin-units";
@@ -367,12 +368,13 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     );
 
     const frontmatterSources: FrontmatterFindingSource[] = (options.kind === "skill"
-      ? [{ path: SKILL_FILE, classification }]
+      ? [{ path: SKILL_FILE, classification, frontmatter }]
       : pluginSkillFrontmatter).flatMap((skill) => {
         const fields = [...skill.classification.targetNative, ...skill.classification.unsupported];
-        if (fields.length === 0) return [];
+        const metadataCompatibility = incompatibleAgentSkillsMetadataKeys(readRecord(skill.frontmatter, "metadata") ?? {}).length > 0;
+        if (fields.length === 0 && !metadataCompatibility) return [];
         const origin = options.sourceOrigin?.(sourcePath, skill.path);
-        return [{ path: relative(options.rootPath, join(targetPath, skill.path)).replaceAll("\\", "/"), providers: scopedPolicyProviders, fields, ...(origin === undefined ? {} : { origin }) }];
+        return [{ path: relative(options.rootPath, join(targetPath, skill.path)).replaceAll("\\", "/"), providers: scopedPolicyProviders, fields, ...(metadataCompatibility ? { metadataCompatibility: true } : {}), ...(origin === undefined ? {} : { origin }) }];
       });
     const capabilityAssessments = [
       ...frontmatterSources.flatMap(assessImportedFrontmatter),
@@ -395,6 +397,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       kind: options.kind, renderResults: [], name,
       normalizations: [...copied.normalizations, ...mcpImport.normalizations],
       capabilityAssessments,
+      frontmatterSources,
       manifestIdentityCandidates: copied.manifestIdentityCandidates,
       ...(nativeHookSources === undefined ? {} : { nativeHookSources }),
       nextChecks: importChecksAtRoot(options.rootPath),
@@ -404,6 +407,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       warnings: [
         ...importWarnings(classification, scopedPolicyProviders),
         ...pluginSkillFrontmatter.flatMap((skill) => importWarnings(skill.classification, scopedPolicyProviders)),
+        ...frontmatterSources.filter((source) => source.metadataCompatibility === true).map((source) => `${source.path}: preserved non-string metadata; review Agent Skills standard compatibility before cutover.`),
         ...copied.warnings,
       ],
     };
@@ -465,7 +469,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     const frontmatterFindings = (await Promise.all(frontmatterSources.map(async (source) =>
       importedFrontmatterFindings(source, await readFile(join(options.rootPath, source.path), "utf8"))
     ))).flat();
-    const unresolvedSources = frontmatterSources.filter((source) => source.providers.length === 0);
+    const unresolvedSources = frontmatterSources.filter((source) => source.providers.length === 0 && source.fields.length > 0);
     // The marker was installed before claim, so even a failed ledger transaction
     // leaves a preserved source that cannot be projected accidentally.
     let persisted: { readonly flags: readonly MigrationFlag[]; readonly writtenPaths: readonly string[] } = { flags: [], writtenPaths: [] };

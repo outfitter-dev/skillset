@@ -1,3 +1,4 @@
+import { importedMetadataFindings } from "./adoption-metadata-findings";
 import { createHash } from "node:crypto";
 import { listProviderSkillFrontmatterFields, providerDestinationFormatSnapshots } from "@skillset/registry";
 import type { MigrationFlag } from "@skillset/schema";
@@ -12,6 +13,7 @@ export interface FrontmatterFindingSource {
   readonly path: string;
   readonly providers: readonly TargetName[];
   readonly fields: readonly string[];
+  readonly metadataCompatibility?: boolean;
   readonly origin?: SourceOrigin;
 }
 
@@ -19,7 +21,7 @@ export interface FrontmatterFindingSource {
 export function importedFrontmatterFindings(source: FrontmatterFindingSource, content: string): readonly MigrationFlag[] {
   const { frontmatter } = parseMarkdown(content, source.path);
   const providers = [...new Set(source.providers)].sort(compareStrings);
-  return [...new Set(source.fields)].sort(compareStrings).flatMap((field) =>
+  const fieldFindings = [...new Set(source.fields)].sort(compareStrings).flatMap((field) =>
     (providers.length === 0 ? [undefined] : providers).map((provider) => {
       const value = provider === undefined ? frontmatter[field] : readRecord(readRecord(frontmatter, provider) ?? {}, "frontmatter")?.[field];
       if (value === undefined) throw new Error(`skillset: ${source.path}: imported field ${field} is missing from its recorded provider boundary.`);
@@ -47,6 +49,7 @@ export function importedFrontmatterFindings(source: FrontmatterFindingSource, co
       });
     })
   );
+  return [...fieldFindings, ...(source.metadataCompatibility === true ? importedMetadataFindings(source, frontmatter) : [])];
 }
 
 function digest(value: string): string {

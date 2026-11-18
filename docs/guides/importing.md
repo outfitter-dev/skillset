@@ -66,6 +66,8 @@ Import preserves recognized source frontmatter, provider-native fields, and unkn
 
 When the import explicitly identifies a Claude origin, native skill `allowed-tools`, `disallowed-tools`, and `user-invocable` values are retained under `claude.frontmatter`, alongside the existing native invocation-policy handling. They do not become shared tool or invocation policy for another provider. This applies to standalone skills and skills inside plugins. Conflicting top-level and provider-scoped values block the import before the source unit is installed. An unknown origin keeps its fields verbatim with warnings; it does not establish Claude ownership or cross-provider support.
 
+Structured `metadata` remains valid canonical Skillset source. Import reports each non-string metadata value as `adopt.metadata-standard-incompatible`, with a sidecar JSON Pointer and pinned Agent Skills evidence; repository adoption persists those findings before its isolated build. Agent Skills requires string values, but the finding does not infer provider ownership or claim that every selected provider rejects the value. The renderer evaluates the applicable standard and provider projections. Import does not stringify, remove, or move the metadata into a provider boundary. The local ledger retains field locations and fingerprints; immutable receipts retain finding codes without metadata values. Correcting or removing a value does not silently resolve its existing review record.
+
 ## Review what became source
 
 After either workflow:
