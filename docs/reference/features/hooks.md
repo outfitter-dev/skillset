@@ -52,9 +52,11 @@ The Agent Plugins baseline records plugin hooks as [uncovered](plugins.md#uncove
 
 ## Adaptive Hook Units
 
-Adaptive hook units are Skillset-authored source. They let authors define hook behavior once, attach it to the source unit where it belongs, and have Skillset render only provider/destination combinations that preserve the intended scope and runtime behavior.
+Adaptive hook units are Skillset-authored source. They let authors define a hook, attach it to its source unit, and render provider-supported event, handler, and scope combinations. These structural checks do not establish equivalent command behavior across providers: authors must account for each host's input, output, environment, and runtime contract.
 
 Adaptive hooks are separate from workflow hook guardrails. Guardrails such as `skillset hooks print` and `skillset hooks run stop` help local Git hooks or reviewed agent-runtime snippets call Skillset checks. Adaptive hooks compile source-authored runtime hook definitions into provider-native hook surfaces.
+
+Plugin hook `status` is presentation text. Claude and Codex output retain it as `statusMessage`; Cursor output omits it while retaining the command. Build, lock, and explain results record that weaker presentation as `degraded` with a `hook-status-omitted` diagnostic at the definition or overriding attachment. The diagnostic does not copy the authored text.
 
 ### Source Model
 
