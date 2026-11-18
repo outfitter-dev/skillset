@@ -9,6 +9,11 @@
           "type": "boolean"
         },
         {
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "type": "object"
         }
       ]
@@ -20,13 +25,22 @@
         },
         {
           "not": {
-            "properties": {
-              "mode": {
-                "const": "symlink"
+            "anyOf": [
+              {
+                "properties": {
+                  "mode": {
+                    "const": "symlink"
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              },
+              {
+                "required": [
+                  "opaque"
+                ]
               }
-            },
-            "required": [
-              "mode"
             ]
           },
           "type": "object"
@@ -39,6 +53,11 @@
           "type": "boolean"
         },
         {
+          "not": {
+            "required": [
+              "opaque"
+            ]
+          },
           "type": "object"
         }
       ]

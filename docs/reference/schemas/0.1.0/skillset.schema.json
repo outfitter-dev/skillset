@@ -418,6 +418,11 @@
             },
             {
               "additionalProperties": true,
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "properties": {
                 "skills": {
                   "items": {
@@ -455,6 +460,11 @@
             },
             {
               "additionalProperties": true,
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "properties": {
                 "skills": {
                   "items": {
@@ -492,6 +502,11 @@
             },
             {
               "additionalProperties": true,
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "properties": {
                 "skills": {
                   "items": {
@@ -1329,6 +1344,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -1357,6 +1377,15 @@
                     "path"
                   ],
                   "type": "object"
+                },
+                "opaque": {
+                  "items": {
+                    "description": "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+                    "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
                 },
                 "skills": {
                   "anyOf": [
@@ -1409,6 +1438,15 @@
                 ]
               },
               "properties": {
+                "opaque": {
+                  "items": {
+                    "description": "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+                    "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
                 "skills": {
                   "anyOf": [
                     {
@@ -1460,6 +1498,15 @@
                 ]
               },
               "properties": {
+                "opaque": {
+                  "items": {
+                    "description": "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+                    "pattern": "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
                 "skills": {
                   "anyOf": [
                     {
@@ -1656,6 +1703,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -2041,6 +2093,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -2052,13 +2109,22 @@
             },
             {
               "not": {
-                "properties": {
-                  "mode": {
-                    "const": "symlink"
+                "anyOf": [
+                  {
+                    "properties": {
+                      "mode": {
+                        "const": "symlink"
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "opaque"
+                    ]
                   }
-                },
-                "required": [
-                  "mode"
                 ]
               },
               "type": "object"
@@ -2071,6 +2137,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -2677,6 +2748,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -2687,6 +2763,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -2702,6 +2783,11 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "required": [
+                  "opaque"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -4115,8 +4201,17 @@
             {
               "additionalProperties": true,
               "not": {
-                "required": [
-                  "bundle"
+                "anyOf": [
+                  {
+                    "required": [
+                      "bundle"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "opaque"
+                    ]
+                  }
                 ]
               },
               "properties": {
@@ -4166,8 +4261,17 @@
             {
               "additionalProperties": true,
               "not": {
-                "required": [
-                  "bundle"
+                "anyOf": [
+                  {
+                    "required": [
+                      "bundle"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "opaque"
+                    ]
+                  }
                 ]
               },
               "properties": {
@@ -4284,8 +4388,17 @@
             {
               "additionalProperties": true,
               "not": {
-                "required": [
-                  "bundle"
+                "anyOf": [
+                  {
+                    "required": [
+                      "bundle"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "opaque"
+                    ]
+                  }
                 ]
               },
               "properties": {

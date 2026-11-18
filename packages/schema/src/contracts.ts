@@ -1717,7 +1717,7 @@ function targetFeatureSchema(): SchemaJsonRecord {
 
 function targetOverrideSchema(): SchemaJsonRecord {
   return {
-    anyOf: [{ type: "boolean" }, { type: "object" }],
+    anyOf: [{ type: "boolean" }, { type: "object", not: { required: ["opaque"] } }],
   };
 }
 
@@ -1727,7 +1727,7 @@ function workspaceTargetOverrideSchema(): SchemaJsonRecord {
       { type: "boolean" },
       {
         additionalProperties: true,
-        not: { required: ["bundle"] },
+        not: { anyOf: [{ required: ["bundle"] }, { required: ["opaque"] }] },
         properties: {
           skills: fixedSkillOutputSelectionSchema(),
         },
@@ -1754,6 +1754,7 @@ function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): Sche
             }),
             required: ["path"],
           },
+          opaque: opaqueIslandDirectoriesSchema(),
           skills: fixedSkillOutputSelectionSchema(),
         },
         type: "object",
@@ -1762,6 +1763,7 @@ function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): Sche
         additionalProperties: true,
         not: { required: ["bundle"] },
         properties: {
+          opaque: opaqueIslandDirectoriesSchema(),
           skills: fixedSkillOutputSelectionSchema(),
         },
         type: "object",
@@ -1769,6 +1771,14 @@ function pluginTargetOverrideSchema(target: (typeof TARGET_NAMES)[number]): Sche
   return {
     anyOf: [{ type: "boolean" }, objectSchema],
   };
+}
+
+function opaqueIslandDirectoriesSchema(): SchemaJsonRecord {
+  return arraySchema({
+    description: "Directory relative to this plugin's provider island; all contained files are copied byte-for-byte without document parsing.",
+    pattern: "^(?!\\s)(?![\\s\\S]*\\s$)(?!/)(?![A-Za-z]:)(?!.*[\\\\\\u0000-\\u001f\\u007f])(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[^/]+(?:/[^/]+)*$",
+    type: "string",
+  }, { uniqueItems: true });
 }
 
 function fixedSkillOutputSelectionSchema(): SchemaJsonRecord {
@@ -1896,6 +1906,7 @@ function agentTargetOverrideSchema(): SchemaJsonRecord {
       { type: "boolean" },
       {
         additionalProperties: true,
+        not: { required: ["opaque"] },
         properties: {
           skills: arraySchema({
             anyOf: [
@@ -1924,8 +1935,10 @@ function ruleCodexOverrideSchema(): SchemaJsonRecord {
       { type: "boolean" },
       {
         not: {
-          properties: { mode: { const: "symlink" } },
-          required: ["mode"],
+          anyOf: [
+            { properties: { mode: { const: "symlink" } }, required: ["mode"] },
+            { required: ["opaque"] },
+          ],
         },
         type: "object",
       },

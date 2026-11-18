@@ -339,6 +339,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         bundle: {
           path: "dist/example-plugin",
         },
+        opaque: ["config"],
       },
       codex: true,
       cursor: true,

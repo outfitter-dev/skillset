@@ -449,7 +449,7 @@ describe("@skillset/schema contracts", () => {
         { type: "boolean" },
         {
           additionalProperties: true,
-          not: { required: ["bundle"] },
+          not: { anyOf: [{ required: ["bundle"] }, { required: ["opaque"] }] },
           properties: { skills: fixedSkillOutputSelection },
           type: "object",
         },

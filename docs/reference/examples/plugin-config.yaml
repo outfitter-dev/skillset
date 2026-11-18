@@ -4,6 +4,8 @@ changes:
 claude:
   bundle:
     path: dist/example-plugin
+  opaque:
+    - config
 codex: true
 cursor: true
 defaults:
