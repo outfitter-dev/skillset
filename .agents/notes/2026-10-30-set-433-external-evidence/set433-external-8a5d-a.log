@@ -1,0 +1,14 @@
+external: compound-engineering-plugin synced to 4719dc509fdc
+235 | export function validateAndNormalizeSkillsetReport(
+236 |   value: unknown
+237 | ): SkillsetReport {
+238 |   const validation = validateSkillsetReport(value);
+239 |   if (!validation.ok) {
+240 |     throw new Error(
+                    ^
+error: skillset: invalid report: $.workspace.repository.identity: repository identity is invalid
+      at validateAndNormalizeSkillsetReport (/private/tmp/skillset-set433-external-8a5d/packages/core/src/report.ts:240:15)
+      at persistExternalFixtureReport (/private/tmp/skillset-set433-external-8a5d/scripts/fixtures/external-report.ts:107:23)
+      at async runSelectedExternalFixtures (/private/tmp/skillset-set433-external-8a5d/scripts/fixtures/external.ts:701:27)
+
+Bun v1.4.4 (macOS arm64)

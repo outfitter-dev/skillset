@@ -1,0 +1,15 @@
+{
+  "added": [],
+  "removed": [],
+  "changed": [
+    "browserbase-claude-code-plugin/adopted/.skillset/changes/state.json",
+    "claude-review-loop/adopted/.skillset/changes/state.json",
+    "cursor-browser-motion-plugin/adopted/.skillset/changes/state.json",
+    "emilkowalski-skills/adopted/.skillset/changes/state.json",
+    "last30days-skill/adopted/.skillset/changes/state.json",
+    "mattpocock-skills/adopted/.skillset/changes/state.json"
+  ],
+  "identical": 630,
+  "filesA": 636,
+  "filesC": 636
+}
