@@ -1305,7 +1305,7 @@ async function rewriteImportedPluginMcp(
   const serialized = stringifyJson(normalized.source);
   const changes = [...normalized.changes];
   if (sourcePath !== hiddenPath) changes.push({ code: "mcp.source-path", sourcePointer: "", destinationPointer: "", occurrences: 1 });
-  if (serialized !== original) changes.push({ code: "mcp.json-serialization", sourcePointer: "", destinationPointer: "", occurrences: 1 });
+  if (stringifyJson(parsed as JsonRecord) !== original) changes.push({ code: "mcp.json-serialization", sourcePointer: "", destinationPointer: "", occurrences: 1 });
   const normalizations = recordMcpNormalizations(changes, dialect, normalizeCopiedImportPath(relative(targetPath, sourcePath)), destinationPath);
   await writeFile(hiddenPath, serialized);
   if (sourcePath !== hiddenPath) await rm(sourcePath);
