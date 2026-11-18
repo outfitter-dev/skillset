@@ -149,11 +149,18 @@ test("SET-182: schema freshness rejects stale generated artifacts", () => {
 });
 
 
-test("MCP normalization receipt examples have runtime and generated-schema parity", () => {
+test("Normalization receipt examples have runtime and generated-schema parity", () => {
   const example = skillsetSchemaExamples.find((candidate) => candidate.path === "report-import-normalizations.json")?.value;
   if (example === undefined) throw new Error("missing normalization report example");
   expect(validateSkillsetReport(example).ok).toBe(true);
   expect(validateAgainstSchema(example, reportContract.schema)).toEqual([]);
+  for (const code of ["manifest.name", "manifest.name-remap", "manifest.description"]) {
+    const manifest = structuredClone(example);
+    const entries = (manifest.payload as Record<string, unknown>).normalizations as Record<string, unknown>[];
+    entries[0] = { ...entries[0], code, source: { path: ".claude-plugin/plugin.json", pointer: "/name" }, destination: { path: ".skillset/plugins/demo/skillset.yaml", pointer: "/skillset/name" } };
+    expect(validateSkillsetReport(manifest).ok).toBe(true);
+    expect(validateAgainstSchema(manifest, reportContract.schema)).toEqual([]);
+  }
   for (const patch of [{ code: "unknown" }, { fidelity: "exact" }, { evidence: [] }, { rawValue: "private" }, { source: { path: "../outside", pointer: "" } }]) {
     const invalid = structuredClone(example);
     const payload = invalid.payload as Record<string, unknown>;

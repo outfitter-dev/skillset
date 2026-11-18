@@ -119,3 +119,9 @@ Import compares native candidates using manifest identity plus deterministic non
 ## Provenance
 
 Plugin lock entries record resolved version authority, included and skipped skills, target state, source and output hashes, file modes, and feature-key components. [`skillset explain`](../cli/explain.md) traces a plugin or generated file back to those decisions; [`skillset check --only outputs`](../cli/check.md) detects stale manifests and bundle files.
+
+## Import Identity Evidence
+
+When import synthesizes a plugin's `skillset.yaml`, its `normalizations` report records manifest name and description assignments. `manifest.name` identifies the selected unchanged manifest name input; agreeing secondary manifests and explicit matching `--name` choices do not claim that assignment. `manifest.name-remap` identifies a name changed to the selected plugin ID, including explicit `--name` mappings or normalization during name selection. `manifest.description` identifies only the selected native description field, including Codex's `interface.shortDescription` or `interface.longDescription` fallback. Agent Plugins imports retain pointers into the original `plugin.json` even though the copied manifest is removed during conversion.
+
+Observations carry unit-relative input paths, workspace-relative destination paths, JSON pointers, and pinned format references. They exclude field values and retain `unknown` fidelity: the assignment itself does not establish provider runtime equivalence. Import/adoption receipts retain the list, including committed partial imports; existing canonical configuration produces no synthesized-manifest observations. Missing fields do not receive fabricated source pointers. Derived defaults and other metadata assignments are outside this identity evidence slice.

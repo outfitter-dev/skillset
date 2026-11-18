@@ -78,7 +78,7 @@ test("unchanged canonical MCP bytes produce no normalization claims", async () =
   const source = stringifyJson({ mcpServers: { demo: { command: "node", args: ["server.js"] } } });
   await Bun.write(join(sourcePath, ".mcp.json"), source);
   const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "claude" });
-  expect(report.normalizations).toEqual([]);
+  expect(report.normalizations?.filter((entry) => entry.code.startsWith("mcp."))).toEqual([]);
   expect(await readFile(join(report.targetPath, ".mcp.json"), "utf8")).toBe(source);
 });
 
@@ -88,8 +88,8 @@ test("source relocation and JSON serialization remain distinct from semantic cha
   await Bun.write(join(sourcePath, ".cursor-plugin/plugin.json"), '{"name":"demo"}');
   await Bun.write(join(sourcePath, "mcp.json"), '{"mcpServers":{"demo":{"command":"node"}}}');
   const report = await importSource({ rootPath: root, sourcePath, kind: "plugin", provider: "cursor" });
-  expect(report.normalizations?.map((entry) => entry.code)).toEqual(["mcp.source-path", "mcp.json-serialization"]);
-  expect(report.normalizations?.[0]).toMatchObject({ source: { path: "mcp.json", pointer: "" }, destination: { path: ".skillset/plugins/demo/.mcp.json", pointer: "" } });
+  expect(report.normalizations?.filter((entry) => entry.code.startsWith("mcp.")).map((entry) => entry.code)).toEqual(["mcp.source-path", "mcp.json-serialization"]);
+  expect(report.normalizations?.find((entry) => entry.code === "mcp.source-path")).toMatchObject({ source: { path: "mcp.json", pointer: "" }, destination: { path: ".skillset/plugins/demo/.mcp.json", pointer: "" } });
 });
 
 test("failed pre-claim MCP conversion produces no successful batch observation", async () => {
