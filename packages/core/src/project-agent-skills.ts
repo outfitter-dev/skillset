@@ -3,12 +3,15 @@ import { relative } from "node:path";
 import { isProviderNativeReferenceName } from "@skillset/schema";
 
 import { readStringArray, targetNames } from "./config";
+import { nativePluginManifestName } from "./plugin-manifest-identity";
+import { readEffectiveSkillInvocationDisabled } from "./skill-policy";
 import { assertRewrittenSourceReference } from "./source-reference-contract";
 import type {
   BuildGraph,
   JsonRecord,
   SourceProjectAgent,
   SourcePlugin,
+  SourceSkill,
   TargetName,
 } from "./types";
 import { isJsonRecord } from "./yaml";
@@ -126,13 +129,13 @@ function resolveProjectAgentSkillReference(
       agent,
       target,
       reference,
-      skill.targets[target].enabled
+      skill
     );
     return {
       authored: reference,
       ownership: "managed",
       pluginId,
-      rendered: renderPluginSkillReference(plugin, skillId),
+      rendered: renderPluginSkillReference(plugin, skillId, target),
       skillId,
     };
   }
@@ -164,7 +167,7 @@ function resolveProjectAgentSkillReference(
     agent,
     target,
     reference,
-    skill.targets[target].enabled
+    skill
   );
   return {
     authored: reference,
@@ -215,16 +218,19 @@ function assertSkillAvailableForTarget(
   agent: SourceProjectAgent,
   target: TargetName,
   reference: string,
-  available: boolean
+  skill: SourceSkill
 ): void {
-  if (available) return;
-  throw invalidSkillReference(
-    rootPath,
-    agent,
-    target,
-    reference,
-    `the skill is not enabled for ${target}`
-  );
+  if (!skill.targets[target].enabled) {
+    throw invalidSkillReference(rootPath, agent, target, reference, `the skill is not enabled for ${target}`);
+  }
+  if (target === "claude" && readEffectiveSkillInvocationDisabled(
+    skill.frontmatter, skill.targets[target].options, target, skill.sourcePath
+  ) === true) {
+    throw invalidSkillReference(
+      rootPath, agent, target, reference,
+      "Claude cannot preload this skill because its effective disable-model-invocation is true; enable model invocation for the skill or remove this managed preload reference"
+    );
+  }
 }
 
 function invalidSkillReference(
@@ -252,7 +258,12 @@ function invalidTargetSkills(
 
 function renderPluginSkillReference(
   plugin: SourcePlugin,
-  skillId: string
+  skillId: string,
+  target: TargetName
 ): string {
-  return `${plugin.id}:${skillId}`;
+  const pluginName = target === "claude" ? nativePluginManifestName(plugin, target) : plugin.id;
+  if (typeof pluginName !== "string" || pluginName.length === 0) {
+    throw new Error(`skillset: plugin ${plugin.id} needs a non-empty Claude manifest name for managed skill references`);
+  }
+  return `${pluginName}:${skillId}`;
 }

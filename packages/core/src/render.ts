@@ -55,7 +55,7 @@ import {
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
-  readImplicitInvocation,
+  readEffectiveSkillInvocationDisabled,
 } from "./skill-policy";
 import {
   formatPreprocessDependency,
@@ -2241,13 +2241,13 @@ function renderNativeSkillInvocationPolicy(
   skill: SourceSkill,
   target: "claude" | "cursor"
 ): Record<string, JsonValue> {
-  const implicitInvocation = readImplicitInvocation(
+  const disabled = readEffectiveSkillInvocationDisabled(
     skill.frontmatter,
+    skill.targets[target].options,
     target,
     skill.sourcePath
   );
-  if (implicitInvocation === undefined) return {};
-  return { "disable-model-invocation": !implicitInvocation };
+  return disabled === undefined ? {} : { "disable-model-invocation": disabled };
 }
 
 function rejectCursorAllowedTools(skill: SourceSkill, label: string): void {

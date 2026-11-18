@@ -316,7 +316,7 @@ export function assessPinnedCapabilityJudgment(
 const judgments: readonly CapabilityJudgment[] = [
   {
     capabilityId: "claude-manifest-identity", featureId: "plugin-manifests", target: "claude", fidelity: "exact",
-    implementationPaths: ["packages/core/src/import-manifest-roundtrip.ts", "packages/core/src/render-plugin-manifest.ts", "apps/skillset/src/import.ts", "apps/skillset/src/adopt.ts", "packages/core/src/build.ts", "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", "docs/guides/importing.md"],
+    implementationPaths: ["packages/core/src/import-manifest-roundtrip.ts", "packages/core/src/render-plugin-manifest.ts", "packages/core/src/plugin-manifest-identity.ts", "apps/skillset/src/import.ts", "apps/skillset/src/adopt.ts", "packages/core/src/build.ts", "packages/core/src/__tests__/import-manifest-roundtrip.test.ts", "apps/skillset/src/__tests__/adopt-manifest-roundtrip.test.ts", "docs/guides/importing.md"],
     scope: "Selected direct Claude manifest name and description strings retain their identity and descriptive metadata meaning through canonical configuration and the actual same-provider manifest, only when all three values are equal and no overriding route participates.",
     limitations: ["Excludes name remaps, defaults, whitespace changes, listing or native overrides, absent or unselected output, all other fields and providers, and runtime activation or behavior."],
     authorityHash: "sha256:19713db35fc38ff601965fb3ad88fa98e74d9e9c3cc3bf744f48c14915046a33",
@@ -369,7 +369,8 @@ const judgments: readonly CapabilityJudgment[] = [
 /** Reviewed implementation content; the crosswalk regression gate rejects drift. */
 export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/import-manifest-roundtrip.ts", contentHash: "sha256:ef066fa15c81e4702d6479f2bf7296b8836374bdc6a18a592630cb7d8dcd762f" },
-  { path: "packages/core/src/render-plugin-manifest.ts", contentHash: "sha256:197e1fe44df8e63a34d775367c23443816533b0a728bd5a7bb32c0cdb4041be9" },
+  { path: "packages/core/src/render-plugin-manifest.ts", contentHash: "sha256:2b6b794ebf944326011c9ce07b89e3b87fc9173f8daa6443b89513972d760fa4" },
+  { path: "packages/core/src/plugin-manifest-identity.ts", contentHash: "sha256:d10cb0004cb89c6c70ee5bc3e1ae91c15a52618cf9acece984bcc991195d61bd" },
   { path: "apps/skillset/src/import.ts", contentHash: "sha256:7d1a73428e2945ffe0cbdf8575e0507ff599862dd4b4751a81ceb30a35b30e8e" },
   { path: "apps/skillset/src/adopt.ts", contentHash: "sha256:2b20a172ffcbd50e406f235ba08092a960e377d8dad64c55a835114ca11870ca" },
   { path: "packages/core/src/build.ts", contentHash: "sha256:f3e2e6efdef7a5713cf96a6bbeb1ffca6260c50815deaa9a7932e30eec52d31d" },
@@ -379,11 +380,11 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
 
   { path: "packages/core/src/__tests__/native-root-rules.test.ts", contentHash: "sha256:c0982bd95e17f682d551e719501cb5e70c7fd71aeb013900f70bece8fc5558c5" },
   { path: "packages/core/src/render-codex-skill-sidecars.ts", contentHash: "sha256:acf23268dced754dad23abb6e3c0e55ceb2fbb7009b689d6aad4ea2bfc7431e2" },
-  { path: "packages/core/src/render.ts", contentHash: "sha256:42a2e310667a8b567c33fb9ef0c6fd967e439ee073339598402c43cde8b59c68" },
-  { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:a3de6ef0d5e691ec12f53d5f7d66965b38c25d54e79ace39c500e7c3072f7715" },
+  { path: "packages/core/src/render.ts", contentHash: "sha256:df7a3b9983395bebdfd6988b5b1e4833f1d2c77e40917636e7f756d4ce2b6f53" },
+  { path: "packages/core/src/skill-policy.ts", contentHash: "sha256:f33250d3ed6b38c5f816d06ba2d050b3abd209ce1be6848ed9ba0e66a489e843" },
   { path: "packages/core/src/__tests__/skill-invocation-policy.test.ts", contentHash: "sha256:c1efd8f659af4b136d97994960cf3512ba40164bb9cde5e47f8be06ae7af7d41" },
-  { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:61ec143b8422d29aa96334d1ece03d4d12c7d874087a95f2762595644980a281" },
-  { path: "packages/core/src/__tests__/project-agent-skills.test.ts", contentHash: "sha256:e491ac044e0b72d701ff3cf6dc2d5ebc5c69cd87ee8212ae433534118f6336e0" },
+  { path: "packages/core/src/project-agent-skills.ts", contentHash: "sha256:55e9dd9ee368a1153e2cf9262f98ea3cee428884e884ab680efd443e64d69085" },
+  { path: "packages/core/src/__tests__/project-agent-skills.test.ts", contentHash: "sha256:38865be157c31c3be4de6b3a12a027946cf0e9d6847faed38e24dcc50c4c6105" },
   { path: "apps/skillset/src/__tests__/skillset.test.ts", contentHash: "sha256:c17b7a80821026a9c767cf37426f8e89f181f08c37de1e3f278fe23951cff897" },
   { path: "packages/core/src/render-rules.ts", contentHash: "sha256:0d96c31d9dad2492b05629a59094b70ad7d9bb1d3263c1986c1a2ab4561a0ff6" },
   { path: "packages/core/src/render-standard-instructions.ts", contentHash: "sha256:608f1171d11ce31c910871a2027a2d6909a3a1106e750d5057eea46eebae33c2" },
@@ -392,7 +393,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   { path: "packages/core/src/render-hooks.ts", contentHash: "sha256:93d8f313295edd04939190d48497783a06ebec12b2d162255a18dcaec2b4c7a9" },
   { path: "packages/core/src/hook-capabilities.ts", contentHash: "sha256:2f06a181cc347b256d4d4b4a3145a25f37a4d4f6eb1b5b7e448a7ab1af391296" },
   { path: "docs/reference/features/skills.md", contentHash: "sha256:ca8a77f9780c48bbb0161194c2108ac945c0e040fefe23792dcd9ec5532eee79" },
-  { path: "docs/reference/features/agents.md", contentHash: "sha256:838e466c12e21195998898c009a5297d6d9da4bb98c43f5b4c7ea052cf1d828d" },
+  { path: "docs/reference/features/agents.md", contentHash: "sha256:e721f30c2fdf7587f0bb7660c6e63b21500453d24b853e6a0fa7ead01d1b14fc" },
   { path: "docs/reference/features/rules.md", contentHash: "sha256:5272d1776cc67e1ad8b974b8ee53126ad588942495e56aeeaec8bd72f7662bad" },
   { path: "docs/reference/features/hooks.md", contentHash: "sha256:faa4b7233b11dea2ff8343f0cdede8c5a068b512f1c27d5eadaefa8359a37b0c" },
 ] as const;

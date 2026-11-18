@@ -58,6 +58,23 @@ export function readImplicitInvocation(
   return value;
 }
 
+/** Matches rendered invocation precedence: source, canonical policy, then native frontmatter. */
+export function readEffectiveSkillInvocationDisabled(
+  record: JsonRecord,
+  targetOptions: JsonRecord,
+  target: "claude" | "cursor",
+  label: string
+): JsonValue | undefined {
+  const implicitInvocation = readImplicitInvocation(record, target, label);
+  const native = isJsonRecord(targetOptions.frontmatter)
+    ? targetOptions.frontmatter["disable-model-invocation"]
+    : undefined;
+  if (native !== undefined) return native;
+  return implicitInvocation === undefined
+    ? record["disable-model-invocation"]
+    : !implicitInvocation;
+}
+
 export function readAllowedTools(
   record: JsonRecord,
   target: AllowedToolsTarget,

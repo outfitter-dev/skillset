@@ -35,6 +35,7 @@ import type {
   SourceSkill,
   TargetName,
 } from "./types";
+import { nativePluginManifestName } from "./plugin-manifest-identity";
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
 
@@ -53,7 +54,7 @@ export function renderPluginManifest(
   const portableManifest = readRecord(metadata, "manifest") ?? {};
   const listing = readSourceListing(metadata);
   const base: JsonRecord = {
-    name: readString(portableManifest, "name") ?? plugin.id,
+    name: nativePluginManifestName(plugin, target),
     version: pluginVersion(graph, plugin),
     description:
       readString(listing, "summary") ??
