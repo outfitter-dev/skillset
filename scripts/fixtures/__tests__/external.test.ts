@@ -1,4 +1,4 @@
-import * as bodyFindings from "../../../packages/core/src/adoption-body-findings";
+import * as adoptionFindings from "../../../packages/core/src/adoption-findings";
 import { expect, spyOn, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../test-helpers/skillset-config";
 import { mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from "node:fs/promises";
@@ -823,7 +823,7 @@ test("external adoption preserves a failed report when finding recording blocks 
   const clone = await gitFixture({
     ".claude/skills/demo/SKILL.md": "---\nname: demo\ndescription: Review.\n---\n\nAsk @alice.\n",
   });
-  const record = spyOn(bodyFindings, "recordImportedBodyFindings").mockRejectedValueOnce(new Error("Finding write failed."));
+  const record = spyOn(adoptionFindings, "recordImportedFindings").mockRejectedValueOnce(new Error("Finding write failed."));
   try {
     const report = await runExternalRepo("failed-findings", clone, ["claude"]);
     expect(report.ok).toBe(false);

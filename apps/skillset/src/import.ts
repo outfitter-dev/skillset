@@ -18,6 +18,7 @@ import {
 } from "@skillset/core/internal/directory-rename-no-replace";
 import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
+import type { NativeHookFindingSource } from "@skillset/core/internal/adoption-native-findings";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import {
   readRecord,
@@ -170,6 +171,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly nativeHookSource?: NativeHookFindingSource;
   readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly copiedFiles: readonly string[];
@@ -310,6 +312,8 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
             agentPluginImport !== undefined
           )
         : copied.files;
+    const hasNativeHookSource = options.kind === "plugin" && copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json");
+    const nativeHookOrigin = hasNativeHookSource ? options.sourceOrigin?.(sourcePath, "hooks/hooks.json") : undefined;
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
     }
@@ -390,6 +394,11 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       inferredSourceFields: classification.recognized,
       kind: options.kind,
       renderResults,
+      ...(hasNativeHookSource ? { nativeHookSource: {
+        path: relative(options.rootPath, join(targetPath, "hooks/hooks.json")).replaceAll("\\", "/"),
+        targets: await importedNativeHookTargets(options, targetPath),
+        ...(nativeHookOrigin === undefined ? {} : { origin: nativeHookOrigin }),
+      } } : {}),
       name,
       nextChecks: importChecksAtRoot(options.rootPath),
       preservedTargetNativeFields: classification.targetNative,
@@ -686,6 +695,16 @@ function importFrontmatterProviders(
   return targetNames().filter((target) => candidates.includes(target));
 }
 
+async function importedNativeHookTargets(
+  options: { readonly provider?: ImportProvider; readonly providers?: readonly ImportProvider[] },
+  targetPath: string
+): Promise<readonly TargetName[]> {
+  const explicitProviders = options.providers ?? (options.provider === undefined ? undefined : [options.provider]);
+  return explicitProviders === undefined
+    ? importedNativePluginTargets(targetPath)
+    : targetNames().filter((target) => explicitProviders.includes(target));
+}
+
 async function importNativeHookRenderResults(args: {
   readonly copiedFiles: readonly string[];
   readonly kind: SingularImportKind;
@@ -698,10 +717,7 @@ async function importNativeHookRenderResults(args: {
   if (args.kind !== "plugin" || !args.copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json")) return [];
   const hookPath = join(args.targetPath, "hooks", "hooks.json");
   const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
-  const explicitProviders = args.providers ?? (args.provider === undefined ? undefined : [args.provider]);
-  const targets = explicitProviders === undefined
-    ? await importedNativePluginTargets(args.targetPath)
-    : targetNames().filter((target) => explicitProviders.includes(target));
+  const targets = await importedNativeHookTargets(args, args.targetPath);
   let parsed: JsonValue;
   try {
     parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
