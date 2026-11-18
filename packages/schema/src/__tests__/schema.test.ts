@@ -497,6 +497,7 @@ describe("@skillset/schema contracts", () => {
       "strict",
       "summary",
       "title",
+      "unresolved_frontmatter",
       "version",
     ]);
     const listing = sourceMetadataProperties.listing as {

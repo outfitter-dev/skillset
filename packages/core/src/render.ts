@@ -1,3 +1,4 @@
+import { assertResolvedSourceFrontmatter } from "./unresolved-frontmatter";
 import { isOpaquePluginIsland } from "./native-island-preprocess";
 import { readFileSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
@@ -93,7 +94,7 @@ import type {
 } from "./types";
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { parseMarkdown, stringifyJson } from "./yaml";
+import { isJsonRecord, parseMarkdown, stringifyJson } from "./yaml";
 import { listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
@@ -208,6 +209,7 @@ export async function renderBuildGraph(
   graph: BuildGraph,
   destination: RenderDestination = liveRenderDestination(graph.rootPath)
 ): Promise<readonly RenderedFile[]> {
+  await assertResolvedSourceFrontmatter(graph);
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
@@ -345,6 +347,7 @@ export async function renderBuildGraph(
 export async function renderStandardProjectionBuildGraph(
   graph: BuildGraph
 ): Promise<readonly RenderedFile[]> {
+  await assertResolvedSourceFrontmatter(graph);
   const lockRoots = new Map<string, LockRoot>();
   const rendered = await renderStandardProjectionArtifacts(graph, lockRoots);
   return [...planRenderedFiles(rendered)]
@@ -997,9 +1000,9 @@ function mergePluginSkillRenderings(
     body = normalizedBody;
     for (const key of Object.keys(parsed.frontmatter).sort(compareStrings)) {
       const value = parsed.frontmatter[key];
-      const existing = frontmatter[key];
+      const existing = Object.hasOwn(frontmatter, key) ? frontmatter[key] : undefined;
       if (value !== undefined) {
-        frontmatter[key] = existing === undefined
+        const mergedValue = existing === undefined
           ? value
           : mergePluginSkillFrontmatterValue(
               graph,
@@ -1010,6 +1013,7 @@ function mergePluginSkillRenderings(
               existing,
               value
             );
+        Object.defineProperty(frontmatter, key, { value: mergedValue, enumerable: true, writable: true, configurable: true });
       }
     }
     for (const dependency of rendering.markdown.preprocessDependencies) {
@@ -1029,6 +1033,37 @@ function mergePluginSkillRenderings(
       resources.set(resource.targetPath, resource);
     }
     transforms.push(...rendering.markdown.transforms);
+  }
+
+  // A shared artifact cannot union an attributed native value into a consumer
+  // whose own projection omitted it. Standard metadata remains the baseline;
+  // this check concerns the selected provider consumers of the shared file.
+  const providerRenderings = renderings.filter((rendering) => targetNames().some((target) => target === rendering.provider));
+  for (const target of targetNames()) {
+    if (!providerRenderings.some((rendering) => rendering.provider === target)) continue;
+    const native = readRecord(skill.targets[target].options, "frontmatter") ?? {};
+    for (const field of Object.keys(native)) {
+      // Agent Skills metadata is an extensible annotation map, not native runtime policy.
+      if (field === "metadata") {
+        const portableMetadata = providerRenderings.every((rendering) => {
+          const metadata = parseMarkdown(rendering.markdown.content, skill.sourcePath).frontmatter.metadata;
+          return metadata === undefined || (isJsonRecord(metadata) && Object.values(metadata).every((value) => typeof value === "string"));
+        });
+        if (portableMetadata) continue;
+        throwPluginSkillProviderIncompatible(graph, plugin, skill, target, field);
+      }
+      const owner = providerRenderings.find((rendering) => rendering.provider === target)!;
+      const expected = parseMarkdown(owner.markdown.content, skill.sourcePath).frontmatter[field];
+      for (const consumer of providerRenderings) {
+        const actual = parseMarkdown(consumer.markdown.content, skill.sourcePath).frontmatter[field];
+        const nativeInvocationDefault = field === "disable-model-invocation" &&
+          listProviderSkillFrontmatterFields(target).includes(field) &&
+          listProviderSkillFrontmatterFields(consumer.provider as TargetName).includes(field);
+        if (!isDeepStrictEqual(nativeInvocationDefault && actual === undefined ? false : actual, nativeInvocationDefault && expected === undefined ? false : expected)) {
+          throwPluginSkillProviderIncompatible(graph, plugin, skill, target, field);
+        }
+      }
+    }
   }
 
   return {
@@ -1059,9 +1094,9 @@ function mergePluginSkillFrontmatterValue(
     const merged: Record<string, JsonValue | undefined> = { ...existing };
     for (const key of Object.keys(incoming).sort(compareStrings)) {
       const incomingValue = incoming[key];
-      const existingValue = merged[key];
+      const existingValue = Object.hasOwn(merged, key) ? merged[key] : undefined;
       if (incomingValue === undefined) continue;
-      merged[key] = existingValue === undefined
+      const mergedValue = existingValue === undefined
         ? incomingValue
         : mergePluginSkillFrontmatterValue(
             graph,
@@ -1072,6 +1107,7 @@ function mergePluginSkillFrontmatterValue(
             existingValue,
             incomingValue
           );
+      Object.defineProperty(merged, key, { value: mergedValue, enumerable: true, writable: true, configurable: true });
     }
     return merged;
   }
@@ -2161,7 +2197,9 @@ function renderSkillMetadata(
 
   const rendered: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {
-    if (key !== "metadata" && value !== undefined) rendered[key] = value;
+    if (key !== "metadata" && value !== undefined) {
+      Object.defineProperty(rendered, key, { value, enumerable: true, writable: true, configurable: true });
+    }
   }
 
   const metadata: Record<string, JsonValue> = {};
@@ -2170,7 +2208,7 @@ function renderSkillMetadata(
       !RETIRED_RENDERED_SKILL_METADATA_KEYS.some((retired) => retired === key) &&
       value !== undefined
     ) {
-      metadata[key] = value;
+      Object.defineProperty(metadata, key, { value, enumerable: true, writable: true, configurable: true });
     }
   }
   metadata.version = version;

@@ -658,7 +658,7 @@ test("SET-369: direct native import rejects conflicting provider versions", asyn
   expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
 });
 
-test("SET-369: native plugin imports preserve child skill versions", async () => {
+test("SET-369: native plugin imports preserve explicit child release versions", async () => {
   const root = await pluginFixture({
     "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\n",
     "native/.claude-plugin/plugin.json": manifest(
@@ -672,6 +672,7 @@ test("SET-369: native plugin imports preserve child skill versions", async () =>
 
   const report = await importSource({
     kind: "plugin",
+    provider: "skillset",
     rootPath: root,
     sourcePath: join(root, "native"),
   });

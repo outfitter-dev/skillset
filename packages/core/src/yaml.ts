@@ -57,7 +57,7 @@ export function sortRecord(record: JsonRecord): JsonRecord {
   for (const key of Object.keys(record).sort()) {
     const value = record[key];
     if (value === undefined) continue;
-    sorted[key] = sortValue(value);
+    Object.defineProperty(sorted, key, { value: sortValue(value), enumerable: true, writable: true, configurable: true });
   }
   return sorted;
 }
@@ -66,7 +66,7 @@ export function stripUndefined(record: JsonRecord): JsonRecord {
   const stripped: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(record)) {
     if (value === undefined) continue;
-    stripped[key] = stripUndefinedValue(value);
+    Object.defineProperty(stripped, key, { value: stripUndefinedValue(value), enumerable: true, writable: true, configurable: true });
   }
   return stripped;
 }

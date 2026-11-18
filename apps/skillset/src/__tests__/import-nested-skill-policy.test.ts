@@ -53,5 +53,9 @@ test("unknown standalone provenance never creates a Claude-native result", async
   const report = await importSource({ rootPath: root, sourcePath, kind: "skill" });
   expect(report.renderResults).toEqual([]);
   expect(report.warnings.join("\n")).toContain("verbatim");
-  expect(await readFile(join(report.targetPath, "SKILL.md"), "utf8")).toBe(skill);
+  const imported = parseMarkdown(await readFile(join(report.targetPath, "SKILL.md"), "utf8"), "imported").frontmatter;
+  expect(imported.skillset).toMatchObject({ unresolved_frontmatter: ["disable-model-invocation", "frobnicate", "user-invocable"] });
+  expect(imported).not.toHaveProperty("claude");
+  expect(report.migrationFlags).toHaveLength(3);
+  expect(await readFile(join(sourcePath, "SKILL.md"), "utf8")).toBe(skill);
 });

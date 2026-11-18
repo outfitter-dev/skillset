@@ -257,7 +257,7 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
 
 test("SET-378: runExternalRepo preserves reports after a graph-load build failure", async () => {
   const clone = await gitFixture({
-    ".claude/skills/invalid/SKILL.md": "---\nname: invalid\ndescription: Invalid dialect.\ndialect: 1\n---\n\nImported skill.\n",
+    ".claude/skills/invalid/SKILL.md": "---\nname: invalid\ndescription: Invalid compatibility.\ncompatibility: 1\n---\n\nImported skill.\n",
   });
 
   const report = await runExternalRepo("invalid-instructions", clone, ["claude"]);
@@ -265,7 +265,7 @@ test("SET-378: runExternalRepo preserves reports after a graph-load build failur
   expect(report.ok).toBe(false);
   expect(report.stages).toContainEqual(
     expect.objectContaining({
-      detail: expect.stringContaining("dialect must be claude"),
+      detail: expect.stringContaining("compatibility"),
       ok: false,
       stage: "build",
     })
@@ -291,7 +291,7 @@ test("SET-378: runExternalRepo preserves reports after a graph-load build failur
   const markdown = await readFile(join(reportDir, "report.md"), "utf8");
   expect(markdown).toContain("- result: fail");
   expect(markdown).toContain("- build: failed (command-failure)");
-  expect(markdown).not.toContain("dialect must be claude");
+  expect(markdown).not.toContain("compatibility");
   const json = JSON.parse(await readFile(join(reportDir, "report.json"), "utf8")) as {
     readonly phases: { readonly build: { readonly status: string } };
     readonly pipelinePassed: boolean;

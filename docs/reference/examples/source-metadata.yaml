@@ -25,3 +25,5 @@ preprocess: false
 repository: https://github.com/example/team-skillset
 schema: 1
 strict: true
+unresolved_frontmatter:
+  - unknown-provider-field

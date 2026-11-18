@@ -1711,6 +1711,7 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
   );
 
   const report = await importSources({
+    provider: "skillset",
     rootPath: root,
     sourcePath: external,
   });

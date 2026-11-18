@@ -719,28 +719,23 @@ export function stripSourceFrontmatter(frontmatter: JsonRecord, label = "source 
   const stripped: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {
     if (value === undefined || SOURCE_ONLY_KEYS.has(key)) continue;
-    stripped[key] = value;
+    Object.defineProperty(stripped, key, { value, enumerable: true, writable: true, configurable: true });
   }
   return stripped;
 }
 
 export function mergeRecords(base: JsonRecord, override: JsonRecord): JsonRecord {
   const merged: Record<string, JsonValue> = {};
-
-  for (const [key, value] of Object.entries(base)) {
-    if (value !== undefined) merged[key] = value;
-  }
-
-  for (const [key, value] of Object.entries(override)) {
-    if (value === undefined) continue;
-    const current = merged[key];
-    if (isJsonRecord(current) && isJsonRecord(value)) {
-      merged[key] = mergeRecords(current, value);
-    } else {
-      merged[key] = value;
+  for (const record of [base, override]) {
+    for (const [key, value] of Object.entries(record)) {
+      if (value === undefined) continue;
+      const current = Object.hasOwn(merged, key) ? merged[key] : undefined;
+      const next = record === override && isJsonRecord(current) && isJsonRecord(value)
+        ? mergeRecords(current, value)
+        : value;
+      Object.defineProperty(merged, key, { value: next, enumerable: true, writable: true, configurable: true });
     }
   }
-
   return merged;
 }
 

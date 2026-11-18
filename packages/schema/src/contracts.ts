@@ -190,6 +190,7 @@ export const SOURCE_METADATA_KEYS = [
   "strict",
   "summary",
   "title",
+  "unresolved_frontmatter",
   "version",
 ] as const;
 
@@ -1196,6 +1197,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     strict: { type: "boolean" },
     summary: nonEmptyStringSchema(),
     title: nonEmptyStringSchema(),
+    unresolved_frontmatter: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
     version: semverStringSchema(),
   });
 }
