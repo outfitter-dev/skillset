@@ -36,11 +36,13 @@ supports:
 
 The generated [frontmatter schemas](../schemas/README.md) own accepted shapes. `range` accepts the documented comparator, caret, and tilde forms. `source: repo:<path>` resolves package JSON relative to the repository. `onMismatch` defaults to `warn`; `error` makes a detected local-version mismatch fail validation.
 
+The v1 range grammar accepts one to three numeric release components with comparison operators, caret or tilde, whitespace-separated intersections, and a whole-range `*` or `x`. OR ranges and prerelease constraints are unsupported and rejected. Build metadata must contain nonempty dot-separated ASCII alphanumeric or hyphen identifiers; valid metadata is ignored for precedence. An observed local package with a prerelease or malformed version cannot be certified by this checker, including under a wildcard, and follows the configured `onMismatch` warning or error policy.
+
 Constraints apply only to the source unit that declares them. [Workspace](../../glossary.md#workspace) or plugin constraints do not implicitly [cascade](../../glossary.md#cascade) to nested skills, agents, provider source, or feature pointers.
 
 ## Provider Output
 
-Claude and Codex retain support constraints as provenance and diagnostics rather than target-enforced metadata. Cursor support remains planned as shown in the generated matrix. A constraint can therefore document and validate compatibility without claiming that a provider installs or enforces the dependency.
+Support constraints remain provenance and diagnostics rather than provider-enforced metadata, as shown in the generated support matrix. A constraint can therefore document and validate compatibility without claiming that a provider installs or enforces the dependency.
 
 ## Errors and Caveats
 
