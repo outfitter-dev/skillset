@@ -452,6 +452,7 @@ test("adopt preserves an authored destination policy when the integrated build b
       version: "1.0.0",
     }),
     "commands/hello.md": "---\ndescription: Say hello.\n---\n\nSay hello.\n",
+    ".mcp.json": JSON.stringify({ mcpServers: { demo: { type: "streamable-http", url: "https://example.com/mcp", oauth: { clientId: "demo" } } } }),
   });
 
   const report = await adoptSkillset(root, { write: true });

@@ -31,13 +31,13 @@ Mark executable source files with `chmod +x`. Skillset derives portable executab
 | --- | --- | --- | --- | --- | --- |
 | Conventional `bin/` | plugin root `bin/` | n/a | n/a | `target_native` / `implemented` | Copied as executable support files; no Claude manifest field. |
 | `bin.source` | plugin root `bin/` | n/a | n/a | `target_native` / `implemented` | Source pointer must be a repo directory outside generated roots. |
-| Codex- or Cursor-enabled `bin` | n/a | unsupported | unsupported | `unsupported` / `implemented` | Fails loudly unless each unsupported plugin output is disabled. |
+| Codex- or Cursor-enabled `bin` | n/a | unsupported | unsupported | `intentionally_skipped` / `implemented` | Recorded as uncovered; supported Claude output still builds. |
 
 ## Diagnostics
 
 - Reject `bin` sources that are not directories.
 - Reject `repo:` pointers that escape the repo, point into [generated-output](../../glossary.md#generated-output) roots, or reference missing paths.
-- Reject enabled Codex or Cursor plugin output with `bin` because those plugins do not support that component.
+- Report Codex, Cursor, and Agent Plugins executable components as uncovered without blocking the build; their coverage result claims no executable output for those destinations.
 - Reject divergent feature and provider-source outputs to the same generated path.
 
 ## Provenance
