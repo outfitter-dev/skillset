@@ -12,6 +12,7 @@ function command(bin: string, cwd: string) {
     cmd: [bin],
     cwd,
     display: [bin],
+    stdin: "prompt",
     versionCmd: [bin, "--version"],
   };
 }
@@ -26,7 +27,7 @@ test("runtime probe cancels a spawned process when onProcess aborts", async () =
   let pid: number | undefined;
 
   await expect(
-    runRuntimeProbe(command(bin, root), "prompt", {
+    runRuntimeProbe(command(bin, root), {
       env: process.env,
       onProcess: async (processId) => {
         pid = processId;
@@ -49,7 +50,7 @@ test("runtime probe terminates a spawned process when an output callback fails",
   let childPid: number | undefined;
 
   await expect(
-    runRuntimeProbe(command(bin, root), "prompt", {
+    runRuntimeProbe(command(bin, root), {
       env: process.env,
       onOutput: async (stream, text) => {
         if (stream === "stdout") childPid = Number(text.trim());
@@ -77,7 +78,7 @@ test("runtime probe AbortSignal terminates descendants holding provider pipes", 
   const startedAt = performance.now();
 
   await expect(
-    runRuntimeProbe(command(bin, root), "prompt", {
+    runRuntimeProbe(command(bin, root), {
       env: process.env,
       onOutput: async (stream, text) => {
         if (stream !== "stdout") return;
@@ -108,7 +109,6 @@ test("runtime probe timeout terminates descendants holding provider pipes", asyn
 
   const result = await runRuntimeProbe(
     command(bin, root),
-    "prompt",
     {
       env: process.env,
       onOutput: async (stream, text) => {
@@ -152,16 +152,16 @@ test("runtime probe retains binary version only when proof requests it", async (
   );
   await chmod(bin, 0o755);
 
-  const ordinary = await runRuntimeProbe(command(bin, root), "prompt", {
+  const ordinary = await runRuntimeProbe(command(bin, root), {
     env: process.env,
     timeoutMs: 10_000,
   });
-  const claimed = await runRuntimeProbe(command(bin, root), "prompt", {
+  const claimed = await runRuntimeProbe(command(bin, root), {
     captureVersion: true,
     env: process.env,
     timeoutMs: 10_000,
   });
-  const hostile = await runRuntimeProbe(command(bin, root), "prompt", {
+  const hostile = await runRuntimeProbe(command(bin, root), {
     captureVersion: true,
     env: { ...process.env, LEAK_VERSION: "1" },
     timeoutMs: 10_000,

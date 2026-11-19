@@ -291,7 +291,6 @@ export async function executeAdHocTestRun(
     status = await updateRunState(paths, status, "running", { command: command.display });
     result = await runCommand(
       command,
-      config.prompt,
       paths,
       config.timeoutMs,
       env,
@@ -530,14 +529,13 @@ function validateAdHocTestPlugins(
 
 async function runCommand(
   command: RuntimeProbeCommand,
-  prompt: string,
   paths: AdHocTestRunPaths,
   timeoutMs: number,
   env: Record<string, string | undefined>,
   captureVersion: boolean,
   signal?: AbortSignal
 ): Promise<Awaited<ReturnType<typeof runRuntimeProbe>>> {
-  return runRuntimeProbe(command, prompt, {
+  return runRuntimeProbe(command, {
     captureVersion,
     env,
     onOutput: async (stream, text) => {

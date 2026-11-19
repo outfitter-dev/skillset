@@ -322,7 +322,7 @@ async function runEvalTrial(
       target: entry.target,
     }, options.env ?? process.env);
     await appendEvalEvent(paths, "status", `running ${trialPath.join("/")}`);
-    const result = await runRuntimeProbe(command, entry.prompt, {
+    const result = await runRuntimeProbe(command, {
       env: options.env ?? process.env,
       onOutput: async (stream, text) => {
         if (stream === "stdout") {

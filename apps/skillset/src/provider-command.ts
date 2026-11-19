@@ -53,7 +53,12 @@ export async function runProviderCommand(
 ): Promise<ProviderCommandExecutionResult> {
   if (isAborted(options.signal)) throw abortError();
 
-  const proc = spawnProviderCommand(command, options.env);
+  const input = options.stdin;
+  const proc = spawnProviderCommand(
+    command,
+    options.env,
+    input === undefined ? "ignore" : "pipe"
+  );
 
   let termination: Promise<void> | undefined;
   const scheduleTermination = (): Promise<void> => {
@@ -74,8 +79,10 @@ export async function runProviderCommand(
     await throwIfAborted(options.signal, scheduleTermination);
     await options.onProcess?.(proc.pid);
     await throwIfAborted(options.signal, scheduleTermination);
-    if (options.stdin !== undefined) proc.stdin.write(options.stdin);
-    proc.stdin.end();
+    if (input !== undefined && proc.stdin) {
+      proc.stdin.write(input);
+      proc.stdin.end();
+    }
     timer =
       options.timeoutMs <= 0
         ? undefined
@@ -140,7 +147,8 @@ export function isProviderCommandUnavailable(
 
 function spawnProviderCommand(
   command: ProviderCommand,
-  env: Record<string, string | undefined>
+  env: Record<string, string | undefined>,
+  stdin: "ignore" | "pipe"
 ) {
   if (command.cmd.length === 0) {
     throw new Error("skillset: provider command requires an executable");
@@ -152,7 +160,7 @@ function spawnProviderCommand(
       detached: true,
       env: cleanEnv(env),
       stderr: "pipe",
-      stdin: "pipe",
+      stdin,
       stdout: "pipe",
       windowsHide: true,
     });

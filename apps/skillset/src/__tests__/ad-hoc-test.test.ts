@@ -256,10 +256,11 @@ Use this skill to answer fixture questions.
     xdg,
   });
 
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
+  expect(status.error).toBeUndefined();
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
 
-  const status = await readAdHocTestStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
   expect(command).toContain("--output-format stream-json");
   expect(command).toContain("--verbose");
@@ -307,10 +308,11 @@ Use this skill to answer fixture questions.
     xdg,
   });
 
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
+  expect(status.error).toBeUndefined();
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
 
-  const status = await readAdHocTestStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
   expect(command).toContain("--print");
   expect(command).toContain("--output-format json");
@@ -1564,6 +1566,10 @@ async function fakeClaudeBin(root: string): Promise<string> {
   const bin = join(root, "bin", "fake-claude");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(bin, `#!/bin/sh
+if IFS= read -r input || [ -n "$input" ]; then
+  echo "expected the Claude prompt in argv only" >&2
+  exit 1
+fi
 last=""
 for arg in "$@"; do
   last="$arg"
@@ -1581,6 +1587,10 @@ async function fakeCursorBin(root: string): Promise<string> {
   const bin = join(root, "bin", "fake-cursor");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(bin, `#!/bin/sh
+if IFS= read -r input || [ -n "$input" ]; then
+  echo "expected the Cursor prompt in argv only" >&2
+  exit 1
+fi
 last=""
 for arg in "$@"; do
   last="$arg"
