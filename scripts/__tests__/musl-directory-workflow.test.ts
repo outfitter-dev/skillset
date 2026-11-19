@@ -44,7 +44,7 @@ test("Alpine source and compiled probes use pinned musl bytes and preserve the c
     (step) => step.run ?? ""
   ).join("\n");
   expect(run).toContain(
-    "oven/bun@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb"
+    "oven/bun@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a"
   );
   expect(run).toContain('test "$(bun --version)" = "$(cat .bun-version)"');
   expect(run).toContain('test "$(bun -p process.arch)" = "$EXPECTED_ARCH"');

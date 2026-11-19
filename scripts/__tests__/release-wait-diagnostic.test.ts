@@ -95,10 +95,15 @@ function apiFixture(
   const api: GitHubRead = async (path) => {
     calls.push(path);
     if (path.includes("/workflows/")) {
-      const status = new URL(`https://api.github.com/${path}`).searchParams.get(
-        "status"
+      const params = new URL(`https://api.github.com/${path}`).searchParams;
+      const created = params.get("created");
+      const selected = runs.filter(
+        (candidate) =>
+          candidate.status === params.get("status") &&
+          (created === null ||
+            Date.parse(candidate.created_at) <=
+              Date.parse(created.replace(/^<=/u, "")))
       );
-      const selected = runs.filter((run) => run.status === status);
       return selected.length > 100
         ? [
             {
@@ -153,11 +158,46 @@ test("queries every active status and reads gate/reviewer evidence", async () =>
   ).toBe(true);
 });
 
+test("a transitioning recent run cannot mask a run waiting at the 60-minute threshold", async () => {
+  const recent = run(1, "pending", 59);
+  const fixture = apiFixture([recent, run(2, "waiting", 60)]);
+  let detailReads = 0;
+  const api: GitHubRead = (path) => {
+    if (path !== `${base}/runs/1`) {
+      return fixture.api(path);
+    }
+    detailReads += 1;
+    return Promise.resolve({
+      ...recent,
+      status: detailReads === 1 ? "pending" : "in_progress",
+    });
+  };
+
+  const report = await diagnoseReleaseWaits(api, repository, now);
+  expect(report.exitCode).toBe(1);
+  expect(report.markdown).toContain("[Run 2]");
+  expect(detailReads).toBe(0);
+});
+
+test("recent run churn is excluded from status pagination", async () => {
+  const fixture = apiFixture([]);
+  const api: GitHubRead = (path) =>
+    path.includes("status=in_progress") && !path.includes("&created=")
+      ? Promise.resolve([{ total_count: 1, workflow_runs: [] }])
+      : fixture.api(path);
+
+  const report = await diagnoseReleaseWaits(api, repository, now);
+  expect(report.exitCode).toBe(0);
+  expect(report.markdown).toContain("Release runs at least 60 minutes old");
+});
+
 test("status-specific pagination retains more than 100 old active runs", async () => {
   const fixture = apiFixture(
     Array.from({ length: 101 }, (_, i) => run(i + 1, "pending"))
   );
-  expect(await collectReleaseWaits(fixture.api, repository)).toHaveLength(101);
+  expect(await collectReleaseWaits(fixture.api, repository, now)).toHaveLength(
+    101
+  );
 });
 
 test("a run completing between enumeration and observation is omitted", async () => {
@@ -210,7 +250,7 @@ test("API errors and incomplete pagination are unavailable, never healthy or a l
 
 test("PR syntax-validation runs do not masquerade as the main Release concurrency group", async () => {
   const fixture = apiFixture([{ ...run(), event: "pull_request" }]);
-  expect(await collectReleaseWaits(fixture.api, repository)).toHaveLength(0);
+  expect(await collectReleaseWaits(fixture.api, repository, now)).toHaveLength(0);
 });
 
 test("duplicate rows within one status cannot hide a missing run", async () => {

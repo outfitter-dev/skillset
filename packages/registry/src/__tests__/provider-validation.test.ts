@@ -65,7 +65,7 @@ describe("SET-463 hosted provider validation registry", () => {
       assessProviderValidationFreshness(lane, "2026-09-16T21:37:40.001Z")
     ).toMatchObject({ ageDays: 31, status: "stale-verification" });
     expect(() =>
-      assertProviderValidationFreshness("2026-11-13T14:31:12.001Z")
+      assertProviderValidationFreshness("2026-12-19T16:36:19.001Z")
     ).toThrow("provider validation evidence is stale");
   });
 
@@ -78,16 +78,16 @@ describe("SET-463 hosted provider validation registry", () => {
 
     expect(lane.pin).not.toBe(lane.lastSuccessfulValidation.pin);
     expect(
-      assessProviderValidationFreshness(lane, "2026-10-13T14:31:35.000Z")
+      assessProviderValidationFreshness(lane, "2026-11-18T16:36:42.000Z")
     ).toMatchObject({
-      lastSuccessfulValidationAt: "2026-10-13T14:31:12.000Z",
+      lastSuccessfulValidationAt: "2026-11-18T16:36:19.000Z",
       status: "validation-pending",
     });
   });
 
   test("SET-500: keeps upstream change and failed refresh distinct from age", () => {
     const lane = getProviderValidationLane("claude-product");
-    const checkedAt = "2026-10-13T14:31:35.000Z";
+    const checkedAt = "2026-11-18T16:36:42.000Z";
 
     expect(
       assessProviderValidationFreshness(lane, checkedAt, {

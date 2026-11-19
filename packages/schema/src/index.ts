@@ -79,7 +79,6 @@ export {
   SPLIT_WORKSPACE_CONFIG_KEYS,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
-  WORKSPACE_CONFIG_KEYS,
   adaptiveHookContract,
   activationInspectionContract,
   activationProofReceiptContract,

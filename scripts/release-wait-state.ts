@@ -53,7 +53,9 @@ export function releaseWaitReport(
       "No healthy-state or concurrency-cause conclusion can be drawn. Retry this diagnostic or use the read-only commands below."
     );
   } else if (observations.length === 0) {
-    lines.push("No active main-branch Release runs were observed.");
+    lines.push(
+      `No active main-branch Release runs at least ${STALE_RELEASE_RUN_MINUTES} minutes old were observed.`
+    );
   }
   let stale = false;
   for (const observation of observations) {

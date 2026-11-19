@@ -263,7 +263,7 @@ async function adHocSignDarwinExecutable(
       `Native build for ${target.suffix} requires a macOS host for deterministic ad hoc code signing`
     );
   }
-  // Bun 1.4.0 standalone compilation leaves an invalid embedded signature on
+  // Bun standalone compilation leaves an invalid embedded signature on
   // Darwin binaries. An ad hoc signature carries no developer identity and is
   // distinct from the protected signing/notarization release policy, but it is
   // required for the kernel to execute the compiled bytes.
