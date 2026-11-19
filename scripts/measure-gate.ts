@@ -128,7 +128,7 @@ export interface MeasurementReport {
   readonly leadInSeconds: number;
   readonly wallMs: number;
   readonly exitCode: number;
-  readonly signal: string | null;
+  readonly signal: Bun.Subprocess["signalCode"];
   /**
    * Whether the sample can be attributed to the revision and toolchain it
    * names. It says nothing about whether the measured gate passed; read
@@ -233,7 +233,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const startedAt = new Date();
   const startNs = Bun.nanoseconds();
   let exitCode: number;
-  let signal: string | null;
+  let signal: Bun.Subprocess["signalCode"];
   try {
     const child = Bun.spawn({
       cmd: [...wrapper, ...options.command],
