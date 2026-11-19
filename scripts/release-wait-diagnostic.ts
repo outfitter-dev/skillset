@@ -1,12 +1,12 @@
 import { appendFile } from "node:fs/promises";
 
-import {
-  releaseWaitReport,
-  type ReleaseGate,
-  type ReleaseObservation,
-  type ReleaseRun,
-  type ReleaseWaitReport,
+import type {
+  ReleaseGate,
+  ReleaseObservation,
+  ReleaseRun,
+  ReleaseWaitReport,
 } from "./release-wait-state";
+import { releaseWaitReport, STALE_RELEASE_RUN_MINUTES } from "./release-wait-state";
 
 export type GitHubRead = (path: string, paginate?: boolean) => Promise<unknown>;
 const statuses = ["requested", "queued", "pending", "in_progress", "waiting"];
@@ -107,17 +107,24 @@ async function readRunWaitEvidence(api: GitHubRead, path: string) {
 
 export async function collectReleaseWaits(
   api: GitHubRead,
-  repository: string
+  repository: string,
+  now: number
 ): Promise<ReleaseObservation[]> {
   if (repository !== "outfitter-dev/skillset")
     throw new Error(
       "Release wait diagnostic is scoped to outfitter-dev/skillset"
     );
   const base = `repos/${repository}/actions`;
+  // A younger run cannot trigger a stale-wait alert. Exclude it at the API
+  // so its status changes cannot invalidate the paginated evidence.
+  const cutoff = new Date(now - STALE_RELEASE_RUN_MINUTES * 60_000)
+    .toISOString()
+    .replace(/\.\d{3}Z$/u, "Z");
+  const created = encodeURIComponent(`<=${cutoff}`);
   const runs = new Map<number, ReleaseRun>();
   for (const status of statuses) {
     const pages = await api(
-      `${base}/workflows/release.yml/runs?branch=main&status=${status}&per_page=100`,
+      `${base}/workflows/release.yml/runs?branch=main&status=${status}&per_page=100&created=${created}`,
       true
     );
     const statusIds = new Set<number>();
@@ -171,7 +178,7 @@ export async function diagnoseReleaseWaits(
   now = Date.now()
 ): Promise<ReleaseWaitReport> {
   try {
-    return releaseWaitReport(await collectReleaseWaits(api, repository), now);
+    return releaseWaitReport(await collectReleaseWaits(api, repository, now), now);
   } catch (error) {
     return releaseWaitReport(
       [],
