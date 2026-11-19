@@ -1211,12 +1211,11 @@ codex: true
     ".skillset/plugins/demo/skillset.yaml": `
 skillset:
   name: demo
-bin: true
 mcp: true
 `,
     ".skillset/plugins/demo/.mcp.json": JSON.stringify({
       mcpServers: {
-        github: { command: "github-mcp" },
+        github: { type: "streamable-http", url: "https://example.com/mcp", oauth: { clientId: "demo" } },
       },
     }),
     ".skillset/plugins/demo/skills/helper/SKILL.md": `
@@ -1227,7 +1226,6 @@ description: Render failure fixture.
 
 Render failure body.
 `,
-    ".skillset/plugins/demo/bin/tool": "#!/bin/sh\n",
     ".skillset/tests/runtime.yaml": `
 select:
   plugins: [demo]
