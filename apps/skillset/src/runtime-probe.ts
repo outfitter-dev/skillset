@@ -15,6 +15,7 @@ export interface RuntimeProbeCommand {
   readonly cmd: readonly string[];
   readonly cwd: string;
   readonly display: readonly string[];
+  readonly stdin?: string;
   readonly versionCmd: readonly string[];
 }
 
@@ -22,7 +23,7 @@ export interface RuntimeProbeCommandOptions {
   readonly claudeSettingSources?: ClaudeSettingSources;
   readonly finalMessagePath: string;
   readonly plugins?: readonly string[];
-  readonly prompt?: string;
+  readonly prompt: string;
   readonly target: TargetName;
 }
 
@@ -80,7 +81,7 @@ export function createRuntimeProbeCommand(
       "--permission-mode",
       "dontAsk",
       ...pluginArgs,
-      ...(options.prompt === undefined ? [] : [options.prompt]),
+      options.prompt,
     ];
     return {
       adapterId: runtimeProbeAdapterId(options.target),
@@ -114,7 +115,7 @@ export function createRuntimeProbeCommand(
       "--workspace",
       workspacePath,
       ...pluginArgs,
-      ...(options.prompt === undefined ? [] : [options.prompt]),
+      options.prompt,
     ];
     return {
       adapterId: runtimeProbeAdapterId(options.target),
@@ -144,13 +145,13 @@ export function createRuntimeProbeCommand(
     cmd,
     cwd: workspacePath,
     display: cmd,
+    stdin: options.prompt,
     versionCmd: [bin, "--version"],
   };
 }
 
 export async function runRuntimeProbe(
   command: RuntimeProbeCommand,
-  prompt: string,
   options: RuntimeProbeExecutionOptions
 ): Promise<RuntimeProbeExecutionResult> {
   const binaryVersion =
@@ -166,7 +167,7 @@ export async function runRuntimeProbe(
       ? {}
       : { onProcess: options.onProcess }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
-    stdin: prompt,
+    ...(command.stdin === undefined ? {} : { stdin: command.stdin }),
     timeoutMs: options.timeoutMs,
   });
   return {

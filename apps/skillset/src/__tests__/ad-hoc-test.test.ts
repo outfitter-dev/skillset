@@ -1564,6 +1564,10 @@ async function fakeClaudeBin(root: string): Promise<string> {
   const bin = join(root, "bin", "fake-claude");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(bin, `#!/bin/sh
+if IFS= read -r unexpected || [ -n "$unexpected" ]; then
+  echo "Claude prompt must only arrive via argv" >&2
+  exit 1
+fi
 last=""
 for arg in "$@"; do
   last="$arg"
@@ -1581,6 +1585,10 @@ async function fakeCursorBin(root: string): Promise<string> {
   const bin = join(root, "bin", "fake-cursor");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(bin, `#!/bin/sh
+if IFS= read -r unexpected || [ -n "$unexpected" ]; then
+  echo "Cursor prompt must only arrive via argv" >&2
+  exit 1
+fi
 last=""
 for arg in "$@"; do
   last="$arg"
