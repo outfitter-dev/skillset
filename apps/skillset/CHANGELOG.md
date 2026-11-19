@@ -1,5 +1,12 @@
 # skillset
 
+## 0.31.1
+
+### Patch Changes
+
+- af5ae2e: Build Skillset with Bun 1.4.4 and verify the pinned Alpine toolchain on both Linux architectures. The Bun JavaScript distribution continues to support Bun 1.4.0 and newer.
+- a91dd6c: Allow provider-only plugin components to build under the default policy. Record unavailable component destinations as uncovered in render results and locks while preserving supported provider output and failures for invalid carried content.
+
 ## 0.31.0
 
 ## 0.30.0
