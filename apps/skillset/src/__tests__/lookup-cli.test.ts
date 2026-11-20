@@ -509,6 +509,22 @@ test("SET-220: lookup compatibility values filter non-compat views", async () =>
   }));
 });
 
+test("lookup hooks reports Claude's native Notification payload fields", async () => {
+  const result = await runSkillsetCli("lookup", "hooks", "--events", "--compat", "claude", "--json");
+
+  expect(result.exitCode).toBe(0);
+  const report = readResultData(result.stdout) as {
+    readonly events: readonly {
+      readonly name: string;
+      readonly fields: readonly { readonly name: string }[];
+    }[];
+  };
+  const fields = report.events.find((event) => event.name === "Notification")?.fields.map((field) => field.name);
+  expect(fields).toContain("notification_type");
+  expect(fields).toContain("message");
+  expect(fields).not.toContain("type");
+});
+
 test("SET-285: lookup provider flag aliases are retired", async () => {
   for (const flag of ["--claude", "--codex", "--cursor"] as const) {
     const result = await runSkillsetCli("lookup", "hooks", flag, "--json");

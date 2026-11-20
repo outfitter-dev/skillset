@@ -136,7 +136,7 @@ const claudeHookEvidence = defineProviderHookEvidence({
     claudeEvent("FileChanged", "file-name", [], ["file_path"], false, { matcherEvaluation: "file-watch-list" }),
     claudeEvent("InstructionsLoaded", "instructions-load-reason", ["session_start", "nested_traversal", "path_glob_match", "include", "compact"], ["reason", "path"], false),
     claudeEvent("MessageDisplay", "ignored", [], ["message"], false),
-    claudeEvent("Notification", "notification-type", ["permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog", "elicitation_complete", "elicitation_response"], ["type", "message"], false),
+    claudeEvent("Notification", "notification-type", ["permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog", "elicitation_complete", "elicitation_response"], ["notification_type", "message"], false),
     claudeEvent("PermissionDenied", "tool", [], [...CLAUDE_TOOL_INPUT_FIELDS, "reason"], false, { outputFields: ["hookSpecificOutput", "retry"] }),
     claudeEvent("PermissionRequest", "tool", [], [...CLAUDE_TOOL_INPUT_FIELDS, "permission"], true, { outputFields: [...CLAUDE_STANDARD_OUTPUT_FIELDS, ...CLAUDE_TOOL_OUTPUT_FIELDS] }),
     claudeEvent("PostCompact", "compact-trigger", ["manual", "auto"], ["trigger"], false),
