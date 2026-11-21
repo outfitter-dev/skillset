@@ -8,8 +8,10 @@ export const hookRegistryJsonFiles = [
   "hooks.schema.json",
 ] as const;
 
-export const buildHookRegistry = async (root: string) => {
-  const packageDir = path.join(root, hookRegistryDir);
+export const buildHookRegistry = async (
+  root: string,
+  packageDir = path.join(root, hookRegistryDir)
+) => {
   const dist = path.join(packageDir, "dist");
   const [catalogFile, schemaFile] = hookRegistryJsonFiles;
   const catalogPath = path.join(root, hookRegistrySource, catalogFile);

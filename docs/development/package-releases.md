@@ -20,7 +20,19 @@ The unscoped `skillset` package, `@skillset/cli`, and the five initial `@skillse
 
 ## Flow
 
-The data-only `@skillset/registry` tarball is a local pack check, not a member of the release set. See [the registry boundary](../adrs/0047-public-registry-ships-data-only.md); publication and release-set activation require separate work.
+The data-only `@skillset/registry` tarball is not a member of the release set. See [the registry boundary](../adrs/0047-public-registry-ships-data-only.md) and the [isolated registry qualification workflow](#qualify-the-registry-prerelease). Qualification does not activate the package or change the default Skillset install.
+
+## Qualify the registry prerelease
+
+The **Registry Qualification** workflow prepares one archive, `@skillset/registry@0.0.1-qualify.0` on `registry-qualification`, independently of the coordinated release. It does not change `latest` or `bootstrap`. The checked-in package manifest stays private. Reviewing the workflow does not authorize merging it, configuring npm trust, or publishing.
+
+1. Before an authorized merge, confirm no coordinated release is eligible to publish on the resulting push to `main`. If one is eligible, wait for a quiet window rather than changing the coordinated workflow.
+2. On protected `main`, dispatch with its full commit SHA and leave **publish** off. The read-only job compares the packed JSON and schema against public Git at that SHA and tests fresh Node 18 and Bun consumers. Review the archive and `review.json` together. Confirm the candidate version and tag are vacant and the version is below the intended first coordinated registry version.
+3. With separate maintainer authorization, inspect existing npm trust for this package only. The intended trusted publisher is `outfitter-dev/skillset`, `registry-qualification.yml`, GitHub environment `npm`, direct publish only. Do not change the coordinated connections or use an npm token. Use a new connection within [npm’s validation window](https://docs.npmjs.com/trusted-publishers/).
+4. After the maintainer approves the exact SHA, version, tag and archive integrity, use a fresh dispatch on the same SHA with **publish** on and paste the reviewed SHA-512 SRI into **approved_integrity**. If the SHA or rebuilt archive differs, stop for a new review. Use different people to dispatch and approve the protected `npm` job; the environment itself permits self-review.
+5. Keep the review archive and receipt, protected run, signed public publication receipt, and exact-version Node/Bun consumer receipt distinct. The job checks public archive bytes and signed provenance, including the repository, workflow, and source SHA. The consumers install the exact public version and compare both JSON files with public Git at that SHA.
+
+If the identity is missing, a version or tag is occupied, a digest or tag drifts, or verification fails, stop. After an ambiguous npm error, the workflow checks public evidence for up to fifteen minutes without another publish. If it cannot verify the exact result, inspect the public registry and ask the maintainer how to proceed. Do not rerun publication, choose a new version, retag, or unpublish. A successful qualification still does not authorize release-set activation.
 
 Feature branches that change package-facing behavior should include a `.changeset/*.md` file on the branch that owns the behavior. In stacked PRs (`gh stack`), keep release intent branch-local: do not hide lower-branch package changes by adding one cleanup Changeset at the stack tip. If the lower branch owns the package-facing code, the lower branch owns the Changeset, and any missing release intent should be fixed on that branch before restacking upward.
 
