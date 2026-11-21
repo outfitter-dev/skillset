@@ -181,9 +181,12 @@ describe("generated release PR workflow contract", () => {
     const packageManifest = JSON.parse(
       await readFile(join(root, "package.json"), "utf8")
     ) as { scripts?: Record<string, string> };
-    expect(packageManifest.scripts?.["check:pack"]).toBe(
-      "bun run build:npm && bun scripts/package-metadata.ts check && bun scripts/package-smoke.ts"
-    );
+    expect(packageManifest.scripts?.["check:pack"]?.split(" && ")).toEqual([
+      "bun run build:npm",
+      "bun scripts/package-metadata.ts check",
+      "bun scripts/package-smoke.ts",
+      "bun scripts/hook-registry-smoke.ts",
+    ]);
 
     const stagingSource = await readFile(
       join(root, "scripts", "release-tarballs.ts"),
