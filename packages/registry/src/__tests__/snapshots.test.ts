@@ -452,10 +452,10 @@ describe("@skillset/registry hook evidence", () => {
     expect(claudePreToolUse?.outputFields).toEqual(expect.arrayContaining(["permissionDecision", "permissionDecisionReason"]));
     expect(claudeStopFailure).toMatchObject({
       outputFields: [],
-      rawOutputFields: expect.arrayContaining(["continue", "stopReason", "systemMessage"]),
       runtimeNotes: ["output-and-exit-code-ignored"],
-      unsupportedOutputFields: expect.arrayContaining(["continue", "stopReason", "systemMessage"]),
     });
+    expect(claudeStopFailure?.rawOutputFields).toEqual(expect.arrayContaining(["continue", "stopReason", "systemMessage"]));
+    expect(claudeStopFailure?.unsupportedOutputFields).toEqual(expect.arrayContaining(["continue", "stopReason", "systemMessage"]));
     expect(codexPreToolUse).toMatchObject({
       canBlock: true,
       evidenceKind: "schema-backed",

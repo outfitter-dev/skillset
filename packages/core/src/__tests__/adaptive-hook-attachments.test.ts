@@ -14,6 +14,7 @@ import {
   adaptiveHookIntentIsRenderable,
   classifyAdaptiveHookIntent,
 } from "../adaptive-hook-classifier";
+import { buildHookCatalog } from "../hook-catalog";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
 import { targetNames } from "../targets";
@@ -22,6 +23,38 @@ import { parseMarkdown } from "../yaml";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 describe("adaptive hook attachment resolution", () => {
+  test("renders the catalog's UserPromptSubmit event and plugin path on every target", async () => {
+    const id = "UserPromptSubmit";
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: hook-catalog-parity
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  UserPromptSubmit:
+    - prompt-check
+`,
+      ".skillset/plugins/demo/hooks/prompt-check.json": JSON.stringify({
+        events: [id],
+        run: { command: "echo ok" },
+      }),
+    }));
+    const rendered = await renderBuildGraph(graph);
+    const catalog = buildHookCatalog();
+    for (const target of targetNames()) {
+      const event = catalog.events[id]?.providers[target].nativeName;
+      expect(event).toBeDefined();
+      const path = catalog.providers[target].placement.skillsetWrites.plugin;
+      expect(Object.keys(renderedJson(rendered, `plugins/demo/${path}`).hooks as JsonRecord)).toEqual([event!]);
+    }
+  });
+
   test("resolves immutable target definitions before expanding attachments", () => {
     const definition: SourceAdaptiveHook = {
       events: ["SessionStart"],

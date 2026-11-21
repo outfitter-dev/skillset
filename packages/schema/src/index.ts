@@ -1,4 +1,11 @@
 export {
+  CAPABILITY_FIDELITIES,
+  HOOK_CATALOG_VERSION,
+  hookCatalogSchema,
+  type CapabilityFidelity,
+} from "./hook-catalog";
+
+export {
   ACTIVATION_INSPECTION_OUTCOMES,
   ACTIVATION_INSPECTION_SCHEMA,
   type ActivationInspectionOutcome,

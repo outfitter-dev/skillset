@@ -181,6 +181,19 @@ export function nativeHookEventName(provider: HookCapabilityProvider, event: str
   return CURSOR_NATIVE_EVENT_BY_CANONICAL[canonicalEvent] ?? event;
 }
 
+export function hookEventSourceAliases(
+  provider: HookCapabilityProvider,
+  event: string
+): readonly string[] {
+  const canonical = canonicalHookEventName(provider, event);
+  const compatibility = provider === "cursor"
+    ? Object.keys(CURSOR_CANONICAL_EVENT_BY_COMPATIBILITY).filter(
+      (alias) => canonicalHookEventName(provider, alias) === canonical
+    )
+    : [];
+  return [...new Set([canonical, nativeHookEventName(provider, canonical), ...compatibility])].sort();
+}
+
 export function deriveCursorHookEventNames(events: readonly string[]): {
   readonly canonicalByNative: Readonly<Record<string, string>>;
   readonly nativeByCanonical: Readonly<Record<string, string>>;

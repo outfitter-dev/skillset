@@ -16,6 +16,8 @@ The source of truth is `packages/schema/src/`:
 
 Generated JSON Schemas live under `docs/reference/schemas/`; generated examples live under `docs/reference/examples/`. Do not hand-edit those files. Change the schema package, run `bun run schema:generate`, inspect the generated diff, and then verify with `bun run schema:check`.
 
+The [public hook catalog](../reference/registry/README.md) is a separate wire contract, not a source schema. Both schema and docs generation rebuild the catalog and its schema from the same projection. Future crosswalk lookup should call Core's `buildHookCatalog()` for hook relationships and use `assessPinnedCapabilityJudgment()` for scoped review checks, not carry another hook table. Review affected claims against current authority before updating their pinned hashes; unrelated changes do not require a new judgment.
+
 Schema contract changes are package-facing when they alter `packages/schema/src/**` or `packages/schema/package.json`, because the CLI, Workbench, and generated schema references consume that package. Add a `.changeset/*.md` entry for those branches, and add a Skillset pending change entry when the source contract or [generated-output](../glossary.md#generated-output) promise changes for this workspace. Generated files under `docs/reference/schemas/**` and `docs/reference/examples/**` should travel with the source change, but the generated diff is review evidence rather than release intent by itself.
 
 ## Adding a Field
