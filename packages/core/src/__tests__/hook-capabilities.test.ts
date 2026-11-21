@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getProviderHookEvidence } from "@skillset/registry";
+import { getProviderHookEvidence } from "@skillset/provider-evidence";
 
 import {
   CODEX_HOOK_EVENTS,

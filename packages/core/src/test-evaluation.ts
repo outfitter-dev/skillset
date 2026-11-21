@@ -52,7 +52,7 @@ import type {
 } from "./types";
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 export type { SkillsetTestCheckResult } from "./test-declaration";
 export {

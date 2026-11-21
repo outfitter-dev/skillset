@@ -16,7 +16,7 @@ import {
   renameDirectoryNoReplace,
   type DirectoryRenameNoReplaceResult,
 } from "@skillset/core/internal/directory-rename-no-replace";
-import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/registry";
+import { listProviderPluginComponentManifestFields, listProviderSkillFrontmatterFields, SKILL_FILE } from "@skillset/provider-evidence";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import {

@@ -7,7 +7,7 @@ import {
   type ProviderSchemaSnapshotId,
   type ProviderValidationLaneId,
   type StandardProfileId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import { compareStrings } from "./path";
 import type { JsonRecord, TargetName } from "./types";

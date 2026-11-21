@@ -1,4 +1,4 @@
-import { AGENT_PLUGINS_PLUGIN_SCHEMA_ID } from "@skillset/registry";
+import { AGENT_PLUGINS_PLUGIN_SCHEMA_ID } from "@skillset/provider-evidence";
 import { readString, readStringArray } from "./config";
 import type { ResolvedLicense } from "./licenses";
 import { renderCodexAuthor } from "./source-author";

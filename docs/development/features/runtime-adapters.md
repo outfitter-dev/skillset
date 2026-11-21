@@ -18,7 +18,7 @@ The registry feature remains `planned` because Skillset has no general runtime-a
 
 ## Ownership and Inputs
 
-`packages/core/src/feature-registry.ts` owns `runtimeSupport` records and their vocabulary. `apps/skillset/src/test-runtime-adapter.ts` owns executable ad hoc adapters used by `skillset test`. Provider runtime evidence and [activation](../../glossary.md#activation) inspection facts belong in `@skillset/registry`; Core derives Skillset readiness and fallback policy from those facts.
+`packages/core/src/feature-registry.ts` owns `runtimeSupport` records and their vocabulary. `apps/skillset/src/test-runtime-adapter.ts` owns executable ad hoc adapters used by `skillset test`. Provider runtime evidence and [activation](../../glossary.md#activation) inspection facts belong in `@skillset/provider-evidence`; Core derives Skillset readiness and fallback policy from those facts.
 
 A runtime-support row can record:
 

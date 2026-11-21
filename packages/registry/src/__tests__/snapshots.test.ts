@@ -27,7 +27,7 @@ import {
   providerSchemaSnapshots,
 } from "../index";
 
-describe("@skillset/registry snapshots", () => {
+describe("@skillset/provider-evidence snapshots", () => {
   it("pins the SET-550 Cursor parity claim vocabulary and provenance", () => {
     expect(cursorParityClaims.map(({ id, status }) => ({ id, status }))).toEqual([
       { id: "cursor-rules-frontmatter", status: "verified" },
@@ -238,7 +238,7 @@ describe("@skillset/registry snapshots", () => {
   });
 });
 
-describe("@skillset/registry schema snapshots", () => {
+describe("@skillset/provider-evidence schema snapshots", () => {
   it("exports deterministic adopted provider schema snapshots", () => {
     expect(listProviderSchemaSnapshots()).toBe(providerSchemaSnapshots);
     expect(providerSchemaSnapshots.map((snapshot) => snapshot.id)).toEqual([
@@ -389,7 +389,7 @@ describe("@skillset/registry schema snapshots", () => {
   });
 });
 
-describe("@skillset/registry hook evidence", () => {
+describe("@skillset/provider-evidence hook evidence", () => {
   it("exports provider hook evidence for Claude overlays, Codex schemas, and Cursor docs", () => {
     expect(listProviderHookEvidence().map((evidence) => `${evidence.target}:${evidence.evidenceKind}:${evidence.providerRef}`)).toEqual([
       "claude:docs-backed-overlay:claude-hooks-overlay",

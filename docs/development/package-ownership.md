@@ -22,12 +22,13 @@ Package roots represent intentional APIs. Private `internal/*` imports are [work
 | `@skillset/core` | Source resolution, compiler operations, [render](../glossary.md#render) orchestration, provider adaptation decisions, operation results, diagnostics, provenance, conformance, and compiler reports | CLI-only presentation, publication policy, schema field lists, or standalone editor UX |
 | `@skillset/schema` | Shared config/frontmatter structure, value contracts, structural validation, examples, and generated JSON Schema artifacts | Path resolution, [destination](../glossary.md#destination) policy, release severity, dependency-graph semantics, rendering, or CLI formatting |
 | `@skillset/lint` | Lint registry, rule types, shell, and [source-unit](../glossary.md#source-unit) rule primitives | Loading a workspace graph or deciding compiler writes |
-| `@skillset/registry` | Deterministic provider snapshots, schema snapshots, runtime evidence, and provider-format migrations | Skillset support decisions, feature semantics, rendering, or [activation](../glossary.md#activation) policy |
+| `@skillset/provider-evidence` | Deterministic provider snapshots, schema snapshots, runtime evidence, and provider-format migrations | Skillset support decisions, feature semantics, rendering, or [activation](../glossary.md#activation) policy |
+| `@skillset/registry` | Data-only distribution of the versioned public catalog and schema | Compiler imports, provider facts, runtime behavior, or the CLI release set |
 | `@skillset/transforms` | Source-text transform recognition and adaptation | Provider rendering, graph ownership, or CLI adoption flows |
 | `@skillset/toolkit` | Runtime helpers used by generated hooks and compiler-owned wrappers | Source resolution or CLI orchestration |
 | `@skillset/workbench` | Authoring diagnostics, parsing, Markdown analysis, compatibility views, presets, and fixtures | Public CLI command ownership or compiler render semantics |
 
-The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages are public distribution packages. `@skillset/cli` ships the bundled JS CLI; the unscoped `skillset` package ships the launcher (`scripts/build-package.ts` bundles `apps/skillset/src/launcher.ts` as its `dist/cli.js`), which runs the matching native executable from its `@skillset/native-*` optional dependency. Other scoped workspace packages remain private implementation packages; see [Package Releases](package-releases.md) and [ADR-0029](../adrs/0029-global-cli-native-distribution.md).
+The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages make up the active release set. `@skillset/cli` ships the bundled JS CLI; the unscoped `skillset` package ships the launcher (`scripts/build-package.ts` bundles `apps/skillset/src/launcher.ts` as its `dist/cli.js`), which runs the matching native executable from its `@skillset/native-*` optional dependency. The registry can be packed locally but stays out of that set; other scoped workspaces are private implementation packages. See [Package Releases](package-releases.md) and [the registry boundary](../adrs/0047-public-registry-ships-data-only.md).
 
 ## Import Policy
 
@@ -36,7 +37,7 @@ The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skil
 - Do not add an `apps/skillset/src/*` module whose purpose is only to re-export a package internal.
 - Route shared structural config and frontmatter shapes through `@skillset/schema`; keep compiler-only semantic validation in Core.
 - Keep CLI-only behavior in `apps/skillset` instead of moving it into Core or wrapping it in a facade.
-- Keep provider evidence in `@skillset/registry` and support decisions in Core. Evidence consumption does not transfer ownership.
+- Keep provider evidence in `@skillset/provider-evidence` and support decisions in Core. Evidence consumption does not transfer ownership.
 - Keep authoring diagnostics in Workbench while [generated-output](../glossary.md#generated-output) and write semantics remain in Core.
 
 `bun run package-ownership:guard` rejects app-level package-internal facade files. Its allowlist is an exceptional boundary record, not a [target](../glossary.md#target) count to preserve.

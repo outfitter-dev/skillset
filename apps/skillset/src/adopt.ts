@@ -42,7 +42,7 @@ import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName }
 import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
 import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 import type { ImportProvider } from "./source-arg-values";
-import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory, SKILL_FILE } from "@skillset/registry";
+import { LEGACY_CODEX_SKILLS_DIRECTORY, providerSkillsDirectory, SKILL_FILE } from "@skillset/provider-evidence";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly candidates?: readonly string[];

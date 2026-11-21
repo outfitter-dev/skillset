@@ -23,7 +23,7 @@ import {
   type AtomicFilePublicationTestHooks,
   type RetainedRunPaths,
 } from "./retained-runs";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 const EVAL_ROOT = ".skillset/cache/evals";
 const DEFAULT_TIMEOUT_MS = 120_000;

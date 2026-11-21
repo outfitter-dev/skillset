@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { listProviderPluginManifestFields } from "@skillset/registry";
+import { listProviderPluginManifestFields } from "@skillset/provider-evidence";
 
 import { checkProviderFormatConformance } from "../provider-format-conformance";
 import {

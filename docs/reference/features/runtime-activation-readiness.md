@@ -10,7 +10,7 @@ See [ADR-0027](../../adrs/0027-runtime-activation-readiness-is-observational.md)
 
 ## Foundational Model
 
-`@skillset/registry` owns dated Claude, Codex, and Cursor provider evidence. That evidence records:
+`@skillset/provider-evidence` owns dated Claude, Codex, and Cursor provider evidence. That evidence records:
 
 - exact provider inspection surfaces and observed fields;
 - provider versions and evidence sources;

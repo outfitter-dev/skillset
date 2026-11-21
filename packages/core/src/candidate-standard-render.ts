@@ -1,5 +1,5 @@
 /* eslint-disable func-style, no-use-before-define -- The private orchestration entrypoint leads its small, ordered graph-rewrite helpers. */
-import type { StandardProfile, StandardProfileId } from "@skillset/registry";
+import type { StandardProfile, StandardProfileId } from "@skillset/provider-evidence";
 
 import { renderStandardProjectionBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";

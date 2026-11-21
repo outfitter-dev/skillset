@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 
-import type { StandardProfileId } from "@skillset/registry";
+import type { StandardProfileId } from "@skillset/provider-evidence";
 
 import { isOutputSelected } from "./config";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
@@ -35,7 +35,7 @@ import type {
   SourceResource,
   SourceSkill,
 } from "./types";
-import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/registry";
+import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/provider-evidence";
 
 const AGENT_SKILLS_OUTPUT_ROOT = ".agents/skills";
 

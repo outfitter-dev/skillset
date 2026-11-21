@@ -3,7 +3,7 @@
 import {
   assertStandardProfiles,
   listStandardProfiles,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import { runCliEntrypoint } from "./cli-entrypoint";
 

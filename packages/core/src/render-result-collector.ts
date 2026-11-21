@@ -9,7 +9,7 @@ import {
   listProviderPluginManifestFields,
   SKILL_FILE,
   type StandardProfileId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 import { SOURCE_PORTABLE_MANIFEST_KEYS } from "@skillset/schema";
 
 import {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { chmod, mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { getProviderMcpEvidence } from "@skillset/registry";
+import { getProviderMcpEvidence } from "@skillset/provider-evidence";
 
 import { buildSkillsetResult, diffSkillsetResult } from "../build";
 import {

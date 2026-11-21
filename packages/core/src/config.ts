@@ -1,4 +1,4 @@
-import { listProviderDestinationFormatSnapshots } from "@skillset/registry";
+import { listProviderDestinationFormatSnapshots } from "@skillset/provider-evidence";
 import {
   CODEX_MARKETPLACE_AUTHENTICATION_POLICIES,
   CODEX_MARKETPLACE_INSTALLATION_POLICIES,

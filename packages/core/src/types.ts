@@ -1,4 +1,4 @@
-import type { StandardProfileId } from "@skillset/registry";
+import type { StandardProfileId } from "@skillset/provider-evidence";
 
 import type { PortableMcpModel } from "./portable-mcp";
 import type { ResolvedInternalUseSelection } from "./internal-use";

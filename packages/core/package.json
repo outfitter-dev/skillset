@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@skillset/lint": "workspace:*",
-    "@skillset/registry": "workspace:*",
+    "@skillset/provider-evidence": "workspace:*",
     "@skillset/schema": "workspace:*",
     "@skillset/transforms": "workspace:*",
     "jsonc-parser": "^3.3.1",

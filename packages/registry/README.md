@@ -1,8 +1,8 @@
-# @skillset/registry
+# @skillset/provider-evidence
 
-`@skillset/registry` is Skillset's built-in registry package. It stores deterministic, versioned facts that the compiler and CLI use to reason about provider support without reaching out to live provider docs during normal builds.
+`@skillset/provider-evidence` is Skillset's private provider evidence package. It stores deterministic, versioned facts that the compiler and CLI use to reason about provider support without reaching out to live provider docs during normal builds.
 
-The package is also the reference contract for future provider registry packages. Those packages should describe provider facts in the same shapes used here so Skillset can eventually merge built-in and external compatibility evidence deliberately.
+External consumers use the versioned [hook catalog](../../docs/reference/registry/README.md) instead of importing this package.
 
 ## Owns
 

@@ -211,7 +211,7 @@ describe("package metadata checks", () => {
           "@clack/prompts": "^1.7.0",
           "@skillset/core": "workspace:*",
           "@skillset/lint": "workspace:*",
-          "@skillset/registry": "workspace:*",
+          "@skillset/provider-evidence": "workspace:*",
           "@skillset/schema": "workspace:*",
           "@skillset/toolkit": "workspace:*",
           "@skillset/transforms": "workspace:*",
@@ -226,7 +226,7 @@ describe("package metadata checks", () => {
       `${JSON.stringify({ devDependencies: {} })}\n`
     );
     expect(await sourceWorkspaceDiagnostics(root)).toEqual([
-      "package.json must expose dependency-free launcher source dependencies from the private workspace root: @clack/prompts, @skillset/core, @skillset/lint, @skillset/registry, @skillset/schema, @skillset/toolkit, @skillset/transforms, yaml",
+      "package.json must expose dependency-free launcher source dependencies from the private workspace root: @clack/prompts, @skillset/core, @skillset/lint, @skillset/provider-evidence, @skillset/schema, @skillset/toolkit, @skillset/transforms, yaml",
     ]);
   });
 

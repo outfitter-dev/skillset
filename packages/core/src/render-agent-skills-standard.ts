@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { StandardProfileId } from "@skillset/registry";
+import type { StandardProfileId } from "@skillset/provider-evidence";
 import {
   RENDERED_METADATA_SCHEMA_KEY,
   RENDERED_METADATA_SCHEMA_VERSION,
@@ -32,7 +32,7 @@ import type {
   TargetName,
 } from "./types";
 import { skillVersion } from "./versioning";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 export const AGENT_SKILLS_FRONTMATTER_KEYS = [
   "allowed-tools",

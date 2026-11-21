@@ -77,7 +77,7 @@ function renderProviderValidationReference(
     "",
     "# Hosted Provider Validation",
     "",
-    "> Generated from `@skillset/registry`. Ordinary Skillset builds and checks remain offline; this evidence runs only in the separate hosted workflow.",
+    "> Generated from `@skillset/provider-evidence`. Ordinary Skillset builds and checks remain offline; this evidence runs only in the separate hosted workflow.",
     "",
     "The [maintainer runbook](../development/features/feature-registry.md#hosted-provider-validation-refresh) explains how to refresh, validate, and record this evidence.",
     "",

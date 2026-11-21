@@ -52,7 +52,7 @@ import type {
   SourceSkill,
 } from "@skillset/core/internal/types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "@skillset/core/internal/yaml";
-import { CODEX_SKILL_SIDECAR_FILE } from "@skillset/registry";
+import { CODEX_SKILL_SIDECAR_FILE } from "@skillset/provider-evidence";
 
 export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v3";
 const SOURCE_HASH_DOMAIN = "skillset-source-unit-v2";

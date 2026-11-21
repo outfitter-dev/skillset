@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { cp, mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { listStandardProfiles } from "@skillset/registry";
+import { listStandardProfiles } from "@skillset/provider-evidence";
 
 import { createTestFixtureRoot } from "../../test-helpers/fixture-root";
 import {

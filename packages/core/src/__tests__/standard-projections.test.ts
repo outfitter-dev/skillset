@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { listStandardProfiles, type StandardProfile } from '@skillset/registry'
+import { listStandardProfiles, type StandardProfile } from '@skillset/provider-evidence'
 import { join } from 'node:path'
 import { createTestFixtureRoot } from '../../../../scripts/test-helpers/fixture-root'
 

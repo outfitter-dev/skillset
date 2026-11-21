@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { listStandardProfiles } from "@skillset/registry";
+import { listStandardProfiles } from "@skillset/provider-evidence";
 
 import { standardProfileStatuses } from "@skillset/core";
 

@@ -93,7 +93,7 @@ import type {
 import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { parseMarkdown, stringifyJson } from "./yaml";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 export { assertCasePortableRenderedPaths } from "./output-plan";
 import {

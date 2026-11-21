@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import Ajv2020 from "ajv/dist/2020";
 
-import { getProviderHookEvidence } from "@skillset/registry";
+import { getProviderHookEvidence } from "@skillset/provider-evidence";
 import { hookCatalogSchema } from "@skillset/schema";
 import { assessPinnedCapabilityJudgment, capabilityAuthorityHash } from "../../../packages/core/src/capability-fidelity";
 import { nativeHookEventName } from "../../../packages/core/src/hook-capabilities";

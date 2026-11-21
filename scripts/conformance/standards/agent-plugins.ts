@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { listStandardProfileSchemaSnapshots } from "@skillset/registry";
+import { listStandardProfileSchemaSnapshots } from "@skillset/provider-evidence";
 import addFormats from "ajv-formats";
 import ajvFormatsPackage from "ajv-formats/package.json";
 import Ajv2020 from "ajv/dist/2020";

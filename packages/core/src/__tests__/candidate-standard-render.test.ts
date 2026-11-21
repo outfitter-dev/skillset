@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 
-import { listStandardProfiles } from "@skillset/registry";
+import { listStandardProfiles } from "@skillset/provider-evidence";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { renderCandidateStandardProfile } from "../candidate-standard-render";

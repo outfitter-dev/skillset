@@ -2,7 +2,7 @@ import {
   getProviderDestinationFormatSnapshot,
   type ProviderDestinationFormatJsonValue,
   type ProviderDestinationFormatSnapshotId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import type { TargetName } from "./types";
 

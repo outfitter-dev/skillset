@@ -56,7 +56,7 @@ import {
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
 import type { BuildGraph, GeneratedEntry, LintIssue, ProjectAgentSkillProvenance, SkillsetOptions, SourceSkill, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 const textDecoder = new TextDecoder();
 

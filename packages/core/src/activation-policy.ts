@@ -13,11 +13,11 @@ import {
   getProviderRuntimeEvidence,
   getProviderRuntimeInspectorEvidence,
   PROVIDER_SCHEMA_TARGETS,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 import type {
   ProviderRuntimeCommandSurface,
   ProviderRuntimeEvidence,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 export const PROVIDER_ACTIVATION_CAPABILITIES = ACTIVATION_CAPABILITIES;
 

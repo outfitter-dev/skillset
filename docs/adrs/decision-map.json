@@ -320,7 +320,7 @@
           "fromPath": "docs/adrs/0028-open-standards-are-the-portability-floor.md"
         },
         {
-          "context": "- [ADR-0003](../0003-lossy-and-unsupported-output-policy.md) — unchanged unsupported and failed policy behavior.",
+          "context": "- [ADR-0003](0003-lossy-and-unsupported-output-policy.md) — unchanged unsupported and failed policy behavior.",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
@@ -335,7 +335,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": ["29"],
+      "amended_by": ["29", "47"],
       "amends": [],
       "created": "2026-06-12",
       "depends_on": ["0", "1"],
@@ -364,6 +364,11 @@
           "context": "- [ADR-0004: Core Library and CLI Boundary](0004-core-library-boundary.md) - Core owns explicit-input report facts and plans while the app owns argv, terminal rendering, and exit policy.",
           "from": "0043",
           "fromPath": "docs/adrs/0043-global-immutable-operational-reports.md"
+        },
+        {
+          "context": "- [Core Library and CLI Boundary](0004-core-library-boundary.md#decision) — adds one narrow external data contract without exposing the compiler.",
+          "from": "0047",
+          "fromPath": "docs/adrs/0047-public-registry-ships-data-only.md"
         }
       ],
       "number": "0004",
@@ -994,7 +999,7 @@
           "fromPath": "docs/adrs/0045-generated-state-merges-as-plain-text.md"
         },
         {
-          "context": "- [ADR-0018](../0018-render-results.md) — existing result vocabulary and provenance.",
+          "context": "- [ADR-0018](0018-render-results.md) — existing result vocabulary and provenance.",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         },
@@ -1404,7 +1409,7 @@
           "fromPath": "docs/adrs/0039-rules-name-authored-guidance-source.md"
         },
         {
-          "context": "components. ADR-0028's [minimal-package rule](../0028-open-standards-are-the-portability-floor.md#agent-plugins-is-derived-from-existing-plugin-source)",
+          "context": "components. ADR-0028's [minimal-package rule](0028-open-standards-are-the-portability-floor.md#agent-plugins-is-derived-from-existing-plugin-source)",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
@@ -1419,7 +1424,7 @@
       "updated": "2026-08-15"
     },
     {
-      "amended_by": ["44"],
+      "amended_by": ["44", "47"],
       "amends": ["4"],
       "created": "2026-08-11",
       "depends_on": ["0", "4", "14", "22", "23", "26", "27"],
@@ -1430,9 +1435,9 @@
           "fromPath": "docs/adrs/0044-machine-scope-lifecycle-commands.md"
         },
         {
-          "context": "The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages are public distribution packages. `@skillset/cli` ships the bundled JS CLI; the unscoped `skills",
-          "from": "package-ownership",
-          "fromPath": "docs/development/package-ownership.md"
+          "context": "- [Global CLI and Native Distribution](0029-global-cli-native-distribution.md#each-package-has-one-role) — distinguishes the registry contract from the CLI release set.",
+          "from": "0047",
+          "fromPath": "docs/adrs/0047-public-registry-ships-data-only.md"
         }
       ],
       "number": "0029",
@@ -1748,7 +1753,7 @@
           "fromPath": "docs/adrs/0036-plugin-skills-belong-to-the-standard-package.md"
         },
         {
-          "context": "The [shared package](../0037-one-shared-plugin-package-per-plugin.md#package-shape)",
+          "context": "The [shared package](0037-one-shared-plugin-package-per-plugin.md#package-shape)",
           "from": "0046",
           "fromPath": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md"
         }
@@ -1963,7 +1968,13 @@
       "amends": ["28"],
       "created": "2026-10-29",
       "depends_on": ["3", "18", "19", "28", "37"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "Provider-only plugin components outside a destination's component contract are uncovered: they use `intentionally_skipped`, `policy: default`, an explicit support reason, and `plugin-component-uncover",
+          "from": "render-results",
+          "fromPath": "docs/development/features/render-results.md"
+        }
+      ],
       "number": "0046",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0046-provider-only-plugin-components-remain-uncovered.md",
@@ -1972,6 +1983,42 @@
       "superseded_by": null,
       "title": "Provider-only Plugin Components Remain Uncovered Without Blocking",
       "updated": "2026-10-29"
+    },
+    {
+      "amended_by": [],
+      "amends": ["4", "29"],
+      "created": "2026-11-21",
+      "depends_on": [],
+      "inbound": [
+        {
+          "context": "[ADR-0047](0047-public-registry-ships-data-only.md) adds a data-only registry contract without exposing the compiler or changing the active CLI release set.",
+          "from": "0004",
+          "fromPath": "docs/adrs/0004-core-library-boundary.md"
+        },
+        {
+          "context": "[ADR-0047](0047-public-registry-ships-data-only.md) reserves the registry name for hooks data and renames the private evidence workspace without changing the release set.",
+          "from": "0029",
+          "fromPath": "docs/adrs/0029-global-cli-native-distribution.md"
+        },
+        {
+          "context": "The unscoped `skillset` app, the scoped `@skillset/cli` app, and the five `@skillset/native-*` packages make up the active release set. `@skillset/cli` ships the bundled JS CLI; the unscoped `skillset",
+          "from": "package-ownership",
+          "fromPath": "docs/development/package-ownership.md"
+        },
+        {
+          "context": "The data-only `@skillset/registry` tarball is a local pack check, not a member of the release set. See [the registry boundary](../adrs/0047-public-registry-ships-data-only.md); publication and release",
+          "from": "package-releases",
+          "fromPath": "docs/development/package-releases.md"
+        }
+      ],
+      "number": "0047",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0047-public-registry-ships-data-only.md",
+      "slug": "public-registry-ships-data-only",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "The Public Registry Ships Data Only",
+      "updated": "2026-11-21"
     }
   ],
   "version": 1

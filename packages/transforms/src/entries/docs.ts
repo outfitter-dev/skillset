@@ -1,4 +1,4 @@
-import { codexAgentsMdFormat } from "@skillset/registry";
+import { codexAgentsMdFormat } from "@skillset/provider-evidence";
 
 import type { TransformEntry } from "../types";
 

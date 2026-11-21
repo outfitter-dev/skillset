@@ -12,7 +12,7 @@ import {
   type StandardProfileId,
   type StandardProfileLifecycleState,
   type StandardProfileSnapshotKind,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 import {
   adaptiveHookContract,
   agentFrontmatterContract,

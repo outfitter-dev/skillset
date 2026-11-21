@@ -4,7 +4,7 @@ import {
   codexAgentsMdFormat,
   providerProjectConfigDirectory,
   providerSkillsDirectory,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import {
   builtinTransformEntries,

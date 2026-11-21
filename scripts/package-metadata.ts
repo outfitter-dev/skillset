@@ -32,7 +32,7 @@ const sourceWorkspaceDependencies = {
   "@clack/prompts": "^1.7.0",
   "@skillset/core": "workspace:*",
   "@skillset/lint": "workspace:*",
-  "@skillset/registry": "workspace:*",
+  "@skillset/provider-evidence": "workspace:*",
   "@skillset/schema": "workspace:*",
   "@skillset/toolkit": "workspace:*",
   "@skillset/transforms": "workspace:*",

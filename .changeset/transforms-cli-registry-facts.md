@@ -1,6 +1,6 @@
 ---
 "@skillset/core": patch
-"@skillset/registry": patch
+"@skillset/provider-evidence": patch
 "@skillset/transforms": patch
 ---
 

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { buildSkillsetResult } from "@skillset/core";
-import { getStandardProfile } from "@skillset/registry";
+import { getStandardProfile } from "@skillset/provider-evidence";
 
 const SKILLS_VERSION = "1.5.26";
 const SKILLS_COMMIT = "d667282815248da03a08a18272b5d2eef9caf77c";

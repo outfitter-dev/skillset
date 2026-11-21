@@ -9,7 +9,7 @@ import {
   PROVIDER_ACTIVATION_CAPABILITIES,
 } from "../activation-policy";
 import type { ProviderActivationDescriptor } from "../activation-policy";
-import { PROVIDER_SCHEMA_TARGETS } from "@skillset/registry";
+import { PROVIDER_SCHEMA_TARGETS } from "@skillset/provider-evidence";
 
 describe("SET-390 provider activation policy", () => {
   test("covers every provider and activation capability exactly once", () => {

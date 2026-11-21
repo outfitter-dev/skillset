@@ -2,7 +2,7 @@ import {
   listStandardProfiles,
   type StandardProfile,
   type StandardProfileId,
-} from '@skillset/registry'
+} from '@skillset/provider-evidence'
 
 import type {
   StandardProjectionPlan,

@@ -47,6 +47,8 @@ Core operations must be explicit about side effects. A core operation receives a
 
 ## Package and Publish Posture
 
+[ADR-0047](0047-public-registry-ships-data-only.md) adds a data-only registry contract without exposing the compiler or changing the active CLI release set.
+
 The scoped packages remain private while the API is being shaped. `@skillset/core` is the internal library boundary for compiler facts, structured results, diagnostics, and plans, but it is not yet a public npm contract. `@skillset/lint` and `@skillset/transforms` are implementation-support packages consumed by core and should not be published independently in v1. The published unscoped `skillset` package remains the user-facing compatibility contract.
 
 This means package releases continue to version and publish only the `skillset` CLI package. The scoped workspaces may change exports, internal module layout, and pre-release API names without semver guarantees until a future issue explicitly promotes one of them to a public package. Any `./internal/*` export on a private workspace package is private-only compatibility plumbing for this repo, not a public subpath promise. If `@skillset/core` becomes public later, that issue must define the exported root API, remove or explicitly fence internal subpaths, define dist-tag strategy, prove npm scope ownership, and explain how Trails-facing integration stays optional. `@skillset/lint` and `@skillset/transforms` should remain private unless there is a concrete external consumer that cannot be served through `@skillset/core`.

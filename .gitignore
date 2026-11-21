@@ -1,5 +1,6 @@
 node_modules/
 dist/
+/packages/registry-data/LICENSE
 apps/skillset/README.md
 apps/skillset/LICENSE
 apps/cli/README.md

@@ -1,0 +1,25 @@
+{
+  "name": "@skillset/registry",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Versioned Skillset provider hook catalog and schema.",
+  "license": "MIT",
+  "files": [
+    "dist/hooks.d.ts",
+    "dist/hooks.js",
+    "dist/hooks.json",
+    "dist/hooks.schema.json"
+  ],
+  "type": "module",
+  "exports": {
+    "./hooks": {
+      "types": "./dist/hooks.d.ts",
+      "import": "./dist/hooks.js"
+    },
+    "./hooks.json": "./dist/hooks.json",
+    "./hooks.schema.json": "./dist/hooks.schema.json"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

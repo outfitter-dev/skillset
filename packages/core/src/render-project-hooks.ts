@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual, promisify } from "node:util";
 import { join, posix, relative } from "node:path";
-import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
+import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/provider-evidence";
 
 import { liveRenderDestination, type RenderDestination } from "./build-destination";
 import { gitSafeEnv } from "./git-env";

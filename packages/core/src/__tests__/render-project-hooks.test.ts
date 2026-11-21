@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
 import { describe, expect, test } from "bun:test";
-import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/registry";
+import { getProviderHookEvidence, getProviderRuntimeHookDestination } from "@skillset/provider-evidence";
 
 import {
   createTestGitFixtureRoot,

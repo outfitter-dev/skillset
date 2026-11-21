@@ -1,6 +1,6 @@
 import type { TargetName } from "@skillset/core/internal/types";
 import { isProjectSessionStartTarget, projectSessionStartEntry, projectSessionStartPath } from "@skillset/core/internal/render-project-hooks";
-import { getProviderRuntimeHookDestination } from "@skillset/registry";
+import { getProviderRuntimeHookDestination } from "@skillset/provider-evidence";
 
 import { CliUsageError } from "../cli-output";
 
