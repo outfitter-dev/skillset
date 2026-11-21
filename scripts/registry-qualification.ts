@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -301,8 +302,26 @@ async function prepare(sourceSha: string, out: string) {
     path.join(tmpdir(), "skillset-registry-qualification-")
   );
   try {
-    const pkg = path.join(scratch, "package");
-    await mkdir(pkg);
+    const pkg = path.join(scratch, hookRegistryDir);
+    const catalog = path.join(scratch, hookRegistrySource);
+    await Promise.all([
+      mkdir(pkg, { recursive: true }),
+      mkdir(catalog, { recursive: true }),
+      symlink(
+        path.join(root, "node_modules"),
+        path.join(scratch, "node_modules"),
+        "dir"
+      ),
+    ]);
+    await Promise.all([
+      copyFile(path.join(root, "LICENSE"), path.join(scratch, "LICENSE")),
+      ...hookRegistryJsonFiles.map((name) =>
+        copyFile(
+          path.join(root, hookRegistrySource, name),
+          path.join(catalog, name)
+        )
+      ),
+    ]);
     await writeFile(
       path.join(pkg, "package.json"),
       JSON.stringify(manifest, null, 2) + "\n"
@@ -311,7 +330,7 @@ async function prepare(sourceSha: string, out: string) {
       path.join(root, hookRegistryDir, "README.md"),
       path.join(pkg, "README.md")
     );
-    await buildHookRegistry(root, pkg);
+    await buildHookRegistry(scratch);
     const packed = await packRegistry(pkg, scratch);
     await verifyTarball(
       packed,
