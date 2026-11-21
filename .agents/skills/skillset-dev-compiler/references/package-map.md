@@ -11,7 +11,7 @@ Use this map after reading `docs/development/package-ownership.md`; that documen
 | `apps/native-*` | Per-platform `@skillset/native-*` packages that carry the compiled executable the launcher selects |
 | `@skillset/core` | Source resolution, compiler operations, rendering, diagnostics, provenance, conformance, and structured operation results |
 | `@skillset/schema` | Shared config and frontmatter shape, value contracts, structural validation, examples, and JSON Schema artifacts |
-| `@skillset/registry` | Deterministic provider and schema snapshots, runtime evidence, and provider-format migrations |
+| `@skillset/provider-evidence` | Deterministic provider and schema snapshots, runtime evidence, and provider-format migrations |
 | `@skillset/workbench` | Authoring diagnostics, parsing, Markdown analysis, compatibility views, presets, and fixtures |
 | `@skillset/lint` | Lint registry, rule types, shell, and source-unit rules |
 | `@skillset/transforms` | Source-text transform recognition and adaptation |

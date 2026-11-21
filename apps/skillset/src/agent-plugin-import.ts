@@ -17,7 +17,7 @@ import {
   validateSkillFrontmatter,
   validateSourceMetadata,
 } from "@skillset/schema";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 const ROOT_FILES = new Set([
   "CHANGELOG.md",

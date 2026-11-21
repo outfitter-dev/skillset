@@ -5,7 +5,7 @@ import {
   getProviderDestinationFormatSnapshot,
   listStandardProfiles,
   type StandardProfile,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import {
   checkAdapterConformance,

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
 import { isJsonRecord } from "./yaml";
-import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/registry";
+import { CODEX_SKILL_SIDECAR_FILE, SKILL_FILE } from "@skillset/provider-evidence";
 
 const RESOURCE_GROUP_NAMES = ["references", "scripts", "assets", "templates"] as const;
 const RESOURCE_GROUPS = new Set<string>(RESOURCE_GROUP_NAMES);

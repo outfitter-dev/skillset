@@ -4,8 +4,8 @@ import { posix, resolve } from "node:path";
 import {
   getProviderMcpEvidence,
   listStandardProfileSchemaSnapshots,
-} from "@skillset/registry";
-import type { ProviderMcpEvidence } from "@skillset/registry";
+} from "@skillset/provider-evidence";
+import type { ProviderMcpEvidence } from "@skillset/provider-evidence";
 
 import { compareStrings, isPathInside } from "./path";
 import { targetNames } from "./targets";

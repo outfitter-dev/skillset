@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
   listProviderDestinationFormatSnapshots,
   type ProviderDestinationFormatJsonValue,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import {

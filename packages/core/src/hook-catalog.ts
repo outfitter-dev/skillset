@@ -2,7 +2,7 @@ import {
   getCodexHookSchemaSummaries,
   getProviderHookEvidence,
   type ProviderHookEventEvidence,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 import { HOOK_CATALOG_VERSION } from "@skillset/schema";
 
 import { adaptiveHookEventDefinitions } from "./adaptive-hook-authoring";

@@ -3,7 +3,7 @@ import { posix } from "node:path";
 import {
   STANDARD_PROFILE_IDS,
   type StandardProfileId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import { hasValidLockProvenance, usesPerEntryProvenance } from "./lock-provenance";
 import { parseRenderResult, type SkillsetRenderResult } from "./render-result";

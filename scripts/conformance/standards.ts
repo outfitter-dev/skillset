@@ -1,5 +1,5 @@
-import { STANDARD_PROFILE_IDS } from "@skillset/registry";
-import type { StandardProfileId } from "@skillset/registry";
+import { STANDARD_PROFILE_IDS } from "@skillset/provider-evidence";
+import type { StandardProfileId } from "@skillset/provider-evidence";
 
 import {
   runStandardsConformance,

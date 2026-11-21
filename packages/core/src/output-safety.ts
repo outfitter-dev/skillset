@@ -3,7 +3,7 @@ import { chmod, lstat, mkdtemp, readdir, readFile, realpath, rm, rmdir, stat, wr
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative } from "node:path";
-import { codexAgentsMdFormat } from "@skillset/registry";
+import { codexAgentsMdFormat } from "@skillset/provider-evidence";
 
 import {
   type AtomicFilePublicationTestHooks,

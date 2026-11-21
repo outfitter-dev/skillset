@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 
-import { listStandardProfileSchemaSnapshots } from "@skillset/registry";
+import { listStandardProfileSchemaSnapshots } from "@skillset/provider-evidence";
 
 import { isOutputSelected } from "./config";
 import {

@@ -5,7 +5,7 @@ import {
   getProviderDestinationFormatSnapshot,
   getProviderSchemaSnapshot,
   providerSchemaManualOverlays,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import {
   FEATURE_STATUS_VALUES,

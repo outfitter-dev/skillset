@@ -3,7 +3,7 @@ import { rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { getStandardProfile, type StandardProfileId } from "@skillset/registry";
+import { getStandardProfile, type StandardProfileId } from "@skillset/provider-evidence";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { explainPath } from "../authoring";

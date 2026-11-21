@@ -1,4 +1,4 @@
-import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
+import { getProviderDestinationFormatSnapshot } from "@skillset/provider-evidence";
 
 import type { SkillsetFeatureEvidence } from "./feature-registry";
 import { compareStrings } from "./path";

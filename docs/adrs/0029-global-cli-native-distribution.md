@@ -119,6 +119,7 @@ This amends only ADR-0004's scoped-package publish posture. `@skillset/core`,
 `@skillset/lint`, `@skillset/registry`, `@skillset/schema`,
 `@skillset/transforms`, `@skillset/toolkit`, and `@skillset/workbench` remain
 private unless a later accepted decision names a concrete external contract.
+[ADR-0047](0047-public-registry-ships-data-only.md) reserves the registry name for hooks data and renames the private evidence workspace without changing the release set.
 
 ### Native releases use an explicit target and artifact contract
 

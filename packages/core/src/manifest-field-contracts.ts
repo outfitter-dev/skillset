@@ -2,7 +2,7 @@ import {
   listStandardProfileSchemaSnapshots,
   OPENAI_MARKETPLACE_FIELD_MATRIX,
   OPENAI_MARKETPLACE_POLICY_MATRIX,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 import { CODEX_MARKETPLACE_PRODUCTS } from "@skillset/schema";
 
 import { AGENT_PLUGIN_MANIFEST_SCHEMA } from "./agent-plugin-manifest";

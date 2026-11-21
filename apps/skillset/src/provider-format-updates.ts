@@ -20,7 +20,7 @@ import {
   listProviderFormatMigrations,
   type ProviderDestinationFormatSnapshotId,
   type ProviderFormatMigrationEntry,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 export type ProviderFormatUpdateCommand = "check" | "update";
 

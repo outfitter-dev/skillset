@@ -4,7 +4,7 @@ import {
   getProviderDestinationFormatSnapshot,
   isCodexAgentsMdPath,
   isCursorSemver,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import { AGENT_PLUGIN_MANIFEST_SCHEMA } from "./agent-plugin-manifest";
 import {

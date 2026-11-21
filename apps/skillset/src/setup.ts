@@ -33,7 +33,7 @@ import {
   LEGACY_CODEX_SKILLS_DIRECTORY,
   providerSkillsDirectory,
   SKILL_FILE,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";

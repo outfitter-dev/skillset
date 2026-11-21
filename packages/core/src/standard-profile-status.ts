@@ -3,7 +3,7 @@ import {
   type StandardProfile,
   type StandardProfileId,
   type StandardProfileLifecycleState,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import type { BuildScope, StandardProjectionPlan } from "./types";
 

@@ -1,7 +1,7 @@
 import {
   STANDARD_PROFILE_IDS,
   type StandardProfileId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import type { SkillsetFeatureEvidence } from "./feature-registry";
 import { compareStrings } from "./path";

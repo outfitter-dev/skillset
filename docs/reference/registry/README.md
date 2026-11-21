@@ -48,6 +48,27 @@ assert workspace["codex"]["fidelity"] == "unavailable"
 assert catalog["events"]["BeforeSubmitPrompt"]["providers"]["cursor"]["fidelity"] == "unknown"
 ```
 
+## Use A Local Package
+
+The npm package is not published. To test the data package, build and pack it from a Skillset checkout with dependencies installed:
+
+```bash
+bun run build:registry
+(cd packages/registry-data && bun pm pack --ignore-scripts)
+```
+
+From an empty consumer project, install the resulting tarball with `npm install /path/to/skillset-registry-0.0.0.tgz` or `bun add /path/to/skillset-registry-0.0.0.tgz`. Use the named ESM export in Node 18 or later or in Bun:
+
+```js
+import { hooks } from "@skillset/registry/hooks";
+
+console.log(hooks.events["UserPromptSubmit"]?.providers.cursor.nativeName);
+```
+
+TypeScript declarations come with the ESM export. Dynamic lookups can return `undefined`; guard a key before using its value. Resolve the raw files through `@skillset/registry/hooks.json` and `@skillset/registry/hooks.schema.json`. These are byte-for-byte copies of the Git files, and no other subpaths are public. Bun can also read package metadata directly; it is not a registry API.
+
+`bun run check:pack` tests the tarball in clean consumers and compares both JSON files against `HEAD`. Set `SKILLSET_REGISTRY_NODE` to a Node executable to check a specific version, such as the 18.0.0 floor.
+
 ## Read The Results
 
 - `events[id].providers[target]` resolves a Skillset event ID. A `nativeName` records name resolution, not behavioral equivalence or a guarantee that an arbitrary hook definition renders. Read `fidelity` together with `scope` and `reason`.

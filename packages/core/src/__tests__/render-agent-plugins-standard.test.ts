@@ -5,9 +5,9 @@ import { join } from "node:path";
 import {
   getStandardProfile,
   type StandardProfileId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
-import { listStandardProfileSchemaSnapshots } from "@skillset/registry";
+import { listStandardProfileSchemaSnapshots } from "@skillset/provider-evidence";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { AGENT_PLUGIN_MANIFEST_SCHEMA } from "../agent-plugin-manifest";

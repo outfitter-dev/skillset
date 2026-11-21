@@ -1,4 +1,4 @@
-import { providerProjectConfigDirectory, providerSkillsDirectory } from "@skillset/registry";
+import { providerProjectConfigDirectory, providerSkillsDirectory } from "@skillset/provider-evidence";
 
 import type { TransformEntry } from "../types";
 

@@ -10,7 +10,7 @@ import {
   type SkillsetFeatureRegistry,
   targetRecord,
 } from "@skillset/core";
-import { listStandardProfiles, type StandardProfile } from "@skillset/registry";
+import { listStandardProfiles, type StandardProfile } from "@skillset/provider-evidence";
 
 describe("adapter conformance coverage", () => {
   it("reports stable JSON rows and gap rows from registry plus fixture refs", () => {

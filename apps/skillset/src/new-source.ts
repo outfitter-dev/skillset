@@ -23,7 +23,7 @@ import { formatList } from "@skillset/schema";
 import { withChangeLedgerMutation } from "./change-ledger-mutation";
 import { CliUsageError } from "./cli-output";
 import { planNewAdaptiveHook } from "./new-hook";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 export type NewSourceKind = "agent" | "hook" | "plugin" | "rule" | "skill";
 export type NewSourceScope = "repo";

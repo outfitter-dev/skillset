@@ -13,7 +13,7 @@ name: skillset-dev-compiler
 1. Read `docs/project/tenets.md`, the relevant ADRs, and `docs/development/package-ownership.md`.
 2. Inspect the closest implementation, its package-root API, and focused tests before editing.
 3. Place provider-neutral compiler facts and write semantics in `@skillset/core`; keep CLI parsing, presentation, prompts, and exit mapping in `apps/skillset`.
-4. Keep provider evidence in `@skillset/registry`, shared source shape in `@skillset/schema`, authoring diagnostics in `@skillset/workbench`, and reusable lint or transform behavior in their owning packages.
+4. Keep provider evidence in `@skillset/provider-evidence`, shared source shape in `@skillset/schema`, authoring diagnostics in `@skillset/workbench`, and reusable lint or transform behavior in their owning packages.
 5. Return structured diagnostics and operation facts from compiler layers. Do not hide writes, call `process.exit`, or make core behavior depend on terminal presentation.
 
 Read [references/package-map.md](references/package-map.md) when choosing an owner, changing a large implementation anchor, or deciding whether an internal should become a package-root export.

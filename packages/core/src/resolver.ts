@@ -107,7 +107,7 @@ import {
   standardProjectionSourceInventory,
   standardProjectionTopology,
 } from "./standard-projections";
-import { SKILL_FILE } from "@skillset/registry";
+import { SKILL_FILE } from "@skillset/provider-evidence";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";

@@ -22,11 +22,11 @@ import {
   readCurrentGeneratedLockFromDisk,
 } from "@skillset/core";
 import { renderCandidateStandardProfile } from "@skillset/core/internal/candidate-standard-render";
-import { getStandardProfile, listStandardProfiles } from "@skillset/registry";
+import { getStandardProfile, listStandardProfiles } from "@skillset/provider-evidence";
 import type {
   StandardProfile,
   StandardProfileId,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import {
   AGENT_INSTRUCTIONS_CODEX_PIN,

@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@skillset/registry": "workspace:*"
+    "@skillset/provider-evidence": "workspace:*"
   },
   "exports": {
     ".": "./src/index.ts"

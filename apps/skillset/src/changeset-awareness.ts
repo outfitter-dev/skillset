@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 import { gitSafeEnv } from "./git-env";
-import { codexAgentsMdFormat } from "@skillset/registry";
+import { codexAgentsMdFormat } from "@skillset/provider-evidence";
 
 export type ChangedFile = {
   path: string;
@@ -115,6 +115,7 @@ export function isPackageAffectingPath(path: string) {
   if (path === "apps/skillset/package.json") return true;
   if (/^apps\/native-[^/]+\/package\.json$/.test(path)) return true;
   if (path === "scripts/build-package.ts") return true;
+  if (path === "scripts/build-hook-registry.ts") return true;
   if (path === "scripts/native-packages.ts") return true;
   if (path === "bun.lock" || path === "bun.lockb") return true;
 
@@ -130,6 +131,7 @@ export function isPackageAffectingPath(path: string) {
     path === "packages/core/package.json" ||
     path === "packages/lint/package.json" ||
     path === "packages/registry/package.json" ||
+    path === "packages/registry-data/package.json" ||
     path === "packages/schema/package.json" ||
     path === "packages/toolkit/package.json" ||
     path === "packages/transforms/package.json"

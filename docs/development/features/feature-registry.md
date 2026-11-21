@@ -16,7 +16,7 @@ The feature registry is Skillset's typed record of feature identity, static prov
 
 ## Ownership and Inputs
 
-`packages/core/src/feature-registry.ts` owns feature entries and Skillset's support decisions. `@skillset/registry` owns adopted provider [destination](../../glossary.md#destination)-format snapshots, JSON Schema snapshots, manual overlays, and dated runtime evidence. Core references those facts; it must not copy their provider inventories into another registry.
+`packages/core/src/feature-registry.ts` owns feature entries and Skillset's support decisions. `@skillset/provider-evidence` owns adopted provider [destination](../../glossary.md#destination)-format snapshots, JSON Schema snapshots, manual overlays, and dated runtime evidence. Core references those facts; it must not copy their provider inventories into another registry.
 
 Each Core entry accepts these maintainer-facing fields:
 

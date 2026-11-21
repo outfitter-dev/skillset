@@ -20,7 +20,7 @@ import type { SchemaJsonRecord } from "@skillset/schema";
 import { isPathInside } from "@skillset/core/internal/path";
 
 import { cliExitCode, createCliEventStream } from "./cli-output";
-import { codexAgentsMdFormat } from "@skillset/registry";
+import { codexAgentsMdFormat } from "@skillset/provider-evidence";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];

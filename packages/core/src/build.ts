@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, posix, relative, sep } from "node:path";
-import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/registry";
+import { codexAgentsMdFormat, isCodexAgentsMdPath } from "@skillset/provider-evidence";
 
 import { compareStrings } from "./path";
 import { targetNames } from "./targets";

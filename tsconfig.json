@@ -17,6 +17,7 @@
     "apps/**/*.ts",
     "packages/**/*.ts",
     "scripts/build-package.ts",
+    "scripts/hook-registry-smoke.ts",
     "scripts/docs-reference.ts",
     "scripts/docs.ts",
     "scripts/docs/**/*.ts",

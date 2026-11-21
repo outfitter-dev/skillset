@@ -2,7 +2,7 @@ import {
   listStandardProfiles,
   type StandardProfile,
   type StandardProfileEnvelopeExpectation,
-} from "@skillset/registry";
+} from "@skillset/provider-evidence";
 
 import {
   adapterConformanceIdentityLabel,

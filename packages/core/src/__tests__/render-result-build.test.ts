@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { chmod, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
+import { getProviderDestinationFormatSnapshot } from "@skillset/provider-evidence";
 import { renderResultsForLock } from "../build";
 
 import {

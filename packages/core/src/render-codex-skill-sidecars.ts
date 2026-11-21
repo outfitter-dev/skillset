@@ -21,7 +21,7 @@ import type {
   TargetName,
 } from "./types";
 import { parseYamlRecord } from "./yaml";
-import { CODEX_SKILL_SIDECAR_FILE } from "@skillset/registry";
+import { CODEX_SKILL_SIDECAR_FILE } from "@skillset/provider-evidence";
 
 export interface RenderedSkillAuxiliaryFile {
   readonly file: RenderedFile;
