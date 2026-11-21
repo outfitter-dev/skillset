@@ -1,5 +1,16 @@
 # @skillset/cli
 
+## 0.32.0
+
+### Minor Changes
+
+- 2c72ee5: Add `skillset lookup capability` to compare provider realizations by semantic ID or native alias. Results include the Skillset source shape, destination, scoped fidelity, and pinned evidence. Unreviewed or stale claims stay unknown. Lookup runs locally without activating providers.
+
+### Patch Changes
+
+- 6b0a69a: Report Claude's `notification_type` payload field in `skillset lookup hooks` instead of the incorrect `type` field.
+- b379686: Prevent Claude and Cursor prompt runs from reporting a broken pipe when the provider closes stdin early. Send their prompts only as command-line arguments and keep sending Codex prompts on stdin.
+
 ## 0.31.1
 
 ### Patch Changes
