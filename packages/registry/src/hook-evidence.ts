@@ -434,6 +434,27 @@ function codexSchemaEntry(title: string): ProviderSchemaSetEntry | undefined {
   return CODEX_HOOK_EVENT_ENTRIES.find((entry) => entry.title === title);
 }
 
+export function getCodexHookSchemaSummaries(event: string): {
+  readonly input: ProviderSchemaSetEntry | undefined;
+  readonly output: ProviderSchemaSetEntry | undefined;
+} {
+  const fact = CODEX_EVENT_FACTS.find(({ name }) => name === event);
+  return {
+    input: fact && pinnedCodexHookSchema(`${fact.schemaPrefix}.command.input`),
+    output: fact && pinnedCodexHookSchema(`${fact.schemaPrefix}.command.output`),
+  };
+}
+
+function pinnedCodexHookSchema(title: string): ProviderSchemaSetEntry | undefined {
+  const summary = codexSchemaEntry(title);
+  if (summary === undefined) return undefined;
+  // These revisions reproduce the recorded schema bytes. SessionStart input predates the rest.
+  const revision = title === "session-start.command.input"
+    ? "af49d38373d637c858b3510d9f0cd3da96c52856"
+    : "e444aa99d76beeb8b5b0610b793c0cdefe58da58";
+  return { ...summary, url: summary.url.replace("/main/", `/${revision}/`) };
+}
+
 function cursorFact(
   name: string,
   matcherKind: ProviderHookMatcherKind,

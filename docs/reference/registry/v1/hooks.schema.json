@@ -1,0 +1,670 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "fidelity": {
+          "enum": [
+            "exact",
+            "equivalent",
+            "partial",
+            "synthesized",
+            "provider-only",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nativeName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "fidelity",
+        "scope",
+        "reason",
+        "evidenceIds"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "fidelity": {
+            "const": "unavailable"
+          }
+        },
+        "required": [
+          "fidelity"
+        ]
+      },
+      "then": {
+        "not": {
+          "properties": {
+            "nativeName": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "nativeName"
+          ]
+        }
+      }
+    },
+    "nativeEvent": {
+      "type": "object",
+      "properties": {
+        "sourceAliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "skillsetEventIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "canBlock": {
+          "type": "boolean"
+        },
+        "matcher": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evaluation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "subject",
+            "evaluation",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        "handlerTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "input": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "coverage": {
+                  "const": "unknown"
+                }
+              },
+              "required": [
+                "coverage"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "coverage": {
+                  "const": "field-inventory"
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "required": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "required"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "uniqueItems": true
+                },
+                "schemaRef": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^https://"
+                    },
+                    "contentHash": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "url",
+                    "contentHash"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "coverage",
+                "fields"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "coverage": {
+                      "const": "unknown"
+                    }
+                  },
+                  "required": [
+                    "coverage"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "coverage": {
+                      "const": "field-inventory"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "required": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "required"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "uniqueItems": true
+                    },
+                    "schemaRef": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^https://"
+                        },
+                        "contentHash": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^sha256:[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "contentHash"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "coverage",
+                    "fields"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "recognizedFields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "fieldsWithoutEstablishedEffect": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "contract",
+            "recognizedFields",
+            "fieldsWithoutEstablishedEffect"
+          ],
+          "additionalProperties": false
+        },
+        "runtimeNotes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "sourceAliases",
+        "skillsetEventIds",
+        "canBlock",
+        "matcher",
+        "handlerTypes",
+        "input",
+        "output",
+        "runtimeNotes",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "type": "object",
+          "properties": {
+            "handlerEnvelope": {
+              "enum": [
+                "flat",
+                "grouped"
+              ]
+            },
+            "groupFields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "handlerCommonFields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "rootFields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "handlerEnvelope",
+            "groupFields",
+            "handlerCommonFields",
+            "rootFields"
+          ],
+          "additionalProperties": false
+        },
+        "handlers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "skippedFields": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "type",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
+        },
+        "outputLimits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "approximate": {
+                "type": "boolean"
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^https://"
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {
+                "type": "number",
+                "minimum": 0
+              },
+              "verifiedAt": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "approximate",
+              "field",
+              "kind",
+              "source",
+              "unit",
+              "value",
+              "verifiedAt"
+            ],
+            "additionalProperties": false
+          },
+          "uniqueItems": true
+        },
+        "placement": {
+          "type": "object",
+          "properties": {
+            "providerReads": {
+              "const": "unknown"
+            },
+            "skillsetWrites": {
+              "type": "object",
+              "properties": {
+                "plugin": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "plugin"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "providerReads",
+            "skillsetWrites"
+          ],
+          "additionalProperties": false
+        },
+        "installedRuntime": {
+          "const": "unknown"
+        },
+        "events": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/nativeEvent"
+          }
+        },
+        "nativeNamesByAlias": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true,
+            "minItems": 1
+          }
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "config",
+        "handlers",
+        "outputLimits",
+        "placement",
+        "installedRuntime",
+        "events",
+        "nativeNamesByAlias",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "title": "Skillset hook catalog v1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": "skillset.registry.hooks@1"
+    },
+    "targets": {
+      "const": [
+        "claude",
+        "codex",
+        "cursor"
+      ]
+    },
+    "events": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "meaning": {
+            "type": "string",
+            "minLength": 1
+          },
+          "providers": {
+            "type": "object",
+            "properties": {
+              "claude": {
+                "$ref": "#/$defs/compatibility"
+              },
+              "codex": {
+                "$ref": "#/$defs/compatibility"
+              },
+              "cursor": {
+                "$ref": "#/$defs/compatibility"
+              }
+            },
+            "required": [
+              "claude",
+              "codex",
+              "cursor"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "providers": {
+      "type": "object",
+      "properties": {
+        "claude": {
+          "$ref": "#/$defs/provider"
+        },
+        "codex": {
+          "$ref": "#/$defs/provider"
+        },
+        "cursor": {
+          "$ref": "#/$defs/provider"
+        }
+      },
+      "required": [
+        "claude",
+        "codex",
+        "cursor"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "basis": {
+            "enum": [
+              "provider-docs",
+              "provider-schema"
+            ]
+          },
+          "target": {
+            "enum": [
+              "claude",
+              "codex",
+              "cursor"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^https://"
+            },
+            "uniqueItems": true,
+            "minItems": 1
+          },
+          "contentHash": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "basis",
+          "target",
+          "scope",
+          "urls",
+          "contentHash"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "targets",
+    "events",
+    "providers",
+    "evidence"
+  ],
+  "additionalProperties": false
+}
