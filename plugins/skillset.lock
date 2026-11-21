@@ -20,6 +20,7 @@
         "skillset/.claude-plugin/plugin.json"
       ],
       "includedSkills": [
+        "skillset-provider-capabilities@0.1.1",
         "use-skillset@0.1.1"
       ],
       "kind": "plugin",
@@ -29,11 +30,11 @@
       "owner": {
         "target": "claude"
       },
-      "provenanceHash": "sha256:103362b62cd75b90307e67651e8ccda86ae9dadfabd004f4ad5cdfb50d711d05",
+      "provenanceHash": "sha256:16d286cf5507db4b3db6258846938d2f1e9b0e0b96c446529e89ad89eeaa7533",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
-      "sourceHash": "sha256:3d4bbf437d22aac6803f217dafe35fec07daa29ac7ab037a9d4ed8b55cf7fee0",
+      "sourceHash": "sha256:fd8e17f8c2a98a751b626ead89cbb94f5ba4d8b581372aa9ad28658ba781d6e4",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -52,6 +53,7 @@
         "skillset/.cursor-plugin/plugin.json"
       ],
       "includedSkills": [
+        "skillset-provider-capabilities@0.1.1",
         "use-skillset@0.1.1"
       ],
       "kind": "plugin",
@@ -61,11 +63,11 @@
       "owner": {
         "target": "cursor"
       },
-      "provenanceHash": "sha256:fd8caf367fdee3b86c6e2e3b814823685a159eb94069ec7377d74c79b35c7763",
+      "provenanceHash": "sha256:ed6dda87ebede16010afae097d2388ccdc6a879de3d81ee61944818da8856251",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "bundle",
       "skippedSkills": [],
-      "sourceHash": "sha256:124fd446b6707196c5734e7eceff6c5e4b512709264c17fa17998e616b64a136",
+      "sourceHash": "sha256:3c9243cfc1f8b936b29b213b19ccfe54712debec66180c4c77f6c42f1a1dbe40",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -94,20 +96,21 @@
         "skillset/plugin.json"
       ],
       "includedSkills": [
+        "skillset-provider-capabilities@0.1.1",
         "use-skillset@0.1.1"
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:dfaa423f8448499370c13bca43d3a30357db0a585b9f2cf9a614c995da91ea41",
+      "outputHash": "sha256:3536bba7e6ba3092e0a38e4254bcb786d32b48ac2807d57a8f82be423a273ba1",
       "outputPath": "skillset/plugin.json",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
-      "provenanceHash": "sha256:89e0618b3a7461acae22f59b539612aba6e07b04bfa325690de8895ec8ccb97d",
+      "provenanceHash": "sha256:bd056cb87850458053288625b6019cc2cf451cb1914badd8aaa33591640ced4d",
       "renderInputsHash": "sha256:989e69e13561e51e0484e046235fd6cae925cd9525e09694982c958206192eed",
       "role": "standard",
       "skippedSkills": [],
-      "sourceHash": "sha256:249224914d4c82c400438f834ed648beafa6b309f9c8c296d42120159c8f2c65",
+      "sourceHash": "sha256:98acf0039aab054a7f7933e28f0d546d9d32bd4ef6feea9e3bbfd06c1b8fb46a",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -132,24 +135,71 @@
         }
       ],
       "fileModes": {
+        "skillset/skills/skillset-provider-capabilities/LICENSE.txt": "0644",
+        "skillset/skills/skillset-provider-capabilities/SKILL.md": "0644",
+        "skillset/skills/skillset-provider-capabilities/evals/evals.json": "0644",
+        "skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md": "0644"
+      },
+      "files": [
+        "skillset/skills/skillset-provider-capabilities/LICENSE.txt",
+        "skillset/skills/skillset-provider-capabilities/SKILL.md",
+        "skillset/skills/skillset-provider-capabilities/evals/evals.json",
+        "skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "skillset-provider-capabilities",
+      "outputHash": "sha256:bd7544bfd024c3899a1898cf4e6d6bd4f2ad5cdb8268acf641c3f638c8416f03",
+      "outputPath": "skillset/skills/skillset-provider-capabilities/SKILL.md",
+      "owner": {
+        "standardProfile": "agent-plugins-1.0"
+      },
+      "plugin": "skillset",
+      "provenanceHash": "sha256:6e77198bfb19e967914ef76dba0d6c5f209f2c5c5dade016c65d4a0154da2c01",
+      "role": "standard",
+      "sourceHash": "sha256:eb37f2a7837caebb75a6e10ecbda541356d1114840a3631609cc1a5fdfdd7486",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
+      "consumers": [
+        {
+          "phase": "baseline",
+          "standardProfile": "agent-plugins-1.0"
+        },
+        {
+          "phase": "delta",
+          "target": "claude"
+        },
+        {
+          "phase": "delta",
+          "target": "codex"
+        },
+        {
+          "phase": "delta",
+          "target": "cursor"
+        }
+      ],
+      "fileModes": {
         "skillset/skills/use-skillset/LICENSE.txt": "0644",
-        "skillset/skills/use-skillset/SKILL.md": "0644"
+        "skillset/skills/use-skillset/SKILL.md": "0644",
+        "skillset/skills/use-skillset/evals/evals.json": "0644"
       },
       "files": [
         "skillset/skills/use-skillset/LICENSE.txt",
-        "skillset/skills/use-skillset/SKILL.md"
+        "skillset/skills/use-skillset/SKILL.md",
+        "skillset/skills/use-skillset/evals/evals.json"
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:3f3b783ec4bb9be12c3b07d7685cf8b0d6f95395c017e9be73f978f2b51c294f",
+      "outputHash": "sha256:310cc6074115e460730c3eab1ea78557890600014c766141cb0f146d54268cb5",
       "outputPath": "skillset/skills/use-skillset/SKILL.md",
       "owner": {
         "standardProfile": "agent-plugins-1.0"
       },
       "plugin": "skillset",
-      "provenanceHash": "sha256:1184de5433a162d4fb0509fbc7920dbdf9e33aeb80f7d054506829c672df639c",
+      "provenanceHash": "sha256:cbaa15bddbf011d87a27d299dcb55e1ee2d111f4f87ae24314f5572f0584df78",
       "role": "standard",
-      "sourceHash": "sha256:f6f5eda108ad17190dc41ca40ec9863145b750243f915ecfe84a615682ee3fcd",
+      "sourceHash": "sha256:4241f7c0b6b11ebf0aeeac2ff9f77c76124b7a6377823f641f87ae980e9dbe22",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
@@ -385,11 +435,190 @@
       "outputs": [
         {
           "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/evals/evals.json"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-provider-capabilities",
+      "standardProfile": "agent-plugins-1.0",
+      "status": "rendered"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
+          "ref": "claude-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/evals/evals.json"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-provider-capabilities",
+      "status": "rendered",
+      "target": "claude"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/evals/evals.json"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-provider-capabilities",
+      "status": "rendered",
+      "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/reference/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:fea0d72f95b04458921655dafe7ef438e5a6c5d270ff984817b4fafdac77df03",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-09-16"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/evals/evals.json"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/skillset-provider-capabilities/references/provider-capabilities.md"
+        }
+      ],
+      "schema": "skillset-render-result@2",
+      "sourcePath": ".skillset/plugins/skillset/skills/skillset-provider-capabilities/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:skillset-provider-capabilities",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/mcp.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 schema",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/schemas/1.0.0/plugin.schema.json",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        },
+        {
+          "kind": "external-docs",
+          "note": "Agent Plugins 1.0 1.0.0 specification",
+          "ref": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/1fc1b6270e3cc492ec2d24ad7a34277c6d53b9c1/spec/1.0.0.md",
+          "verifiedAt": "2026-09-12T15:34:39.000Z"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
           "path": "plugins/skillset/skills/use-skillset/LICENSE.txt"
         },
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/use-skillset/evals/evals.json"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -426,6 +655,10 @@
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/use-skillset/evals/evals.json"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -463,6 +696,10 @@
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/use-skillset/evals/evals.json"
         }
       ],
       "schema": "skillset-render-result@2",
@@ -494,6 +731,10 @@
         {
           "kind": "plugin-skill",
           "path": "plugins/skillset/skills/use-skillset/SKILL.md"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/skills/use-skillset/evals/evals.json"
         }
       ],
       "schema": "skillset-render-result@2",
