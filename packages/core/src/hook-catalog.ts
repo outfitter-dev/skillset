@@ -13,6 +13,7 @@ import {
 } from "./capability-fidelity";
 import {
   canonicalHookEventName,
+  hookEventSourceAliases,
   hookEventSupported,
   nativeHookEventName,
 } from "./hook-capabilities";
@@ -145,7 +146,7 @@ function eventAuthority(inventory: Inventory, event: ProviderHookEventEvidence) 
   };
 }
 
-export function hookRelationshipAuthorityHash(target: TargetName, id: string): string {
+function hookRelationshipAuthorityHash(target: TargetName, id: string): string {
   const inventory = getProviderHookEvidence(target);
   const resolved = resolveSourceEvent(target, id, inventory);
   return capabilityAuthorityHash({
@@ -192,10 +193,9 @@ function projectNativeEvent(
   event: ProviderHookEventEvidence,
   sourceIds: readonly string[]
 ) {
-  const nativeName = nativeHookEventName(target, event.name);
   const schemas = eventSchemas(target, event);
   return {
-    sourceAliases: sorted([event.name, nativeName, ...sourceIds]),
+    sourceAliases: hookEventSourceAliases(target, event.name),
     skillsetEventIds: sorted(sourceIds),
     canBlock: event.canBlock,
     matcher: {
