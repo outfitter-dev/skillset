@@ -31,7 +31,7 @@ These pages are generated from the same typed presentation and flag contracts us
 - [`skillset eval`](./eval.md) — List, run, and inspect portable skill evals.
 - [`skillset explain`](./explain.md) — Explain ownership and provenance for a path.
 - [`skillset list`](./list.md) — List authored units and their generated outputs.
-- [`skillset lookup`](./lookup.md) — Look up schema, compatibility, and provider facts.
+- [`skillset lookup`](./lookup.md) — Look up schema, provider facts, and scoped capability fidelity.
 - [`skillset report`](./report.md) — Inspect immutable operational reports.
 - [`skillset status`](./status.md) — Summarize workspace health and generated drift.
 - [`skillset test`](./test.md) — Run declared or ad hoc provider runtime tests.
