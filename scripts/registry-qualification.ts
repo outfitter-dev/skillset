@@ -452,7 +452,9 @@ async function provePublic(receipt: ReviewReceipt) {
   const statement = checkStatement(bundle, receipt);
 
   // Use the verifier and trust roots bundled by the pinned publisher.
-  const npmModules = (await Bun.$`npm root --global`.quiet()).text().trim();
+  const npmModules = (await Bun.$`npm root --location=global`.quiet())
+    .text()
+    .trim();
   const npmRequire = createRequire(path.join(npmModules, "npm/package.json"));
   const { verify } = npmRequire("sigstore");
   await verify(bundle, {
