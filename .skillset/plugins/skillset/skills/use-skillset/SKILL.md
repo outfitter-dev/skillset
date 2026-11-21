@@ -10,6 +10,8 @@ skillset:
 
 Use this skill when a repo has a Skillset workspace or when you need to create one.
 
+For provider terminology, native-field mappings, equivalence, or fidelity questions, use `skillset-provider-capabilities` before choosing a source representation. Keep ordinary setup, known configuration changes, builds, checks, and repairs here.
+
 ## Source Layout
 
 Repos keep workspace config at the root and Skillset source inside `.skillset/`:

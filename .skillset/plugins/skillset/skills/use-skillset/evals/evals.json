@@ -1,0 +1,32 @@
+{
+  "skill_name": "use-skillset",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Does Skillset preserve Claude's disable-model-invocation when I target Codex? No files need changing.",
+      "expected_output": "Route to skillset-provider-capabilities without setup or mutation.",
+      "expectations": [
+        "Route to skillset-provider-capabilities without setup or mutation.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "How do I preview and rebuild drifted outputs in my existing workspace? Do not run the build.",
+      "expected_output": "Keep ordinary maintenance with use-skillset; do not invoke the comparison specialist.",
+      "expectations": [
+        "Keep ordinary maintenance with use-skillset; do not invoke the comparison specialist.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Which command creates a Skillset workspace, and where do I set my existing project defaults? Do not write files.",
+      "expected_output": "Keep routine setup and configuration with use-skillset; do not invoke the comparison specialist.",
+      "expectations": [
+        "Keep routine setup and configuration with use-skillset; do not invoke the comparison specialist.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    }
+  ]
+}

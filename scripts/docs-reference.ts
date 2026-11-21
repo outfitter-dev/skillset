@@ -12,6 +12,11 @@ import path from "node:path";
 import { CLI_PRESENTATION_GROUPS } from "../apps/skillset/src/cli-presentation";
 import { listFeatureSupportMatrixProjections } from "../packages/core/src";
 import { validateCliContractParity } from "./cli-contract-parity";
+import {
+  CAPABILITY_REFERENCE_HEADER,
+  CAPABILITY_REFERENCE_PATH,
+  renderCapabilityReference,
+} from "./docs/capability-reference";
 import { replaceGeneratedBlock } from "./docs/markdown";
 import {
   buildDocsReferenceModel,
@@ -136,7 +141,10 @@ export async function generateDocsReferenceArtifacts(
     );
   }
   const model = buildDocsReferenceModel();
-  const artifacts = buildDocsReferenceArtifacts(model);
+  const artifacts = [
+    ...buildDocsReferenceArtifacts(model),
+    { content: renderCapabilityReference(), path: CAPABILITY_REFERENCE_PATH },
+  ];
   const featureSupportProjections = listFeatureSupportMatrixProjections();
   const providerPaths = model.providers.map(
     (provider) => `${PROVIDER_ROOT}/${provider.id}.md`
@@ -272,6 +280,17 @@ export async function generateDocsReferenceArtifacts(
         "skillset: refusing to replace unmanaged CLI reference artifacts",
         ...unmanagedUnexpected.map((artifactPath) => `- ${artifactPath}`),
       ].join("\n")
+    );
+  }
+  const capabilityReference = await readTextIfExists(
+    path.join(root, CAPABILITY_REFERENCE_PATH)
+  );
+  if (
+    capabilityReference !== undefined &&
+    !capabilityReference.startsWith(CAPABILITY_REFERENCE_HEADER)
+  ) {
+    throw new Error(
+      `skillset: refusing to overwrite unmanaged capability reference: ${CAPABILITY_REFERENCE_PATH}`
     );
   }
   for (const artifactPath of generatedUnexpected) {

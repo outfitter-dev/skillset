@@ -4,7 +4,7 @@ This plugin teaches your coding agent how to use [Skillset](https://github.com/o
 
 ## Install the CLI
 
-The skill drives the `skillset` command line tool. Install it from npm:
+`use-skillset` drives the `skillset` command line tool. Install it from npm for workspace operations:
 
 ```bash
 npm install --global skillset
@@ -22,5 +22,7 @@ The `use-skillset` skill tells the agent how to:
 - repair stale, missing, or hand-edited generated files with `skillset build --repair`, `skillset resolve`, and `skillset restore`;
 - record changes and cut releases with `skillset change` and `skillset release`;
 - import existing provider skills and plugins, and check marketplace catalogs.
+
+`skillset-provider-capabilities` compares native fields, portable representations, and fidelity across providers. It uses an eligible installed CLI or the bundled offline reference; comparison alone does not require installation.
 
 The plugin never installs, trusts, or enables anything in your user-level agent config.

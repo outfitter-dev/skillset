@@ -1,0 +1,122 @@
+{
+  "skill_name": "skillset-provider-capabilities",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "What does Claude's disable-model-invocation mean in Skillset and Codex? Compare static behavior only.",
+      "expected_output": "Map the native field to skill-invocation; describe the canonical setting and distinct Claude and Codex realizations. Keep fidelity scoped to eligibility, not model compliance.",
+      "expectations": [
+        "Map the native field to skill-invocation; describe the canonical setting and distinct Claude and Codex realizations. Keep fidelity scoped to eligibility, not model compliance.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Can I move a Codex project agent's developer_instructions and skill references to Claude?",
+      "expected_output": "Resolve the native alias to project agents and distinguish the reviewed partial Codex scope from unknown or separate Claude behavior.",
+      "expectations": [
+        "Resolve the native alias to project agents and distinguish the reviewed partial Codex scope from unknown or separate Claude behavior.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Does AGENTS.md mean the same thing in the portable standard and in Codex directory rules?",
+      "expected_output": "Show the matching rule and standard concepts. Scope synthesized fidelity to generated literal-directory guidance; do not extend it to wildcard rules.",
+      "expectations": [
+        "Show the matching rule and standard concepts. Scope synthesized fidelity to generated literal-directory guidance; do not extend it to wildcard rules.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I can't run commands. Is any native Claude hooks/hooks.json file portable to every target?",
+      "expected_output": "Read the bundled reference. Preserve Claude's provider-only result and the other targets' unknowns; don't invent an adaptive hook mapping.",
+      "expectations": [
+        "Read the bundled reference. Preserve Claude's provider-only result and the other targets' unknowns; don't invent an adaptive hook mapping.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Does an emitted Codex plugin prove its plugin-packaged agents can run?",
+      "expected_output": "Report the scoped unavailable plugin-agent result and distinguish a built manifest from activation.",
+      "expectations": [
+        "Report the scoped unavailable plugin-agent result and distinguish a built manifest from activation.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Is the same mcpServers configuration equivalent in Claude and Cursor? Do not start servers.",
+      "expected_output": "Compare known authoring and destination facts; keep unreviewed fidelity unknown and do not launch tools or servers.",
+      "expectations": [
+        "Compare known authoring and destination facts; keep unreviewed fidelity unknown and do not launch tools or servers.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Do Agent Skills and Agent Plugins conformance imply native runtime effectiveness?",
+      "expected_output": "Distinguish standards profiles and destination realization from runtime effectiveness.",
+      "expectations": [
+        "Distinguish standards profiles and destination realization from runtime effectiveness.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "What does allow_implicit_invocation map to? I don't have Skillset installed and shell execution is unavailable.",
+      "expected_output": "Use only the bundled snapshot, state its scope, and do not recommend installation merely to answer.",
+      "expectations": [
+        "Use only the bundled snapshot, state its scope, and do not recommend installation merely to answer.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Is the fictional native field quantum_agent_mode portable?",
+      "expected_output": "Report no matching public evidence as unknown; don't invent a source field.",
+      "expectations": [
+        "Report no matching public evidence as unknown; don't invent a source field.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "The crosswalk says unknown after the evidence changed. Can I call it exact because generated output looks right?",
+      "expected_output": "Keep the judgment unknown; separate destination proof from semantic evidence.",
+      "expectations": [
+        "Keep the judgment unknown; separate destination proof from semantic evidence.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "I need to fix stale generated files, not compare behavior. What workflow owns that? Do not write files.",
+      "expected_output": "Treat this as ordinary build/check/repair and hand off to use-skillset.",
+      "expectations": [
+        "Treat this as ordinary build/check/repair and hand off to use-skillset.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "I need to initialize a workspace and set a known config value. Do not write files.",
+      "expected_output": "Hand off to use-skillset for setup/config; do not perform a capability lookup.",
+      "expectations": [
+        "Hand off to use-skillset for setup/config; do not perform a capability lookup.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "I want to refresh contributor provider snapshots. Do not run anything.",
+      "expected_output": "Do not treat this as a consumer comparison or offer contributor-only routes.",
+      "expectations": [
+        "Do not treat this as a consumer comparison or offer contributor-only routes.",
+        "Do not mutate a workspace, install software, or run a provider."
+      ]
+    }
+  ]
+}
