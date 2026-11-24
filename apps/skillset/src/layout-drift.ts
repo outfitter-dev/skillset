@@ -7,10 +7,9 @@
  * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
  * quotes, tables, HTML, indented code, and hard breaks) are identical. Prose
- * blocks with backticks are compared verbatim to preserve code spans. Other
- * prose blocks must have the same words and first-line and list-item
- * indentation. Everything else keeps its ordinary
- * drift classification. Isolated builds are not compared.
+ * blocks must keep the same words, code spans, and first-line and list-item
+ * indentation. Everything else keeps its ordinary drift classification.
+ * Isolated builds are not compared.
  */
 
 import { resolve } from "node:path";
@@ -143,10 +142,12 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
 }
 
 function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
-  const mayContainCodeSpan = (line: string): boolean => line.includes("`");
-  if (leftRaw.some(mayContainCodeSpan) || rightRaw.some(mayContainCodeSpan)) {
+  const leftText = leftRaw.join("\n");
+  const rightText = rightRaw.join("\n");
+  if (leftText.includes("\\`") || rightText.includes("\\`")) {
     return isDeepStrictEqual(leftRaw, rightRaw);
   }
+  if (!isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))) return false;
   const left = leftRaw.map(trimLayoutWhitespace);
   const right = rightRaw.map(trimLayoutWhitespace);
   if (left.some(isLineSensitive) || right.some(isLineSensitive)) return isDeepStrictEqual(left, right);
@@ -155,6 +156,28 @@ function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly st
     leadingIndent(left[0] ?? "") === leadingIndent(right[0] ?? "") &&
     isDeepStrictEqual(listItemIndents(left), listItemIndents(right))
   );
+}
+
+function codeSpans(text: string): readonly string[] {
+  const runs = [...text.matchAll(/`+/g)];
+  if (runs.length === 0) return [];
+  const nextRunByLength = new Map<number, number>();
+  const closers = new Map<number, number>();
+  for (const [index, [run]] of [...runs.entries()].reverse()) {
+    const next = nextRunByLength.get(run.length);
+    if (next !== undefined) closers.set(index, next);
+    nextRunByLength.set(run.length, index);
+  }
+  const spans: string[] = [];
+  for (let index = 0; index < runs.length; index += 1) {
+    const opener = runs[index];
+    const closeIndex = closers.get(index);
+    const closer = closeIndex === undefined ? undefined : runs[closeIndex];
+    if (opener === undefined || closeIndex === undefined || closer === undefined) continue;
+    spans.push(text.slice(opener.index, closer.index + closer[0].length));
+    index = closeIndex;
+  }
+  return spans;
 }
 
 /** Trailing spaces are layout, except the two-space hard line break. */

@@ -74,4 +74,21 @@ test("preserves whitespace inside Markdown code spans", () => {
 
   const multiline = 'Run ``printf "a\nb \nc"`` to see the spacing.\n';
   expect(isLayoutOnlyDifference("SKILL.md", multiline, multiline.replace("b \n", "b\n"))).toBe(false);
+
+  const withHeading = `# Demo\n${multiline}`;
+  expect(isLayoutOnlyDifference("SKILL.md", withHeading, withHeading.replace("b \n", "b\n"))).toBe(false);
+});
+
+test("allows prose to reflow around unchanged Markdown code spans", () => {
+  const prose = 'Run `printf "a  b"` to see both spaces.\n';
+  expect(isLayoutOnlyDifference("SKILL.md", prose, prose.replace(" to see", "\nto see"))).toBe(true);
+
+  const nested = "Use ``literal `a  b` text`` in this example.\n";
+  expect(isLayoutOnlyDifference("SKILL.md", nested, nested.replace(" in this", "\nin this"))).toBe(true);
+  expect(isLayoutOnlyDifference("SKILL.md", nested, nested.replace("a  b", "a b"))).toBe(false);
+});
+
+test("does not treat breaking a Markdown table without leading pipes as reflow", () => {
+  const table = "First | Second\n:--- | ---:\na | b\n";
+  expect(isLayoutOnlyDifference("SKILL.md", table, table.replace("Second\n", "Second "))).toBe(false);
 });

@@ -75,12 +75,24 @@ test("check reports whitespace edits inside inline commands as semantic edits", 
   expect(result.stdout).not.toContain(`generated layout difference ${SKILL}`);
 });
 
+test("check keeps reconciliation available when a Markdown table is broken", async () => {
+  const root = await formattingFixture();
+  const path = join(root, SKILL);
+  await writeFile(path, (await readFile(path, "utf8")).replace("Second\n", "Second "));
+
+  const report = await ciSkillset(root);
+  expect(report.layoutOnlyDriftPaths ?? []).not.toContain(SKILL);
+  expect(report.sourceSuggestions).toContainEqual(
+    expect.objectContaining({ generatedPath: SKILL, status: "suggestible" })
+  );
+});
+
 async function formattingFixture(): Promise<string> {
   const root = await contractFixture({
     "skillset.yaml":
       "skillset:\n  name: formatting-summary\nclaude: true\ncodex: false\ncursor: false\n",
     ".skillset/skills/demo/SKILL.md":
-      '---\nname: demo\ndescription: Demo.\n---\n\nA paragraph that a formatter would rewrap.\n\nRun `printf "a  b"` to see both spaces.\n',
+      '---\nname: demo\ndescription: Demo.\n---\n\nA paragraph that a formatter would rewrap. Run `printf "a  b"` to see both spaces.\n\nFirst | Second\n:--- | ---:\na | b\n',
     ".skillset/skills/demo/assets/schema.json":
       '{"type":"object","required":["a"]}\n',
   });
