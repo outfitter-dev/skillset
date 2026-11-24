@@ -92,7 +92,9 @@ export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly
     return dedupeGuidance(guidance);
   }
   const suggestions = new Map(input.sourceSuggestions.map((suggestion) => [suggestion.generatedPath, suggestion]));
-  for (const path of input.outputEditedPaths.toSorted()) {
+  const layoutOnly = new Set(input.layoutOnlyDriftPaths ?? []);
+  const targetEdits = input.outputEditedPaths.filter((path) => !layoutOnly.has(path));
+  for (const path of targetEdits.toSorted()) {
     const suggestion = suggestions.get(path);
     if (suggestion?.status === "suggestible") {
       guidance.push({
@@ -121,8 +123,8 @@ export function classifyRecoveryGuidance(input: RecoveryGuidanceInput): readonly
   } else if (input.providerReport !== undefined) {
     guidance.push(...classifyProviderRecovery(
       input.providerReport,
-      new Set(input.outputEditedPaths),
-      new Set(input.providerUpdatePaths)
+      new Set(targetEdits),
+      new Set(input.providerUpdatePaths.filter((path) => !layoutOnly.has(path)))
     ));
   }
 

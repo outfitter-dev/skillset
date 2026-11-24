@@ -241,7 +241,7 @@ test("names a formatter and offers a rebuild when every drifted file differs onl
   expect(recovery.some((item) => item.action === "reconcile" || item.action === "update")).toBe(false);
 });
 
-test("keeps ordinary classification when layout-only drift sits beside a real edit or another blocker", () => {
+test("keeps recovery focused on real edits and other blockers in mixed drift", () => {
   const skill = ".claude/skills/demo/SKILL.md";
   const other = ".claude/skills/other/SKILL.md";
   const mixed = classifyRecoveryGuidance(input({
@@ -252,6 +252,7 @@ test("keeps ordinary classification when layout-only drift sits beside a real ed
   }));
   expect(mixed.some((item) => item.commands.includes("skillset build --yes"))).toBe(false);
   expect(mixed).toContainEqual(expect.objectContaining({ action: "reconcile", path: other }));
+  expect(mixed.some((item) => item.path === skill)).toBe(false);
 
   const withNewOutput = classifyRecoveryGuidance(input({
     drift: { ...EMPTY_DRIFT, added: [".claude/skills/new/SKILL.md"], changed: [skill] },

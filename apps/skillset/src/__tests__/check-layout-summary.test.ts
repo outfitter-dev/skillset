@@ -61,6 +61,18 @@ test("check keeps semantic edits visible beside a formatter-only file", async ()
   expect(result.stdout).toContain("1 provider-format update(s)");
   expect(result.stdout).toContain(`target-side generated edit ${ASSET}`);
   expect(result.stdout).not.toContain(`target-side generated edit ${SKILL}`);
+  expect(result.stdout).not.toContain(`reconcile output refused: ${SKILL}`);
+});
+
+test("check reports whitespace edits inside inline commands as semantic edits", async () => {
+  const root = await formattingFixture();
+  const path = join(root, SKILL);
+  await writeFile(path, (await readFile(path, "utf8")).replace("a  b", "a b"));
+
+  const result = await runSkillsetCli("check", "--root", root);
+  expect(result.exitCode).toBe(1);
+  expect(result.stdout).toContain(`target-side generated edit ${SKILL}`);
+  expect(result.stdout).not.toContain(`generated layout difference ${SKILL}`);
 });
 
 async function formattingFixture(): Promise<string> {
@@ -68,7 +80,7 @@ async function formattingFixture(): Promise<string> {
     "skillset.yaml":
       "skillset:\n  name: formatting-summary\nclaude: true\ncodex: false\ncursor: false\n",
     ".skillset/skills/demo/SKILL.md":
-      "---\nname: demo\ndescription: Demo.\n---\n\nA paragraph that a formatter would rewrap.\n",
+      '---\nname: demo\ndescription: Demo.\n---\n\nA paragraph that a formatter would rewrap.\n\nRun `printf "a  b"` to see both spaces.\n',
     ".skillset/skills/demo/assets/schema.json":
       '{"type":"object","required":["a"]}\n',
   });

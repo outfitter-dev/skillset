@@ -214,7 +214,6 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ...(changesetError === undefined ? {} : { changesetError }),
     changesetIssues,
     drift,
-    layoutOnlyDriftPaths: layoutOnlyDriftPathList,
     lintIssues,
     mode: ci === true ? "ci" : "local",
     outputDiagnostics,
@@ -254,7 +253,6 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     fixedPaths = rebuilt.data.fixedPaths;
   }
 
-  const recovery = classifyRecoveryGuidance(recoveryInput());
   const reportedRepairableLockPaths = repairableManagedLockPaths();
   const reportedRepairableLockPathSet = new Set(reportedRepairableLockPaths);
   const plannedProviderPaths = new Set(
@@ -265,11 +263,17 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ? layoutOnlyDriftPathList.filter((path) => drift.changed.includes(path) && !plannedProviderPaths.has(path))
     : [];
   const reportedLayoutOnlyPathSet = new Set(reportedLayoutOnlyPaths);
+  const recovery = classifyRecoveryGuidance({
+    ...recoveryInput(),
+    layoutOnlyDriftPaths: reportedLayoutOnlyPaths,
+  });
   const reportedProviderUpdatePaths = providerUpdatePaths.filter(
     (path) => !reportedRepairableLockPathSet.has(path) && !reportedLayoutOnlyPathSet.has(path)
   );
   const reportedSourceSuggestions = sourceSuggestions.filter(
-    (suggestion) => !reportedRepairableLockPathSet.has(suggestion.generatedPath)
+    (suggestion) =>
+      !reportedRepairableLockPathSet.has(suggestion.generatedPath) &&
+      !reportedLayoutOnlyPathSet.has(suggestion.generatedPath)
   );
 
   return {
