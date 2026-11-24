@@ -167,6 +167,7 @@ function trimLayoutWhitespace(line: string): string {
 function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
   if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
+  if (/^ {0,3}:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?$/.test(line)) return true;
   return /^\s{0,3}(?:#|>|\||<|=+\s*$|-+\s*$)/.test(line);
 }
 
