@@ -67,3 +67,11 @@ test("keeps Markdown drift that changes words, markers, structure, frontmatter, 
 test("never treats other file types as layout-only", () => {
   expect(isLayoutOnlyDifference("scripts/run.sh", "echo hi\n", "echo  hi\n")).toBe(false);
 });
+
+test("preserves whitespace inside Markdown code spans", () => {
+  const command = 'Run `printf "a  b"` to see both spaces.\n';
+  expect(isLayoutOnlyDifference("SKILL.md", command, command.replace("a  b", "a b"))).toBe(false);
+
+  const multiline = 'Run ``printf "a\nb \nc"`` to see the spacing.\n';
+  expect(isLayoutOnlyDifference("SKILL.md", multiline, multiline.replace("b \n", "b\n"))).toBe(false);
+});

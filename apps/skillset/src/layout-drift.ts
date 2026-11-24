@@ -6,9 +6,10 @@
  * when both sides are valid and their tokens match once whitespace outside
  * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
- * quotes, tables, HTML, indented code, hard breaks) are identical, and each
- * remaining prose block has the same words, the same first-line indentation,
- * and the same list-item indentation. Everything else keeps its ordinary
+ * quotes, tables, HTML, indented code, and hard breaks) are identical. Prose
+ * blocks with backticks are compared verbatim to preserve code spans. Other
+ * prose blocks must have the same words and first-line and list-item
+ * indentation. Everything else keeps its ordinary
  * drift classification. Isolated builds are not compared.
  */
 
@@ -101,7 +102,8 @@ function markdownLayoutEqual(expected: string, actual: string): boolean {
  * blank-line-separated prose blocks (compared by words and structure).
  */
 function markdownSegments(text: string): readonly MarkdownSegment[] {
-  const lines = text.replaceAll("\r\n", "\n").split("\n").map(trimLayoutWhitespace);
+  const rawLines = text.replaceAll("\r\n", "\n").split("\n");
+  const lines = rawLines.map(trimLayoutWhitespace);
   const segments: MarkdownSegment[] = [];
   let index = 0;
   if (lines[0] === "---") {
@@ -133,14 +135,20 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
       continue;
     }
     if (line.trim() === "") flushProse();
-    else prose.push(line);
+    else prose.push(rawLines[index] ?? "");
     index += 1;
   }
   flushProse();
   return segments;
 }
 
-function proseBlockLayoutEqual(left: readonly string[], right: readonly string[]): boolean {
+function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
+  const mayContainCodeSpan = (line: string): boolean => line.includes("`");
+  if (leftRaw.some(mayContainCodeSpan) || rightRaw.some(mayContainCodeSpan)) {
+    return isDeepStrictEqual(leftRaw, rightRaw);
+  }
+  const left = leftRaw.map(trimLayoutWhitespace);
+  const right = rightRaw.map(trimLayoutWhitespace);
   if (left.some(isLineSensitive) || right.some(isLineSensitive)) return isDeepStrictEqual(left, right);
   return (
     collapseWhitespace(left) === collapseWhitespace(right) &&
