@@ -134,7 +134,7 @@ Biome 2 (`biome.json`), as negated `files.includes` entries:
 }
 ```
 
-If a formatter already ran over generated output, rebuild it from source:
+If a formatter already ran over generated output, `skillset check` lists files that differ only in whitespace or layout separately from semantic edits and provider-format updates. The check still fails until the drift is repaired. Rebuild the generated output from source:
 
 ```bash
 skillset build
