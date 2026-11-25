@@ -54,6 +54,11 @@ function applyLegacyOutputs(config: Record<string, JsonRecord[keyof JsonRecord]>
   if (rawOutputs === undefined) return;
   if (!isJsonRecord(rawOutputs)) throw new Error("skillset: expected legacy skillset.outputs to be an object");
 
+  for (const key of Object.keys(rawOutputs)) {
+    if (key !== "plugins" && key !== "skills") {
+      throw new Error(`skillset: cannot migrate unrecognized skillset.outputs.${key}; migrate this setting by hand`);
+    }
+  }
   const pluginOutputs = readLegacyOutputGroup(rawOutputs, "plugins");
   const skillOutputs = readLegacyOutputGroup(rawOutputs, "skills");
   for (const [target, path] of Object.entries(pluginOutputs)) {
@@ -69,7 +74,13 @@ function readLegacyOutputGroup(record: JsonRecord, key: "plugins" | "skills"): R
   if (raw === undefined) return {};
   if (!isJsonRecord(raw)) throw new Error(`skillset: expected legacy skillset.outputs.${key} to be an object`);
   const result: Record<string, string> = {};
-  for (const target of ["claude", "codex"] as const) {
+  const supportedTargets: ReadonlySet<string> = new Set(["claude", "codex"]);
+  for (const target of Object.keys(raw)) {
+    if (!supportedTargets.has(target)) {
+      throw new Error(`skillset: cannot migrate unrecognized skillset.outputs.${key}.${target}; migrate this setting by hand`);
+    }
+  }
+  for (const target of supportedTargets) {
     const value = raw[target];
     if (value === undefined) continue;
     if (typeof value !== "string" || value.trim().length === 0) {

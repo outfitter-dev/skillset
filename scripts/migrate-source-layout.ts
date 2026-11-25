@@ -1,6 +1,7 @@
-import { mkdir, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import type { JsonRecord } from "../packages/core/src/types";
 import { stringifyYamlSourceDocument } from "../packages/core/src/source-document";
 import { parseYamlRecord } from "../packages/core/src/yaml";
 import { splitRootConfigRecord } from "./source-layout-migration";
@@ -34,11 +35,20 @@ async function migrateRoot(rootPath: string): Promise<void> {
     return;
   }
 
+  // Validate config before moving source so rejected settings leave authored files in place.
+  const configPlan = await planRootConfig(skillsetPath);
   for (const [from, to] of MOVES) {
     await moveIfExists(join(skillsetPath, from), join(skillsetPath, to));
   }
   await movePluginProviderDirs(join(skillsetPath, SRC_DIR, "plugins"));
-  await splitRootConfig(skillsetPath);
+  if (configPlan) {
+    if (await Bun.file(configPlan.configPath).text() !== configPlan.originalConfig) {
+      throw new Error(`skillset: ${configPlan.configPath} changed during migration; split it by hand`);
+    }
+    await mkdir(dirname(configPlan.manifestPath), { recursive: true });
+    await writeFile(configPlan.manifestPath, configPlan.manifest, { encoding: "utf8", flag: "wx" });
+    await writeFile(configPlan.configPath, configPlan.config, "utf8");
+  }
   console.error(`migrated ${rootPath}`);
 }
 
@@ -53,7 +63,15 @@ async function movePluginProviderDirs(pluginsPath: string): Promise<void> {
   }
 }
 
-async function splitRootConfig(skillsetPath: string): Promise<void> {
+interface RootConfigPlan {
+  readonly configPath: string;
+  readonly config: string;
+  readonly originalConfig: string;
+  readonly manifestPath: string;
+  readonly manifest: string;
+}
+
+async function planRootConfig(skillsetPath: string): Promise<RootConfigPlan | undefined> {
   const configPath = join(skillsetPath, CONFIG_FILE);
   if (!(await exists(configPath))) return;
   const rawConfig = await Bun.file(configPath).text();
@@ -62,12 +80,16 @@ async function splitRootConfig(skillsetPath: string): Promise<void> {
   if (!changed) return;
 
   const manifestPath = join(skillsetPath, SRC_DIR, SOURCE_MANIFEST_FILE);
-  if (await exists(manifestPath)) {
+  if (await exists(manifestPath, lstat)) {
     throw new Error(`skillset: ${manifestPath} already exists; split ${configPath} by hand`);
   }
-  await mkdir(dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, stringifyYamlSourceDocument(sourceManifest ?? {}), "utf8");
-  await writeFile(configPath, stringifyConfig(workspaceConfig), "utf8");
+  return {
+    configPath,
+    config: stringifyConfig(workspaceConfig),
+    originalConfig: rawConfig,
+    manifestPath,
+    manifest: stringifyYamlSourceDocument(sourceManifest ?? {}),
+  };
 }
 
 function stringifyConfig(record: JsonRecord): string {
@@ -81,9 +103,9 @@ async function moveIfExists(from: string, to: string): Promise<void> {
   await rename(from, to);
 }
 
-async function exists(path: string): Promise<boolean> {
+async function exists(path: string, lookup = stat): Promise<boolean> {
   try {
-    await stat(path);
+    await lookup(path);
     return true;
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {

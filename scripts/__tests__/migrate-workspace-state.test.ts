@@ -6,6 +6,27 @@ import { parseYamlRecord } from "../../packages/core/src/yaml";
 import { createTestFixtureRoot } from "../test-helpers/fixture-root";
 
 describe("workspace state migration", () => {
+  for (const outputs of ["assets: { claude: custom/assets }", "skills: { cursor: custom/skills }"]) {
+    it(`preserves all workspace state on unsupported outputs: ${outputs}`, async () => {
+      const root = await createTestFixtureRoot("skillset-state-reject-");
+      await mkdir(join(root, ".skillset", "changes", "pending"), { recursive: true });
+      const configPath = join(root, ".skillset", "config.yaml");
+      const config = `skillset:\n  outputs:\n    ${outputs}\n`;
+      const pending = join(root, ".skillset", "changes", "pending", "entry.md");
+      await writeFile(configPath, config);
+      await writeFile(pending, "pending bytes\n");
+      for (const args of [[], ["--dry-run"]]) {
+        const result = await runMigration(root, ...args);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain("skillset.outputs.");
+        expect(await readFile(configPath, "utf8")).toBe(config);
+        expect(await readFile(pending, "utf8")).toBe("pending bytes\n");
+        expect(await Bun.file(join(root, "skillset.yaml")).exists()).toBe(false);
+        expect(await Bun.file(join(root, ".skillset", "changes", "entry.md")).exists()).toBe(false);
+      }
+    });
+  }
+
   it("combines ordinary workspace config and source manifest", async () => {
     const root = await createTestFixtureRoot("skillset-workspace-state-");
     await mkdir(join(root, ".skillset", "src"), { recursive: true });
