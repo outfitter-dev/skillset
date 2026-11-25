@@ -102,4 +102,17 @@ describe("package facade declaration syntax", () => {
     ].join("\n");
     expect(scanPackageOwnershipContent("apps/skillset/src/example.ts", content)).toEqual([]);
   });
+
+  test("flags package internal re-exports in ambient modules", () => {
+    const file = "apps/skillset/src/ambient.d.ts";
+    const content = [
+      'declare module "skillset-facade" {',
+      '  export { build } from "@skillset/core/internal/build";',
+      '  export { run } from "@skillset/core";',
+      '}',
+    ].join("\n");
+    expect(scanPackageOwnershipContent(file, content)).toEqual([
+      { file, line: 2, text: 'export { build } from "@skillset/core/internal/build";' },
+    ]);
+  });
 });

@@ -22,20 +22,22 @@ export function isScannablePackageOwnershipPath(path: string): boolean {
 export function scanPackageOwnershipContent(file: string, content: string): readonly PackageOwnershipViolation[] {
   const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const violations: PackageOwnershipViolation[] = [];
-  for (const statement of source.statements) {
+  const visit = (node: ts.Node): void => {
     if (
-      ts.isExportDeclaration(statement) &&
-      statement.moduleSpecifier &&
-      ts.isStringLiteral(statement.moduleSpecifier) &&
-      PACKAGE_INTERNAL_PATH_PATTERN.test(statement.moduleSpecifier.text)
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      PACKAGE_INTERNAL_PATH_PATTERN.test(node.moduleSpecifier.text)
     ) {
       violations.push({
         file,
-        line: source.getLineAndCharacterOfPosition(statement.getStart(source)).line + 1,
-        text: statement.getText(source).replace(/\s+/gu, " "),
+        line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+        text: node.getText(source).replace(/\s+/gu, " "),
       });
     }
-  }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
   return violations;
 }
 
