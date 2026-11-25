@@ -10,7 +10,9 @@ on:
       - packages/core/src/**
       - scripts/native-directory-rename-smoke.ts
       - scripts/pinned-bun.ts
+      - scripts/test-helpers/directory-rename-race.ts
       - scripts/test-helpers/fixture-root.ts
+      - scripts/test-helpers/wait.ts
       - scripts/test-sandbox.ts
   push:
     branches: [main]
@@ -22,7 +24,9 @@ on:
       - packages/core/src/**
       - scripts/native-directory-rename-smoke.ts
       - scripts/pinned-bun.ts
+      - scripts/test-helpers/directory-rename-race.ts
       - scripts/test-helpers/fixture-root.ts
+      - scripts/test-helpers/wait.ts
       - scripts/test-sandbox.ts
   workflow_dispatch: {}
 

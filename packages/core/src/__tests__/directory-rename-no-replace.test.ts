@@ -11,16 +11,18 @@ import {
   writeFile,
 } from "node:fs/promises";
 import nodePath from "node:path";
-import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 
-import { reapOwnedProcess, waitForPath } from "../../../../scripts/test-helpers/wait";
+import {
+  DIRECTORY_RENAME_WORKER_FLAG,
+  runDirectoryRenameRace,
+  runDirectoryRenameWorker,
+} from "../../../../scripts/test-helpers/directory-rename-race";
+import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import {
   renameDirectoryNoReplace,
   toWindowsExtendedPath,
 } from "../directory-rename-no-replace";
-import type { DirectoryRenameNoReplaceResult } from "../directory-rename-no-replace";
 
-const WORKER_FLAG = "--directory-rename-no-replace-worker";
 const supportedPlatform = ["darwin", "linux", "win32"].includes(
   process.platform
 );
@@ -39,22 +41,10 @@ const missing = async (path: string): Promise<boolean> =>
     () => true
   );
 
-const workerIndex = process.argv.indexOf(WORKER_FLAG);
+const workerIndex = process.argv.indexOf(DIRECTORY_RENAME_WORKER_FLAG);
 
 if (import.meta.main && workerIndex !== -1) {
-  const [sourcePath, destinationPath, readyPath, gatePath] = process.argv.slice(
-    workerIndex + 1
-  );
-  if (!(sourcePath && destinationPath && readyPath && gatePath)) {
-    throw new Error("directory rename test worker is missing an argument");
-  }
-  await writeFile(readyPath, "ready\n");
-  // Poll every 1 ms so both workers leave the gate within ~1 ms of each other
-  // and their renames genuinely race.
-  await waitForPath(gatePath, "directory-rename race gate", { intervalMs: 1 });
-  process.stdout.write(
-    JSON.stringify(renameDirectoryNoReplace(sourcePath, destinationPath))
-  );
+  await runDirectoryRenameWorker(process.argv);
 } else {
   describe("atomic no-replace directory rename", () => {
     test("prefixes Windows paths so MoveFileExW can exceed MAX_PATH", () => {
@@ -252,77 +242,10 @@ if (import.meta.main && workerIndex !== -1) {
       "allows exactly one winner across competing Bun processes",
       async () => {
         await withTemporaryDirectory(async (root) => {
-          const destinationPath = nodePath.join(root, "destination");
-          const gatePath = nodePath.join(root, "gate");
-          const children = ["a", "b"].map((name) => {
-            const sourcePath = nodePath.join(root, `source-${name}`);
-            const readyPath = nodePath.join(root, `ready-${name}`);
-            return { name, readyPath, sourcePath };
-          });
-          for (const child of children) {
-            await mkdir(child.sourcePath);
-            await writeFile(
-              nodePath.join(child.sourcePath, "marker.txt"),
-              `${child.name}\n`
-            );
-          }
-
-          const processes = children.map((child) =>
-            Bun.spawn(
-              [
-                process.execPath,
-                import.meta.path,
-                WORKER_FLAG,
-                child.sourcePath,
-                destinationPath,
-                child.readyPath,
-                gatePath,
-              ],
-              { stderr: "pipe", stdout: "pipe" }
-            )
-          );
-          try {
-            for (const child of children) {
-              await waitForPath(
-                child.readyPath,
-                `directory-rename worker ${child.name} ready marker`
-              );
-            }
-            await writeFile(gatePath, "go\n");
-
-            const results = await Promise.all(
-              processes.map(async (process) => {
-                const [exitCode, stdout, stderr] = await Promise.all([
-                  process.exited,
-                  new Response(process.stdout).text(),
-                  new Response(process.stderr).text(),
-                ]);
-                expect(stderr).toBe("");
-                expect(exitCode).toBe(0);
-                return JSON.parse(stdout) as DirectoryRenameNoReplaceResult;
-              })
-            );
-
-            expect(results.map((result) => result.kind).toSorted()).toEqual([
-              "installed",
-              "occupied",
-            ]);
-            const marker = await readFile(
-              nodePath.join(destinationPath, "marker.txt"),
-              "utf-8"
-            );
-            const winner = marker.trim();
-            expect(["a", "b"]).toContain(winner);
-            const loser = winner === "a" ? "b" : "a";
-            expect(
-              await readFile(
-                nodePath.join(root, `source-${loser}`, "marker.txt"),
-                "utf-8"
-              )
-            ).toBe(`${loser}\n`);
-          } finally {
-            await Promise.all(processes.map((child) => reapOwnedProcess(child)));
-          }
+          await runDirectoryRenameRace(root, [
+            process.execPath,
+            import.meta.path,
+          ]);
         });
       }
     );
