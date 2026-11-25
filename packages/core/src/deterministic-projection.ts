@@ -231,12 +231,13 @@ async function copySourceSelection(
 async function shouldCopyPath(rootPath: string, path: string, copyExcludedPaths: readonly string[]): Promise<boolean> {
   const relativePath = normalizePath(relative(rootPath, path));
   if (relativePath === "") return true;
+  if (copyExcludedPaths.some(
+    (excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`)
+  )) return false;
   if ((await lstat(path)).isSymbolicLink()) {
     throw new Error(`skillset: deterministic projection source does not support symlinks: ${relativePath}`);
   }
-  return !copyExcludedPaths.some(
-    (excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`)
-  );
+  return true;
 }
 
 async function projectionCopyExcludedPaths(

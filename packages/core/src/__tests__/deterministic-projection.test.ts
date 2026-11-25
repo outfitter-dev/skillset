@@ -271,6 +271,23 @@ codex: false
       sourcePaths: [],
     })).rejects.toThrow("requires at least one source path");
   });
+
+  it("omits an excluded runtime symlink without copying its target", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const runtime = await createTestFixtureRoot("skillset-deterministic-runtime-");
+    await Bun.write(join(runtime, "runtime.txt"), "runtime only\n");
+    const path = targetDescriptor("cursor").projectRoot;
+    await symlink(runtime, join(root, path), "dir");
+
+    const report = await assertDeterministicProjection(root, {
+      afterProjection: async (run) => {
+        expect(await exists(join(run.workspacePath, path, "runtime.txt"))).toBe(false);
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    expect(await Bun.file(join(runtime, "runtime.txt")).text()).toBe("runtime only\n");
+  });
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
