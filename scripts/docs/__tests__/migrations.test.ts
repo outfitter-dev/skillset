@@ -189,7 +189,7 @@ test("classifies only repository documentation migration paths", () => {
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/guide.md",
-    "examples/first-author/README.md",
+    "examples/minimal/README.md",
   ]) {
     expect(isMigrationDocumentationPath(path)).toBe(true);
   }
