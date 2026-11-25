@@ -59,7 +59,7 @@ skillset build --repair --yes
 
 Repair compares each managed output with its recorded hash and a fresh render. If the preview reports a hand edit it would preserve, a `diverged` verdict, or a `lock-untrusted` verdict, `--yes` writes nothing in the selection. Even missing files are left unrestored.
 
-Name a path to narrow the repair selection (`skillset build --repair <path>`). Each named path selects every file in its lock item, not just the named file. Narrowing only helps when the files you want to repair belong to lock items independent of the blocker. Review the repair verdicts for that selection before applying it with `--yes`.
+Name a path to narrow the repair selection (`skillset build --repair <path>`). When the build still renders a lock, a named path selects every file in its lock item, not just the named file. Narrowing won't exclude a blocker in that item. Locks the build no longer renders don't expand the selection. Review the repair verdicts for that selection before applying it with `--yes`.
 
 Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. If both the generated file and its source changed since the last build, repair refuses even with `--discard-edits`; settle the source change first, then repair again. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
 
