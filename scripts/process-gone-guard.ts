@@ -26,6 +26,12 @@ export interface ProcessGoneViolation {
   readonly text: string;
 }
 
+type LocalCallback =
+  | ts.ArrowFunction
+  | ts.FunctionExpression
+  | ts.FunctionDeclaration;
+type ResolveCallback = (expression: ts.Expression) => LocalCallback | undefined;
+
 const GUARD_OWN_PATHS = new Set([
   "scripts/process-gone-guard.ts",
   "scripts/__tests__/process-gone-guard.test.ts",
@@ -52,10 +58,47 @@ export function scanImmediateProcessGoneAssertions(
     true,
     ts.ScriptKind.TS
   );
+  // Bind only this file, as the temp-fixture guard does; no imports or libraries
+  // are needed to distinguish a local callback from a shadowing parameter.
+  let checker: ts.TypeChecker | undefined;
+  const resolveCallback = (
+    expression: ts.Expression,
+    seen = new Set<ts.Declaration>()
+  ): LocalCallback | undefined => {
+    expression = unwrapCallbackExpression(expression);
+    if (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) {
+      return expression;
+    }
+    if (!ts.isIdentifier(expression)) return undefined;
+    if (!checker) {
+      const options: ts.CompilerOptions = { noLib: true, noResolve: true };
+      const host = ts.createCompilerHost(options);
+      host.getSourceFile = (name) => name === file ? source : undefined;
+      host.fileExists = (name) => name === file;
+      host.readFile = (name) => name === file ? content : undefined;
+      checker = ts.createProgram([file], options, host).getTypeChecker();
+    }
+    const declarations = checker.getSymbolAtLocation(expression)?.declarations;
+    if (declarations?.every(ts.isFunctionDeclaration)) {
+      const implementations = declarations.filter(({ body }) => body);
+      return implementations.length === 1 ? implementations[0] : undefined;
+    }
+    if (declarations?.length !== 1) return undefined;
+    const declaration = declarations[0]!;
+    if (
+      seen.has(declaration) ||
+      !ts.isVariableDeclaration(declaration) ||
+      !ts.isVariableDeclarationList(declaration.parent) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const) ||
+      !declaration.initializer
+    ) return undefined;
+    seen.add(declaration);
+    return resolveCallback(declaration.initializer, seen);
+  };
   const violations: ProcessGoneViolation[] = [];
 
   const visit = (node: ts.Node): void => {
-    if (isImmediateProcessGoneAssertion(node)) {
+    if (isImmediateProcessGoneAssertion(node, resolveCallback)) {
       const reportedNode = ts.isExpressionStatement(node.parent)
         ? node.parent
         : node;
@@ -75,8 +118,22 @@ export function scanImmediateProcessGoneAssertions(
   return violations;
 }
 
+function unwrapCallbackExpression(expression: ts.Expression): ts.Expression {
+  while (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isNonNullExpression(expression)
+  ) {
+    expression = expression.expression;
+  }
+  return expression;
+}
+
 function isImmediateProcessGoneAssertion(
-  node: ts.Node
+  node: ts.Node,
+  resolveCallback: ResolveCallback
 ): node is ts.CallExpression {
   if (
     !ts.isCallExpression(node) ||
@@ -99,33 +156,52 @@ function isImmediateProcessGoneAssertion(
   ) {
     return false;
   }
-  const callback = expectCall.arguments[0];
-  return (
-    callback !== undefined &&
-    (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) &&
-    containsProcessKillZero(callback.body)
-  );
+  const argument = expectCall.arguments[0];
+  const callback = argument && resolveCallback(argument);
+  return callback !== undefined && callsProcessKillZero(callback, resolveCallback);
 }
 
-function containsProcessKillZero(node: ts.Node): boolean {
-  if (
-    ts.isCallExpression(node) &&
-    ts.isPropertyAccessExpression(node.expression) &&
-    ts.isIdentifier(node.expression.expression) &&
-    node.expression.expression.text === "process" &&
-    node.expression.name.text === "kill" &&
-    node.arguments.length === 2 &&
-    node.arguments[1] !== undefined &&
-    ts.isNumericLiteral(node.arguments[1]) &&
-    node.arguments[1].text === "0"
-  ) {
-    return true;
-  }
-  let found = false;
-  ts.forEachChild(node, (child) => {
-    if (!found && containsProcessKillZero(child)) found = true;
-  });
-  return found;
+function callsProcessKillZero(
+  callback: LocalCallback,
+  resolveCallback: ResolveCallback
+): boolean {
+  const visiting = new Set<LocalCallback>();
+
+  const visitCall = (fn: LocalCallback, args: readonly ts.Expression[]): boolean => {
+    if (visiting.has(fn)) return false;
+    visiting.add(fn);
+    const hasProbe =
+      (!args.some(ts.isSpreadElement) &&
+        fn.parameters.slice(args.length).some(({ initializer }) => initializer && visit(initializer))) ||
+      (!fn.asteriskToken && fn.body !== undefined && visit(fn.body));
+    visiting.delete(fn);
+    return hasProbe;
+  };
+
+  const visit = (node: ts.Node): boolean => {
+    // Only follow local function bodies at direct calls, not at their definition.
+    if (ts.isFunctionLike(node)) return false;
+    if (ts.isCallExpression(node)) {
+      const callee = unwrapCallbackExpression(node.expression);
+      if (
+        ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.expression) &&
+        callee.expression.text === "process" &&
+        callee.name.text === "kill" &&
+        node.arguments.length === 2 &&
+        node.arguments[1] !== undefined &&
+        ts.isNumericLiteral(node.arguments[1]) &&
+        node.arguments[1].text === "0"
+      ) {
+        return true;
+      }
+      const invoked = resolveCallback(callee);
+      if (invoked && visitCall(invoked, node.arguments)) return true;
+    }
+    return ts.forEachChild(node, (child) => visit(child) || undefined) === true;
+  };
+
+  return visitCall(callback, []);
 }
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));

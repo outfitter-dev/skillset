@@ -73,3 +73,46 @@ describe("package ownership guard", () => {
     expect(isScannablePackageOwnershipPath("packages/core/src/index.ts")).toBe(false);
   });
 });
+
+
+describe("package facade declaration syntax", () => {
+  test.each([
+    'export {\n build,\n type BuildGraph\n} from "@skillset/core/internal/build";',
+    'export type {\n BuildGraph\n} from "@skillset/core/internal/types";',
+    'export * as build from "@skillset/core/internal/build";',
+    'export /* bridge */ * from "@skillset/core/internal/build"; // facade',
+  ])("flags complete declarations: %s", (declaration) => {
+    const result = scanPackageOwnershipContent("apps/skillset/src/bridge.ts", `// header\n${declaration}`);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.line).toBe(2);
+    expect(result[0]?.file).toBe("apps/skillset/src/bridge.ts");
+  });
+
+  test("ignores declaration-shaped comments and strings", () => {
+    const content = [
+      '/*',
+      'export * from "@skillset/core/internal/build";',
+      '*/',
+      'const example = `',
+      'export * from "@skillset/core/internal/build";',
+      '`;',
+      'export { build } from "@skillset/core";',
+      'import { build } from "@skillset/core/internal/build";',
+      'export { build };',
+    ].join("\n");
+    expect(scanPackageOwnershipContent("apps/skillset/src/example.ts", content)).toEqual([]);
+  });
+
+  test("flags package internal re-exports in ambient modules", () => {
+    const file = "apps/skillset/src/ambient.d.ts";
+    const content = [
+      'declare module "skillset-facade" {',
+      '  export { build } from "@skillset/core/internal/build";',
+      '  export { run } from "@skillset/core";',
+      '}',
+    ].join("\n");
+    expect(scanPackageOwnershipContent(file, content)).toEqual([
+      { file, line: 2, text: 'export { build } from "@skillset/core/internal/build";' },
+    ]);
+  });
+});
