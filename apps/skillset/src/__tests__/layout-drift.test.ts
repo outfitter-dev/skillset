@@ -102,3 +102,8 @@ test("does not treat breaking a Markdown table without leading pipes as reflow",
   const table = "First | Second\n:--- | ---:\na | b\n";
   expect(isLayoutOnlyDifference("SKILL.md", table, table.replace("Second\n", "Second "))).toBe(false);
 });
+
+test("keeps single-column Markdown table delimiters line-sensitive", () => {
+  const table = "Run `skillset check` |\n:---: |\nReport |\n";
+  expect(isLayoutOnlyDifference("SKILL.md", table, table.replace("|\n:---:", "| :---:"))).toBe(false);
+});

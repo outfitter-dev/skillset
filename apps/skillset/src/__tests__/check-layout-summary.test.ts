@@ -75,24 +75,31 @@ test("check reports whitespace edits inside inline commands as semantic edits", 
   expect(result.stdout).not.toContain(`generated layout difference ${SKILL}`);
 });
 
-test("check keeps reconciliation available when a Markdown table is broken", async () => {
-  const root = await formattingFixture();
-  const path = join(root, SKILL);
-  await writeFile(path, (await readFile(path, "utf8")).replace("Second\n", "Second "));
+test.each([
+  ["multi-column", "First | Second\n:--- | ---:\na | b\n"],
+  ["single-column", "Run `skillset check` |\n:---: |\nReport |\n"],
+])(
+  "check keeps reconciliation available when a %s Markdown table is broken",
+  async (_case, table) => {
+    const root = await formattingFixture(table);
+    const path = join(root, SKILL);
+    const brokenTable = table.replace("\n", " ");
+    await writeFile(path, (await readFile(path, "utf8")).replace(table, brokenTable));
 
-  const report = await ciSkillset(root);
-  expect(report.layoutOnlyDriftPaths ?? []).not.toContain(SKILL);
-  expect(report.sourceSuggestions).toContainEqual(
-    expect.objectContaining({ generatedPath: SKILL, status: "suggestible" })
-  );
-});
+    const report = await ciSkillset(root);
+    expect(report.layoutOnlyDriftPaths ?? []).not.toContain(SKILL);
+    expect(report.sourceSuggestions).toContainEqual(
+      expect.objectContaining({ generatedPath: SKILL, status: "suggestible" })
+    );
+  }
+);
 
-async function formattingFixture(): Promise<string> {
+async function formattingFixture(table = "First | Second\n:--- | ---:\na | b\n"): Promise<string> {
   const root = await contractFixture({
     "skillset.yaml":
       "skillset:\n  name: formatting-summary\nclaude: true\ncodex: false\ncursor: false\n",
     ".skillset/skills/demo/SKILL.md":
-      '---\nname: demo\ndescription: Demo.\n---\n\nA paragraph that a formatter would rewrap. Run `printf "a  b"` to see both spaces.\n\nFirst | Second\n:--- | ---:\na | b\n',
+      `---\nname: demo\ndescription: Demo.\n---\n\nA paragraph that a formatter would rewrap. Run \`printf "a  b"\` to see both spaces.\n\n${table}`,
     ".skillset/skills/demo/assets/schema.json":
       '{"type":"object","required":["a"]}\n',
   });

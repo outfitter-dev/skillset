@@ -203,7 +203,10 @@ function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
   if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
   if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) return true;
-  if (/^ {0,3}:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?$/.test(line)) return true;
+  if (
+    line.includes("|") &&
+    /^ {0,3}:?-+:?(?:[ \t]*\|[ \t]*:?-+:?)*(?:[ \t]*\|)?[ \t]*$/.test(line)
+  ) return true;
   return /^\s{0,3}(?:#|>|\||<|=+\s*$|-+\s*$)/.test(line);
 }
 
