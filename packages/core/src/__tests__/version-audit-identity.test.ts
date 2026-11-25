@@ -138,15 +138,20 @@ test("Cursor-specific manifests and skills remain outside the audit boundary", a
   ).toBe(true);
 });
 
-test("ignores a shared plugin skill with only Cursor as its provider consumer", async () => {
-  const root = await fixture("compile:\n  targets: [cursor]\n");
-  const path = "plugins/alpha/skills/demo/SKILL.md";
-  const generated = await readFile(join(root, path), "utf8");
-  expect(generated).toContain("3.0.0");
-  await writeFile(join(root, path), generated.replace("3.0.0", "0.0.2"));
-  const report = await auditVersions(root);
-  expect(report.loci.some((locus) => locus.path === path)).toBe(false);
-});
+test.each(["[]", "[cursor]"])(
+  "ignores portable plugin version fields without an audited provider (%s)",
+  async (targets) => {
+    const root = await fixture(`compile:\n  targets: ${targets}\n`);
+    const manifest = "plugins/alpha/plugin.json";
+    const skill = "plugins/alpha/skills/demo/SKILL.md";
+    expect(await readFile(join(root, manifest), "utf8")).toContain("2.0.0");
+    expect(await readFile(join(root, skill), "utf8")).toContain("3.0.0");
+    const report = await auditVersions(root);
+    expect(
+      report.loci.filter((locus) => locus.path === manifest || locus.path === skill)
+    ).toEqual([]);
+  }
+);
 
 test("missing and malformed current manifests are reported", async () => {
   const root = await fixture();

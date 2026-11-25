@@ -19,7 +19,7 @@ import {
   selectorForRootConfig,
   selectorForStandaloneSkill,
 } from "./source-unit-selector";
-import type { BuildGraph, RenderedFile, SkillsetOptions, TargetName } from "./types";
+import type { BuildGraph, RenderedFile, SkillsetOptions, SourcePlugin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 export const VERSION_DRIFT_STATUS_VALUES = [
@@ -196,6 +196,12 @@ function authorityForScope(graph: BuildGraph, scope: string): VersionAuthority {
   return graph.releaseState.scopes[scope] === undefined ? "source" : "release-state";
 }
 
+function auditsPluginTarget(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
+  return AUDITED_TARGETS[target] &&
+    plugin.targets[target].enabled &&
+    isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, plugin.id);
+}
+
 function identifyVersionPath(
   graph: BuildGraph,
   file: RenderedFile
@@ -204,7 +210,11 @@ function identifyVersionPath(
   if (target !== undefined && !AUDITED_TARGETS[target]) return undefined;
   const parts = pluginPackagePathParts(file.path);
   if (target !== undefined && parts !== undefined && isPluginManifestOutputPath(graph, file.path, target)) {
-    return { scope: `plugin:${parts.pluginId}`, target };
+    // A portable manifest shares the Codex path even when Codex isn't a consumer.
+    const plugin = graph.plugins.find((candidate) => candidate.id === parts.pluginId);
+    return plugin !== undefined && auditsPluginTarget(graph, plugin, target)
+      ? { scope: `plugin:${plugin.id}`, target }
+      : undefined;
   }
   if (basename(file.path) !== SKILL_FILE || file.sourcePath === undefined) return undefined;
   const sourcePath = file.sourcePath.replaceAll("\\", "/");
@@ -214,10 +224,8 @@ function identifyVersionPath(
     const skill = (plugin.discoveredSkills ?? plugin.skills).find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
     if (skill !== undefined) {
       if (target === undefined && !targetNames().some((provider) =>
-        AUDITED_TARGETS[provider] &&
         skill.targets[provider].enabled &&
-        plugin.targets[provider].enabled &&
-        isOutputSelected(graph.root.outputs.targetOutputs[provider].plugins, plugin.id)
+        auditsPluginTarget(graph, plugin, provider)
       )) return undefined;
       return { scope: selectorForPluginSkill(plugin.id, skill.id), ...(target === undefined ? {} : { target }) };
     }
