@@ -80,7 +80,7 @@ export const claudeMarketplaceRules: readonly ClaudeMarketplaceRuleEvidence[] = 
     schema: [],
   },
   {
-    id: "marketplace.entry.closed", owners: ["checkClaudeMarketplacePlugin"],
+    id: "marketplace.entry.closed", owners: ["checkClaudeMarketplace"],
     predicate: "Reject unknown plugin entry keys beyond shared field inventory plus marketplace header fields and name/source",
     qualification: "Pinned static validator entry keys differ: provider-only binaries is absent from the Core inventory. Keep this rule unresolved; strict warning severity also differs from Core.",
     schema: [],

@@ -1,7 +1,7 @@
 {
   "note": "Reviewed implementation boundary, not provider provenance. Review affected rules and tests before updating fingerprints; do not auto-refresh to bless code drift.",
   "path": "packages/core/src/claude-format-conformance.ts",
-  "evidenceHash": "sha256:b3751e1912d6f0ab404129c6feaface99f852d90a7848fe2b2b456bc0a1ffa77",
+  "evidenceHash": "sha256:8a856605b41ca6ed7b84614634fb45546777322075e054c0ec7cc24615016be3",
   "declarations": [
     {
       "name": "import:\"@skillset/provider-evidence\"",
@@ -53,7 +53,8 @@
         "marketplace.metadata.closed",
         "marketplace.renames.values",
         "marketplace.entry.object",
-        "marketplace.entry.name.unique"
+        "marketplace.entry.name.unique",
+        "marketplace.entry.closed"
       ],
       "reason": "Reviewed declaration implements the named rule groups; digest is a change-review tripwire only."
     },
@@ -65,7 +66,6 @@
         "marketplace.entry.name.minimum",
         "marketplace.entry.name.pattern",
         "marketplace.entry.field_types",
-        "marketplace.entry.closed",
         "marketplace.source.relative.schema",
         "marketplace.source.relative",
         "marketplace.source.discriminator",
