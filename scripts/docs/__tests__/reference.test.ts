@@ -8,6 +8,7 @@ import {
   generateDocsReferenceArtifacts,
 } from "../../docs-reference";
 import { createTestFixtureRoot } from "../../test-helpers/fixture-root";
+import { CAPABILITY_REFERENCE_PATH } from "../capability-reference";
 import {
   buildDocsReferenceModel,
   type DocsReferenceModel,
@@ -225,6 +226,23 @@ describe("documentation reference artifacts", () => {
     expect(
       authoredOutsideBlock(generatedProvider, "provider-feature-support")
     ).toBe(authoredOutsideBlock(originalProvider, "provider-feature-support"));
+  });
+
+  test("rejects drift and unmanaged replacements of the public capability snapshot", async () => {
+    const root = await referenceFixture();
+    await generateDocsReferenceArtifacts(root);
+    const snapshot = join(root, CAPABILITY_REFERENCE_PATH);
+    const generated = await readFile(snapshot, "utf8");
+    await writeFile(snapshot, `${generated}stale\n`);
+    await expect(
+      generateDocsReferenceArtifacts(root, { check: true })
+    ).rejects.toThrow(CAPABILITY_REFERENCE_PATH);
+    expect(await readFile(snapshot, "utf8")).toBe(`${generated}stale\n`);
+    await writeFile(snapshot, "unmanaged notes\n");
+    await expect(generateDocsReferenceArtifacts(root)).rejects.toThrow(
+      "unmanaged capability reference"
+    );
+    expect(await readFile(snapshot, "utf8")).toBe("unmanaged notes\n");
   });
 
   test("repairs public and development feature-support blocks while preserving authored bytes", async () => {

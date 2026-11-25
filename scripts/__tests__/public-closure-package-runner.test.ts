@@ -17,7 +17,7 @@ const PACKAGE_RUNNER = /(?<![A-Za-z0-9_-])(?:bun|npm|pnpm|yarn)(?![A-Za-z0-9_-])
 // currently gives it nothing to read. Any new package-runner text in public
 // output must be added here deliberately, after confirming the guard covers it.
 const FROZEN_PACKAGE_RUNNER_LINES: readonly string[] = [
-  "plugins/skillset/README.md: The skill drives the `skillset` command line tool. Install it from npm:",
+  "plugins/skillset/README.md: `use-skillset` drives the `skillset` command line tool. Install it from npm for workspace operations:",
   "plugins/skillset/README.md: npm install --global skillset",
 ];
 

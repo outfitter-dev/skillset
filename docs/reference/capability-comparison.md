@@ -6,6 +6,8 @@ description: Compare Skillset provider realizations by semantic capability or na
 
 Use [`skillset lookup capability`](cli/lookup.md) to compare how Skillset realizes a capability. Query a stable ID such as `skill-invocation` or an exact native alias such as `allow_implicit_invocation`. A shared alias such as `SKILL.md` can return more than one concept. Omit the query to list all capabilities, or use `--compat` to select providers.
 
+For an agent-guided comparison, invoke `skillset-provider-capabilities` from the public Skillset plugin. The `use-skillset` skill routes comparison questions there. The specialist can answer from the bundled snapshot without a CLI or workspace; its answers describe the snapshot's pinned evidence, not live provider behavior.
+
 ## Consume A Pinned Result
 
 Choose a full commit SHA containing this comparison command. Use the Bun version in that revision's `.bun-version` and install its locked dependencies. This example runs the pinned CLI from a separate, empty consumer directory:
