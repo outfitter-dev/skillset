@@ -107,3 +107,8 @@ test("keeps single-column Markdown table delimiters line-sensitive", () => {
   const table = "Run `skillset check` |\n:---: |\nReport |\n";
   expect(isLayoutOnlyDifference("SKILL.md", table, table.replace("|\n:---:", "| :---:"))).toBe(false);
 });
+
+test("keeps reference link definitions on their own lines", () => {
+  const reference = "[guide]: https://example.com\nRead [the guide][guide] before running `skillset check`.\n";
+  expect(isLayoutOnlyDifference("SKILL.md", reference, reference.replace(".com\n", ".com "))).toBe(false);
+});

@@ -6,7 +6,8 @@
  * when both sides are valid and their tokens match once whitespace outside
  * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
- * quotes, tables, HTML, indented code, and hard breaks) are identical. Prose
+ * quotes, tables, reference definitions, HTML, indented code, and hard breaks)
+ * are identical. Prose
  * blocks must keep the same words, code spans, and first-line and list-item
  * indentation. Everything else keeps its ordinary drift classification.
  * Isolated builds are not compared.
@@ -201,6 +202,7 @@ function trimLayoutWhitespace(line: string): string {
 /** Lines whose meaning depends on where the line breaks fall. */
 function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
+  if (line.includes("]:")) return true;
   if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
   if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) return true;
   if (
