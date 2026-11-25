@@ -142,19 +142,31 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
 }
 
 function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
-  const leftText = leftRaw.join("\n");
-  const rightText = rightRaw.join("\n");
-  if (leftText.includes("\\`") || rightText.includes("\\`")) {
-    return isDeepStrictEqual(leftRaw, rightRaw);
-  }
-  if (!isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))) return false;
   const left = leftRaw.map(trimLayoutWhitespace);
   const right = rightRaw.map(trimLayoutWhitespace);
-  if (left.some(isLineSensitive) || right.some(isLineSensitive)) return isDeepStrictEqual(left, right);
+  const lineSensitive = left.some(isLineSensitive) || right.some(isLineSensitive);
+  const leftListIndents = listItemIndents(left);
+  const rightListIndents = listItemIndents(right);
+  const leftText = leftRaw.join("\n");
+  const rightText = rightRaw.join("\n");
+  if (leftText.includes("`") || rightText.includes("`")) {
+    // Only pair backticks across lines in plain prose, not across Markdown blocks.
+    if (
+      lineSensitive ||
+      leftListIndents.length > 0 ||
+      rightListIndents.length > 0 ||
+      leftText.includes("\\`") ||
+      rightText.includes("\\`")
+    ) {
+      return isDeepStrictEqual(leftRaw, rightRaw);
+    }
+    if (!isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))) return false;
+  }
+  if (lineSensitive) return isDeepStrictEqual(left, right);
   return (
     collapseWhitespace(left) === collapseWhitespace(right) &&
     leadingIndent(left[0] ?? "") === leadingIndent(right[0] ?? "") &&
-    isDeepStrictEqual(listItemIndents(left), listItemIndents(right))
+    isDeepStrictEqual(leftListIndents, rightListIndents)
   );
 }
 
@@ -190,6 +202,7 @@ function trimLayoutWhitespace(line: string): string {
 function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
   if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
+  if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) return true;
   if (/^ {0,3}:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?$/.test(line)) return true;
   return /^\s{0,3}(?:#|>|\||<|=+\s*$|-+\s*$)/.test(line);
 }
@@ -204,7 +217,7 @@ function leadingIndent(line: string): string {
 
 function listItemIndents(lines: readonly string[]): readonly string[] {
   return lines.flatMap((line) => {
-    const match = /^(\s*)(?:[-*+]|\d+[.)])\s/.exec(line);
+    const match = /^(\s*)(?:[-*+]|\d+[.)])(?:\s|$)/.exec(line);
     return match === null ? [] : [match[1] ?? ""];
   });
 }

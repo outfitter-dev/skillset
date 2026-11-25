@@ -88,6 +88,16 @@ test("allows prose to reflow around unchanged Markdown code spans", () => {
   expect(isLayoutOnlyDifference("SKILL.md", nested, nested.replace("a  b", "a b"))).toBe(false);
 });
 
+test("preserves Markdown code spans even after a list item with a literal backtick", () => {
+  const list = '- A literal backtick: `\n- Run `printf "a  b"` to see both spaces.\n';
+  expect(isLayoutOnlyDifference("SKILL.md", list, list.replace("a  b", "a b"))).toBe(false);
+});
+
+test("does not pair backticks across a Markdown thematic break", () => {
+  const prose = 'A literal backtick: `\n* * *\nRun `printf "a  b"` to see both spaces.\n';
+  expect(isLayoutOnlyDifference("SKILL.md", prose, prose.replace("a  b", "a b"))).toBe(false);
+});
+
 test("does not treat breaking a Markdown table without leading pipes as reflow", () => {
   const table = "First | Second\n:--- | ---:\na | b\n";
   expect(isLayoutOnlyDifference("SKILL.md", table, table.replace("Second\n", "Second "))).toBe(false);
