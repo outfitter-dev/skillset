@@ -121,6 +121,30 @@ describe("named process-gone callbacks", () => {
     ]);
   });
 
+  test("checks overloaded local functions through their implementation", () => {
+    const file = "scripts/example.test.ts";
+    const assertion = "expect(() => probe()).toThrow();";
+    const content = [
+      "function probe(): void;",
+      "function probe(target: number): void;",
+      "function probe(target = pid) { process.kill(target, 0); }",
+      assertion,
+    ].join("\n");
+    expect(scanImmediateProcessGoneAssertions(file, content)).toEqual([
+      { file, line: 4, text: assertion },
+    ]);
+  });
+
+  test("does not flag an overloaded implementation without a probe", () => {
+    const content = [
+      "function probe(): void;",
+      "function probe(target: number): void;",
+      'function probe(target = pid) { process.kill(target, "SIGTERM"); }',
+      "expect(() => probe()).toThrow();",
+    ].join("\n");
+    expect(scanImmediateProcessGoneAssertions("scripts/example.test.ts", content)).toEqual([]);
+  });
+
   test.each([
     'const callback = () => { const probe = () => process.kill(pid, 0); throw new Error("unrelated"); }; expect(callback).toThrow();',
     'const callback = () => () => process.kill(pid, 0); expect(callback).toThrow();',

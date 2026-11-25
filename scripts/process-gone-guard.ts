@@ -79,11 +79,12 @@ export function scanImmediateProcessGoneAssertions(
       checker = ts.createProgram([file], options, host).getTypeChecker();
     }
     const declarations = checker.getSymbolAtLocation(expression)?.declarations;
+    if (declarations?.every(ts.isFunctionDeclaration)) {
+      const implementations = declarations.filter(({ body }) => body);
+      return implementations.length === 1 ? implementations[0] : undefined;
+    }
     if (declarations?.length !== 1) return undefined;
     const declaration = declarations[0]!;
-    if (ts.isFunctionDeclaration(declaration) && declaration.body) {
-      return declaration;
-    }
     if (
       seen.has(declaration) ||
       !ts.isVariableDeclaration(declaration) ||
