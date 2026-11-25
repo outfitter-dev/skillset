@@ -114,7 +114,14 @@ export async function runDirectoryRenameRace(
         result.stderr === "",
         `worker wrote stderr: ${result.stderr}`
       );
-      return (JSON.parse(result.stdout) as { kind?: unknown }).kind;
+      const kind = (JSON.parse(result.stdout) as { kind?: unknown } | null)
+        ?.kind;
+      if (kind !== "installed" && kind !== "occupied") {
+        throw new Error(
+          `worker ${workers[index]?.name} returned an invalid result kind`
+        );
+      }
+      return kind;
     });
     requireCondition(
       kinds.toSorted().join(",") === "installed,occupied",

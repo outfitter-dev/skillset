@@ -29,7 +29,8 @@ if (name === "a") {
 }
 if (name === "a" && mode !== "retained-winner") await rm(source, { recursive: true });
 if (mode === "changed-loser" && name === "b") await writeFile(source + "/marker.txt", "changed");
-console.log(JSON.stringify({ kind: (name === "a") !== (mode === "swapped-results") ? "installed" : "occupied" }));
+const kind = (name === "a") !== (mode === "swapped-results") ? "installed" : "occupied";
+console.log(JSON.stringify({ kind: mode === "array-loser-kind" && name === "b" ? [kind] : kind }));
 `;
 
 for (const [mode, message] of [
@@ -38,6 +39,7 @@ for (const [mode, message] of [
   ["invalid-json", "JSON"],
   ["stderr", "worker wrote stderr"],
   ["wrong-results", "expected installed,occupied"],
+  ["array-loser-kind", "worker b returned an invalid result kind"],
   ["bad-marker", "unexpected installed marker"],
   ["retained-winner", "winning source was not consumed"],
   ["changed-loser", "losing source marker changed"],
