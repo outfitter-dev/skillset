@@ -1312,6 +1312,10 @@
           "maxLength": 160,
           "pattern": "^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$",
           "type": "string"
+        },
+        "nativeAgents": {
+          "const": true,
+          "type": "boolean"
         }
       },
       "type": "object"

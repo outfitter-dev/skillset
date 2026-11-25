@@ -19,8 +19,9 @@ test("maximal workspace and rule frontmatter examples build and check cleanly", 
     ".skillset/plugins/skillset/skills/experimental/SKILL.md": skill("experimental"),
     ".skillset/plugins/skillset/skills/legacy-review/SKILL.md": skill("legacy-review"),
     ".skillset/plugins/skillset/skills/use-skillset/SKILL.md": skill("use-skillset"),
-    ".skillset/rules/source.md": `---\n${stringify(example("rule-frontmatter"))}---\n\n# Source rules\n`,
+    ".skillset/rules/packages/source.md": `---\n${stringify(example("rule-frontmatter"))}---\n\n# Source rules\n`,
     ".skillset/skills/use-skillset/SKILL.md": skill("use-skillset"),
+    "AGENTS.md": "# Native guidance\n",
     "package.json": JSON.stringify({ name: "@acme/api", version: "1.2.0" }),
     "packages/source/index.ts": "export {};\n",
     "skillset.yaml": stringify(example("workspace-config")),
@@ -29,11 +30,10 @@ test("maximal workspace and rule frontmatter examples build and check cleanly", 
   await buildSkillset(root);
   await expect(verifySkillset(root)).resolves.toBeDefined();
 
-  expect(await Bun.file(join(root, ".claude/rules/source.md")).exists()).toBe(true);
-  // The example rule is unscoped (rules/source.md), so its paths: narrow Claude
-  // and Cursor while Codex reads it from the root AGENTS.md [SET-557].
-  expect(await Bun.file(join(root, "AGENTS.md")).text()).toContain("# Source rules");
-  expect(await Bun.file(join(root, ".cursor/rules/source.mdc")).exists()).toBe(false);
+  expect(await Bun.file(join(root, ".claude/rules/packages/source.md")).exists()).toBe(true);
+  // Native mode keeps root guidance authored; the scoped example still renders nested output.
+  expect(await Bun.file(join(root, "packages/AGENTS.md")).text()).toContain("# Source rules");
+  expect(await Bun.file(join(root, ".cursor/rules/packages/source.mdc")).exists()).toBe(false);
 });
 
 function example(id: string): Record<string, unknown> {

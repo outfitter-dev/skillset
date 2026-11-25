@@ -88,11 +88,17 @@ function adoptionPayload(report: AdoptReport): SkillsetAdoptionReportPayload {
   const candidateIds = boundedUniqueSorted(
     report.candidates.map(adoptCandidateId)
   );
+  const wroteManifest = report.write &&
+    report.setupFiles.some((file) =>
+      file.path === "skillset.yaml" && (file.status === "create" || file.status === "update")
+    ) &&
+    report.writtenPaths.includes("skillset.yaml");
   const destinations = boundedUniqueSorted(
     report.imports.flatMap((entry) => [
       ...(entry.destination === undefined ? [] : [entry.destination]),
       ...entry.baselinePaths.map((path) => workspacePath(report.rootPath, path)),
-    ])
+    ]),
+    wroteManifest ? "skillset.yaml" : undefined
   );
   const importedUnitIds = boundedUniqueSorted(
     report.imports.flatMap((entry) =>
@@ -259,12 +265,16 @@ function workspacePath(rootPath: string, path: string): string {
   );
 }
 
-function boundedUniqueSorted(values: Iterable<string>): {
+function boundedUniqueSorted(values: Iterable<string>, requiredValue?: string): {
   readonly items: readonly string[];
   readonly total: number;
 } {
-  const unique = [...new Set(values)].sort((left, right) =>
-    left.localeCompare(right)
-  );
-  return { items: unique.slice(0, 200), total: unique.length };
+  const unique = new Set(values);
+  if (requiredValue !== undefined) unique.add(requiredValue);
+  const sorted = [...unique].sort((left, right) => left.localeCompare(right));
+  const items = sorted.slice(0, 200);
+  if (requiredValue !== undefined && !items.includes(requiredValue)) {
+    items[items.length - 1] = requiredValue;
+  }
+  return { items, total: unique.size };
 }

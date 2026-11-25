@@ -1,5 +1,6 @@
 import { isActivationCapability } from "./activation-readiness";
 import {
+  WORKSPACE_KEYS,
   AGENT_FRONTMATTER_KEYS,
   ALLOWED_TOOLS_TARGET_KEYS,
   CLI_EVENT_SCHEMA_VERSION,
@@ -3342,11 +3343,18 @@ function checkWorkspace(
   }
   checkAllowedKeys(
     value,
-    new Set(["cacheKey"]),
+    new Set(WORKSPACE_KEYS),
     path,
     "schema/workspace-config/workspace-key",
     diagnostics
   );
+  if (value.nativeAgents !== undefined && value.nativeAgents !== true) {
+    diagnostics.push(diagnostic(
+      `${path}.nativeAgents`,
+      "schema/workspace-config/native-agents",
+      "workspace.nativeAgents must be true when present"
+    ));
+  }
   if (
     value.cacheKey !== undefined &&
     (typeof value.cacheKey !== "string" ||

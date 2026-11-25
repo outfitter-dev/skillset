@@ -10,6 +10,9 @@ import {
   type SkillsetReport,
 } from "@skillset/schema";
 
+import { adoptSkillset } from "../adopt";
+import { persistAdoptionReceipt } from "../operation-receipt";
+
 const CLI = join(import.meta.dir, "..", "cli.ts");
 const PRIVATE_SENTINELS = {
   body: "private_sentinel_body_receipt_leak",
@@ -223,6 +226,77 @@ test("SET-445: adoption writes a receipt while plans and usage failures do not",
     kind: "adoption",
     result: { command: "init.adopt", exitCode: 0, ok: true },
   });
+});
+
+test.each(["create", "update"] as const)("adoption receipts retain a confirmed manifest %s exactly once", async (status) => {
+  const fixture = await receiptFixture();
+  const manifest = join(fixture.workspace, "skillset.yaml");
+  await writeFiles({
+    ...(status === "update" ? { [manifest]: "compile:\n  targets: [claude]\n" } : {}),
+    [join(fixture.workspace, "AGENTS.md")]: "# Project notes\n",
+  });
+  const args = ["init", "--root", fixture.workspace, "--adopt", "all", "--json"];
+  const planned = await runCli(fixture, ...args);
+  expect(planned.exitCode, planned.stderr).toBe(0);
+  expect(cliResult(planned.stdout).data).toMatchObject({ state: "planned", writes: [] });
+  expect(cliResult(planned.stdout).data).not.toHaveProperty("receipt");
+
+  const applied = await runCli(fixture, ...args, "--yes");
+  expect(applied.exitCode, applied.stderr).toBe(0);
+  const result = cliResult(applied.stdout);
+  const writes = result.data.writes;
+  expect(Array.isArray(writes) && writes.filter((path) => path === "skillset.yaml")).toEqual(["skillset.yaml"]);
+  expect(result.data).toMatchObject({
+    report: { setupFiles: expect.arrayContaining([{ path: "skillset.yaml", status }]) },
+  });
+  expect(await Bun.file(manifest).text()).toContain("nativeAgents: true");
+  const receipt = receiptFrom(result);
+  const shown = await runCli(fixture, "report", "show", receipt.id, "--json");
+  expect(shown.exitCode, shown.stderr).toBe(0);
+  expect(cliResult(shown.stdout).data.report).toMatchObject({
+    kind: "adoption",
+    payload: { destinations: ["skillset.yaml"], listCounts: { destinations: 1 } },
+  });
+
+  const repeated = await runCli(fixture, ...args, "--yes");
+  expect(repeated.exitCode, repeated.stderr).toBe(0);
+  const repeatedResult = cliResult(repeated.stdout);
+  expect(repeatedResult.data.writes).not.toContain("skillset.yaml");
+  const repeatedReceipt = await runCli(fixture, "report", "show", receiptFrom(repeatedResult).id, "--json");
+  expect(repeatedReceipt.exitCode, repeatedReceipt.stderr).toBe(0);
+  expect(cliResult(repeatedReceipt.stdout).data.report).toMatchObject({
+    payload: { destinations: [], listCounts: { destinations: 0 } },
+  });
+});
+
+test("a capped adoption receipt keeps the manifest and the uncapped destination count", async () => {
+  const fixture = await receiptFixture();
+  await writeFiles({ [join(fixture.workspace, "AGENTS.md")]: "# Project notes\n" });
+  const adopted = await adoptSkillset(fixture.workspace, { write: true });
+  expect(adopted.ok).toBe(true);
+  const importPaths = Array.from({ length: 201 }, (_, index) => `.skillset/baselines/unit-${index}`);
+  const receipt = await persistAdoptionReceipt({
+    ...adopted,
+    imports: [{
+      baselinePaths: importPaths,
+      candidate: { kind: "skills", path: ".agents/skills" },
+      detail: "Imported project notes",
+      ok: true,
+      renderResults: [],
+      units: [],
+      warnings: [],
+    }],
+  });
+  const shown = await runCli(fixture, "report", "show", receipt.id, "--json");
+  expect(shown.exitCode, shown.stderr).toBe(0);
+  const report = cliResult(shown.stdout).data.report as unknown as SkillsetReport;
+  expect(report).toMatchObject({
+    kind: "adoption",
+    payload: { listCounts: { destinations: 202 } },
+  });
+  if (report.kind !== "adoption") throw new Error("expected adoption receipt");
+  expect(report.payload.destinations).toHaveLength(200);
+  expect(report.payload.destinations.filter((path) => path === "skillset.yaml")).toEqual(["skillset.yaml"]);
 });
 
 test("SET-445: blocked guided adoption stores one failure receipt", async () => {

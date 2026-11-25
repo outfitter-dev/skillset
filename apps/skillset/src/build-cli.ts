@@ -90,7 +90,7 @@ export async function runBuildCommand({
     const { data: diff } = result;
     printDiffPlan(diff, "write confirmation required");
     if (!result.ok) {
-      console.error("skillset: build is blocked; resolve the reported errors before writing generated files");
+      console.error(`skillset: build is blocked; resolve ${result.outputState.blockers.map((blocker) => blocker.path ?? blocker.code).join(", ")} before writing generated files`);
       process.exitCode = 1;
       return;
     }
@@ -130,7 +130,7 @@ export async function runBuildCommand({
       console.log("skillset: build projects source to generated output");
       printDiagnostics(preview.diagnostics);
       printRepairVerdicts(preview.repair);
-      console.error("skillset: build is blocked; no generated files were written");
+      console.error(`skillset: build is blocked by ${preview.outputState.blockers.map((blocker) => blocker.path ?? blocker.code).join(", ")}; no generated files were written`);
     }
     process.exitCode = 1;
     return;

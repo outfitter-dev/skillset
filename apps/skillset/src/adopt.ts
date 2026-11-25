@@ -313,6 +313,9 @@ async function adoptResolvedRoot(
     ...(targets === undefined ? {} : { targets }),
   });
   const candidates = selectAdoptCandidates(survey.importCandidates, selectedCandidates);
+  if (survey.nativeAgents === true && candidates.some((candidate) => candidate.kind === "rules")) {
+    throw new Error("skillset: reconcile CLAUDE.md with AGENTS.md before adopting, or select only the non-rule candidates");
+  }
 
   if (!writeMode) {
     return {
@@ -435,9 +438,14 @@ async function adoptResolvedRoot(
     ...(init.baselinePath === undefined ? [] : [init.baselinePath]),
     ...imports.flatMap((result) => result.baselinePaths),
   ])];
+  const setupFiles = init.files.map((file): SetupFile =>
+    file.path === "skillset.yaml" && file.status === "exists" && marketplace?.catalog !== undefined
+      ? { ...file, status: "update" }
+      : file
+  );
   const writtenPaths = [...new Set([
     ...acquisitionWrittenPaths,
-    ...init.files.filter((file) => file.status === "create").map((file) => file.path),
+    ...setupFiles.filter((file) => file.status !== "exists").map((file) => file.path),
     ...imports.flatMap((entry) => [
       ...(entry.destination === undefined ? [] : [entry.destination]),
       ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
@@ -464,7 +472,7 @@ async function adoptResolvedRoot(
       lintErrors.length === 0 &&
       buildError === undefined,
     rootPath: init.rootPath,
-    setupFiles: init.files,
+    setupFiles,
     surveyDiagnostics: survey.surveyDiagnostics,
     surveySkips: survey.surveySkips,
     transformPreviews,
@@ -957,7 +965,9 @@ export function renderAdoptReportMarkdown(
   for (const file of report.setupFiles) {
     const status = file.status === "create"
       ? report.write ? "created" : "planned"
-      : "already present";
+      : file.status === "update"
+        ? report.write ? "updated" : "planned update"
+        : "already present";
     lines.push(`- ${status}: \`${file.path}\``);
   }
   for (const baseline of report.baselines) {

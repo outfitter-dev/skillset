@@ -185,7 +185,7 @@ export async function runInitCommand(
     const writes = yes
       ? [
           ...setup.files
-            .filter((file) => file.status === "create")
+            .filter((file) => file.status === "create" || file.status === "update")
             .map((file) => file.path),
           ...(setup.git?.status === "create" ? [setup.git.path] : []),
           ...(setup.baselinePath === undefined ? [] : [setup.baselinePath]),
