@@ -76,6 +76,22 @@ test("check reports whitespace edits inside inline commands as semantic edits", 
 });
 
 test.each([
+  ["a fence inside a list", '- ```sh\n  printf "a  b"\n  ```\n', "a  b", "a b"],
+  ["a fence with a blank line inside a list", '- ```sh\n\n  printf "a  b"\n  ```\n', "a  b", "a b"],
+  ["a list marker inside a code span", "Run `printf\n2. a  b` now.\n", "a  b", "a b"],
+  ["list padding that changes a code block", "- first\n\n      echo done\n", "- first", "-   first"],
+])("check keeps the ordinary edit warning for %s", async (_case, content, before, after) => {
+  const root = await formattingFixture(content);
+  const path = join(root, SKILL);
+  await writeFile(path, (await readFile(path, "utf8")).replace(before, after));
+
+  const result = await runSkillsetCli("check", "--root", root);
+  expect(result.exitCode).toBe(1);
+  expect(result.stdout).toContain(`target-side generated edit ${SKILL}`);
+  expect(result.stdout).not.toContain(`generated layout difference ${SKILL}`);
+});
+
+test.each([
   ["multi-column", "First | Second\n:--- | ---:\na | b\n"],
   ["single-column", "Run `skillset check` |\n:---: |\nReport |\n"],
 ])(

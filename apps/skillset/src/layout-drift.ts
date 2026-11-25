@@ -7,9 +7,9 @@
  * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
  * quotes, tables, reference definitions, HTML, indented code, and hard breaks)
- * are identical. Prose and list items must keep the same words, code spans,
- * and indentation at the start of each block. Everything else keeps its
- * ordinary drift classification. Isolated builds are not compared.
+ * are identical. List and indented blocks are compared as written because
+ * their meaning depends on Markdown container context. Other prose must keep
+ * the same words and code spans. Isolated builds are not compared.
  */
 
 import { resolve } from "node:path";
@@ -108,7 +108,7 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
   if (lines[0] === "---") {
     const end = lines.indexOf("---", 1);
     if (end > 0) {
-      segments.push({ kind: "verbatim", lines: lines.slice(0, end + 1) });
+      segments.push({ kind: "verbatim", lines: rawLines.slice(0, end + 1) });
       index = end + 1;
     }
   }
@@ -122,10 +122,10 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
     const fence = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
     if (fence !== undefined) {
       flushProse();
-      const block = [line];
+      const block = [rawLines[index] ?? ""];
       index += 1;
       while (index < lines.length) {
-        const inner = lines[index] ?? "";
+        const inner = rawLines[index] ?? "";
         block.push(inner);
         index += 1;
         if (inner.trimStart().startsWith(fence)) break;
@@ -142,6 +142,9 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
 }
 
 function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
+  if (leftRaw.some(hasListOrIndent) || rightRaw.some(hasListOrIndent)) {
+    return isDeepStrictEqual(leftRaw, rightRaw);
+  }
   const left = leftRaw.map(trimLayoutWhitespace);
   const right = rightRaw.map(trimLayoutWhitespace);
   if (left.some(isLineSensitive) || right.some(isLineSensitive)) {
@@ -149,15 +152,6 @@ function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly st
       ? isDeepStrictEqual(leftRaw, rightRaw)
       : isDeepStrictEqual(left, right);
   }
-  const leftParts = splitAtListItems(leftRaw);
-  const rightParts = splitAtListItems(rightRaw);
-  return leftParts.length === rightParts.length && leftParts.every((part, index) => {
-    const other = rightParts[index];
-    return other !== undefined && prosePartLayoutEqual(part, other);
-  });
-}
-
-function prosePartLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
   const leftText = leftRaw.join("\n");
   const rightText = rightRaw.join("\n");
   if (leftText.includes("\\`") || rightText.includes("\\`")) {
@@ -165,23 +159,12 @@ function prosePartLayoutEqual(leftRaw: readonly string[], rightRaw: readonly str
   }
   return (
     collapseWhitespace(leftText) === collapseWhitespace(rightText) &&
-    leadingIndent(leftText) === leadingIndent(rightText) &&
     isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))
   );
 }
 
-function splitAtListItems(lines: readonly string[]): readonly (readonly string[])[] {
-  const parts: string[][] = [];
-  let part: string[] = [];
-  for (const line of lines) {
-    if (part.length > 0 && /^\s*(?:[-*+]|\d+[.)])[ \t]/.test(line)) {
-      parts.push(part);
-      part = [];
-    }
-    part.push(line);
-  }
-  if (part.length > 0) parts.push(part);
-  return parts;
+function hasListOrIndent(line: string): boolean {
+  return /^(?:\s|(?:[-*+]|\d+[.)])(?:[ \t]|$))/.test(line);
 }
 
 function codeSpans(text: string): readonly string[] {
@@ -216,8 +199,6 @@ function trimLayoutWhitespace(line: string): string {
 function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
   if (line.includes("]:")) return true;
-  if (/^\s*(?:[-*+]|\d+[.)])(?:$| {5}| *\t)/.test(line)) return true;
-  if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
   if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) return true;
   if (
     line.includes("|") &&
@@ -228,8 +209,4 @@ function isLineSensitive(line: string): boolean {
 
 function collapseWhitespace(text: string): string {
   return text.trim().replace(/\s+/g, " ");
-}
-
-function leadingIndent(line: string): string {
-  return /^\s*/.exec(line)?.[0] ?? "";
 }

@@ -104,11 +104,20 @@ test("preserves spacing that makes a Markdown list item an indented code block",
   expect(isLayoutOnlyDifference("SKILL.md", "-     echo  foo\n", "-     echo foo\n")).toBe(false);
 });
 
-test("allows prose in a Markdown bullet to reflow around an unchanged code span", () => {
+test("keeps Markdown list reflow on the ordinary drift path", () => {
   const list = '- Run `printf "a  b"` to see both spaces.\n- Leave this item alone.\n';
   const wrapped = list.replace(" to see", "\n  to see");
-  expect(isLayoutOnlyDifference("SKILL.md", list, wrapped)).toBe(true);
+  expect(isLayoutOnlyDifference("SKILL.md", list, wrapped)).toBe(false);
   expect(isLayoutOnlyDifference("SKILL.md", list, wrapped.replace("a  b", "a b"))).toBe(false);
+});
+
+test.each([
+  ["a fence in a list", '- ```sh\n  printf "a  b"\n  ```\n', "a  b", "a b"],
+  ["a fence after a blank line in a list", '- ```sh\n\n  printf "a  b"\n  ```\n', "a  b", "a b"],
+  ["a list marker in a code span", "Run `printf\n2. a  b` now.\n", "a  b", "a b"],
+  ["list padding", "- first\n\n      echo done\n", "- first", "-   first"],
+])("does not classify edits to %s as layout-only", (_case, expected, before, after) => {
+  expect(isLayoutOnlyDifference("SKILL.md", expected, expected.replace(before, after))).toBe(false);
 });
 
 test("does not pair backticks across a Markdown thematic break", () => {
