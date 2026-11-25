@@ -1,6 +1,6 @@
 # Bun upgrade baseline — SET-770
 
-> **Disposition: archived snapshot.** Historical evidence, not current qualification or authorization.
+> **Disposition: Superseded by the Bun 1.4.4 compatibility and qualification records.** Historical evidence, not current qualification or authorization.
 
 Status: initial evidence captured; full-gate qualification remains incomplete.
 

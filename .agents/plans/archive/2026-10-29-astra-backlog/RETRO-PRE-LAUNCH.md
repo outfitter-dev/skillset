@@ -1,6 +1,6 @@
 # Execution ledger
 
-> **Disposition: archived snapshot.** Historical evidence, not current qualification or authorization.
+> **Disposition: Superseded by the execution retrospective.** Historical evidence, not current qualification or authorization.
 
 ## Initial preparation checkpoint (historical)
 

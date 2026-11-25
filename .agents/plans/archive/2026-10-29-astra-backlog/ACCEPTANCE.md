@@ -1,6 +1,6 @@
 # Original six-project acceptance refresh — 2026-11-01 UTC
 
-> **Disposition: archived snapshot.** Historical evidence, not current qualification or authorization.
+> **Disposition: Completed acceptance snapshot.** Historical evidence, not current qualification or authorization.
 
 Acceptance snapshot at exact `8483eb123460f2309a53e3c848a7700daadda10d`, based on the original GOAL/PLAN/REFS, prior outcome census, campaign evidence, current ancestry and bounded live Linear reads. One owned implementation lineage, delivered through dependent draft stacks; draft evidence below is not merged, released, runtime-qualified, or whole-project acceptance. The original eligible denominator is six projects' eligible, non-deferred work plus explicitly authorized product implementation of Claude/OpenAI hook setup. No percentage is defensible: the original 321-record snapshot includes pre-campaign Done, parents, blocked/deferred and subsequently added issues; 78 were unassessed in that snapshot and were not all refreshed here. Counts of records or PRs are not outcome weights.
 

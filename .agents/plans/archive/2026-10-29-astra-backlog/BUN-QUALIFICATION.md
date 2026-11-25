@@ -1,6 +1,6 @@
 # Bun 1.4.4 qualification — SET-772
 
-> **Disposition: archived snapshot.** Historical evidence, not current qualification or authorization.
+> **Disposition: Completed evidence snapshot; aggregate and native release qualification were still incomplete.** Historical evidence, not current qualification or authorization.
 
 Status: runtime and compatibility evidence supports continued development;
 aggregate and native release qualification remain incomplete. Matt explicitly

@@ -1,6 +1,6 @@
 # Astra backlog execution records
 
-> **Disposition: archived snapshots.** These records describe the original
+> **Disposition: completed archive packet.** These records describe the original
 > campaign and the revisions it tested. They do not qualify the current
 > checkout, establish live PR state, or authorize delivery or release.
 

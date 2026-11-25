@@ -1,6 +1,6 @@
 # Execution ledger
 
-> **Disposition: archived snapshot.** Historical evidence, not current qualification or authorization.
+> **Disposition: Completed historical snapshot of the execution ledger.** Historical evidence, not current qualification or authorization.
 
 ### SET-442 exact Claude manifest identity qualification — October 30
 
