@@ -54,3 +54,15 @@ test("SET-488: delegated condition and registry inventory mutations change the g
   const inventories = await read("packages/registry/src/claude-marketplace-inventories.ts");
   expect(marketplaceDeclarations(inventories.replace('archive: ["url"]', 'archive: ["url", "sha256"]'))).not.toEqual(marketplaceDeclarations(inventories));
 });
+
+test("SET-488: coverage guards delegated marketplace path routing", async () => {
+  const dependency = coverage.dependencies.find(({ path }) => path === "packages/core/src/plugin-output.ts");
+  expect(dependency).toBeDefined();
+  if (dependency === undefined) throw new Error("missing marketplace path routing dependency");
+  const source = await read(dependency.path);
+  const changed = source.replace('PLUGIN_MARKETPLACE_FILE = "marketplace.json"', 'PLUGIN_MARKETPLACE_FILE = "catalog.json"');
+  expect(changed).not.toBe(source);
+  const declarations = marketplaceDeclarations(changed);
+  const selected = Object.fromEntries(dependency.declarations.map((name) => [name, declarations[name]]));
+  expect(marketplaceDigest(JSON.stringify(selected))).not.toBe(dependency.hash);
+});

@@ -277,6 +277,19 @@
   ],
   "dependencies": [
     {
+      "path": "packages/core/src/plugin-output.ts",
+      "declarations": [
+        "function:isTargetMarketplacePath",
+        "function:pluginManifestDirectory",
+        "function:isRelativeFile",
+        "function:chatGptMarketplacePath",
+        "variable:PLUGIN_MARKETPLACE_FILE"
+      ],
+      "hash": "sha256:62b7af6470132b2766e22e196da6ffd8564d669c1a67d8aad04422264bff70e3",
+      "ruleIds": [],
+      "reason": "Shared marketplace path matcher and its local dependencies; routing only, not a provider predicate."
+    },
+    {
       "path": "packages/core/src/hooks.ts",
       "declarations": [],
       "hash": "sha256:1159301325fd318a787631a8e3373805596392b2ab14a42ed3b9531ca459d8fe",
