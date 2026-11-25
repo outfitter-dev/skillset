@@ -1,3 +1,5 @@
+import { checkClaudeMarketplaceEntryHeaders } from "./claude-marketplace-entry-fields";
+import { CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES, CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES } from "@skillset/provider-evidence";
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
 import { CLAUDE_PLUGIN_FIELD_TYPES } from "./manifest-field-contracts";
 import {
@@ -8,7 +10,6 @@ import {
   issue,
   jsonSchemaSummary,
   parseJsonRecord,
-  type FieldType,
   type ProviderFormatConformanceFile,
   type ProviderFormatConformanceIssue,
   type ProviderFormatConformanceIssueCode,
@@ -119,6 +120,7 @@ export function checkClaudeMarketplace(
     );
   }
   if (Array.isArray(parsed.value.plugins)) {
+    const nameIndexes = new Map<string, number>();
     for (const [index, plugin] of parsed.value.plugins.entries()) {
       const prefix = `plugins[${index}]`;
       if (!isJsonRecord(plugin)) {
@@ -133,7 +135,27 @@ export function checkClaudeMarketplace(
         );
         continue;
       }
-      issues.push(...checkClaudeMarketplacePlugin(file, plugin, prefix));
+      if (typeof plugin.name === "string") {
+        const firstIndex = nameIndexes.get(plugin.name);
+        if (firstIndex === undefined) nameIndexes.set(plugin.name, index);
+        else issues.push(issue(
+          file, "claude", "claude-marketplace-schema", "invalid-shape",
+          `destination field ${prefix}.name duplicates plugins[${firstIndex}].name: ${plugin.name}`
+        ));
+      }
+      const pluginIssues = checkClaudeMarketplacePlugin(file, plugin, prefix);
+      issues.push(
+        ...pluginIssues,
+        ...checkUnknownFields(
+          file,
+          plugin,
+          "claude",
+          "claude-marketplace-schema",
+          CLAUDE_MARKETPLACE_PLUGIN_FIELDS,
+          prefix
+        ),
+        ...checkClaudeMarketplaceEntryHeaders(file, plugin, prefix, pluginIssues.length === 0)
+      );
       if (isJsonRecord(plugin.author)) {
         issues.push(
           ...checkClaudeAuthorObject(
@@ -167,14 +189,6 @@ function checkClaudeMarketplacePlugin(
       "claude",
       "claude-marketplace-schema",
       CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES,
-      prefix
-    ),
-    ...checkUnknownFields(
-      file,
-      plugin,
-      "claude",
-      "claude-marketplace-schema",
-      CLAUDE_MARKETPLACE_PLUGIN_FIELDS,
       prefix
     ),
     ...checkClaudeMarketplacePluginArrays(file, plugin, prefix)
@@ -240,7 +254,9 @@ function checkClaudeMarketplacePlugin(
   }
 
   const sourceKind = source.source as keyof typeof CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS;
-  const requiredFields = CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS[sourceKind];
+  const requiredFields = Object.hasOwn(CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, sourceKind)
+    ? CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS[sourceKind]
+    : undefined;
   if (requiredFields === undefined) {
     report(
       "invalid-shape",
@@ -380,27 +396,7 @@ function checkClaudeMarketplacePlugin(
   return issues;
 }
 
-const CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS = {
-  archive: ["url"],
-  command: ["command"],
-  github: ["repo"],
-  "git-subdir": ["url", "path"],
-  npm: ["package"],
-  url: ["url"],
-} as const;
-
-const CLAUDE_MARKETPLACE_SOURCE_FIELD_TYPES = {
-  archive: { sha256: "string", url: "string" },
-  command: { command: "string", mode: "string", timeout: "number" },
-  github: { ref: "string", repo: "string", sha: "string" },
-  "git-subdir": { path: "string", ref: "string", sha: "string", url: "string" },
-  npm: { package: "string", registry: "string", version: "string" },
-  url: { ref: "string", sha: "string", url: "string" },
-} as const satisfies Readonly<
-  Record<keyof typeof CLAUDE_MARKETPLACE_SOURCE_REQUIRED_FIELDS, Readonly<Record<string, FieldType>>>
->;
-
-const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = CLAUDE_PLUGIN_FIELD_TYPES;
+const CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES = { ...CLAUDE_PLUGIN_FIELD_TYPES, ...CLAUDE_MARKETPLACE_HEADER_FIELD_TYPES };
 
 const CLAUDE_MARKETPLACE_PLUGIN_FIELDS = [
   ...Object.keys(CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES),
