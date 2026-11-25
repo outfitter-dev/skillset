@@ -1,0 +1,113 @@
+[
+  {
+    "path": "browserbase-claude-code-plugin/adopted/.skillset/changes/state.json",
+    "changedJsonPointers": [
+      "/scopes/config:root/updatedAt",
+      "/scopes/plugin.browserbase.claude.hooks:hooks/hooks.json/updatedAt",
+      "/scopes/plugin.browserbase.companion:README.md/updatedAt",
+      "/scopes/plugin.browserbase.companion:scripts/updatedAt",
+      "/scopes/plugin.browserbase.config:root/updatedAt",
+      "/scopes/plugin:browserbase/updatedAt",
+      "/scopes/rule:RULES/updatedAt"
+    ]
+  },
+  {
+    "path": "claude-review-loop/adopted/.skillset/changes/state.json",
+    "changedJsonPointers": [
+      "/scopes/config:root/updatedAt",
+      "/scopes/plugin.review-loop.claude.hooks:hooks/hooks.json/updatedAt",
+      "/scopes/plugin.review-loop.claude.hooks:hooks/stop-hook.sh/updatedAt",
+      "/scopes/plugin.review-loop.companion:commands/updatedAt",
+      "/scopes/plugin.review-loop.companion:scripts/updatedAt",
+      "/scopes/plugin.review-loop.config:root/updatedAt",
+      "/scopes/plugin:review-loop/updatedAt",
+      "/scopes/rule:RULES/updatedAt"
+    ]
+  },
+  {
+    "path": "cursor-browser-motion-plugin/adopted/.skillset/changes/state.json",
+    "changedJsonPointers": [
+      "/scopes/config:root/updatedAt",
+      "/scopes/plugin.browser-motion-proof.companion:README.md/updatedAt",
+      "/scopes/plugin.browser-motion-proof.config:root/updatedAt",
+      "/scopes/plugin.browser-motion-proof.feature:mcp/updatedAt",
+      "/scopes/plugin.browser-motion-proof.skill:browser-motion-proof/updatedAt",
+      "/scopes/plugin:browser-motion-proof/updatedAt",
+      "/scopes/rule:RULES/updatedAt"
+    ]
+  },
+  {
+    "path": "emilkowalski-skills/adopted/.skillset/changes/state.json",
+    "changedJsonPointers": [
+      "/scopes/config:root/updatedAt",
+      "/scopes/rule:RULES/updatedAt",
+      "/scopes/skill:animate/updatedAt",
+      "/scopes/skill:animation-vocabulary/updatedAt",
+      "/scopes/skill:apple-design/updatedAt",
+      "/scopes/skill:emil-design-eng/updatedAt",
+      "/scopes/skill:find-animation-opportunities/updatedAt",
+      "/scopes/skill:improve-animations/updatedAt",
+      "/scopes/skill:pick-ui-library/updatedAt",
+      "/scopes/skill:prototype/updatedAt",
+      "/scopes/skill:review-animations/updatedAt"
+    ]
+  },
+  {
+    "path": "last30days-skill/adopted/.skillset/changes/state.json",
+    "changedJsonPointers": [
+      "/scopes/config:root/updatedAt",
+      "/scopes/plugin.last30days.claude.hooks:hooks/hooks.json/updatedAt",
+      "/scopes/plugin.last30days.claude.hooks:hooks/scripts/check-config.sh/updatedAt",
+      "/scopes/plugin.last30days.companion:README.md/updatedAt",
+      "/scopes/plugin.last30days.config:root/updatedAt",
+      "/scopes/plugin.last30days.skill:last30days/updatedAt",
+      "/scopes/plugin:last30days/updatedAt",
+      "/scopes/rule:RULES/updatedAt"
+    ]
+  },
+  {
+    "path": "mattpocock-skills/adopted/.skillset/changes/state.json",
+    "changedJsonPointers": [
+      "/scopes/config:root/updatedAt",
+      "/scopes/plugin.mattpocock-skills.companion:README.md/updatedAt",
+      "/scopes/plugin.mattpocock-skills.companion:scripts/updatedAt",
+      "/scopes/plugin.mattpocock-skills.config:root/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:ask-matt/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:codebase-design/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:decision-mapping/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:design-an-interface/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:diagnosing-bugs/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:domain-modeling/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:edit-article/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:git-guardrails-claude-code/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:grill-me/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:grill-with-docs/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:grilling/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:handoff/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:implement/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:improve-codebase-architecture/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:migrate-to-shoehorn/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:obsidian-vault/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:prototype/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:qa/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:request-refactor-plan/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:resolving-merge-conflicts/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:review/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:scaffold-exercises/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:setup-matt-pocock-skills/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:setup-pre-commit/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:tdd/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:teach/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:to-issues/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:to-prd/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:triage/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:ubiquitous-language/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:writing-beats/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:writing-fragments/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:writing-great-skills/updatedAt",
+      "/scopes/plugin.mattpocock-skills.skill:writing-shape/updatedAt",
+      "/scopes/plugin:mattpocock-skills/updatedAt",
+      "/scopes/rule:RULES/updatedAt"
+    ]
+  }
+]

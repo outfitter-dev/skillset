@@ -1,0 +1,66 @@
+{
+  "browserbase-claude-code-plugin": {
+    "beforeFiles": 8,
+    "afterFiles": 8,
+    "added": [],
+    "removed": [],
+    "changed": [
+      "projection-0/.claude-plugin/plugin.json",
+      "projection-0/hooks/hooks.json"
+    ],
+    "identical": 6
+  },
+  "claude-review-loop": {
+    "beforeFiles": 7,
+    "afterFiles": 8,
+    "added": [
+      "projection-0/hooks/stop-hook.sh"
+    ],
+    "removed": [],
+    "changed": [
+      "projection-0/.claude-plugin/plugin.json",
+      "projection-0/hooks/hooks.json"
+    ],
+    "identical": 5
+  },
+  "compound-engineering-plugin": {
+    "beforeFiles": 0,
+    "afterFiles": 0,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "identical": 0
+  },
+  "cursor-browser-motion-plugin": {
+    "beforeFiles": 8,
+    "afterFiles": 8,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "identical": 8
+  },
+  "emilkowalski-skills": {
+    "beforeFiles": 0,
+    "afterFiles": 0,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "identical": 0
+  },
+  "last30days-skill": {
+    "beforeFiles": 0,
+    "afterFiles": 0,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "identical": 0
+  },
+  "mattpocock-skills": {
+    "beforeFiles": 64,
+    "afterFiles": 64,
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "identical": 64
+  }
+}
