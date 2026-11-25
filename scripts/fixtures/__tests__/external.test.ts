@@ -125,28 +125,16 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(report.stages.map((stage) => [stage.stage, stage.ok])).toEqual([
     ["init", true],
     ["import", true],
-    ["import", true],
     ["lint", true],
     ["build", true],
     ["purity", true],
     ["compare", true],
   ]);
   expect(report.ok).toBe(true);
-  // The root AGENTS.md candidate now actually imports: adopt copies the body
-  // into .skillset/rules/ and adds source-origin metadata.
-  expect(
-    report.stages.find(
-      (stage) =>
-        stage.stage === "import" &&
-        stage.detail.includes("rules:AGENTS.md")
-    )?.detail
-  ).toContain(".skillset/rules/agents.md");
-  const importedAgents = await readFile(join(clone, ".skillset/rules/agents.md"), "utf8");
-  expect(importedAgents).toContain("skillset:\n  origin:\n    path: AGENTS.md");
-  expect(importedAgents).toContain("# Demo agents\n\nHandwritten instructions.");
+  expect(await readFile(join(clone, "AGENTS.md"), "utf8")).toBe(marketplaceFiles()["AGENTS.md"]!);
+  expect(await Bun.file(join(clone, ".skillset/rules/agents.md")).exists()).toBe(false);
   expect(report.survey.candidates).toEqual([
     { kind: "plugin", path: "plugins/demo" },
-    { kind: "rules", path: "AGENTS.md" },
   ]);
   expect(report.survey.diagnostics).toEqual([]);
   expect(report.survey.skips).toEqual([
@@ -197,14 +185,12 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(markdown).toContain("## Conformance Evidence");
   expect(markdown).toContain("opt-in external adoption conformance evidence");
   expect(markdown).toContain("## Survey");
-  expect(markdown).toContain("- candidate rules: `AGENTS.md`");
+  expect(markdown).not.toContain("- candidate rules: `AGENTS.md`");
   expect(markdown).toContain("- candidate plugin: `plugins/demo`");
   expect(markdown).toContain(
     "- skipped commands `.claude/commands`: project-level commands have no portable source home yet"
   );
-  expect(markdown).toContain(
-    "rules:AGENTS.md -> .skillset/rules/agents.md"
-  );
+  expect(markdown).not.toContain("rules:AGENTS.md ->");
   expect(markdown).toContain("## Round-trip (target projections, report-only)");
   expect(markdown).toContain("### plugin demo (claude)");
   expect(markdown).toContain("### plugin demo (cursor)");
@@ -235,7 +221,6 @@ test("runExternalRepo passes when re-run on the same clone", async () => {
     second.stages.map((stage) => [stage.stage, stage.ok])
   ).toEqual([
     ["init", true],
-    ["import", true],
     ["import", true],
     ["lint", true],
     ["build", true],
@@ -271,7 +256,7 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
 
 test("SET-378: runExternalRepo preserves reports after a graph-load build failure", async () => {
   const clone = await gitFixture({
-    "AGENTS.md": "---\ndialect: 1\n---\n\nImported instructions.\n",
+    "CLAUDE.md": "---\ndialect: 1\n---\n\nImported instructions.\n",
   });
 
   const report = await runExternalRepo("invalid-instructions", clone, ["claude"]);

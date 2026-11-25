@@ -23,6 +23,14 @@ This is expected when `init` only surveyed the repository. Before confirming a p
 
 See [Import Existing Work](guides/importing.md) for the difference between whole-repository adoption and direct import.
 
+## The First Build Finds Existing Root Guidance
+
+An unmanaged root `AGENTS.md` becomes authored guidance automatically. A successful live build records `workspace.nativeAgents: true` in `skillset.yaml` and preserves the file byte for byte. If `.skillset/RULES.md` or unscoped `.skillset/rules/*.md` also exists, consolidate the root prose in `AGENTS.md` before building; scoped rules remain separate. A root `AGENTS.md` already claimed by a lock stays generated, so hand edits there still require recovery review.
+
+If a generated marker remains but the matching lock ownership is missing, restore the original lock and rule source, or review and move the orphaned file aside before retrying. The marker alone does not authorize overwriting it. Adoption also blocks importing a root `CLAUDE.md` as an unscoped rule in native mode; reconcile its prose into `AGENTS.md` first, or select only non-rule candidates.
+
+Other unmanaged output collisions still block the build. Inspect each named path and preserve its content before choosing recovery; preview warnings do not promise that ordinary build will back up or overwrite it. `status` identifies blocked output instead of recommending `build --yes` as a cure. See [native root guidance](reference/source/rules.md#native-root-guidance) and [Output Safety](reference/features/output-safety.md).
+
 ## Import refused a source path
 
 The path may be ambiguous, unsupported, unsafe, or already owned by existing source. Inspect the reported kind and [destination](glossary.md#destination); add an explicit `--kind` only when you know the directory shape. There is no overwrite mode for existing canonical source.
@@ -58,6 +66,8 @@ skillset build --repair --yes
 ```
 
 Repair compares each managed output with its recorded hash and a fresh render. It restores missing output and refuses to overwrite a hand edit. Name paths to limit the repair (`skillset build --repair <path>`). Add `--discard-edits` only when the hand edits should be thrown away; use `skillset reconcile` instead when an edit should become source. If both the generated file and its source changed since the last build, repair refuses that path even with `--discard-edits`; settle the source change first, then repair again. See the [`build` reference](reference/cli/build.md) and [Output Safety](reference/features/output-safety.md).
+
+Repair writes all selected paths or none. A preserved hand edit, a diverged file, or an untrusted lock blocks every write in that selection, including restoration of a missing file. A named path selects every file in the same lock item, so narrowing only helps when the safe files belong to independent lock items. Review the narrower preview before applying it, or resolve the blocking condition first.
 
 ## A formatter rewrote generated output
 

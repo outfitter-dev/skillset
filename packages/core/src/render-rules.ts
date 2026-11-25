@@ -711,6 +711,7 @@ async function renderRuleBody(
   // renders relative to the output are not rebased twice.
   const linkBase = { outputDir: outputDirectory(outputPath), scopeDir: rule.scopeDir };
   const body = rebaseRuleLinks(normalizeRuleBody(rule.body), linkBase);
+  if (graph.root.workspace.nativeAgents === true && rule.rootFrontPage) return body;
   return preprocessText(body, {
     transformPartialContent: (content) => rebaseRuleLinks(content, linkBase),
     frontmatter: rule.frontmatter,

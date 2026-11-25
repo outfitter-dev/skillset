@@ -13,7 +13,8 @@ import {
   directoryExists,
   MISSING_PATH_ENOENT,
 } from "@skillset/core/internal/fs-existence";
-import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import { MissingNativeRootRuleSourceError } from "@skillset/core/internal/native-root-rules";
+import { detectWorkspaceSourceDir, loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SchemaJsonRecord } from "@skillset/schema";
 
@@ -24,6 +25,7 @@ import { codexAgentsMdFormat } from "@skillset/provider-evidence";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
+  readonly nativeRootGuidance?: boolean;
   readonly ignoredRoots: readonly string[];
   readonly outputRoots: readonly string[];
   readonly rootPath: string;
@@ -70,6 +72,7 @@ export interface DevWatchScheduler {
 export interface DevWatchRuntime {
   readonly addSignalListeners: (listener: () => void) => void;
   readonly collectDirectories: typeof collectDevWatchDirectories;
+  readonly createPlan?: typeof createDevWatchPlan;
   readonly removeSignalListeners: (listener: () => void) => void;
   readonly runOnce: typeof runDevWatchOnce;
   readonly scheduler: DevWatchScheduler;
@@ -101,6 +104,12 @@ export function createDevWatchJsonlStream(output: Pick<NodeJS.WritableStream, "w
 
 const DEFAULT_DEBOUNCE_MS = 200;
 const OPERATIONAL_IGNORE_ROOTS = [".skillset/cache", ".skillset/snapshots"] as const;
+const ROOT_GUIDANCE_PATH = "AGENTS.md";
+
+interface PendingRootGuidance {
+  checkRequestedRevision?: number;
+  retriedRevision?: number;
+}
 
 const defaultScheduler: DevWatchScheduler = {
   clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
@@ -111,26 +120,52 @@ export async function createDevWatchPlan(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<DevWatchPlan> {
-  const graph = await loadBuildGraph(rootPath, options);
-  const configPaths = sortedUnique([
-    relativePath(graph.rootPath, graph.rootConfigPath),
-    relativePath(graph.rootPath, graph.rootManifestPath),
-  ]);
+  try {
+    const graph = await loadBuildGraph(rootPath, options);
+    return makeDevWatchPlan(
+      graph.rootPath,
+      graph.sourceRoot,
+      [graph.rootConfigPath, graph.rootManifestPath],
+      graph.outputRoots,
+      graph.nativeRootRuleSource !== undefined
+    );
+  } catch (error) {
+    if (!(error instanceof MissingNativeRootRuleSourceError)) throw error;
+    // Keep listening for the declared input before a valid graph exists.
+    return makeDevWatchPlan(
+      rootPath,
+      await detectWorkspaceSourceDir(rootPath, options),
+      [error.configPath],
+      [],
+      true
+    );
+  }
+}
+
+function makeDevWatchPlan(
+  rootPath: string,
+  sourceRoot: string,
+  absoluteConfigPaths: readonly string[],
+  outputRoots: readonly string[],
+  nativeRootGuidance: boolean
+): DevWatchPlan {
+  const configPaths = sortedUnique(absoluteConfigPaths.map((path) => relativePath(rootPath, path)));
   const watchRoots = sortedUnique([
     ...configPaths.map((path) => normalizeRelativePath(dirname(path))),
-    graph.sourceRoot,
+    sourceRoot,
   ]);
   const ignoredRoots = sortedUnique([
     ...OPERATIONAL_IGNORE_ROOTS,
-    ...graph.outputRoots.filter((outputRoot) => outputRoot !== "."),
+    ...outputRoots.filter((outputRoot) => outputRoot !== "."),
   ]);
 
   return {
     configPaths,
+    ...(nativeRootGuidance ? { nativeRootGuidance: true } : {}),
     ignoredRoots,
-    outputRoots: graph.outputRoots,
-    rootPath: graph.rootPath,
-    sourceRoot: graph.sourceRoot,
+    outputRoots,
+    rootPath,
+    sourceRoot,
     watchRoots,
   };
 }
@@ -142,6 +177,8 @@ export function shouldRunDevPreviewForPath(
   if (eventPath === undefined || eventPath.length === 0) return true;
   const relativeEventPath = normalizeEventPath(plan.rootPath, eventPath);
   if (relativeEventPath === undefined) return false;
+  if (plan.nativeRootGuidance === true &&
+    (relativeEventPath === "AGENTS.md" || relativeEventPath === "AGENTS.override.md")) return true;
   if (isIgnoredDevWatchPath(plan, relativeEventPath)) return false;
   return isSameOrInside(relativeEventPath, plan.sourceRoot) || plan.configPaths.includes(relativeEventPath);
 }
@@ -184,8 +221,9 @@ export async function runDevWatchPreview(
   options: SkillsetOptions = {},
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan: DevWatchPlan | undefined;
   try {
+    plan = await createDevWatchPlan(rootPath, options);
     const lint = await lintSkillset(rootPath, options);
     const diff = await diffSkillsetResult(rootPath, options);
     return {
@@ -214,9 +252,9 @@ export async function runDevWatchPreview(
       error: error instanceof Error ? error.message : String(error),
       mode: "preview",
       ok: false,
-      outputRoots: plan.outputRoots,
+      outputRoots: plan?.outputRoots ?? [],
       reason,
-      sourceRoot: plan.sourceRoot,
+      sourceRoot: plan?.sourceRoot ?? ".skillset",
       warnings: [],
     };
   }
@@ -227,8 +265,9 @@ export async function runDevWatchApply(
   options: SkillsetOptions = {},
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  let plan: DevWatchPlan | undefined;
   try {
+    plan = await createDevWatchPlan(rootPath, options);
     const lint = await lintSkillset(rootPath, options);
     const build = await buildSkillsetResult(rootPath, options);
     return {
@@ -252,9 +291,9 @@ export async function runDevWatchApply(
       error: error instanceof Error ? error.message : String(error),
       mode: "write",
       ok: false,
-      outputRoots: plan.outputRoots,
+      outputRoots: plan?.outputRoots ?? [],
       reason,
-      sourceRoot: plan.sourceRoot,
+      sourceRoot: plan?.sourceRoot ?? ".skillset",
       warnings: [],
     };
   }
@@ -335,7 +374,13 @@ export async function runDevWatch(
     watch,
   }
 ): Promise<void> {
-  const plan = await createDevWatchPlan(rootPath, options);
+  const createPlan = runtime.createPlan ?? createDevWatchPlan;
+  let plan = await createPlan(rootPath, options);
+  let configRevision = 0;
+  let plannedConfigRevision = 0;
+  let failedConfigRevision: number | undefined;
+  let queuedRootRetryRevision: number | undefined;
+  let pendingRootGuidance: PendingRootGuidance | undefined;
   const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
   const recordStreamFailure = (error: unknown, stage: string): void => {
     stream?.failed(error instanceof Error ? error.message : String(error), stage);
@@ -345,11 +390,51 @@ export async function runDevWatch(
   };
   if (stream === undefined) output.write(renderDevWatchStart(plan, mode));
   else stream.started(plan, mode);
-  const writeOperation = async (reason = "initial") => {
+  const refreshPlan = async (revision: number) => {
+    try {
+      plan = await createPlan(rootPath, options);
+      plannedConfigRevision = revision;
+      failedConfigRevision = undefined;
+    } catch {
+      // Keep the last valid plan while a transition is temporarily incomplete.
+      failedConfigRevision = revision;
+    }
+  };
+  const flushPendingRootGuidance = () => {
+    const pending = pendingRootGuidance;
+    if (stopping || pending === undefined) return;
+    if (plannedConfigRevision !== configRevision) {
+      if (
+        failedConfigRevision === configRevision &&
+        pending.retriedRevision !== configRevision &&
+        queuedRootRetryRevision !== configRevision
+      ) {
+        retryRootGuidance(configRevision);
+      }
+    } else if (!shouldRunDevPreviewForPath(plan, ROOT_GUIDANCE_PATH)) {
+      pendingRootGuidance = undefined;
+    } else if (pending.checkRequestedRevision !== configRevision) {
+      pending.checkRequestedRevision = configRevision;
+      debouncer.trigger(ROOT_GUIDANCE_PATH);
+    }
+  };
+  const writeOperation = async (reason: string) => {
+    const observedConfigRevision = configRevision;
+    const observedRootGuidance = pendingRootGuidance;
+    failedConfigRevision = undefined;
     const report = await runtime.runOnce(rootPath, options, mode, reason);
+    await refreshPlan(observedConfigRevision);
     if (initialSignalReceived) return;
+    if (
+      observedRootGuidance !== undefined && observedRootGuidance === pendingRootGuidance &&
+      plannedConfigRevision === configRevision
+    ) {
+      if (report.ok) pendingRootGuidance = undefined;
+      else observedRootGuidance.checkRequestedRevision = configRevision;
+    }
     if (stream === undefined) output.write(renderDevWatchPreview(report));
     else stream.operation(report);
+    flushPendingRootGuidance();
   };
   let activeOperation: Promise<void> | undefined;
   let stopping = false;
@@ -366,6 +451,26 @@ export async function runDevWatch(
   });
   let stopWithError: ((error: unknown) => void) | undefined;
   let stopFromSignal: (() => void) | undefined;
+  const runQueued = async (run: () => Promise<void>) => {
+    try {
+      await enqueueOperation(run);
+    } catch (error) {
+      if (stopWithError === undefined) pendingOperationError = error;
+      else stopWithError(error);
+    }
+  };
+  const debouncer = createDevWatchDebouncer(
+    (reason) => runQueued(async () => {
+      if (reason === ROOT_GUIDANCE_PATH && (
+        pendingRootGuidance === undefined ||
+        plannedConfigRevision !== configRevision ||
+        !shouldRunDevPreviewForPath(plan, reason)
+      )) return;
+      await writeOperation(reason);
+    }),
+    DEFAULT_DEBOUNCE_MS,
+    runtime.scheduler
+  );
   const signalStop = () => {
     resolveWatchSetupSignal?.();
     if (stopFromSignal === undefined) {
@@ -376,10 +481,10 @@ export async function runDevWatch(
       }
     } else stopFromSignal();
   };
-  const startOperation = async (reason: string) => {
+  const enqueueOperation = async (run: () => Promise<void>) => {
     const previous = activeOperation;
     const operation = (previous ?? Promise.resolve()).then(() =>
-      stopping ? undefined : writeOperation(reason)
+      stopping ? undefined : run()
     );
     activeOperation = operation;
     try {
@@ -388,8 +493,21 @@ export async function runDevWatch(
       if (activeOperation === operation) activeOperation = undefined;
     }
   };
+  const retryRootGuidance = (revision: number) => {
+    queuedRootRetryRevision = revision;
+    void runQueued(async () => {
+      if (queuedRootRetryRevision === revision) queuedRootRetryRevision = undefined;
+      const pending = pendingRootGuidance;
+      if (pending === undefined || configRevision !== revision || plannedConfigRevision === revision) return;
+      // Reclassify before scheduling a preview; the retained plan may mistake output for input.
+      failedConfigRevision = undefined;
+      pending.retriedRevision = revision;
+      await refreshPlan(revision);
+      flushPendingRootGuidance();
+    });
+  };
   runtime.addSignalListeners(signalStop);
-  const initialOperation = startOperation("initial");
+  const initialOperation = enqueueOperation(() => writeOperation("initial"));
   try {
     await Promise.race([initialOperation, initialSignal]);
   } catch (error) {
@@ -407,14 +525,6 @@ export async function runDevWatch(
   }
 
   const watchers: FSWatcher[] = [];
-  const debouncer = createDevWatchDebouncer(async (reason) => {
-    try {
-      await startOperation(reason);
-    } catch (error) {
-      if (stopWithError === undefined) pendingOperationError = error;
-      else stopWithError(error);
-    }
-  }, DEFAULT_DEBOUNCE_MS, runtime.scheduler);
 
   try {
     const watchRoots = await Promise.race([
@@ -432,7 +542,12 @@ export async function runDevWatch(
         const eventPath = filename === null
           ? undefined
           : normalizeRelativePath(join(watchRoot, filename.toString()));
-        if (shouldRunDevPreviewForPath(plan, eventPath)) {
+        if (eventPath === undefined || plan.configPaths.includes(eventPath)) configRevision += 1;
+        // A config refresh can change AGENTS.md from input to output or vice versa.
+        if (eventPath === ROOT_GUIDANCE_PATH) {
+          pendingRootGuidance = {};
+          flushPendingRootGuidance();
+        } else if (shouldRunDevPreviewForPath(plan, eventPath)) {
           debouncer.trigger(eventPath ?? "change");
         }
       }));

@@ -1,6 +1,7 @@
-import { mkdir, symlink } from "node:fs/promises";
+import { mkdir, rm, symlink } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
 import { basename, join } from "node:path";
+import { Writable } from "node:stream";
 
 import { expect, test } from "bun:test";
 
@@ -94,6 +95,243 @@ test("SET-210: dev watch plan covers created source repos", async () => {
   expect(shouldRunDevPreviewForPath(plan, ".claude/skills/review-notes/SKILL.md")).toBe(false);
 });
 
+test("native root guidance triggers preview without watching generated AGENTS files", async () => {
+  const root = await createTestFixtureRoot("skillset-native-watch-");
+  await Bun.write(join(root, "AGENTS.md"), "# Authored\n");
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  const plan = await createDevWatchPlan(root);
+  expect(shouldRunDevPreviewForPath(plan, "AGENTS.md")).toBe(true);
+  expect(shouldRunDevPreviewForPath(plan, "AGENTS.override.md")).toBe(true);
+  expect(shouldRunDevPreviewForPath(plan, "nested/AGENTS.md")).toBe(false);
+  expect(shouldRunDevPreviewForPath(plan, "nested/AGENTS.override.md")).toBe(false);
+});
+
+test.each(["during", "after"] as const)("watch retries when authored guidance appears %s a configuration refresh", async (arrival) => {
+  const root = await createTestFixtureRoot("skillset-native-watch-transition-");
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let trigger: ((event: string, filename: string | null) => void) | undefined;
+  let stop: (() => void) | undefined;
+  let runs = 0;
+  let scheduledRuns = 0;
+  let resumeRefresh: (() => void) | undefined;
+  let refreshPaused: (() => void) | undefined;
+  const paused = new Promise<void>((resolve) => { refreshPaused = resolve; });
+  let pauseGeneratedRefresh = false;
+  let generatedRefreshPaused: (() => void) | undefined;
+  const generatedPaused = new Promise<void>((resolve) => { generatedRefreshPaused = resolve; });
+  let output = "";
+  const operationCount = () => output.split("\n").filter((line) => line.includes('"event":"operation"')).length;
+  let ready: (() => void) | undefined;
+  const watchingReady = new Promise<void>((resolve) => { ready = resolve; });
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: (listener) => { stop = listener; },
+    removeSignalListeners: () => {},
+    collectDirectories: async () => ["."],
+    runOnce: async (runRoot, options, _mode, reason) => {
+      runs += 1;
+      const report = await runDevWatchPreview(runRoot, options, reason);
+      if (arrival === "during" && report.error?.includes("requires authored root AGENTS.md")) {
+        const resume = new Promise<void>((resolve) => { resumeRefresh = resolve; });
+        refreshPaused?.();
+        await resume;
+      }
+      if (pauseGeneratedRefresh && reason === "skillset.yaml") {
+        pauseGeneratedRefresh = false;
+        const resume = new Promise<void>((resolve) => { resumeRefresh = resolve; });
+        generatedRefreshPaused?.();
+        await resume;
+      }
+      return report;
+    },
+    scheduler: { clearTimeout: () => {}, setTimeout: (callback) => { scheduledRuns += 1; callback(); return 0; } },
+    watch: ((_path: string, callback: (event: string, filename: string | null) => void) => {
+      trigger = callback;
+      ready?.();
+      return { close: () => {} } as FSWatcher;
+    }) as typeof import("node:fs").watch,
+  });
+  await watchingReady;
+  await Bun.write(join(root, "skillset.yaml"), "workspace: [invalid\n");
+  trigger?.("change", "skillset.yaml");
+  await waitForCondition("invalid transition preview", () => operationCount() === 2);
+  expect(output).toContain('"ok":false');
+  expect(await runDevWatchApply(root)).toMatchObject({ ok: false, mode: "write", error: expect.any(String) });
+  await rm(join(root, ".skillset/RULES.md"));
+  await Bun.write(join(root, "skillset.yaml"), "workspace:\n  nativeAgents: true\n");
+  trigger?.("change", "skillset.yaml");
+  if (arrival === "during") {
+    await paused;
+  } else {
+    await waitForCondition("missing authored guidance reported", () => operationCount() === 3);
+  }
+  await Bun.write(join(root, "AGENTS.md"), "# Authored\n");
+  trigger?.("rename", "AGENTS.md");
+  resumeRefresh?.();
+  await waitForCondition("authored guidance appeared", () => operationCount() === 4);
+  expect(output).toContain("requires authored root AGENTS.md");
+  expect(output.trim().split("\n").at(-1)).toContain('"ok":true');
+  trigger?.("change", "AGENTS.md");
+  await waitForCondition("native guidance preview", () => operationCount() === 5);
+  await Bun.write(join(root, "AGENTS.override.md"), "# Override\n");
+  trigger?.("rename", "AGENTS.override.md");
+  await waitForCondition("native override appeared", () => operationCount() === 6);
+  expect(output.trim().split("\n").at(-1)).toContain("codex-agents-override-shadow");
+  await rm(join(root, "AGENTS.override.md"));
+  trigger?.("rename", "AGENTS.override.md");
+  await waitForCondition("native override removed", () => operationCount() === 7);
+  expect(output.trim().split("\n").at(-1)).not.toContain("codex-agents-override-shadow");
+  await Bun.write(join(root, ".skillset/RULES.md"), "# Generated source\n");
+  await rm(join(root, "AGENTS.md"));
+  await Bun.write(join(root, "skillset.yaml"), "compile:\n  targets: [codex]\n");
+  pauseGeneratedRefresh = true;
+  trigger?.("change", "skillset.yaml");
+  await generatedPaused;
+  const scheduledBeforeGeneratedOutput = scheduledRuns;
+  try {
+    expect(await runDevWatchApply(root)).toMatchObject({ ok: true });
+    expect(await Bun.file(join(root, "AGENTS.md")).exists()).toBe(true);
+    trigger?.("change", "AGENTS.md");
+    resumeRefresh?.();
+    await waitForCondition("generated transition preview", () => operationCount() >= 8);
+    trigger?.("change", "AGENTS.md");
+    trigger?.("change", "nested/AGENTS.md");
+  } finally {
+    resumeRefresh?.();
+    stop?.();
+    await watching;
+  }
+  expect(scheduledRuns).toBe(scheduledBeforeGeneratedOutput);
+  expect(runs).toBe(8);
+});
+
+test.each([
+  { guidance: "authored", timing: "after", failures: 1, checkFails: false },
+  { guidance: "generated", timing: "after", failures: 1, checkFails: false },
+  { guidance: "authored", timing: "during", failures: 1, checkFails: false },
+  { guidance: "generated", timing: "during", failures: 1, checkFails: false },
+  { guidance: "authored", timing: "during", failures: 2, checkFails: false },
+  { guidance: "authored", timing: "during", failures: 1, checkFails: true },
+] as const)(
+  "SET-882: $guidance event $timing refresh (planner failures: $failures, check fails: $checkFails)",
+  async ({ guidance, timing, failures, checkFails }) => {
+    const root = await createTestFixtureRoot("skillset-watch-refresh-retry-");
+    const agents = join(root, "AGENTS.md");
+    const config = join(root, "skillset.yaml");
+    await Bun.write(agents, "# Project notes\n");
+    await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+    let trigger: ((event: string, filename: string | null) => void) | undefined;
+    let stop: (() => void) | undefined;
+    let failuresRemaining = 0;
+    let failedRefreshes = 0;
+    let pauseFailure = timing === "during";
+    let planAttempts = 0;
+    let planReads = 0;
+    let scheduled = 0;
+    let resumeRefresh: (() => void) | undefined;
+    let failNextCheck: string | undefined = checkFails ? "AGENTS.md" : undefined;
+    const failedChecks: string[] = [];
+    const reasons: string[] = [];
+    const mode = guidance === "generated" && timing === "during" ? "write" : "preview";
+    const output = new Writable({ write: (_chunk, _encoding, done) => done() });
+    const watching = runDevWatch(root, {}, output, mode, "jsonl", {
+      addSignalListeners: (listener) => { stop = listener; },
+      removeSignalListeners: () => {},
+      collectDirectories: async () => ["."],
+      createPlan: async (runRoot, options) => {
+        planAttempts += 1;
+        if (failuresRemaining > 0) {
+          failuresRemaining -= 1;
+          if (pauseFailure) {
+            pauseFailure = false;
+            await new Promise<void>((resolve) => { resumeRefresh = resolve; });
+          }
+          failedRefreshes += 1;
+          throw new Error("transient plan refresh failure");
+        }
+        const plan = await createDevWatchPlan(runRoot, options);
+        planReads += 1;
+        return plan;
+      },
+      runOnce: async (runRoot, options, runMode, reason) => {
+        const report = runMode === "write"
+          ? await runDevWatchApply(runRoot, options, reason)
+          : await runDevWatchPreview(runRoot, options, reason);
+        reasons.push(report.reason);
+        expect(report.ok).toBe(true);
+        if (failNextCheck === report.reason) {
+          failNextCheck = undefined;
+          failedChecks.push(report.reason);
+          return { ...report, ok: false, error: "transient check failure" };
+        }
+        return report;
+      },
+      scheduler: { clearTimeout: () => {}, setTimeout: (callback) => { scheduled += 1; callback(); return 0; } },
+      watch: ((_path: string, callback: (event: string, filename: string | null) => void) => {
+        trigger = callback;
+        return { close: () => {} } as FSWatcher;
+      }) as typeof import("node:fs").watch,
+    });
+    try {
+      await waitForCondition("watch setup", () => trigger !== undefined, { timeoutMs: 2_000 });
+      if (guidance === "generated") {
+        await rm(agents);
+        await Bun.write(join(root, ".skillset/RULES.md"), "# Generated source\n");
+        await Bun.write(config, "compile:\n  targets: [codex]\n");
+      } else {
+        await Bun.write(config, "workspace:\n  nativeAgents: true\ncompile:\n  targets: [codex]\n");
+      }
+      failuresRemaining = failures;
+      trigger?.("change", "skillset.yaml");
+      if (timing === "during") {
+        await waitForCondition("in-flight configuration refresh", () => resumeRefresh !== undefined, { timeoutMs: 2_000 });
+      } else {
+        await waitForCondition("failed configuration refresh", () => failedRefreshes === 1, { timeoutMs: 2_000 });
+      }
+      expect(reasons).toEqual(["initial", "skillset.yaml"]);
+      expect(scheduled).toBe(1);
+      if (guidance === "generated") {
+        if (mode === "preview") expect(await runDevWatchApply(root)).toMatchObject({ ok: true });
+        expect(await Bun.file(agents).exists()).toBe(true);
+      } else {
+        await Bun.write(agents, "# Updated project notes\n");
+      }
+      trigger?.("change", "AGENTS.md");
+      resumeRefresh?.();
+      if (failures === 2) {
+        await waitForCondition("one failed reclassification", () => failedRefreshes === 2, { timeoutMs: 2_000 });
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(planAttempts).toBe(4);
+        expect(reasons).toEqual(["initial", "skillset.yaml"]);
+        expect(scheduled).toBe(1);
+      } else if (guidance === "authored") {
+        await waitForCondition("authored edit checked", () => reasons.length === 3, { timeoutMs: 2_000 });
+        expect(reasons).toEqual(["initial", "skillset.yaml", "AGENTS.md"]);
+        expect(scheduled).toBe(2);
+      } else {
+        await waitForCondition("generated guidance classified", () => planReads >= 3, { timeoutMs: 2_000 });
+        expect(reasons).toEqual(["initial", "skillset.yaml"]);
+        expect(scheduled).toBe(1);
+      }
+      if (checkFails) {
+        await waitForCondition("failed authored check finished", () => planReads >= 4, { timeoutMs: 2_000 });
+        expect(failedChecks).toEqual(["AGENTS.md"]);
+        expect(reasons).toHaveLength(3);
+        await Bun.write(config, "workspace:\n  nativeAgents: true\ncompile:\n  targets: [claude]\n");
+        failuresRemaining = 1;
+        failNextCheck = "skillset.yaml";
+        trigger?.("change", "skillset.yaml");
+        await waitForCondition("retained authored edit checked", () => reasons.length === 5, { timeoutMs: 2_000 });
+        expect(reasons.slice(3)).toEqual(["skillset.yaml", "AGENTS.md"]);
+        expect(failedChecks).toEqual(["AGENTS.md", "skillset.yaml"]);
+      }
+    } finally {
+      resumeRefresh?.();
+      stop?.();
+      await watching;
+    }
+  }
+);
+
 test("SET-210: dev watch debounces repeated triggers without sleeping", () => {
   const scheduled: Array<{ callback: () => void; cleared: boolean; delayMs: number }> = [];
   const scheduler: DevWatchScheduler = {
@@ -145,14 +383,14 @@ test("SET-451: dev preview reports blocked output collisions in text and JSONL",
   const root = await createTestFixtureRoot("skillset-dev-watch-blocked-preview-");
   await Bun.write(
     join(root, "skillset.yaml"),
-    "skillset:\n  name: blocked-preview\ncompile:\n  targets: [codex]\n"
+    "skillset:\n  name: blocked-preview\ncompile:\n  targets: [claude]\n"
   );
   await mkdir(join(root, ".skillset/rules"), { recursive: true });
   await Bun.write(
-    join(root, ".skillset/rules/root.md"),
+    join(root, ".skillset/RULES.md"),
     "# Generated project instructions\n"
   );
-  await Bun.write(join(root, "AGENTS.md"), "# Unmanaged project instructions\n");
+  await Bun.write(join(root, ".claude/CLAUDE.md"), "# Unmanaged project instructions\n");
 
   const report = await runDevWatchPreview(root, {}, "test");
   const rendered = renderDevWatchPreview(report);

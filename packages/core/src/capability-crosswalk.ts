@@ -504,7 +504,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   },
   {
     contentHash:
-      "sha256:363e45eb80ade28ac14e4272987ac0269cbcf4d239cd117aadc4975b697ff5fd",
+      "sha256:2f13d867f096da4c127b08599b498618e0ef54d118d52eec634ae2437d0860e0",
     path: "packages/core/src/render.ts",
   },
   {
@@ -529,17 +529,17 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   },
   {
     contentHash:
-      "sha256:3de8e1facabf580e6cccf1ca4e6736f5c286d1e54fd8fefb235d7a17793c88d3",
+      "sha256:2148d7acb3eaf1aac275ee0af0efa89da9d106266c1f94a8cf3d4ab4df270c71",
     path: "apps/skillset/src/__tests__/skillset.test.ts",
   },
   {
     contentHash:
-      "sha256:4f38ecdcfeee9d7d6514c8ad8fedbdd4549d6c90b835851bdcc7f98935f54b9c",
+      "sha256:0d96c31d9dad2492b05629a59094b70ad7d9bb1d3263c1986c1a2ab4561a0ff6",
     path: "packages/core/src/render-rules.ts",
   },
   {
     contentHash:
-      "sha256:9c45bc3e9b12b5540ac503d2c867a44bac29c6448a8a2ae18eada6182dce1f98",
+      "sha256:608f1171d11ce31c910871a2027a2d6909a3a1106e750d5057eea46eebae33c2",
     path: "packages/core/src/render-standard-instructions.ts",
   },
   {
@@ -574,7 +574,7 @@ export const CAPABILITY_IMPLEMENTATION_EVIDENCE = [
   },
   {
     contentHash:
-      "sha256:cc350c2a78ca9dce118a13bd04bf3f1924e99dccf01f4accd68e2d5944418adf",
+      "sha256:cfcdf24628abae1b78c0476f547c545f0a22220c98bdaca28eaaa8116d5f0d0b",
     path: "docs/reference/features/rules.md",
   },
   {

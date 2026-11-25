@@ -15,6 +15,8 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 Portable [adaptive source](../../glossary.md#adaptive-source) rules live at `.skillset/rules/**/*.md`. They provide durable repository guidance rather than invokable skill behavior.
 
+An existing unmanaged root `AGENTS.md` is retained as authored front-page source. Setup or a successful first live build records native mode; Skillset never writes that file. The [native root guidance contract](../source/rules.md#native-root-guidance) explains its literal Markdown semantics and conflicts with other root rule sources.
+
 ## Source Contract
 
 A rule is Markdown with optional frontmatter and a body. Its directory under `rules/` is its scope, so this `.skillset/rules/docs/guidance.md` governs `docs/`:

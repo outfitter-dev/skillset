@@ -294,6 +294,7 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
       },
       workspace: {
         cacheKey: "example-team",
+        nativeAgents: true,
       },
     },
   },

@@ -1,4 +1,4 @@
-import YAML, { isMap, isScalar, type Document, type Pair } from "yaml";
+import YAML, { isAlias, isMap, isScalar, visit, type Document, type Pair } from "yaml";
 
 import type { JsonRecord, JsonValue, MarkdownParts } from "./types";
 import { isJsonRecord, stripUndefined } from "./yaml";
@@ -24,9 +24,25 @@ export function updateYamlSourceDocument(
   if (jsonValuesEqual(current, next)) return source;
 
   reconcileRecord(document, [], current, next);
-  moveRootSkillsetFirst(document);
+  // Changing an anchor can also change values at untouched alias sites.
+  // Reconcile those sites against the requested values, not the original AST.
+  const reconciled = sourceRecord(document, label);
+  if (!jsonValuesEqual(reconciled, next)) reconcileRecord(document, [], reconciled, next);
+  let hasAliases = false;
+  visit(document, {
+    Alias() {
+      hasAliases = true;
+      return visit.BREAK;
+    },
+  });
+  // Moving a key can put an alias before its anchor or change which anchor it resolves to.
+  if (!hasAliases) moveRootSkillsetFirst(document);
   // Authored flow collections are conventionally unpadded (`[a, b]`).
-  return document.toString({ flowCollectionPadding: false, lineWidth: 0 });
+  const updated = document.toString({ flowCollectionPadding: false, lineWidth: 0 });
+  if (!jsonValuesEqual(sourceRecord(parseSourceDocument(updated, label), label), next)) {
+    throw new Error(`skillset: YAML rewrite of ${label} would change unrelated values`);
+  }
+  return updated;
 }
 
 /** Renders newly-created authored YAML while retaining insertion order. */
@@ -130,6 +146,17 @@ function reconcileValue(
   currentValue: JsonValue | undefined,
   nextValue: JsonValue
 ): void {
+  const node = document.getIn(path, true);
+  if (isAlias(node)) {
+    if (!jsonValuesEqual(currentValue, nextValue)) {
+      const replacement = document.createNode(nextValue);
+      if (node.comment !== undefined) replacement.comment = node.comment;
+      if (node.commentBefore !== undefined) replacement.commentBefore = node.commentBefore;
+      if (node.spaceBefore !== undefined) replacement.spaceBefore = node.spaceBefore;
+      document.setIn([...path], replacement);
+    }
+    return;
+  }
   if (isJsonRecord(currentValue) && isJsonRecord(nextValue)) {
     reconcileRecord(document, path, currentValue, nextValue);
     return;
