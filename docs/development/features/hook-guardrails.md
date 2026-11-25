@@ -55,7 +55,7 @@ When a command, path gate, destination, or event changes:
 ```bash
 bun run docs:generate
 bun run docs:check
-bun run test:focused -- apps/skillset/src/__tests__/runtime-hooks.test.ts apps/skillset/src/__tests__/cli-args.test.ts
+bun run test:focused -- apps/skillset/src/__tests__/runtime-hooks.test.ts apps/skillset/src/__tests__/runtime-hook-spawn-failures.test.ts apps/skillset/src/__tests__/cli-args.test.ts
 ```
 
 ## Troubleshooting
