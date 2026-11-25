@@ -1,4 +1,4 @@
-import { mkdir, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import type { JsonRecord } from "../packages/core/src/types";
@@ -42,8 +42,11 @@ async function migrateRoot(rootPath: string): Promise<void> {
   }
   await movePluginProviderDirs(join(skillsetPath, SRC_DIR, "plugins"));
   if (configPlan) {
+    if (await Bun.file(configPlan.configPath).text() !== configPlan.originalConfig) {
+      throw new Error(`skillset: ${configPlan.configPath} changed during migration; split it by hand`);
+    }
     await mkdir(dirname(configPlan.manifestPath), { recursive: true });
-    await writeFile(configPlan.manifestPath, configPlan.manifest, "utf8");
+    await writeFile(configPlan.manifestPath, configPlan.manifest, { encoding: "utf8", flag: "wx" });
     await writeFile(configPlan.configPath, configPlan.config, "utf8");
   }
   console.error(`migrated ${rootPath}`);
@@ -63,6 +66,7 @@ async function movePluginProviderDirs(pluginsPath: string): Promise<void> {
 interface RootConfigPlan {
   readonly configPath: string;
   readonly config: string;
+  readonly originalConfig: string;
   readonly manifestPath: string;
   readonly manifest: string;
 }
@@ -76,12 +80,13 @@ async function planRootConfig(skillsetPath: string): Promise<RootConfigPlan | un
   if (!changed) return;
 
   const manifestPath = join(skillsetPath, SRC_DIR, SOURCE_MANIFEST_FILE);
-  if (await exists(manifestPath)) {
+  if (await exists(manifestPath, lstat)) {
     throw new Error(`skillset: ${manifestPath} already exists; split ${configPath} by hand`);
   }
   return {
     configPath,
     config: stringifyConfig(workspaceConfig),
+    originalConfig: rawConfig,
     manifestPath,
     manifest: stringifyYamlSourceDocument(sourceManifest ?? {}),
   };
@@ -98,9 +103,9 @@ async function moveIfExists(from: string, to: string): Promise<void> {
   await rename(from, to);
 }
 
-async function exists(path: string): Promise<boolean> {
+async function exists(path: string, lookup = stat): Promise<boolean> {
   try {
-    await stat(path);
+    await lookup(path);
     return true;
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {

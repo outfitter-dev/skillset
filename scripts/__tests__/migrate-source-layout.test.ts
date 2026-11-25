@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readlink, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseYamlRecord } from "../../packages/core/src/yaml";
@@ -34,6 +34,36 @@ describe("source layout migration", () => {
       expect(await Bun.file(join(root, ".skillset", "src", "skillset.yaml")).exists()).toBe(false);
     });
   }
+
+  it.skipIf(process.platform === "win32")("refuses a dangling source manifest link before moving files", async () => {
+    const root = await createTestFixtureRoot("skillset-migrate-manifest-link-");
+    const sourceDir = join(root, ".skillset", "skills");
+    const nextSourceDir = join(root, ".skillset", "src");
+    const configPath = join(root, ".skillset", "config.yaml");
+    const manifestPath = join(nextSourceDir, "skillset.yaml");
+    const config = "skillset:\n  name: demo-root\n";
+    await mkdir(sourceDir, { recursive: true });
+    await mkdir(nextSourceDir);
+    await writeFile(join(sourceDir, "SKILL.md"), "authored bytes\n");
+    await writeFile(configPath, config);
+    await symlink("missing.yaml", manifestPath);
+
+    const child = Bun.spawn({
+      cmd: ["bun", "./scripts/migrate-source-layout.ts", root],
+      cwd: join(import.meta.dir, "..", ".."),
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+
+    expect(code).toBe(1);
+    expect(stderr).toContain("already exists");
+    expect(await readlink(manifestPath)).toBe("missing.yaml");
+    expect(await Bun.file(join(nextSourceDir, "missing.yaml")).exists()).toBe(false);
+    expect(await readFile(configPath, "utf8")).toBe(config);
+    expect(await readFile(join(sourceDir, "SKILL.md"), "utf8")).toBe("authored bytes\n");
+    expect(await Bun.file(join(nextSourceDir, "skills", "SKILL.md")).exists()).toBe(false);
+  });
 
   it("moves legacy output roots into workspace config instead of source manifest", async () => {
     const root = await createTestFixtureRoot("skillset-migrate-");
