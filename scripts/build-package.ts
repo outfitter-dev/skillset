@@ -44,7 +44,7 @@ await chmod(launcher, 0o755);
 console.error(`skillset: built ${launcher}`);
 
 for (const packageDir of [cliPackageDir, launcherPackageDir]) {
-  for (const file of ["README.md", "LICENSE"]) {
+  for (const file of packageDir === cliPackageDir ? ["LICENSE"] : ["README.md", "LICENSE"]) {
     const destination = `${packageDir}/${file}`;
     await copyFile(file, destination);
     console.error(`skillset: projected ${destination}`);
