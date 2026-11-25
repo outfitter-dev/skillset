@@ -3,6 +3,7 @@ import { basename, relative } from "node:path";
 
 import { SKILL_FILE } from "@skillset/provider-evidence";
 
+import { isOutputSelected } from "./config";
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import {
   isPluginManifestOutputPath,
@@ -33,6 +34,12 @@ export const VERSION_DRIFT_STATUS_VALUES = [
 
 export type VersionDriftStatus = (typeof VERSION_DRIFT_STATUS_VALUES)[number];
 export type VersionAuthority = "external" | "generated" | "release-state" | "source";
+
+const AUDITED_TARGETS: Readonly<Record<TargetName, boolean>> = {
+  claude: true,
+  codex: true,
+  cursor: false,
+};
 
 export interface VersionAuditReport {
   readonly issues: readonly VersionLocus[];
@@ -194,8 +201,7 @@ function identifyVersionPath(
   file: RenderedFile
 ): { readonly scope: string; readonly target?: TargetName } | undefined {
   const target = targetForPath(graph, file.path);
-  // Cursor version auditing is outside the documented audit boundary.
-  if (target === "cursor") return undefined;
+  if (target !== undefined && !AUDITED_TARGETS[target]) return undefined;
   const parts = pluginPackagePathParts(file.path);
   if (target !== undefined && parts !== undefined && isPluginManifestOutputPath(graph, file.path, target)) {
     return { scope: `plugin:${parts.pluginId}`, target };
@@ -207,6 +213,12 @@ function identifyVersionPath(
   for (const plugin of graph.plugins) {
     const skill = (plugin.discoveredSkills ?? plugin.skills).find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
     if (skill !== undefined) {
+      if (target === undefined && !targetNames().some((provider) =>
+        AUDITED_TARGETS[provider] &&
+        skill.targets[provider].enabled &&
+        plugin.targets[provider].enabled &&
+        isOutputSelected(graph.root.outputs.targetOutputs[provider].plugins, plugin.id)
+      )) return undefined;
       return { scope: selectorForPluginSkill(plugin.id, skill.id), ...(target === undefined ? {} : { target }) };
     }
   }
