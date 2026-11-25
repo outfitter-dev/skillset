@@ -52,10 +52,37 @@ export function scanImmediateProcessGoneAssertions(
     true,
     ts.ScriptKind.TS
   );
+  // Bind only this file, as the temp-fixture guard does; no imports or libraries
+  // are needed to distinguish a local callback from a shadowing parameter.
+  let checker: ts.TypeChecker | undefined;
+  const resolveCallback = (expression: ts.Expression, seen = new Set<ts.Declaration>()): ts.Expression | undefined => {
+    if (ts.isParenthesizedExpression(expression)) return resolveCallback(expression.expression, seen);
+    if (!ts.isIdentifier(expression)) return expression;
+    if (!checker) {
+      const options: ts.CompilerOptions = { noLib: true, noResolve: true };
+      const host = ts.createCompilerHost(options);
+      host.getSourceFile = (name) => name === file ? source : undefined;
+      host.fileExists = (name) => name === file;
+      host.readFile = (name) => name === file ? content : undefined;
+      checker = ts.createProgram([file], options, host).getTypeChecker();
+    }
+    const declarations = checker.getSymbolAtLocation(expression)?.declarations;
+    if (declarations?.length !== 1) return undefined;
+    const declaration = declarations[0]!;
+    if (
+      seen.has(declaration) ||
+      !ts.isVariableDeclaration(declaration) ||
+      !ts.isVariableDeclarationList(declaration.parent) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const) ||
+      !declaration.initializer
+    ) return undefined;
+    seen.add(declaration);
+    return resolveCallback(declaration.initializer, seen);
+  };
   const violations: ProcessGoneViolation[] = [];
 
   const visit = (node: ts.Node): void => {
-    if (isImmediateProcessGoneAssertion(node)) {
+    if (isImmediateProcessGoneAssertion(node, resolveCallback)) {
       const reportedNode = ts.isExpressionStatement(node.parent)
         ? node.parent
         : node;
@@ -76,7 +103,8 @@ export function scanImmediateProcessGoneAssertions(
 }
 
 function isImmediateProcessGoneAssertion(
-  node: ts.Node
+  node: ts.Node,
+  resolveCallback: (expression: ts.Expression) => ts.Expression | undefined
 ): node is ts.CallExpression {
   if (
     !ts.isCallExpression(node) ||
@@ -99,7 +127,8 @@ function isImmediateProcessGoneAssertion(
   ) {
     return false;
   }
-  const callback = expectCall.arguments[0];
+  const argument = expectCall.arguments[0];
+  const callback = argument && resolveCallback(argument);
   return (
     callback !== undefined &&
     (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) &&
