@@ -1,6 +1,7 @@
 import { mkdir, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import type { JsonRecord } from "../packages/core/src/types";
 import { stringifyYamlSourceDocument } from "../packages/core/src/source-document";
 import { parseYamlRecord } from "../packages/core/src/yaml";
 import { splitRootConfigRecord } from "./source-layout-migration";
@@ -34,11 +35,17 @@ async function migrateRoot(rootPath: string): Promise<void> {
     return;
   }
 
+  // Validate config before moving source so rejected settings leave authored files in place.
+  const configPlan = await planRootConfig(skillsetPath);
   for (const [from, to] of MOVES) {
     await moveIfExists(join(skillsetPath, from), join(skillsetPath, to));
   }
   await movePluginProviderDirs(join(skillsetPath, SRC_DIR, "plugins"));
-  await splitRootConfig(skillsetPath);
+  if (configPlan) {
+    await mkdir(dirname(configPlan.manifestPath), { recursive: true });
+    await writeFile(configPlan.manifestPath, configPlan.manifest, "utf8");
+    await writeFile(configPlan.configPath, configPlan.config, "utf8");
+  }
   console.error(`migrated ${rootPath}`);
 }
 
@@ -53,7 +60,14 @@ async function movePluginProviderDirs(pluginsPath: string): Promise<void> {
   }
 }
 
-async function splitRootConfig(skillsetPath: string): Promise<void> {
+interface RootConfigPlan {
+  readonly configPath: string;
+  readonly config: string;
+  readonly manifestPath: string;
+  readonly manifest: string;
+}
+
+async function planRootConfig(skillsetPath: string): Promise<RootConfigPlan | undefined> {
   const configPath = join(skillsetPath, CONFIG_FILE);
   if (!(await exists(configPath))) return;
   const rawConfig = await Bun.file(configPath).text();
@@ -65,9 +79,12 @@ async function splitRootConfig(skillsetPath: string): Promise<void> {
   if (await exists(manifestPath)) {
     throw new Error(`skillset: ${manifestPath} already exists; split ${configPath} by hand`);
   }
-  await mkdir(dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, stringifyYamlSourceDocument(sourceManifest ?? {}), "utf8");
-  await writeFile(configPath, stringifyConfig(workspaceConfig), "utf8");
+  return {
+    configPath,
+    config: stringifyConfig(workspaceConfig),
+    manifestPath,
+    manifest: stringifyYamlSourceDocument(sourceManifest ?? {}),
+  };
 }
 
 function stringifyConfig(record: JsonRecord): string {
