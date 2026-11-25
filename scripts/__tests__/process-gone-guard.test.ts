@@ -134,6 +134,28 @@ describe("named process-gone callbacks", () => {
   });
 
   test.each([
+    'expect(() => { const probe = () => process.kill(pid, 0); probe(); }).toThrow();',
+    'expect(() => { function probe() { process.kill(pid, 0); } probe(); }).toThrow();',
+    'const probe = () => process.kill(pid, 0); const alias = probe; const callback = () => alias(); expect(callback).toThrow();',
+    'expect(() => ((value = process.kill(pid, 0)) => value)()).toThrow();',
+    'const probe = (value = process.kill(pid, 0)) => value; expect(() => probe()).toThrow();',
+    'const probe = (value = process.kill(pid, 0)) => value; expect(probe).toThrow();',
+  ])("detects directly executed local probes: %s", (content) => {
+    expect(scanImmediateProcessGoneAssertions("scripts/example.test.ts", content)).toHaveLength(1);
+  });
+
+  test.each([
+    'const probe = (value = process.kill(pid, 0)) => value; expect(() => probe(1)).toThrow();',
+    'expect(() => ((value = process.kill(pid, 0)) => value)(1)).toThrow();',
+    'expect(() => ((value = process.kill(pid, 0)) => value)(...[1])).toThrow();',
+    'const probe = () => process.kill(pid, 0); function test(probe: () => void) { expect(() => probe()).toThrow(); }',
+    'const first = () => second(); const second = () => first(); expect(first).toThrow();',
+    'expect(() => (function* () { process.kill(pid, 0); })()).toThrow();',
+  ])("does not count unproven local probes: %s", (content) => {
+    expect(scanImmediateProcessGoneAssertions("scripts/example.test.ts", content)).toEqual([]);
+  });
+
+  test.each([
     'const gone = (() => process.kill(pid, 0)) satisfies () => void; expect(gone).toThrow();',
     'const gone = () => process.kill(pid, 0); const alias = gone as () => void; expect(alias).toThrow();',
     'const gone = () => process.kill(pid, 0); expect(<() => void>gone).toThrow();',
