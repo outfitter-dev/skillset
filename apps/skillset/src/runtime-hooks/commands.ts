@@ -195,13 +195,15 @@ async function spawnHookCommand(
       windowsVerbatimArguments: spawn.windowsVerbatimArguments,
     });
   } catch (error) {
-    // Bun.spawn throws when the executable is missing or cannot run; report
-    // it the way a shell would, so an advisory hook stays advisory instead of
-    // rejecting.
+    // ENOENT also covers a missing cwd or interpreter, so it does not prove
+    // the executable is absent. Keep shell-compatible codes so advisory hooks
+    // stay advisory without claiming a cause the spawn error cannot establish.
     const exitCode = spawnFailureExitCode(error);
     if (exitCode === undefined) throw error;
-    const reason = exitCode === COMMAND_NOT_FOUND_EXIT_CODE ? "not found" : "cannot execute";
-    process.stderr.write(`skillset: hook command ${reason}: ${error instanceof Error ? error.message : String(error)}\n`);
+    const reason = exitCode === COMMAND_NOT_FOUND_EXIT_CODE
+      ? "hook could not start: executable, interpreter, or working directory may be missing"
+      : "hook command cannot execute";
+    process.stderr.write(`skillset: ${reason}: ${error instanceof Error ? error.message : String(error)}\n`);
     return exitCode;
   }
   return proc.exited;
