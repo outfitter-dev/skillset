@@ -7,10 +7,9 @@
  * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
  * quotes, tables, reference definitions, HTML, indented code, and hard breaks)
- * are identical. Prose
- * blocks must keep the same words, code spans, and first-line and list-item
- * indentation. Everything else keeps its ordinary drift classification.
- * Isolated builds are not compared.
+ * are identical. Prose and list items must keep the same words, code spans,
+ * and indentation at the start of each block. Everything else keeps its
+ * ordinary drift classification. Isolated builds are not compared.
  */
 
 import { resolve } from "node:path";
@@ -145,30 +144,44 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
 function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
   const left = leftRaw.map(trimLayoutWhitespace);
   const right = rightRaw.map(trimLayoutWhitespace);
-  const lineSensitive = left.some(isLineSensitive) || right.some(isLineSensitive);
-  const leftListIndents = listItemIndents(left);
-  const rightListIndents = listItemIndents(right);
+  if (left.some(isLineSensitive) || right.some(isLineSensitive)) {
+    return [...leftRaw, ...rightRaw].some((line) => line.includes("`"))
+      ? isDeepStrictEqual(leftRaw, rightRaw)
+      : isDeepStrictEqual(left, right);
+  }
+  const leftParts = splitAtListItems(leftRaw);
+  const rightParts = splitAtListItems(rightRaw);
+  return leftParts.length === rightParts.length && leftParts.every((part, index) => {
+    const other = rightParts[index];
+    return other !== undefined && prosePartLayoutEqual(part, other);
+  });
+}
+
+function prosePartLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
   const leftText = leftRaw.join("\n");
   const rightText = rightRaw.join("\n");
-  if (leftText.includes("`") || rightText.includes("`")) {
-    // Only pair backticks across lines in plain prose, not across Markdown blocks.
-    if (
-      lineSensitive ||
-      leftListIndents.length > 0 ||
-      rightListIndents.length > 0 ||
-      leftText.includes("\\`") ||
-      rightText.includes("\\`")
-    ) {
-      return isDeepStrictEqual(leftRaw, rightRaw);
-    }
-    if (!isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))) return false;
+  if (leftText.includes("\\`") || rightText.includes("\\`")) {
+    return isDeepStrictEqual(leftRaw, rightRaw);
   }
-  if (lineSensitive) return isDeepStrictEqual(left, right);
   return (
-    collapseWhitespace(left) === collapseWhitespace(right) &&
-    leadingIndent(left[0] ?? "") === leadingIndent(right[0] ?? "") &&
-    isDeepStrictEqual(leftListIndents, rightListIndents)
+    collapseWhitespace(leftText) === collapseWhitespace(rightText) &&
+    leadingIndent(leftText) === leadingIndent(rightText) &&
+    isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))
   );
+}
+
+function splitAtListItems(lines: readonly string[]): readonly (readonly string[])[] {
+  const parts: string[][] = [];
+  let part: string[] = [];
+  for (const line of lines) {
+    if (part.length > 0 && /^\s*(?:[-*+]|\d+[.)])[ \t]/.test(line)) {
+      parts.push(part);
+      part = [];
+    }
+    part.push(line);
+  }
+  if (part.length > 0) parts.push(part);
+  return parts;
 }
 
 function codeSpans(text: string): readonly string[] {
@@ -203,6 +216,7 @@ function trimLayoutWhitespace(line: string): string {
 function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
   if (line.includes("]:")) return true;
+  if (/^\s*(?:[-*+]|\d+[.)])(?:$| {5}| *\t)/.test(line)) return true;
   if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
   if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) return true;
   if (
@@ -212,17 +226,10 @@ function isLineSensitive(line: string): boolean {
   return /^\s{0,3}(?:#|>|\||<|=+\s*$|-+\s*$)/.test(line);
 }
 
-function collapseWhitespace(lines: readonly string[]): string {
-  return lines.join(" ").split(/\s+/).filter((word) => word.length > 0).join(" ");
+function collapseWhitespace(text: string): string {
+  return text.trim().replace(/\s+/g, " ");
 }
 
 function leadingIndent(line: string): string {
   return /^\s*/.exec(line)?.[0] ?? "";
-}
-
-function listItemIndents(lines: readonly string[]): readonly string[] {
-  return lines.flatMap((line) => {
-    const match = /^(\s*)(?:[-*+]|\d+[.)])(?:\s|$)/.exec(line);
-    return match === null ? [] : [match[1] ?? ""];
-  });
 }

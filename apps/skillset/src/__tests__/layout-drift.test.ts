@@ -93,6 +93,24 @@ test("preserves Markdown code spans even after a list item with a literal backti
   expect(isLayoutOnlyDifference("SKILL.md", list, list.replace("a  b", "a b"))).toBe(false);
 });
 
+test("does not treat creating a Markdown list by joining lines as reflow", () => {
+  const prose = "A plus marker by itself:\n+\nnot part of a list.\n";
+  const list = prose.replace("+\n", "+ ");
+  expect(isLayoutOnlyDifference("SKILL.md", prose, list)).toBe(false);
+});
+
+test("preserves spacing that makes a Markdown list item an indented code block", () => {
+  expect(isLayoutOnlyDifference("SKILL.md", "-     echo foo\n", "- echo foo\n")).toBe(false);
+  expect(isLayoutOnlyDifference("SKILL.md", "-     echo  foo\n", "-     echo foo\n")).toBe(false);
+});
+
+test("allows prose in a Markdown bullet to reflow around an unchanged code span", () => {
+  const list = '- Run `printf "a  b"` to see both spaces.\n- Leave this item alone.\n';
+  const wrapped = list.replace(" to see", "\n  to see");
+  expect(isLayoutOnlyDifference("SKILL.md", list, wrapped)).toBe(true);
+  expect(isLayoutOnlyDifference("SKILL.md", list, wrapped.replace("a  b", "a b"))).toBe(false);
+});
+
 test("does not pair backticks across a Markdown thematic break", () => {
   const prose = 'A literal backtick: `\n* * *\nRun `printf "a  b"` to see both spaces.\n';
   expect(isLayoutOnlyDifference("SKILL.md", prose, prose.replace("a  b", "a b"))).toBe(false);
