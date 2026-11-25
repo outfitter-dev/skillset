@@ -10,7 +10,7 @@ import {
   planAdaptiveHookCompatibility,
 } from "@skillset/core/internal/adaptive-hook-authoring";
 import {
-  loadBuildGraph,
+  loadScaffoldDiscovery,
   resolveAdaptiveHookScriptPath,
   validateAdaptiveHookScriptSource,
 } from "@skillset/core/internal/resolver";
@@ -24,7 +24,6 @@ import {
 } from "@skillset/core/internal/source-unit-selector";
 import type {
   AdaptiveHookScope,
-  BuildGraph,
   JsonRecord,
   SourceProjectAgent,
   SourceSkill,
@@ -59,6 +58,8 @@ export interface NewAdaptiveHookAttachmentTarget {
   readonly selector: string;
 }
 
+type ScaffoldDiscovery = Awaited<ReturnType<typeof loadScaffoldDiscovery>>;
+
 interface HookOwner {
   /** Owner source that lists the hook; root hooks are discovered without one. */
   readonly attachment?: HookOwnerAttachment;
@@ -89,7 +90,7 @@ export async function planNewAdaptiveHook(
   }
   const events = uniqueRequired(options.events, "--event");
   const action = hookAction(options);
-  const graph = await loadBuildGraph(rootPath, options.skillsetOptions);
+  const graph = await loadScaffoldDiscovery(rootPath, options.skillsetOptions, options.attachment);
   const owner = options.attachment === undefined
     ? rootHookOwner(graph)
     : await resolveHookOwner(rootPath, graph, options.attachment);
@@ -192,9 +193,9 @@ export async function listNewAdaptiveHookAttachmentTargets(
   rootPath: string,
   skillsetOptions: SkillsetOptions = {}
 ): Promise<readonly NewAdaptiveHookAttachmentTarget[]> {
-  let graph: BuildGraph;
+  let graph: ScaffoldDiscovery;
   try {
-    graph = await loadBuildGraph(rootPath, skillsetOptions);
+    graph = await loadScaffoldDiscovery(rootPath, skillsetOptions);
   } catch (error) {
     if (isEmptySourceGraphError(error)) {
       return [];
@@ -263,7 +264,7 @@ function hookAction(options: NewAdaptiveHookOptions): JsonRecord {
 }
 
 /** Root hooks live in `<source-root>/hooks/` and apply to the whole workspace. */
-function rootHookOwner(graph: BuildGraph): HookOwner {
+function rootHookOwner(graph: ScaffoldDiscovery): HookOwner {
   return {
     hookRoot: join(graph.sourceRootPath, "hooks"),
     ownerPath: graph.sourceRootPath,
@@ -274,7 +275,7 @@ function rootHookOwner(graph: BuildGraph): HookOwner {
 
 async function resolveHookOwner(
   rootPath: string,
-  graph: BuildGraph,
+  graph: ScaffoldDiscovery,
   selector: string
 ): Promise<HookOwner> {
   for (const plugin of graph.plugins) {

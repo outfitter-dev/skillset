@@ -263,7 +263,7 @@ describe("SET-293 derived new-source choices", () => {
     ]);
     expect(
       await Bun.file(join(root, ".skillset/rules/review-guidance.md")).text()
-    ).toBe('---\n# Uncomment paths to scope this rule to matching files.\n# paths:\n#   - "src/**"\n---\n\n# Review Guidance\n\nAdd rules here.\n');
+    ).toBe('---\n---\n');
     expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
     expect(await Bun.file(join(root, ".agents")).exists()).toBe(false);
   });
