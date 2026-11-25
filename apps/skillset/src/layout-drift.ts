@@ -6,10 +6,10 @@
  * when both sides are valid and their tokens match once whitespace outside
  * strings is removed. Markdown counts when frontmatter, fenced code, and every
  * block that carries line-sensitive syntax (headings, setext underlines,
- * quotes, tables, HTML, indented code, hard breaks) are identical, and each
- * remaining prose block has the same words, the same first-line indentation,
- * and the same list-item indentation. Everything else keeps its ordinary
- * drift classification. Isolated builds are not compared.
+ * quotes, tables, reference definitions, HTML, indented code, and hard breaks)
+ * are identical. List and indented blocks are compared as written because
+ * their meaning depends on Markdown container context. Other prose must keep
+ * the same words and code spans. Isolated builds are not compared.
  */
 
 import { resolve } from "node:path";
@@ -101,13 +101,14 @@ function markdownLayoutEqual(expected: string, actual: string): boolean {
  * blank-line-separated prose blocks (compared by words and structure).
  */
 function markdownSegments(text: string): readonly MarkdownSegment[] {
-  const lines = text.replaceAll("\r\n", "\n").split("\n").map(trimLayoutWhitespace);
+  const rawLines = text.replaceAll("\r\n", "\n").split("\n");
+  const lines = rawLines.map(trimLayoutWhitespace);
   const segments: MarkdownSegment[] = [];
   let index = 0;
   if (lines[0] === "---") {
     const end = lines.indexOf("---", 1);
     if (end > 0) {
-      segments.push({ kind: "verbatim", lines: lines.slice(0, end + 1) });
+      segments.push({ kind: "verbatim", lines: rawLines.slice(0, end + 1) });
       index = end + 1;
     }
   }
@@ -121,10 +122,10 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
     const fence = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
     if (fence !== undefined) {
       flushProse();
-      const block = [line];
+      const block = [rawLines[index] ?? ""];
       index += 1;
       while (index < lines.length) {
-        const inner = lines[index] ?? "";
+        const inner = rawLines[index] ?? "";
         block.push(inner);
         index += 1;
         if (inner.trimStart().startsWith(fence)) break;
@@ -133,20 +134,59 @@ function markdownSegments(text: string): readonly MarkdownSegment[] {
       continue;
     }
     if (line.trim() === "") flushProse();
-    else prose.push(line);
+    else prose.push(rawLines[index] ?? "");
     index += 1;
   }
   flushProse();
   return segments;
 }
 
-function proseBlockLayoutEqual(left: readonly string[], right: readonly string[]): boolean {
-  if (left.some(isLineSensitive) || right.some(isLineSensitive)) return isDeepStrictEqual(left, right);
+function proseBlockLayoutEqual(leftRaw: readonly string[], rightRaw: readonly string[]): boolean {
+  if (leftRaw.some(hasListOrIndent) || rightRaw.some(hasListOrIndent)) {
+    return isDeepStrictEqual(leftRaw, rightRaw);
+  }
+  const left = leftRaw.map(trimLayoutWhitespace);
+  const right = rightRaw.map(trimLayoutWhitespace);
+  if (left.some(isLineSensitive) || right.some(isLineSensitive)) {
+    return [...leftRaw, ...rightRaw].some((line) => line.includes("`"))
+      ? isDeepStrictEqual(leftRaw, rightRaw)
+      : isDeepStrictEqual(left, right);
+  }
+  const leftText = leftRaw.join("\n");
+  const rightText = rightRaw.join("\n");
+  if (leftText.includes("\\`") || rightText.includes("\\`")) {
+    return isDeepStrictEqual(leftRaw, rightRaw);
+  }
   return (
-    collapseWhitespace(left) === collapseWhitespace(right) &&
-    leadingIndent(left[0] ?? "") === leadingIndent(right[0] ?? "") &&
-    isDeepStrictEqual(listItemIndents(left), listItemIndents(right))
+    collapseWhitespace(leftText) === collapseWhitespace(rightText) &&
+    isDeepStrictEqual(codeSpans(leftText), codeSpans(rightText))
   );
+}
+
+function hasListOrIndent(line: string): boolean {
+  return /^(?:\s|(?:[-*+]|\d+[.)])(?:[ \t]|$))/.test(line);
+}
+
+function codeSpans(text: string): readonly string[] {
+  const runs = [...text.matchAll(/`+/g)];
+  if (runs.length === 0) return [];
+  const nextRunByLength = new Map<number, number>();
+  const closers = new Map<number, number>();
+  for (const [index, [run]] of [...runs.entries()].reverse()) {
+    const next = nextRunByLength.get(run.length);
+    if (next !== undefined) closers.set(index, next);
+    nextRunByLength.set(run.length, index);
+  }
+  const spans: string[] = [];
+  for (let index = 0; index < runs.length; index += 1) {
+    const opener = runs[index];
+    const closeIndex = closers.get(index);
+    const closer = closeIndex === undefined ? undefined : runs[closeIndex];
+    if (opener === undefined || closeIndex === undefined || closer === undefined) continue;
+    spans.push(text.slice(opener.index, closer.index + closer[0].length));
+    index = closeIndex;
+  }
+  return spans;
 }
 
 /** Trailing spaces are layout, except the two-space hard line break. */
@@ -158,21 +198,15 @@ function trimLayoutWhitespace(line: string): string {
 /** Lines whose meaning depends on where the line breaks fall. */
 function isLineSensitive(line: string): boolean {
   if (/ {2}$|\\$/.test(line)) return true;
-  if (/^(?: {4}|\t)/.test(line) && !/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return true;
+  if (line.includes("]:")) return true;
+  if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) return true;
+  if (
+    line.includes("|") &&
+    /^ {0,3}:?-+:?(?:[ \t]*\|[ \t]*:?-+:?)*(?:[ \t]*\|)?[ \t]*$/.test(line)
+  ) return true;
   return /^\s{0,3}(?:#|>|\||<|=+\s*$|-+\s*$)/.test(line);
 }
 
-function collapseWhitespace(lines: readonly string[]): string {
-  return lines.join(" ").split(/\s+/).filter((word) => word.length > 0).join(" ");
-}
-
-function leadingIndent(line: string): string {
-  return /^\s*/.exec(line)?.[0] ?? "";
-}
-
-function listItemIndents(lines: readonly string[]): readonly string[] {
-  return lines.flatMap((line) => {
-    const match = /^(\s*)(?:[-*+]|\d+[.)])\s/.exec(line);
-    return match === null ? [] : [match[1] ?? ""];
-  });
+function collapseWhitespace(text: string): string {
+  return text.trim().replace(/\s+/g, " ");
 }
