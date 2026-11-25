@@ -51,6 +51,29 @@ describe("SET-488 Claude marketplace evidence", () => {
     expect(changed.changedRuleIds).toEqual(["owner.object"]);
     expect(changed.sourceChanged).toBe(true);
   });
+  test("schema object key order changes source bytes but not facts", () => {
+    const evidence = {
+      ...example,
+      rules: [{
+        ...example.rules[0]!,
+        schema: [{
+          pointer: "/properties/owner",
+          value: { options: [{ enabled: true, mode: "strict" }], order: ["a", "b"] },
+        }],
+      }],
+    };
+    const reordered = inspectClaudeMarketplaceEvidence(
+      evidence,
+      '{"properties":{"owner":{"order":["a","b"],"options":[{"mode":"strict","enabled":true}]}}}',
+    );
+    expect(reordered.sourceChanged).toBe(true);
+    expect(reordered.status).toBe("changed");
+    expect(reordered.changedRuleIds).toEqual([]);
+    expect(inspectClaudeMarketplaceEvidence(
+      evidence,
+      '{"properties":{"owner":{"order":["b","a"],"options":[{"mode":"strict","enabled":true}]}}}',
+    ).changedRuleIds).toEqual(["owner.object"]);
+  });
   test("wrong or missing pointers fail even when source bytes match", () => {
     const wrong = { ...example, rules: [{ ...example.rules[0]!, schema: [{ pointer: "/properties/missing", value: "object" }] }] };
     expect(inspectClaudeMarketplaceEvidence(wrong, body).changedRuleIds).toEqual(["owner.object"]);

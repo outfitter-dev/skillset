@@ -6,6 +6,7 @@ import {
 } from "./claude-marketplace-parser-evidence";
 import type { ProviderValidationLane } from "./provider-validation";
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { claudeMarketplaceRules } from "./claude-marketplace-rules";
 import type { ProviderSchemaJsonValue } from "./schema-snapshots";
 
@@ -108,7 +109,7 @@ export function inspectClaudeMarketplaceEvidence(
   const actualHash = `sha256:${createHash("sha256").update(sourceBody!).digest("hex")}`;
   const sourceChanged = actualHash !== evidence.source.contentHash;
   const changedRuleIds = schemaRules.filter((rule) => rule.schema.some((fact) =>
-    JSON.stringify(readPointer(document, fact.pointer)) !== JSON.stringify(fact.value)
+    !isDeepStrictEqual(readPointer(document, fact.pointer), fact.value)
   )).map((rule) => rule.id);
   return { ...base, changedRuleIds, sourceChanged, status: sourceChanged || changedRuleIds.length > 0 || parserReview?.status === "pin-changed" ? "changed" : "matched" };
 }
