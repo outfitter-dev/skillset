@@ -1,5 +1,7 @@
 # Public router qualification
 
+> Historical checkout only: the opt-in command below applies to the [original SET-466 tree](https://github.com/outfitter-dev/skillset/tree/22033dd4d156dfee4958f5be5d7cd8fd429f5050). Its smoke test is not part of this evidence packet. Read the retained log to inspect the historical result without downloading or executing a package.
+
 SET-466 evidence on 2026-10-30. The parent is `07005d59c8b7f2b1e569b01db37e89a3a64ebc08`; this layer introduces the scripts and tests. `package-smoke.log` retains the real opt-in test invoking exactly the package commands offered in generated recovery guidance, with a fresh disposable npm/XDG cache and workspace. Both commands exited zero, the package reported 0.30.0, and the workspace remained empty. No global installation or provider execution occurred.
 
 Reproduce with `SKILLSET_ROUTER_PACKAGE_SMOKE=1 bun run test:focused -- scripts/__tests__/public-router-package-smoke.test.ts`. It intentionally downloads/executes the published package and stays outside default offline gates. The ordinary preflight fixture matrix runs without any language runtimes on the child PATH and exercises POSIX locally and PowerShell on Windows CI. Windows is not locally verified; hosted CI evidence is required.
