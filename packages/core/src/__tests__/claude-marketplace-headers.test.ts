@@ -40,6 +40,13 @@ describe("SET-801 marketplace archive headers", () => {
     const result = check({ headersHelper: "echo '{}'", strict });
     expect(result.issues.some(({ message, code }) => code === "invalid-shape" && message.includes("strict: false"))).toBe(true);
   });
+  test("reports an unknown entry field and the independent archive helper diagnostic", () => {
+    const result = check({ headersHelper: "fixture-helper", extraField: true });
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "unknown-destination-field", message: expect.stringContaining("extraField") }),
+      expect.objectContaining({ code: "invalid-shape", message: expect.stringContaining("strict: false") }),
+    ]));
+  });
   test("requires a digest for the active helper's strict-validation path", () => {
     const result = check({ source: { source: "archive", url: archive.url }, headersHelper: "echo '{}'", strict: false });
     expect(result.issues.some(({ message, code }) => code === "invalid-shape" && message.includes("source.sha256"))).toBe(true);

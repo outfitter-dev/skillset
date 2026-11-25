@@ -47,7 +47,7 @@
     },
     {
       "name": "function:checkClaudeMarketplace",
-      "hash": "sha256:2e50fe3f41e3c0c794a4c17efe13ba01daafd1542bca4b578b7b55caf130db7f",
+      "hash": "sha256:5f7925e7036b95f25b7dc10d01de335344d9c5be0f91ad9515a803650473e7ef",
       "ruleIds": [
         "marketplace.metadata.fields",
         "marketplace.metadata.closed",
@@ -59,7 +59,7 @@
     },
     {
       "name": "function:checkClaudeMarketplacePlugin",
-      "hash": "sha256:fd536b5352f75b4342d9d7dbef3c84b1aac4dd35eb8ef720c5b77c7b287ced8f",
+      "hash": "sha256:8674d7c816d5c4f4056665a72c524fb7376cbbce64fd011d482cbfcb72463144",
       "ruleIds": [
         "marketplace.entry.required",
         "marketplace.entry.name.minimum",

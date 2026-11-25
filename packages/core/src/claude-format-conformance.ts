@@ -144,7 +144,18 @@ export function checkClaudeMarketplace(
         ));
       }
       const pluginIssues = checkClaudeMarketplacePlugin(file, plugin, prefix);
-      issues.push(...pluginIssues, ...checkClaudeMarketplaceEntryHeaders(file, plugin, prefix, pluginIssues.length === 0));
+      issues.push(
+        ...pluginIssues,
+        ...checkUnknownFields(
+          file,
+          plugin,
+          "claude",
+          "claude-marketplace-schema",
+          CLAUDE_MARKETPLACE_PLUGIN_FIELDS,
+          prefix
+        ),
+        ...checkClaudeMarketplaceEntryHeaders(file, plugin, prefix, pluginIssues.length === 0)
+      );
       if (isJsonRecord(plugin.author)) {
         issues.push(
           ...checkClaudeAuthorObject(
@@ -178,14 +189,6 @@ function checkClaudeMarketplacePlugin(
       "claude",
       "claude-marketplace-schema",
       CLAUDE_MARKETPLACE_PLUGIN_FIELD_TYPES,
-      prefix
-    ),
-    ...checkUnknownFields(
-      file,
-      plugin,
-      "claude",
-      "claude-marketplace-schema",
-      CLAUDE_MARKETPLACE_PLUGIN_FIELDS,
       prefix
     ),
     ...checkClaudeMarketplacePluginArrays(file, plugin, prefix)
