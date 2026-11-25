@@ -56,7 +56,7 @@ export function scanImmediateProcessGoneAssertions(
   // are needed to distinguish a local callback from a shadowing parameter.
   let checker: ts.TypeChecker | undefined;
   const resolveCallback = (expression: ts.Expression, seen = new Set<ts.Declaration>()): ts.Expression | undefined => {
-    if (ts.isParenthesizedExpression(expression)) return resolveCallback(expression.expression, seen);
+    expression = unwrapCallbackExpression(expression);
     if (!ts.isIdentifier(expression)) return expression;
     if (!checker) {
       const options: ts.CompilerOptions = { noLib: true, noResolve: true };
@@ -102,6 +102,19 @@ export function scanImmediateProcessGoneAssertions(
   return violations;
 }
 
+function unwrapCallbackExpression(expression: ts.Expression): ts.Expression {
+  while (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isNonNullExpression(expression)
+  ) {
+    expression = expression.expression;
+  }
+  return expression;
+}
+
 function isImmediateProcessGoneAssertion(
   node: ts.Node,
   resolveCallback: (expression: ts.Expression) => ts.Expression | undefined
@@ -137,18 +150,28 @@ function isImmediateProcessGoneAssertion(
 }
 
 function containsProcessKillZero(node: ts.Node): boolean {
-  if (
-    ts.isCallExpression(node) &&
-    ts.isPropertyAccessExpression(node.expression) &&
-    ts.isIdentifier(node.expression.expression) &&
-    node.expression.expression.text === "process" &&
-    node.expression.name.text === "kill" &&
-    node.arguments.length === 2 &&
-    node.arguments[1] !== undefined &&
-    ts.isNumericLiteral(node.arguments[1]) &&
-    node.arguments[1].text === "0"
-  ) {
-    return true;
+  // Nested function bodies are deferred unless the call directly invokes them.
+  if (ts.isFunctionLike(node)) return false;
+  if (ts.isCallExpression(node)) {
+    const callee = unwrapCallbackExpression(node.expression);
+    if (
+      ts.isPropertyAccessExpression(callee) &&
+      ts.isIdentifier(callee.expression) &&
+      callee.expression.text === "process" &&
+      callee.name.text === "kill" &&
+      node.arguments.length === 2 &&
+      node.arguments[1] !== undefined &&
+      ts.isNumericLiteral(node.arguments[1]) &&
+      node.arguments[1].text === "0"
+    ) {
+      return true;
+    }
+    if (
+      (ts.isArrowFunction(callee) || ts.isFunctionExpression(callee)) &&
+      containsProcessKillZero(callee.body)
+    ) {
+      return true;
+    }
   }
   let found = false;
   ts.forEachChild(node, (child) => {

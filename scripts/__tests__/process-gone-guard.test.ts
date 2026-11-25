@@ -120,4 +120,25 @@ describe("named process-gone callbacks", () => {
       { file: "scripts/example.test.ts", line: 3, text: "expect(gone).toThrow();" },
     ]);
   });
+
+  test.each([
+    'const callback = () => { const probe = () => process.kill(pid, 0); throw new Error("unrelated"); }; expect(callback).toThrow();',
+    'const callback = () => () => process.kill(pid, 0); expect(callback).toThrow();',
+  ])("does not count deferred probes: %s", (content) => {
+    expect(scanImmediateProcessGoneAssertions("scripts/example.test.ts", content)).toEqual([]);
+  });
+
+  test("still detects an immediately invoked nested probe", () => {
+    const content = 'const callback = () => (() => process.kill(pid, 0))(); expect(callback).toThrow();';
+    expect(scanImmediateProcessGoneAssertions("scripts/example.test.ts", content)).toHaveLength(1);
+  });
+
+  test.each([
+    'const gone = (() => process.kill(pid, 0)) satisfies () => void; expect(gone).toThrow();',
+    'const gone = () => process.kill(pid, 0); const alias = gone as () => void; expect(alias).toThrow();',
+    'const gone = () => process.kill(pid, 0); expect(<() => void>gone).toThrow();',
+    'const gone = () => process.kill(pid, 0); expect((gone!) satisfies () => void).toThrow();',
+  ])("detects callbacks behind type-only wrappers: %s", (content) => {
+    expect(scanImmediateProcessGoneAssertions("scripts/example.test.ts", content)).toHaveLength(1);
+  });
 });
