@@ -1,5 +1,5 @@
 import { readdir, rm } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 
 import { isPathInside, resolveInside } from "./path";
 import { targetNames } from "./targets";
@@ -24,7 +24,12 @@ export async function applySourceSelection(
           (selected) => selected.filename === agent.filename
         )
       )
-      .map((agent) => staged(agent.sourcePath))
+      .flatMap((agent) => {
+        const path = staged(agent.sourcePath);
+        return agent.adaptiveHooks.length === 0
+          ? [path]
+          : [path, join(dirname(path), basename(path, ".md"))];
+      })
   );
   await pruneToPaths(
     join(sourceRoot, "skills"),

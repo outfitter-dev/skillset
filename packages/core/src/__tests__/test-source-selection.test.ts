@@ -152,6 +152,32 @@ test("selection prunes canonical subagents and all provider source islands", asy
   ).toContain("Body for selected.");
 });
 
+test("selection keeps local hooks for the selected agent only", async () => {
+  const hook = JSON.stringify({
+    events: ["SessionStart"],
+    run: { command: "node ./start.js" },
+  });
+  const { staged, evaluate } = await fixture(
+    {
+      ".skillset/subagents/original.md":
+        "---\nname: selected\ndescription: Selected agent.\nhooks:\n  SessionStart: [local-start]\n---\nAgent body.\n",
+      ".skillset/subagents/original/hooks/local-start.json": hook,
+      ".skillset/subagents/other.md": skill("other"),
+      ".skillset/subagents/other/hooks/local-start.json": hook,
+    },
+    "  select:\n    agents: [selected]\n"
+  );
+  expect(
+    await Bun.file(join(staged, ".skillset/subagents/original/hooks/local-start.json")).text()
+  ).toBe(hook);
+  expect(
+    await Bun.file(join(staged, ".skillset/subagents/other/hooks/local-start.json")).exists()
+  ).toBe(false);
+  expect(await evaluate()).toMatchObject({ ok: true });
+  expect(await Bun.file(join(staged, ".claude/agents/selected.md")).text())
+    .toContain("node ./start.js");
+});
+
 test("unfiltered staging preserves all sources and provider islands", async () => {
   const islands = Object.fromEntries(
     targetNames().map((target) => [
