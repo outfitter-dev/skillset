@@ -1,3 +1,10 @@
+import {
+  CLAUDE_MARKETPLACE_EVIDENCE,
+  assertClaudeMarketplaceEvidence,
+  inspectClaudeMarketplaceEvidence,
+  type ClaudeMarketplaceEvidence,
+  type ClaudeMarketplaceEvidenceReview,
+} from "./claude-marketplace-evidence";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -35,6 +42,7 @@ export interface ProviderMaintenanceOptions {
   readonly destinationSnapshots?: readonly ProviderDestinationFormatSnapshot[];
   readonly fetcher?: ProviderFetch;
   readonly manualOverlays?: readonly ProviderSchemaManualOverlay[];
+  readonly marketplaceEvidence?: ClaudeMarketplaceEvidence;
   readonly now?: string;
   readonly schemaSnapshotPath?: string;
   readonly schemaSnapshots?: readonly ProviderSchemaSnapshot[];
@@ -77,6 +85,7 @@ export interface ProviderDestinationFormatReview {
 export interface ProviderMaintenanceReport {
   readonly command: ProviderMaintenanceSubcommand;
   readonly destinationReviews: readonly ProviderDestinationFormatReview[];
+  readonly marketplaceReviews: readonly ClaudeMarketplaceEvidenceReview[];
   readonly errors: number;
   readonly ok: boolean;
   readonly schemaChanged: number;
@@ -101,13 +110,29 @@ export async function runProviderMaintenance(
     options.schemaSnapshots ?? listProviderSchemaSnapshots();
   const destinationSnapshots =
     options.destinationSnapshots ?? listProviderDestinationFormatSnapshots();
-  const fetcher = options.fetcher ?? fetch;
+  const upstreamFetch = options.fetcher ?? fetch;
+  const marketplaceEvidence = options.marketplaceEvidence ?? CLAUDE_MARKETPLACE_EVIDENCE;
+  assertClaudeMarketplaceEvidence(marketplaceEvidence);
+  let marketplaceBody: string | undefined;
+  // Observe the existing fetch once; do not issue a second request that could
+  // sample a different upstream revision than the schema snapshot check.
+  const fetcher: ProviderFetch = async (url) => {
+    const response = await upstreamFetch(url);
+    if (url !== marketplaceEvidence.source.url || !response.ok) return response;
+    const body = await response.text();
+    marketplaceBody = body;
+    return { ok: response.ok, status: response.status, statusText: response.statusText, text: async () => body };
+  };
   const fetchedAt = options.now;
   const schemaResults = await Promise.all(
     schemaSnapshots.map((snapshot) =>
       checkSchemaSnapshot(snapshot, fetcher, fetchedAt)
     )
   );
+  const marketplaceReviews = schemaSnapshots.some((snapshot) => snapshot.id === marketplaceEvidence.schemaSnapshotId)
+    ? [inspectClaudeMarketplaceEvidence(marketplaceEvidence, marketplaceBody)] : [];
+  const evidenceUnavailable = marketplaceReviews.some((review) => review.status === "unavailable");
+  const evidenceChanged = marketplaceReviews.some((review) => review.status === "changed");
   const errors = schemaResults.filter(
     (result) => result.status === "error"
   ).length;
@@ -123,6 +148,7 @@ export async function runProviderMaintenance(
     command === "update" &&
     options.write === true &&
     errors === 0 &&
+    !evidenceUnavailable &&
     schemaChanged > 0
   ) {
     const nextSnapshots = schemaSnapshots.map((snapshot) => {
@@ -143,10 +169,12 @@ export async function runProviderMaintenance(
   }
 
   const ok =
-    command === "check" ? errors === 0 && schemaChanged === 0 : errors === 0;
+    errors === 0 && !evidenceUnavailable &&
+    (command !== "check" || (schemaChanged === 0 && !evidenceChanged));
 
   return {
     command,
+    marketplaceReviews,
     destinationReviews: destinationSnapshots.map((snapshot) => ({
       contentHash: snapshot.provenance.contentHash,
       id: snapshot.id,

@@ -1,3 +1,5 @@
+export * from "./claude-marketplace-evidence";
+export * from "./claude-marketplace-inventories";
 import { createHash } from "node:crypto";
 
 import { TARGET_NAMES } from "@skillset/schema";

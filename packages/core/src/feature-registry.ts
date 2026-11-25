@@ -1,4 +1,6 @@
 import {
+  CLAUDE_MARKETPLACE_EVIDENCE,
+  type ClaudeMarketplaceEvidence,
   getProviderDestinationFormatSnapshot,
   getProviderSchemaSnapshot,
   providerSchemaManualOverlays,
@@ -96,6 +98,7 @@ export interface SkillsetTargetSupport {
 export interface SkillsetProviderSupportEvidence {
   readonly destinationFormat?: ProviderDestinationFormatSnapshotId;
   readonly manualOverlays?: readonly ProviderSchemaManualOverlayId[];
+  readonly marketplaceExtensions?: ClaudeMarketplaceEvidence["id"];
   readonly schemaSnapshots?: readonly ProviderSchemaSnapshotId[];
   readonly unsupportedDestinations?: readonly string[];
 }
@@ -267,7 +270,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/reference/features/marketplaces.md"), providerSchemaSnapshot("claude-marketplace-schema")],
-        provider: { schemaSnapshots: ["claude-marketplace-schema"] },
+        provider: { schemaSnapshots: ["claude-marketplace-schema"], marketplaceExtensions: "claude-marketplace-extensions" },
         status: "native",
       },
       codex: {
@@ -1128,6 +1131,9 @@ export function defineFeatureRegistry(
   assertFeatureIdsUnique(entries);
   assertFeatureStatusVocabulary(entries);
   assertRuntimeSupportVocabulary(entries);
+  for (const entry of entries) {
+    for (const target of targetNames()) providerEvidenceForSupport(entry.id, target, entry.targetSupport[target]);
+  }
   return [...entries].sort((left, right) => compareStrings(left.id, right.id));
 }
 
@@ -1371,9 +1377,20 @@ function providerEvidenceForSupport(
   support: SkillsetTargetSupport
 ): readonly SkillsetFeatureEvidence[] {
   const provider = support.provider;
+  if (featureId === "marketplaces" && target === "claude" && provider?.marketplaceExtensions !== CLAUDE_MARKETPLACE_EVIDENCE.id) {
+    throw new Error("skillset: Claude marketplaces require their nested conformance evidence");
+  }
   if (provider === undefined) return [];
 
   const evidence: SkillsetFeatureEvidence[] = [];
+  if (provider.marketplaceExtensions !== undefined) {
+    const record = CLAUDE_MARKETPLACE_EVIDENCE;
+    if (provider.marketplaceExtensions !== record.id || target !== record.target || !provider.schemaSnapshots?.includes(record.schemaSnapshotId)) {
+      throw new Error(`skillset: ${featureId} ${target} marketplace evidence requires the Claude marketplace schema linkage`);
+    }
+    // Maintenance evidence is inspectable on provider.marketplaceExtensions.
+    // It is not rendering provenance: adding it there would rewrite lock bytes.
+  }
   if (provider.destinationFormat !== undefined) {
     const snapshot = getProviderDestinationFormatSnapshot(provider.destinationFormat);
     if (snapshot === undefined) {

@@ -1,0 +1,875 @@
+{
+  "revision": "02559515979024f1fab9cf1a8e1c711185adcbea",
+  "basis": "deriveSkillsetJsonSchemaArtifacts, excluding combined skillset artifact; recursive type=object and additionalProperties!=false",
+  "counts": {
+    "occurrences": 116,
+    "uniqueShapes": 30,
+    "open": 101,
+    "typedMaps": 15
+  },
+  "shapes": [
+    {
+      "id": "O01",
+      "sha256": "a2c799262a3ce3c19ef5cdd983bf3d12b43ab3c426227091b909dcb7054738c0",
+      "kind": "open",
+      "declaredKeys": []
+    },
+    {
+      "id": "O02",
+      "sha256": "aaa00664d99f6c8a7d9d8ad49963067c1b666d74deab6d9f08bef9c7b8f16cb6",
+      "kind": "open",
+      "declaredKeys": [
+        "skills"
+      ]
+    },
+    {
+      "id": "O03",
+      "sha256": "9eb4d24f7d12e9808a5363502bb3124053bf3a1cf47de105e5a59a8553ba17b6",
+      "kind": "open",
+      "declaredKeys": [
+        "enabled",
+        "include"
+      ]
+    },
+    {
+      "id": "O04",
+      "sha256": "fa08191252e77793a1de7e9adbce9ca117e76ab7997e450183d46c9a31e7bb85",
+      "kind": "typed-map",
+      "declaredKeys": []
+    },
+    {
+      "id": "O05",
+      "sha256": "d498bebf0b380ff79f3a29cab7ce30011995bb9498019ccab649103366ae05e2",
+      "kind": "typed-map",
+      "declaredKeys": []
+    },
+    {
+      "id": "O06",
+      "sha256": "99a3efaf9c4b3cfcb99cba72e4d37ce3543fb09391c597128b0c46501222f97a",
+      "kind": "typed-map",
+      "declaredKeys": []
+    },
+    {
+      "id": "O07",
+      "sha256": "f35c225a8d0d94d9dd2de6557c30052255b330a318edd6b1e7a996e9129d7b44",
+      "kind": "open",
+      "declaredKeys": [
+        "email",
+        "name",
+        "url"
+      ]
+    },
+    {
+      "id": "O08",
+      "sha256": "fbec5e0e25837690033e45f6a3a03fbf8404e95ee851213e0b1e513945b5454e",
+      "kind": "open",
+      "declaredKeys": [
+        "category",
+        "displayName",
+        "logo",
+        "name",
+        "tags"
+      ]
+    },
+    {
+      "id": "O09",
+      "sha256": "2f5c95df96212c470a3bc6dfdaa931a783e438b1971ce0e2328db55522199cbe",
+      "kind": "open",
+      "declaredKeys": [
+        "skills"
+      ]
+    },
+    {
+      "id": "O10",
+      "sha256": "c6ccc056d4971c55a6c1d6c919fda42c2b9ace77f0bde9b5de76806446f6d2e4",
+      "kind": "open",
+      "declaredKeys": []
+    },
+    {
+      "id": "O11",
+      "sha256": "4e4ca6fec3e47f88250d6954cdaad5165afa6864923a9d88428b3edb3c0e6d8f",
+      "kind": "open",
+      "declaredKeys": []
+    },
+    {
+      "id": "O12",
+      "sha256": "a84fd30d7e808508e69219631d2c1e545e2ca379803ca040ad097e2830ab6d46",
+      "kind": "open",
+      "declaredKeys": [
+        "bundle",
+        "opaque",
+        "skills"
+      ]
+    },
+    {
+      "id": "O13",
+      "sha256": "20275646930887c3f3fceb137b43a240721b595ca9d379a749baf2f19cc97155",
+      "kind": "open",
+      "declaredKeys": [
+        "opaque",
+        "skills"
+      ]
+    },
+    {
+      "id": "O14",
+      "sha256": "c2f4f3be63baa2f68ee4aec467e748327c6f3ceec05b705e9f61df92ee7e003f",
+      "kind": "typed-map",
+      "declaredKeys": [
+        "auto"
+      ]
+    },
+    {
+      "id": "O15",
+      "sha256": "5c079e8627d7d70895043b75b58f77ff900c53251fc586a4ec2cab9cba6399d2",
+      "kind": "open",
+      "declaredKeys": [
+        "allowed_tools",
+        "bin",
+        "claude",
+        "codex",
+        "compatibility",
+        "cursor",
+        "dependencies",
+        "description",
+        "dialect",
+        "hooks",
+        "implicit_invocation",
+        "mcp",
+        "metadata",
+        "model",
+        "name",
+        "resources",
+        "schema",
+        "skillset",
+        "summary",
+        "supports",
+        "title",
+        "tools",
+        "version"
+      ]
+    },
+    {
+      "id": "O16",
+      "sha256": "7c360fe373c4d9d5a5f26113f0b28520aa9ba500ec3d2ad4f12c5fc9c226ae85",
+      "kind": "open",
+      "declaredKeys": [
+        "skillset.schema",
+        "version"
+      ]
+    },
+    {
+      "id": "O17",
+      "sha256": "1b9f5078698a926cfcbefad81ed39a71375f4cb2d00ef3ea39798bf2776d72ea",
+      "kind": "typed-map",
+      "declaredKeys": []
+    },
+    {
+      "id": "O18",
+      "sha256": "26baffad3cfa8394a6f75973bbd11e76f9abee8d0741dbbcbb147c1e9b84b19b",
+      "kind": "open",
+      "declaredKeys": [
+        "skills"
+      ]
+    },
+    {
+      "id": "O19",
+      "sha256": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+      "kind": "open",
+      "declaredKeys": []
+    },
+    {
+      "id": "O20",
+      "sha256": "60223a89baa62181826ab63e644a6780146a81ec6993b66b8ef3fb9d5f987d36",
+      "kind": "open",
+      "declaredKeys": [
+        "claude",
+        "codex",
+        "cursor",
+        "description",
+        "dialect",
+        "metadata",
+        "name",
+        "paths",
+        "skillset",
+        "summary",
+        "supports",
+        "title",
+        "version"
+      ]
+    },
+    {
+      "id": "O21",
+      "sha256": "45f30f3b0a72b613c532d048c2183fd6e9e14c15fbac4a427d697002fdd52f60",
+      "kind": "open",
+      "declaredKeys": []
+    },
+    {
+      "id": "O22",
+      "sha256": "57de6e0dfe0c60ff581be2bd1e3562db0a179227ec11940f8e903a80e9af52a9",
+      "kind": "typed-map",
+      "declaredKeys": [
+        "hooks"
+      ]
+    },
+    {
+      "id": "O23",
+      "sha256": "e2587a00f745abd70be648eebebec379d883a4b4a8354cb37ffddce6eb1faeaa",
+      "kind": "open",
+      "declaredKeys": [
+        "hooks",
+        "matcher",
+        "statusMessage"
+      ]
+    },
+    {
+      "id": "O24",
+      "sha256": "2ee594c1863a708be1494165a200a076c3a9086dbba3d4620d4527434e6587f0",
+      "kind": "open",
+      "declaredKeys": [
+        "agent",
+        "async",
+        "command",
+        "prompt",
+        "statusMessage",
+        "timeout",
+        "type"
+      ]
+    },
+    {
+      "id": "O25",
+      "sha256": "77ac937fc8a040619832ce255fd7af2adf3f5013bcebf1bff5d08f53e06c52be",
+      "kind": "typed-map",
+      "declaredKeys": []
+    },
+    {
+      "id": "O26",
+      "sha256": "3f161562db4a7237942681ccf41abd9a699b0260591ddd0d154bfca063f449bf",
+      "kind": "typed-map",
+      "declaredKeys": []
+    },
+    {
+      "id": "O27",
+      "sha256": "54838d566e1f33b6a3a09de8b802eb0806f19fc9020a4d185ff3fd9bdb2c9012",
+      "kind": "open",
+      "declaredKeys": [
+        "bump",
+        "evidence",
+        "external",
+        "group",
+        "id",
+        "ignored",
+        "scope",
+        "scopes"
+      ]
+    },
+    {
+      "id": "O28",
+      "sha256": "fddc25ca30abf703b8a87bd08fa1f23f98b26f9ead7668622a01e0db40df7b16",
+      "kind": "open",
+      "declaredKeys": [
+        "currentHash",
+        "hash",
+        "scope",
+        "sourceHash"
+      ]
+    },
+    {
+      "id": "O29",
+      "sha256": "0a590af9ff66216981d5b465f37fa72ed58a6a63702be623e7c677e37cd01127",
+      "kind": "typed-map",
+      "declaredKeys": [
+        "currentHash",
+        "hash",
+        "sourceHash"
+      ]
+    },
+    {
+      "id": "O30",
+      "sha256": "20db7d5ba1a5de885597fd2ffa70a5b9f119c7d0dd8742c1e6b2e33e6cabd3c4",
+      "kind": "typed-map",
+      "declaredKeys": []
+    }
+  ],
+  "occurrences": [
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/changes",
+      "shape": "O01"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/claude/anyOf/1",
+      "shape": "O02"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/claude/anyOf/1/properties/skills/anyOf/2",
+      "shape": "O03"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/codex/anyOf/1",
+      "shape": "O02"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/codex/anyOf/1/properties/skills/anyOf/2",
+      "shape": "O03"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/cursor/anyOf/1",
+      "shape": "O02"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/cursor/anyOf/1/properties/skills/anyOf/2",
+      "shape": "O03"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/defaults",
+      "shape": "O01"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/distributions",
+      "shape": "O01"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/marketplaces",
+      "shape": "O04"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/plugins/properties/internal_use/anyOf/1/properties/drafts",
+      "shape": "O05"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/plugins/properties/internal_use/anyOf/1/properties/skills",
+      "shape": "O06"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/author/anyOf/1",
+      "shape": "O07"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/manifest",
+      "shape": "O08"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/marketplace",
+      "shape": "O01"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/outputs",
+      "shape": "O09"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/outputs/properties/skills",
+      "shape": "O10"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/owner",
+      "shape": "O07"
+    },
+    {
+      "contract": "workspace-config",
+      "pointer": "/properties/skillset/properties/presentation",
+      "shape": "O01"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/bin/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/changes",
+      "shape": "O01"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/claude/anyOf/1",
+      "shape": "O12"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/claude/anyOf/1/properties/skills/anyOf/2",
+      "shape": "O03"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/codex/anyOf/1",
+      "shape": "O13"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/codex/anyOf/1/properties/skills/anyOf/2",
+      "shape": "O03"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/cursor/anyOf/1",
+      "shape": "O13"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/cursor/anyOf/1/properties/skills/anyOf/2",
+      "shape": "O03"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/defaults",
+      "shape": "O01"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/hooks",
+      "shape": "O14"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/hooks/additionalProperties/items/anyOf/1/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/hooks/properties/auto/items/anyOf/1/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/mcp/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/author/anyOf/1",
+      "shape": "O07"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/manifest",
+      "shape": "O08"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/marketplace",
+      "shape": "O01"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/outputs",
+      "shape": "O09"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/outputs/properties/skills",
+      "shape": "O10"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/owner",
+      "shape": "O07"
+    },
+    {
+      "contract": "plugin-config",
+      "pointer": "/properties/skillset/properties/presentation",
+      "shape": "O01"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/author/anyOf/1",
+      "shape": "O07"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/manifest",
+      "shape": "O08"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/marketplace",
+      "shape": "O01"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/outputs",
+      "shape": "O09"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/outputs/properties/skills",
+      "shape": "O10"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/owner",
+      "shape": "O07"
+    },
+    {
+      "contract": "source-metadata",
+      "pointer": "/properties/presentation",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "",
+      "shape": "O15"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/bin/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/claude/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/codex/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/cursor/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/hooks",
+      "shape": "O14"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/hooks/additionalProperties/items/anyOf/1/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/hooks/properties/auto/items/anyOf/1/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/mcp/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/metadata",
+      "shape": "O16"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/resources/anyOf/2",
+      "shape": "O17"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/author/anyOf/1",
+      "shape": "O07"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/manifest",
+      "shape": "O08"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/marketplace",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/outputs",
+      "shape": "O09"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/outputs/properties/skills",
+      "shape": "O10"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/owner",
+      "shape": "O07"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/skillset/properties/presentation",
+      "shape": "O01"
+    },
+    {
+      "contract": "skill-frontmatter",
+      "pointer": "/properties/tools/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/claude/anyOf/1",
+      "shape": "O18"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/codex/anyOf/1",
+      "shape": "O18"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/cursor/anyOf/1",
+      "shape": "O18"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/hooks",
+      "shape": "O14"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/hooks/additionalProperties/items/anyOf/1/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/hooks/properties/auto/items/anyOf/1/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/metadata",
+      "shape": "O19"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/author/anyOf/1",
+      "shape": "O07"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/manifest",
+      "shape": "O08"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/marketplace",
+      "shape": "O01"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/outputs",
+      "shape": "O09"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/outputs/properties/skills",
+      "shape": "O10"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/owner",
+      "shape": "O07"
+    },
+    {
+      "contract": "agent-frontmatter",
+      "pointer": "/properties/skillset/properties/presentation",
+      "shape": "O01"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "",
+      "shape": "O20"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/claude/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/codex/anyOf/1",
+      "shape": "O21"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/cursor/anyOf/1",
+      "shape": "O11"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/metadata",
+      "shape": "O19"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/author/anyOf/1",
+      "shape": "O07"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/manifest",
+      "shape": "O08"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/marketplace",
+      "shape": "O01"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/outputs",
+      "shape": "O09"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/outputs/properties/skills",
+      "shape": "O10"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/owner",
+      "shape": "O07"
+    },
+    {
+      "contract": "rule-frontmatter",
+      "pointer": "/properties/skillset/properties/presentation",
+      "shape": "O01"
+    },
+    {
+      "contract": "hook",
+      "pointer": "",
+      "shape": "O22"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/additionalProperties/items",
+      "shape": "O23"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/additionalProperties/items/properties/hooks/items",
+      "shape": "O24"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/additionalProperties/items/properties/matcher/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/properties/hooks",
+      "shape": "O25"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/properties/hooks/additionalProperties/items",
+      "shape": "O23"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/properties/hooks/additionalProperties/items/properties/hooks/items",
+      "shape": "O24"
+    },
+    {
+      "contract": "hook",
+      "pointer": "/properties/hooks/additionalProperties/items/properties/matcher/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/claude/properties/match/anyOf/2",
+      "shape": "O01"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/claude/properties/run/properties/env",
+      "shape": "O26"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/codex/properties/match/anyOf/2",
+      "shape": "O01"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/codex/properties/run/properties/env",
+      "shape": "O26"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/cursor/properties/match/anyOf/2",
+      "shape": "O01"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/cursor/properties/run/properties/env",
+      "shape": "O26"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/match/anyOf/1",
+      "shape": "O01"
+    },
+    {
+      "contract": "adaptive-hook",
+      "pointer": "/properties/run/properties/env",
+      "shape": "O26"
+    },
+    {
+      "contract": "change-entry",
+      "pointer": "",
+      "shape": "O27"
+    },
+    {
+      "contract": "change-entry",
+      "pointer": "/properties/evidence/anyOf/0/items",
+      "shape": "O28"
+    },
+    {
+      "contract": "change-entry",
+      "pointer": "/properties/evidence/anyOf/1",
+      "shape": "O29"
+    },
+    {
+      "contract": "change-entry",
+      "pointer": "/properties/evidence/anyOf/1/additionalProperties/anyOf/1",
+      "shape": "O28"
+    },
+    {
+      "contract": "test-declaration",
+      "pointer": "/properties/select/properties/skills/anyOf/1/properties/plugin/anyOf/1",
+      "shape": "O30"
+    },
+    {
+      "contract": "cli-result",
+      "pointer": "/properties/data",
+      "shape": "O01"
+    },
+    {
+      "contract": "cli-result",
+      "pointer": "/properties/meta",
+      "shape": "O01"
+    },
+    {
+      "contract": "cli-event",
+      "pointer": "/properties/data",
+      "shape": "O01"
+    },
+    {
+      "contract": "report",
+      "pointer": "/properties/payload",
+      "shape": "O01"
+    }
+  ]
+}

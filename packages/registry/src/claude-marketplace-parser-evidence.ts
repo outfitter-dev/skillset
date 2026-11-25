@@ -1,0 +1,396 @@
+import { createHash } from "node:crypto";
+import { getProviderValidationLane, type ProviderValidationLane } from "./provider-validation";
+
+export type ClaudeMarketplaceParserPredicateId = "archive-digest" | "command-limits" | "entry-name-strict" | "entry-name-unique" | "metadata-closed-strict" | "rename-values" | "header-shape" | "header-helper-strict" | "header-source-digest" | "header-restricted";
+
+export interface ClaudeMarketplaceParserEvidence {
+  readonly id: "claude-marketplace-parser-2.1.269";
+  readonly authority: "static-parser-inspection";
+  readonly target: "claude";
+  readonly schemaSnapshotId: "claude-marketplace-schema";
+  readonly validationLaneId: "claude-product";
+  readonly version: "2.1.269";
+  readonly reviewedAt: string;
+  readonly archive: { readonly url: string; readonly integrity: string; readonly contentHash: string };
+  readonly member: { readonly path: string; readonly bytes: number; readonly contentHash: string };
+  readonly windows: readonly { readonly id: string; readonly start: number; readonly end: number; readonly contentHash: string }[];
+  readonly predicates: Readonly<Record<ClaudeMarketplaceParserPredicateId, {
+    readonly stage: "schema-predicate" | "strict-warning" | "validator-error"; readonly ruleId: string; readonly windows: readonly string[]; readonly claim: string;
+  }>>;
+  readonly limitation: string;
+}
+
+/** Captured from integrity-verified, nonexecuted 2.1.269 bytes on 2026-10-31. */
+export const CLAUDE_MARKETPLACE_PARSER_EVIDENCE: ClaudeMarketplaceParserEvidence = {
+  "id": "claude-marketplace-parser-2.1.269",
+  "authority": "static-parser-inspection",
+  "target": "claude",
+  "schemaSnapshotId": "claude-marketplace-schema",
+  "validationLaneId": "claude-product",
+  "version": "2.1.269",
+  "reviewedAt": "2026-10-31",
+  "archive": {
+    "url": "https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.269.tgz",
+    "integrity": "sha512-Ti+9oKbf2p9pJuMMj1Fv+6YzljREpy9cx6SN7NV7Zik/vaaXPxC8u+cDiGF7HnPPJ5HsLbmwKoh3BnE3IhdAeQ==",
+    "contentHash": "sha256:556de237572f052c4597ac6a466573e26c60d2301a27e3c79b739d050b3a62a7"
+  },
+  "member": {
+    "path": "package/claude",
+    "bytes": 219651568,
+    "contentHash": "sha256:25e44883f54419569a3d739f38cbbdaebe83b09895da0f343e1b003710a4775b"
+  },
+  "windows": [
+    {
+      "id": "command-max-and-pattern",
+      "start": 181272200,
+      "end": 181273900,
+      "contentHash": "sha256:381b33b0bf200a5ad3ee8a967c9048c42f342038c812edf5265bc3ec484e63f1"
+    },
+    {
+      "id": "archive-schema",
+      "start": 181298900,
+      "end": 181300200,
+      "contentHash": "sha256:99d90e26f67abbdd86085e308b4d245d935f83f7155ca14a104d2d30e7084fe8"
+    },
+    {
+      "id": "source-union-forms",
+      "start": 181300985,
+      "end": 181304100,
+      "contentHash": "sha256:a4517015e0133b77bd0f2747aed4bdd36ee6c0da5b1f9533609ef48db87f7695"
+    },
+    {
+      "id": "entry-schema-caller",
+      "start": 181308616,
+      "end": 181309050,
+      "contentHash": "sha256:8a3e83f0cfbd435d35c646d16f52bbc9f351f4794af4ecd673ca0633fa329863"
+    },
+    {
+      "id": "entry-safeparse-transform",
+      "start": 181309900,
+      "end": 181310550,
+      "contentHash": "sha256:3398eb32b386f8d3d91450230e69831b54aa2c5b05e115524428bee89a12206b"
+    },
+    {
+      "id": "marketplace-schema-caller",
+      "start": 181312531,
+      "end": 181313450,
+      "contentHash": "sha256:5382d18080afc2d9825d3db83d44cf4cf64793f3452040a457982b388d19afec"
+    },
+    {
+      "id": "export-validate-handler",
+      "start": 208330955,
+      "end": 208331410,
+      "contentHash": "sha256:074f3d3109cb9bc62e5042111440d4895b56c1dcf7a40cfa6441ba4d651942d4"
+    },
+    {
+      "id": "cli-strict-aggregate",
+      "start": 208302950,
+      "end": 208304220,
+      "contentHash": "sha256:c89d0bb32aa8d491aedac05d0c168407e3be2d467cf1fd6140fafdf43556ad33"
+    },
+    {
+      "id": "strict-success-policy",
+      "start": 208253347,
+      "end": 208253550,
+      "contentHash": "sha256:4e59fbbcab3a094d3d341dc22939eb2ab15caa05ec3cc2233ff7f894569c6e81"
+    },
+    {
+      "id": "dispatch-marketplace",
+      "start": 208281849,
+      "end": 208283000,
+      "contentHash": "sha256:ee7bf790fbc3cf830dd6f933c5d3514a66db446a11644440cf7fb77b2b18e1ab"
+    },
+    {
+      "id": "marketplace-validator-schema",
+      "start": 208261077,
+      "end": 208261350,
+      "contentHash": "sha256:5a4c2348b1a4a0b106dcab883e7fe42f61b43755a366844610adfd36c957d43a"
+    },
+    {
+      "id": "marketplace-validator-parse",
+      "start": 208263350,
+      "end": 208263930,
+      "contentHash": "sha256:5294a76d6efc0ef70c3fda4dcea5cb43407a7f5c74a7447f9d02ad8d8a19ae59"
+    },
+    {
+      "id": "marketplace-name-warning",
+      "start": 208264150,
+      "end": 208265850,
+      "contentHash": "sha256:c7f0272128de9bb23df8e7e06d4f4f5026deced74fa248b76f2d7b073685fdea"
+    },
+    {
+      "id": "marketplace-validator-return",
+      "start": 208269800,
+      "end": 208270450,
+      "contentHash": "sha256:3d9655814c800d75487a6b77063444521da8f0447c47a493ebc8326a400c9d8e"
+    },
+    {
+      "id": "strict-name-pattern",
+      "start": 208260989,
+      "end": 208261077,
+      "contentHash": "sha256:49cc01ab308ded5c73adaa63f178d53e1fdfa0c154ea496e7c2482e547a93a72"
+    },
+    {
+      "id": "marketplace-duplicate-names",
+      "start": 208266450,
+      "end": 208266950,
+      "contentHash": "sha256:e6f14085d3f61922f7c71c41daa43f389509d8feb1477199038d8576c3d1ff51"
+    },
+    {
+      "id": "marketplace-metadata-shape",
+      "start": 181312531,
+      "end": 181314017,
+      "contentHash": "sha256:90067633aa85cc84aacdaa24c5fc6d5f9b0702f53c768d875c9be1d7d9f726a5"
+    },
+    {
+      "id": "strict-validator-overrides-and-unknown",
+      "start": 208263350,
+      "end": 208265800,
+      "contentHash": "sha256:ec968f65baa3785da49d03e64f3484548f9a85c442a584b56672d0bd144c6815"
+    },
+    {
+      "id": "unknown-warning-helper",
+      "start": 208254850,
+      "end": 208255195,
+      "contentHash": "sha256:debad8fffcd9f1ccd97a117fb53b6b2294878011a880a6529ac9704e666f83da"
+    },
+    {
+      "id": "entry-fields",
+      "start": 181308616,
+      "end": 181309750,
+      "contentHash": "sha256:5b7a6bd60549bcc58b40e84692bce235a759ae67e945eb21b52e55515f7c4f7c"
+    },
+    {
+      "id": "marketplace-conditional-checks",
+      "start": 208266550,
+      "end": 208268250,
+      "contentHash": "sha256:cf9c0ab18dca3c2099bbe72d578a757382dd4be9c05a62d8462f56af38d875e3"
+    },
+    {
+      "id": "helper-nonempty",
+      "start": 185055450,
+      "end": 185055750,
+      "contentHash": "sha256:c12c95bbc069509283886c1700125a9d3713f37cfa99f94c5f16cde078a02a0a"
+    },
+    {
+      "id": "restricted-headers",
+      "start": 185062050,
+      "end": 185063350,
+      "contentHash": "sha256:00a3fe69908947e6152dea56c112e1078dd3a85463a8082b865bb96eb74e5e00"
+    }
+  ],
+  "predicates": {
+    "archive-digest": {
+      "ruleId": "marketplace.source.archive.digest",
+      "windows": [
+        "archive-schema",
+        "source-union-forms",
+        "entry-schema-caller",
+        "entry-safeparse-transform",
+        "marketplace-schema-caller"
+      ],
+      "claim": "The optional archive sha256 field uses Hs, a 64-character hexadecimal string predicate, in ic within the marketplace source union.",
+      "stage": "schema-predicate"
+    },
+    "command-limits": {
+      "ruleId": "marketplace.source.command.limits",
+      "windows": [
+        "command-max-and-pattern",
+        "source-union-forms",
+        "entry-schema-caller",
+        "entry-safeparse-transform",
+        "marketplace-schema-caller"
+      ],
+      "claim": "The command source uses maximum length 500, printable ASCII with no four consecutive spaces, optional mode copy/link and optional positive integer timeout at most 600.",
+      "stage": "schema-predicate"
+    },
+    "entry-name-strict": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.entry.name.pattern",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "strict-success-policy",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-name-warning",
+        "marketplace-validator-return",
+        "strict-name-pattern"
+      ],
+      "claim": "The marketplace validator tests nonempty plugin entry names against ze: ASCII alphanumeric first, then ASCII alphanumeric/dot/underscore/hyphen, at most 128 characters. A mismatch is a Claude Desktop compatibility warning. K8n makes warnings fail only under --strict; oa uses that aggregate for CLI status. This is a static condition, not observed execution or ordinary Claude Code runtime rejection."
+    },
+    "entry-name-unique": {
+      "stage": "validator-error",
+      "ruleId": "marketplace.entry.name.unique",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-duplicate-names",
+        "marketplace-validator-return"
+      ],
+      "claim": "After schema parsing succeeds, the marketplace validator compares plugin names with exact equality and records duplicate names as errors. Core diagnoses each later occurrence against the first, while the pinned validator diagnoses every member of a duplicate group. Static inspection does not establish observed execution or runtime behavior."
+    },
+    "metadata-closed-strict": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.metadata.closed",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-return",
+        "strict-validator-overrides-and-unknown",
+        "marketplace-metadata-shape",
+        "unknown-warning-helper",
+        "strict-success-policy"
+      ],
+      "claim": "The validator compares raw object-valued metadata keys to LMe metadata keys pluginRoot/version/description using U. Other keys produce warnings, which fail only under --strict. Core reports an unknown-field diagnostic. This qualifies the exact key set, not ordinary non-strict validation, value types or runtime behavior."
+    },
+    "rename-values": {
+      "stage": "validator-error",
+      "ruleId": "marketplace.renames.values",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-return",
+        "strict-validator-overrides-and-unknown",
+        "marketplace-metadata-shape"
+      ],
+      "claim": "The validator overrides the base loader renames schema with an optional string-keyed record of string-or-null values and sends parse failures to errors. This qualifies JSON object member value shape only. The base loader catches invalid renames; additional validator rename-chain resolution and target-name checks are separate and not claimed as Core behavior."
+    },
+    "header-shape": {
+      "stage": "schema-predicate",
+      "ruleId": "marketplace.headers.shape",
+      "windows": [
+        "entry-fields",
+        "command-max-and-pattern",
+        "marketplace-schema-caller"
+      ],
+      "claim": "Optional marketplace headers is a string-valued record; headersHelper is a string of at most 500 printable ASCII code units with no four consecutive spaces. Empty helper is permitted. Standalone plugin fields are not broadened."
+    },
+    "header-helper-strict": {
+      "stage": "validator-error",
+      "ruleId": "marketplace.headers.helper_strict",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-validator-return",
+        "entry-fields",
+        "helper-nonempty",
+        "marketplace-conditional-checks"
+      ],
+      "claim": "After parsing, an archive entry with a nonempty helper and strict not false produces an error. Omitted entry strict defaults true. No helper is executed by this evidence."
+    },
+    "header-source-digest": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.headers.source_digest",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-validator-return",
+        "strict-success-policy",
+        "helper-nonempty",
+        "marketplace-conditional-checks"
+      ],
+      "claim": "After parsing, present headers or an active helper on nonarchive sources produces one warning attributed to the helper when active. An archive active helper without sha256 produces a warning. Warnings fail strict validation; Core uses invalid-shape diagnostics."
+    },
+    "header-restricted": {
+      "stage": "strict-warning",
+      "ruleId": "marketplace.headers.restricted",
+      "windows": [
+        "export-validate-handler",
+        "cli-strict-aggregate",
+        "dispatch-marketplace",
+        "marketplace-validator-schema",
+        "marketplace-validator-parse",
+        "marketplace-validator-return",
+        "strict-success-policy",
+        "restricted-headers",
+        "marketplace-conditional-checks"
+      ],
+      "claim": "For archive entries the validator checks header keys after lowercase and underscore-to-hyphen normalization against 21 exact routing/identity names and three prefixes. Matches warn and fail strict validation. Runtime syntax/value filtering is a separate path and is not asserted here."
+    }
+  },
+  "limitation": "Embedded bundled JavaScript inspection only. Schema-predicate records do not establish command exit status because entry recovery and later validation stages differ. The strict-warning record traces one warning-to-status condition; it does not establish whole-command acceptance, installation, trust or runtime behavior. No provider code was executed."
+};
+
+export function assertClaudeMarketplaceParserEvidence(evidence: ClaudeMarketplaceParserEvidence): void {
+  const invalid = (message: string): never => { throw new Error(`skillset: Claude marketplace parser evidence ${message}`); };
+  const digest = (value: string) => /^sha256:[a-f0-9]{64}$/u.test(value);
+  if (evidence.id !== "claude-marketplace-parser-2.1.269" || evidence.version !== "2.1.269" || evidence.authority !== "static-parser-inspection") invalid("has an invalid identity or authority");
+  if (evidence.target !== "claude" || evidence.schemaSnapshotId !== "claude-marketplace-schema" || evidence.validationLaneId !== "claude-product") invalid("has invalid target/schema/lane linkage");
+  if (!/^https:\/\//u.test(evidence.archive.url) || !/^sha512-[A-Za-z0-9+/]{86}==$/u.test(evidence.archive.integrity) || !digest(evidence.archive.contentHash)) invalid("requires pinned archive hashes");
+  if (evidence.member.path !== "package/claude" || !Number.isSafeInteger(evidence.member.bytes) || evidence.member.bytes <= 0 || !digest(evidence.member.contentHash)) invalid("requires a pinned regular member");
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(evidence.reviewedAt) || evidence.limitation.trim() === "") invalid("requires a review date and limitation");
+  if (evidence.windows.length === 0) invalid("requires source windows");
+  const ids = new Set<string>();
+  for (const window of evidence.windows) {
+    if (window.id.trim() === "" || ids.has(window.id)) invalid("has a duplicate or empty source window");
+    ids.add(window.id);
+    if (!Number.isSafeInteger(window.start) || !Number.isSafeInteger(window.end) || window.start < 0 || window.end <= window.start || window.end > evidence.member.bytes || !digest(window.contentHash)) invalid(`has an invalid source window ${window.id}`);
+  }
+  for (const [id, stage] of [
+    ["archive-digest", "schema-predicate"], ["command-limits", "schema-predicate"],
+    ["entry-name-strict", "strict-warning"], ["entry-name-unique", "validator-error"],
+    ["metadata-closed-strict", "strict-warning"], ["rename-values", "validator-error"],
+    ["header-shape", "schema-predicate"], ["header-helper-strict", "validator-error"],
+    ["header-source-digest", "strict-warning"], ["header-restricted", "strict-warning"],
+  ] as const) {
+    const predicate = evidence.predicates[id];
+    if (predicate === undefined || predicate.stage !== stage || predicate.ruleId.trim() === "" || predicate.claim.trim() === "" || predicate.windows.length === 0 || predicate.windows.some((window) => !ids.has(window))) invalid(`has unqualified predicate ${id}`);
+  }
+  if (Object.keys(evidence.predicates).length !== 10) invalid("has an unreviewed predicate");
+}
+
+export interface ClaudeMarketplaceParserPinReview {
+  readonly id: ClaudeMarketplaceParserEvidence["id"];
+  readonly status: "pin-changed" | "pin-matched";
+  readonly expectedVersion: string;
+  readonly actualVersion: string;
+  readonly reason: string;
+}
+
+/** Pin equality is a static evidence freshness check, not a provider run. */
+export function inspectClaudeMarketplaceParserPin(
+  evidence: ClaudeMarketplaceParserEvidence = CLAUDE_MARKETPLACE_PARSER_EVIDENCE,
+  lane: ProviderValidationLane = getProviderValidationLane("claude-product")
+): ClaudeMarketplaceParserPinReview {
+  assertClaudeMarketplaceParserEvidence(evidence);
+  const matched = lane.id === evidence.validationLaneId && lane.authority === "product-validator" &&
+    lane.targets.includes(evidence.target) && lane.version === evidence.version &&
+    lane.pin === `@anthropic-ai/claude-code@${evidence.version}` &&
+    lane.acquisitions.some((source) => source.url === evidence.archive.url && source.integrity === evidence.archive.integrity);
+  return { id: evidence.id, expectedVersion: evidence.version, actualVersion: lane.version,
+    status: matched ? "pin-matched" : "pin-changed",
+    reason: matched ? "Recorded static parser pin matches the validation lane; not runtime acceptance." : "Validation lane identity or artifact pin changed; re-inspect the static evidence before qualification." };
+}
+
+/** Reproduce byte identity from a local member; never executes or installs it. */
+export function verifyClaudeMarketplaceParserMember(
+  bytes: Uint8Array,
+  evidence: ClaudeMarketplaceParserEvidence = CLAUDE_MARKETPLACE_PARSER_EVIDENCE
+): { readonly ok: boolean; readonly problems: readonly string[] } {
+  assertClaudeMarketplaceParserEvidence(evidence);
+  const hash = (value: Uint8Array) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+  const problems: string[] = [];
+  if (bytes.byteLength !== evidence.member.bytes) problems.push("member byte length differs from the pin");
+  if (hash(bytes) !== evidence.member.contentHash) problems.push("member digest differs from the pin");
+  for (const window of evidence.windows) {
+    if (window.end > bytes.byteLength || hash(bytes.subarray(window.start, window.end)) !== window.contentHash) problems.push(`source window ${window.id} differs from the pin`);
+  }
+  return { ok: problems.length === 0, problems };
+}
+
+assertClaudeMarketplaceParserEvidence(CLAUDE_MARKETPLACE_PARSER_EVIDENCE);
