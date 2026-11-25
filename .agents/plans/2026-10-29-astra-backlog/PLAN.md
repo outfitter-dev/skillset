@@ -6,7 +6,7 @@ One Astra thread owns sustained implementation of the eligible Skillset backlog 
 
 This packet records Matt's operating decisions from the conversation on October 29, 2026. It supersedes the multi-lane execution and coordination model in the earlier autonomous campaign playbook. It preserves Linear's issue scope, dependencies, acceptance criteria, deferred work, and settled product decisions. It does not introduce a new compiler or product contract.
 
-Start here, then read [GOAL.md](GOAL.md), [REFS.md](REFS.md), and the latest [RETRO.md](RETRO.md). Current user instructions take precedence over this packet. Follow current repository guidance and specialist skills; surface substantive conflicts rather than silently changing accepted product behavior.
+Start here, then read [GOAL.md](GOAL.md), [REFS.md](REFS.md), and the [execution ledger](RETRO.md). The [last published retrospective](../archive/2026-10-29-astra-backlog/RETRO.md) and its [supporting records](../archive/2026-10-29-astra-backlog/README.md) are historical, not current qualification. Check live ownership, refs, and verification before resuming. Current user instructions take precedence over this packet. Follow current repository guidance and specialist skills; surface substantive conflicts rather than silently changing accepted product behavior.
 
 ## Standing authority and completion horizon
 
