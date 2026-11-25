@@ -15,3 +15,4 @@ records the outcome. Do not resume an archived packet. The lifecycle rule is in
 - [2026-09-18 Generated output repair](2026-09-18-generated-output-repair/README.md): SET-599 branch note; `build --repair` shipped.
 - [2026-09-18 Resolve](2026-09-18-resolve/README.md): SET-600 branch note; `skillset resolve` shipped.
 - [2026-09-18 Generated gitattributes](2026-09-18-generated-gitattributes/README.md): SET-601 branch note; generated merge policy shipped.
+- [2026-10-29 Astra backlog execution records](2026-10-29-astra-backlog/README.md): historical acceptance, Bun qualification, and execution snapshots; not current qualification.
