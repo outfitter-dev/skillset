@@ -83,7 +83,11 @@ test.each([
 ])("check keeps the ordinary edit warning for %s", async (_case, content, before, after) => {
   const root = await formattingFixture(content);
   const path = join(root, SKILL);
-  await writeFile(path, (await readFile(path, "utf8")).replace(before, after));
+  const generated = await readFile(path, "utf8");
+  expect(generated.split(content)).toHaveLength(2);
+  const edited = content.replace(before, after);
+  expect(edited).not.toBe(content);
+  await writeFile(path, generated.replace(content, edited));
 
   const result = await runSkillsetCli("check", "--root", root);
   expect(result.exitCode).toBe(1);
