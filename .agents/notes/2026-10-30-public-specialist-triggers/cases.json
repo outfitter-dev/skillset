@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "id": 1,
+      "kind": "new",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. We have decided to use Skillset for this repository. There is no skillset.yaml or .skillset directory yet. Help initialize the repository; do not install anything on my machine. Explain the steps only.",
+      "expected": "skillset-init"
+    },
+    {
+      "id": 2,
+      "kind": "adopt",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. We want to bring an existing collection of provider skills into a new Skillset workspace, preserving originals and reviewing collisions. Help with repository adoption and import; explain only.",
+      "expected": "skillset-init"
+    },
+    {
+      "id": 3,
+      "kind": "drift",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. This repository already has skillset.yaml and .skillset source. Generated output has drift and intentional hand edits. Help inspect and repair without losing those edits. Explain only.",
+      "expected": "skillset-maintain"
+    },
+    {
+      "id": 4,
+      "kind": "baseline",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. Our Skillset workspace is initialized but check says there is no generated baseline. Walk through the first build, including which commands preview and which write. Explain only.",
+      "expected": "skillset-maintain"
+    },
+    {
+      "id": 5,
+      "kind": "broad",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. I want reusable agent capabilities across Claude and Codex but have not chosen the workspace or artifact shape. Help choose where to start; explain only.",
+      "expected": "skillset"
+    },
+    {
+      "id": 6,
+      "kind": "machine",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. I need the Skillset CLI installed on my machine before working on any repository. Explain recovery choices only; do not install.",
+      "expected": "skillset"
+    },
+    {
+      "id": 7,
+      "kind": "negative",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. How can I change my editor color theme?",
+      "expected": "none"
+    },
+    {
+      "id": 8,
+      "kind": "ambiguous",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. I need one disposable Claude-only instruction for a throwaway experiment. Would Skillset be necessary?",
+      "expected": "none-or-router"
+    },
+    {
+      "id": 9,
+      "kind": "handoff",
+      "prompt": "Hypothetical scenario: the current directory is intentionally empty and is not the described repository. Do not inspect it; use the supplied scenario facts. You may read bundled skill instructions and references. Help plan initializing a repository Skillset workspace, then explain what the agent should do once initialization has completed and authored source is ready but no output baseline exists. Invoke appropriate skills as you proceed and carry the repository path, source ownership and write-authority limits into the next step. Do not execute setup or write files. The hypothetical repository path is /example/acme. Its chosen authored source is .skillset/RULES.md, with native-root mode disabled and no authored root AGENTS.md. Write authority is explanation only: no setup, build, file edits, installation or activation.",
+      "expected": "init-then-maintain-with-context",
+      "handoffFacts": {
+        "repository": "/example/acme",
+        "source": ".skillset/RULES.md",
+        "nativeRoot": false,
+        "authority": "explanation only; no writes, installation or activation"
+      }
+    }
+  ]
+}

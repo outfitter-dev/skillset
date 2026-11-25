@@ -1,0 +1,2338 @@
+{
+  "before_sha": "364f7235b1bedab3a6543af4f641e95ff1c1bcb8",
+  "after_sha": "8a5d5b282ade4f5aa2fa8e506fe1297890bce037",
+  "items": [
+    {
+      "fixture": "browserbase-claude-code-plugin",
+      "output": "README.md",
+      "before_after_identical": true,
+      "output_sha256": "7f930e1bee8f08ecb01c438cac2b7c89e43474434a7436007c483ac8c799600b",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "README.md"
+      ],
+      "source_path": "README.md",
+      "source_sha256": "7f930e1bee8f08ecb01c438cac2b7c89e43474434a7436007c483ac8c799600b",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "browserbase-claude-code-plugin",
+      "output": "plugin.json",
+      "before_after_identical": true,
+      "output_sha256": "bdce6a74dd13b0b70983bd0f9807451e64e268f3b8a828a2696bce669b7fb1f6",
+      "output_mode": "0o644",
+      "candidate_paths": [],
+      "source_path": ".claude-plugin/plugin.json",
+      "source_sha256": "c1ecb3ba8891d8c93baf1436ee6918aebacafae6f8f6e07408c13707cc63964d",
+      "source_tar_mode": "0o664",
+      "source_git_mode": null,
+      "bytes_equal_original": null,
+      "mode_verdict": "generated or source path has no matched Git mode",
+      "source_role": "native manifest input",
+      "classification": "generated-agent-plugins-manifest",
+      "disposition": "D2/D4",
+      "detail": "Generated standard manifest; native fields and any synthetic defaults require individual comparison, not treated as source-byte preservation.",
+      "json_delta": {
+        "added": {
+          "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+        },
+        "removed": {},
+        "changed": {}
+      }
+    },
+    {
+      "fixture": "browserbase-claude-code-plugin",
+      "output": "scripts/browser-tool-log.sh",
+      "before_after_identical": true,
+      "output_sha256": "23054558dcabc888d2eadce05fec32479d2e798a06f5f297abe24519e331af77",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "scripts/browser-tool-log.sh"
+      ],
+      "source_path": "scripts/browser-tool-log.sh",
+      "source_sha256": "23054558dcabc888d2eadce05fec32479d2e798a06f5f297abe24519e331af77",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "browserbase-claude-code-plugin",
+      "output": "scripts/session-start.sh",
+      "before_after_identical": true,
+      "output_sha256": "e32e1327214db43ecab5531ab2d3a82538caca22d8070a163b2cd82a55c5bfe8",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "scripts/session-start.sh"
+      ],
+      "source_path": "scripts/session-start.sh",
+      "source_sha256": "e32e1327214db43ecab5531ab2d3a82538caca22d8070a163b2cd82a55c5bfe8",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "browserbase-claude-code-plugin",
+      "output": "scripts/session-stop.sh",
+      "before_after_identical": true,
+      "output_sha256": "33f26f3c9900023dc5e4425473fc3808b3f957e5bce956ffb2fe385a03720300",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "scripts/session-stop.sh"
+      ],
+      "source_path": "scripts/session-stop.sh",
+      "source_sha256": "33f26f3c9900023dc5e4425473fc3808b3f957e5bce956ffb2fe385a03720300",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "browserbase-claude-code-plugin",
+      "output": "scripts/setup.sh",
+      "before_after_identical": true,
+      "output_sha256": "4a81278ce2b6c1e3771f47a27afc731f8166482798c6e0bb31d1d8c3d82a1d6a",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "scripts/setup.sh"
+      ],
+      "source_path": "scripts/setup.sh",
+      "source_sha256": "4a81278ce2b6c1e3771f47a27afc731f8166482798c6e0bb31d1d8c3d82a1d6a",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "claude-review-loop",
+      "output": "LICENSE.txt",
+      "before_after_identical": true,
+      "output_sha256": "9b266ca21b4814fe77c68dbb927794897103cc37788999cdaf4644d3b0331d02",
+      "output_mode": "0o644",
+      "candidate_paths": [],
+      "source_path": "plugins/review-loop/.claude-plugin/plugin.json",
+      "source_sha256": "601de2fc3e32d2c8c7768acc45c5d4452419b964ec293e9e84dd33170ea2039a",
+      "source_tar_mode": "0o664",
+      "source_git_mode": null,
+      "bytes_equal_original": null,
+      "mode_verdict": "generated or source path has no matched Git mode",
+      "classification": "derived-license-notice",
+      "disposition": "D2/D4",
+      "detail": "Cursor full original root LICENSE and copyright notice are replaced in selected output by short SPDX notice; review-loop short notice is derived from native manifest license declaration and has no original license file in tar.",
+      "source_role": "license metadata input"
+    },
+    {
+      "fixture": "claude-review-loop",
+      "output": "commands/cancel-review.md",
+      "before_after_identical": true,
+      "output_sha256": "12a038b886750e88bbb7e7963bbbdc365be6d602b101f373921cdb1f9def20f4",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "plugins/review-loop/commands/cancel-review.md"
+      ],
+      "source_path": "plugins/review-loop/commands/cancel-review.md",
+      "source_sha256": "12a038b886750e88bbb7e7963bbbdc365be6d602b101f373921cdb1f9def20f4",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "claude-review-loop",
+      "output": "commands/review-loop.md",
+      "before_after_identical": true,
+      "output_sha256": "76371b150d42148775adc030868f90ca5fccb87f705c2572ad4c5d38c933116a",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "plugins/review-loop/commands/review-loop.md"
+      ],
+      "source_path": "plugins/review-loop/commands/review-loop.md",
+      "source_sha256": "76371b150d42148775adc030868f90ca5fccb87f705c2572ad4c5d38c933116a",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "claude-review-loop",
+      "output": "plugin.json",
+      "before_after_identical": true,
+      "output_sha256": "a82a8f4808654d43fe25250acbf015741e4e722ca114b34b755a76b2081db45d",
+      "output_mode": "0o644",
+      "candidate_paths": [],
+      "source_path": "plugins/review-loop/.claude-plugin/plugin.json",
+      "source_sha256": "601de2fc3e32d2c8c7768acc45c5d4452419b964ec293e9e84dd33170ea2039a",
+      "source_tar_mode": "0o664",
+      "source_git_mode": null,
+      "bytes_equal_original": null,
+      "mode_verdict": "generated or source path has no matched Git mode",
+      "source_role": "native manifest input",
+      "classification": "generated-agent-plugins-manifest",
+      "disposition": "D2/D4",
+      "detail": "Generated standard manifest; native fields and any synthetic defaults require individual comparison, not treated as source-byte preservation.",
+      "json_delta": {
+        "added": {
+          "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+        },
+        "removed": {},
+        "changed": {}
+      }
+    },
+    {
+      "fixture": "claude-review-loop",
+      "output": "scripts/setup-review-loop.sh",
+      "before_after_identical": true,
+      "output_sha256": "9c470c393fb09a2b7a68a9b8b35561e7d07f1248f0aaded679aebf9db9f6b084",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "plugins/review-loop/scripts/setup-review-loop.sh"
+      ],
+      "source_path": "plugins/review-loop/scripts/setup-review-loop.sh",
+      "source_sha256": "9c470c393fb09a2b7a68a9b8b35561e7d07f1248f0aaded679aebf9db9f6b084",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": ".cursor-plugin/mcp.json",
+      "before_after_identical": true,
+      "output_sha256": "4b3b566cb1abffb603268fa3d0d830741139a2749e3a81db0f64fea439cd65ca",
+      "output_mode": "0o644",
+      "candidate_paths": [],
+      "source_path": "mcp.json",
+      "source_sha256": "3ff8651c3ed168ca1eda0586044c5b0c5b573baef26cb78d842b52892b7aef38",
+      "source_tar_mode": "0o664",
+      "source_git_mode": null,
+      "bytes_equal_original": null,
+      "mode_verdict": "generated or source path has no matched Git mode",
+      "source_role": "native MCP input",
+      "classification": "structured-mcp-projection",
+      "disposition": "D2/D3/D5",
+      "detail": "Server name, command and args preserved; output adds stdio type; standard root adds $schema. Native manifest points to .cursor-plugin/mcp.json; referenced server/dist/index.js is absent from selected output.",
+      "json_delta": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "mcpServers": {
+            "source": {
+              "browser-motion-proof": {
+                "command": "node",
+                "args": [
+                  "server/dist/index.js"
+                ]
+              }
+            },
+            "output": {
+              "browser-motion-proof": {
+                "args": [
+                  "server/dist/index.js"
+                ],
+                "command": "node",
+                "type": "stdio"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": ".cursor-plugin/plugin.json",
+      "before_after_identical": true,
+      "output_sha256": "6211e543db0de3d1607e9288089d9edc4196423a233f27b3d1072f72db290c23",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        ".cursor-plugin/plugin.json"
+      ],
+      "source_path": ".cursor-plugin/plugin.json",
+      "source_sha256": "b5f7708c00b6c7d4c718a8fe99ca201b19f5dd5921e19e4dac64ae084a6ddd43",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-native-manifest",
+      "disposition": "D3/D4",
+      "detail": "Original fields equal; output adds skills ./skills/ and mcpServers ./.cursor-plugin/mcp.json. Native MCP declaration replaces default discovery per Cursor docs.",
+      "json_delta": {
+        "added": {
+          "mcpServers": "./.cursor-plugin/mcp.json",
+          "skills": "./skills/"
+        },
+        "removed": {},
+        "changed": {}
+      }
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": "LICENSE.txt",
+      "before_after_identical": true,
+      "output_sha256": "9b266ca21b4814fe77c68dbb927794897103cc37788999cdaf4644d3b0331d02",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "LICENSE"
+      ],
+      "source_path": "LICENSE",
+      "source_sha256": "6017b22d8adb1fe8c5116fb73eb2653cfb66052126a5276c7eee38b13e50024e",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "derived-license-notice",
+      "disposition": "D5",
+      "detail": "Cursor full original root LICENSE and copyright notice are replaced in selected output by short SPDX notice; review-loop short notice is derived from native manifest license declaration and has no original license file in tar.",
+      "source_role": "root license file not preserved in selected output"
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": "README.md",
+      "before_after_identical": true,
+      "output_sha256": "bd6134d45a422aa39d26ad69fe5ef8834b4643f8f7c372a1ff8496532558e1df",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "README.md"
+      ],
+      "source_path": "README.md",
+      "source_sha256": "bd6134d45a422aa39d26ad69fe5ef8834b4643f8f7c372a1ff8496532558e1df",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": "mcp.json",
+      "before_after_identical": true,
+      "output_sha256": "ad659688ee006dd86c27a095de1b6e6e6245d8ae263bf5747c4ae0df162b3ab7",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "mcp.json"
+      ],
+      "source_path": "mcp.json",
+      "source_sha256": "3ff8651c3ed168ca1eda0586044c5b0c5b573baef26cb78d842b52892b7aef38",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "source_role": "native MCP input",
+      "classification": "structured-mcp-projection",
+      "disposition": "D2/D3/D5",
+      "detail": "Server name, command and args preserved; output adds stdio type; standard root adds $schema. Native manifest points to .cursor-plugin/mcp.json; referenced server/dist/index.js is absent from selected output.",
+      "json_delta": {
+        "added": {
+          "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"
+        },
+        "removed": {},
+        "changed": {
+          "mcpServers": {
+            "source": {
+              "browser-motion-proof": {
+                "command": "node",
+                "args": [
+                  "server/dist/index.js"
+                ]
+              }
+            },
+            "output": {
+              "browser-motion-proof": {
+                "args": [
+                  "server/dist/index.js"
+                ],
+                "command": "node",
+                "type": "stdio"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": "plugin.json",
+      "before_after_identical": true,
+      "output_sha256": "5b7c8d73733ba5e832bbf1f37fb9419c39f96bbfc17690c7454f6906f0a756d9",
+      "output_mode": "0o644",
+      "candidate_paths": [],
+      "source_path": ".cursor-plugin/plugin.json",
+      "source_sha256": "b5f7708c00b6c7d4c718a8fe99ca201b19f5dd5921e19e4dac64ae084a6ddd43",
+      "source_tar_mode": "0o664",
+      "source_git_mode": null,
+      "bytes_equal_original": null,
+      "mode_verdict": "generated or source path has no matched Git mode",
+      "source_role": "native manifest input",
+      "classification": "generated-agent-plugins-manifest",
+      "disposition": "D2/D4",
+      "detail": "Generated standard manifest; native fields and any synthetic defaults require individual comparison, not treated as source-byte preservation.",
+      "json_delta": {
+        "added": {
+          "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+        },
+        "removed": {},
+        "changed": {}
+      }
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": "skills/browser-motion-proof/LICENSE.txt",
+      "before_after_identical": true,
+      "output_sha256": "9b266ca21b4814fe77c68dbb927794897103cc37788999cdaf4644d3b0331d02",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "LICENSE"
+      ],
+      "source_path": "LICENSE",
+      "source_sha256": "6017b22d8adb1fe8c5116fb73eb2653cfb66052126a5276c7eee38b13e50024e",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "derived-license-notice",
+      "disposition": "D5",
+      "detail": "Cursor full original root LICENSE and copyright notice are replaced in selected output by short SPDX notice; review-loop short notice is derived from native manifest license declaration and has no original license file in tar.",
+      "source_role": "root license file not preserved in selected output"
+    },
+    {
+      "fixture": "cursor-browser-motion-plugin",
+      "output": "skills/browser-motion-proof/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "d72769f99426057c367d49b7263c24ca60ed030919c69cf84619e2234d70b578",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/browser-motion-proof/SKILL.md"
+      ],
+      "source_path": "skills/browser-motion-proof/SKILL.md",
+      "source_sha256": "fe57676f34fc9a33b1f2da304418182ce4c50a099bb229194408e855063683c5",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "1.0.0"
+          }
+        },
+        "license": {
+          "before": null,
+          "after": "MIT"
+        }
+      },
+      "output_added_fields": {
+        "license": "MIT",
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": ".claude-plugin/plugin.json",
+      "before_after_identical": true,
+      "output_sha256": "8b05c8458bf5c537a7c97b1de9511ec5ea53fe900d8b68a14edf29c03223d0b8",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        ".claude-plugin/plugin.json"
+      ],
+      "source_path": ".claude-plugin/plugin.json",
+      "source_sha256": "c225ed943974ba2bf078f08f0f8c410f4a58e71294b8a6a73195d238328afc1c",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "native-manifest-structural-difference",
+      "disposition": "D4/D5",
+      "detail": "17 explicit source skill paths replaced by ./skills/ with 34 immediate output skills; 17 output IDs were not in original explicit list. Claude docs say default skills scan is additive; original runtime discovery of unlisted nested folders remains unknown. Description and version synthesized.",
+      "json_delta": {
+        "added": {
+          "version": "0.1.0",
+          "description": "mattpocock-skills"
+        },
+        "removed": {},
+        "changed": {
+          "skills": {
+            "source": [
+              "./skills/engineering/ask-matt",
+              "./skills/engineering/diagnosing-bugs",
+              "./skills/engineering/grill-with-docs",
+              "./skills/engineering/triage",
+              "./skills/engineering/improve-codebase-architecture",
+              "./skills/engineering/setup-matt-pocock-skills",
+              "./skills/engineering/tdd",
+              "./skills/engineering/to-issues",
+              "./skills/engineering/to-prd",
+              "./skills/engineering/prototype",
+              "./skills/engineering/domain-modeling",
+              "./skills/engineering/codebase-design",
+              "./skills/productivity/grill-me",
+              "./skills/productivity/grilling",
+              "./skills/productivity/handoff",
+              "./skills/productivity/teach",
+              "./skills/productivity/writing-great-skills"
+            ],
+            "output": "./skills/"
+          }
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "CHANGELOG.md",
+      "before_after_identical": true,
+      "output_sha256": "080fb77a5892db0830c0abcf6e47f73bc759c0d17e9d7b65484f3984562e148c",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "CHANGELOG.md"
+      ],
+      "source_path": "CHANGELOG.md",
+      "source_sha256": "080fb77a5892db0830c0abcf6e47f73bc759c0d17e9d7b65484f3984562e148c",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "README.md",
+      "before_after_identical": true,
+      "output_sha256": "046e65331ecc5bd83100a9c15e2eb63d458701f91a09ae85890b66a60d8b8bec",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "README.md"
+      ],
+      "source_path": "README.md",
+      "source_sha256": "046e65331ecc5bd83100a9c15e2eb63d458701f91a09ae85890b66a60d8b8bec",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "plugin.json",
+      "before_after_identical": true,
+      "output_sha256": "d779eb341a0248b502239dd7f3eea752fa841ccf70540c28173ac48a41021b2b",
+      "output_mode": "0o644",
+      "candidate_paths": [],
+      "source_path": ".claude-plugin/plugin.json",
+      "source_sha256": "c225ed943974ba2bf078f08f0f8c410f4a58e71294b8a6a73195d238328afc1c",
+      "source_tar_mode": "0o664",
+      "source_git_mode": null,
+      "bytes_equal_original": null,
+      "mode_verdict": "generated or source path has no matched Git mode",
+      "source_role": "native manifest input",
+      "classification": "generated-agent-plugins-manifest",
+      "disposition": "D2/D4",
+      "detail": "Generated standard manifest; native fields and any synthetic defaults require individual comparison, not treated as source-byte preservation.",
+      "json_delta": {
+        "added": {
+          "description": "mattpocock-skills",
+          "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+          "version": "0.1.0"
+        },
+        "removed": {
+          "skills": [
+            "./skills/engineering/ask-matt",
+            "./skills/engineering/diagnosing-bugs",
+            "./skills/engineering/grill-with-docs",
+            "./skills/engineering/triage",
+            "./skills/engineering/improve-codebase-architecture",
+            "./skills/engineering/setup-matt-pocock-skills",
+            "./skills/engineering/tdd",
+            "./skills/engineering/to-issues",
+            "./skills/engineering/to-prd",
+            "./skills/engineering/prototype",
+            "./skills/engineering/domain-modeling",
+            "./skills/engineering/codebase-design",
+            "./skills/productivity/grill-me",
+            "./skills/productivity/grilling",
+            "./skills/productivity/handoff",
+            "./skills/productivity/teach",
+            "./skills/productivity/writing-great-skills"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "scripts/link-skills.sh",
+      "before_after_identical": true,
+      "output_sha256": "672b7710ddfe7a1fc6cdfdf697e583a43ab696ca4a23cf5ef64a9064c38eaf2d",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "scripts/link-skills.sh"
+      ],
+      "source_path": "scripts/link-skills.sh",
+      "source_sha256": "672b7710ddfe7a1fc6cdfdf697e583a43ab696ca4a23cf5ef64a9064c38eaf2d",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "scripts/list-skills.sh",
+      "before_after_identical": true,
+      "output_sha256": "9968c1b679e2a08a8e3204f6e72afeea3b51df50299faec12a4c8eed6bcf2f6a",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "scripts/list-skills.sh"
+      ],
+      "source_path": "scripts/list-skills.sh",
+      "source_sha256": "9968c1b679e2a08a8e3204f6e72afeea3b51df50299faec12a4c8eed6bcf2f6a",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/ask-matt/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "aaeb486ca1d01f31552800cf46784e058bca988fdac1bfcbeea6937e1ebf34d6",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/ask-matt/SKILL.md"
+      ],
+      "source_path": "skills/engineering/ask-matt/SKILL.md",
+      "source_sha256": "fb534e029b0b4a27188f62e3839ab027c69e025915229c4524693eb1edcbb64d",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/codebase-design/DEEPENING.md",
+      "before_after_identical": true,
+      "output_sha256": "125e6b77413ad2bc7cf7a772bc74336d580a50f9e797db2178ed133d62333d06",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/codebase-design/DEEPENING.md"
+      ],
+      "source_path": "skills/engineering/codebase-design/DEEPENING.md",
+      "source_sha256": "125e6b77413ad2bc7cf7a772bc74336d580a50f9e797db2178ed133d62333d06",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/codebase-design/DESIGN-IT-TWICE.md",
+      "before_after_identical": true,
+      "output_sha256": "21c3264953bd30ee87b181a3ccaf0e70649f461e5ffd7dc654acee4ba1788b31",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/codebase-design/DESIGN-IT-TWICE.md"
+      ],
+      "source_path": "skills/engineering/codebase-design/DESIGN-IT-TWICE.md",
+      "source_sha256": "21c3264953bd30ee87b181a3ccaf0e70649f461e5ffd7dc654acee4ba1788b31",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/codebase-design/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "dd76ff8f11ee9a22cfaa69fc63434b1893e284449ba631cc04ba9e3271318360",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/codebase-design/SKILL.md"
+      ],
+      "source_path": "skills/engineering/codebase-design/SKILL.md",
+      "source_sha256": "a8d50abac5a4018f60e1d911d4b6f4e36454ca14d6c390c0695a578c7de65dad",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/decision-mapping/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "a033ddfa0b7959cfcd76d7b97d4d091033f19a07e174e754b45c9f98c50585c5",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/in-progress/decision-mapping/SKILL.md"
+      ],
+      "source_path": "skills/in-progress/decision-mapping/SKILL.md",
+      "source_sha256": "08a19e9bdc9e094b1653dc0862154dd096e40fc8015c1783024be63f9b26870a",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/design-an-interface/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "fd39a22c2fd249c5cbf3294b5064a0c3d1aeff2d7ddb974cf7d96c5fdafaae88",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/deprecated/design-an-interface/SKILL.md"
+      ],
+      "source_path": "skills/deprecated/design-an-interface/SKILL.md",
+      "source_sha256": "a2596e9fa2d50e23ba014f64a5b8f9df4eb56b846a52cad152899ef5eb97b085",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/diagnosing-bugs/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "4a111f588c10a8d415a8bd9fe41c2bae3cb568d1cd508f3775b64810cc2f1071",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/diagnosing-bugs/SKILL.md"
+      ],
+      "source_path": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "source_sha256": "7a0779480f323a66d109404646bcc1a14bf0232b45b3e3ea93b652a035718acb",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/diagnosing-bugs/scripts/hitl-loop.template.sh",
+      "before_after_identical": true,
+      "output_sha256": "b2932630950e5210075bcd6f850e5accf30c101c5367b29eac3a29b4dd8084c8",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/diagnosing-bugs/scripts/hitl-loop.template.sh"
+      ],
+      "source_path": "skills/engineering/diagnosing-bugs/scripts/hitl-loop.template.sh",
+      "source_sha256": "b2932630950e5210075bcd6f850e5accf30c101c5367b29eac3a29b4dd8084c8",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/domain-modeling/ADR-FORMAT.md",
+      "before_after_identical": true,
+      "output_sha256": "f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/domain-modeling/ADR-FORMAT.md"
+      ],
+      "source_path": "skills/engineering/domain-modeling/ADR-FORMAT.md",
+      "source_sha256": "f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/domain-modeling/CONTEXT-FORMAT.md",
+      "before_after_identical": true,
+      "output_sha256": "b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/domain-modeling/CONTEXT-FORMAT.md"
+      ],
+      "source_path": "skills/engineering/domain-modeling/CONTEXT-FORMAT.md",
+      "source_sha256": "b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/domain-modeling/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "da4d8cd6aa11ea5ec4eaaab2ca6a4bbd90a5806f5d7fcecd23b46481509da097",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/domain-modeling/SKILL.md"
+      ],
+      "source_path": "skills/engineering/domain-modeling/SKILL.md",
+      "source_sha256": "152e2c97239affb12a60c5f4a7e74ab546a49ae169688c81f4e2ccc42dafa579",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/edit-article/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "8168036afeefe25957bc8411a6ab8f9234f5bc8637c5d88d2c54125a401f27f3",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/personal/edit-article/SKILL.md"
+      ],
+      "source_path": "skills/personal/edit-article/SKILL.md",
+      "source_sha256": "e10fba546f45357fe0aaa7494b9e186910d4525818d19f9b2ad6f28cc506aa5e",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/git-guardrails-claude-code/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "64b4e093c9e01c3a020744d990db79f8a2a01d41af8f2a6c663f946f7622f2f1",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/misc/git-guardrails-claude-code/SKILL.md"
+      ],
+      "source_path": "skills/misc/git-guardrails-claude-code/SKILL.md",
+      "source_sha256": "03c4de7613c712aea336d64c467ea3ed14be2cbd52345925fe949c75c01c29f7",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh",
+      "before_after_identical": true,
+      "output_sha256": "234922b83c0a1737ee7300806c21ac0f389b07aaeb65c2d71ccedafbc5e1ea4b",
+      "output_mode": "0o755",
+      "candidate_paths": [
+        "skills/misc/git-guardrails-claude-code/scripts/block-dangerous-git.sh"
+      ],
+      "source_path": "skills/misc/git-guardrails-claude-code/scripts/block-dangerous-git.sh",
+      "source_sha256": "234922b83c0a1737ee7300806c21ac0f389b07aaeb65c2d71ccedafbc5e1ea4b",
+      "source_tar_mode": "0o775",
+      "source_git_mode": "100755",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/grill-me/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "ddc5113421f049524c047865df150224ed254c082218b32e23f27fcffd6e3123",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/grill-me/SKILL.md"
+      ],
+      "source_path": "skills/productivity/grill-me/SKILL.md",
+      "source_sha256": "6189dfceb7304a6e5558f75d87e68fa3bc7fcf7ba120e44f21f8a61fe01eba54",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/grill-with-docs/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "a75f78c05bf039cbb94c5424ea2c23f1a43857f056540fee141f1807f58b3caa",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/grill-with-docs/SKILL.md"
+      ],
+      "source_path": "skills/engineering/grill-with-docs/SKILL.md",
+      "source_sha256": "610d091047bcfb9db0f75c057d15538481a721111579fc5ec7f83ad9131a2165",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/grilling/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "dfa072223782e651535f21ff33edd93d4004e8d54401cd451eb3bb3fc01f09de",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/grilling/SKILL.md"
+      ],
+      "source_path": "skills/productivity/grilling/SKILL.md",
+      "source_sha256": "fe00af3e1815f97c0a7644605479328a726b5cd95ba6ef56a4be2a92fae6c20f",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/handoff/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "6287ddd57bfaec3693223429e130495aa4d224398633244be8b209994210a3c3",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/handoff/SKILL.md"
+      ],
+      "source_path": "skills/productivity/handoff/SKILL.md",
+      "source_sha256": "94bee8c16cbfcf9f1e15187f7e5d0d5a93c4adb7c512feceecaab80c8ff7c059",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/implement/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "f0f82874a06f5a723e577d0f43ef44399495d94e5d9e9ec42e9102efb54172c3",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/implement/SKILL.md"
+      ],
+      "source_path": "skills/engineering/implement/SKILL.md",
+      "source_sha256": "6e79ad337b162393ec5bd4334c37c468a7f18281856d8b15b1b9e6fb4246c252",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/improve-codebase-architecture/HTML-REPORT.md",
+      "before_after_identical": true,
+      "output_sha256": "0b0936104158abeef7246ff6cbabefa4dc055f17589f2833f2d93001421910a1",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/improve-codebase-architecture/HTML-REPORT.md"
+      ],
+      "source_path": "skills/engineering/improve-codebase-architecture/HTML-REPORT.md",
+      "source_sha256": "0b0936104158abeef7246ff6cbabefa4dc055f17589f2833f2d93001421910a1",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/improve-codebase-architecture/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "d067e021f038d9d40a37736439095492e07b0cf29fa619bce0df1ab43e9b48a3",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/improve-codebase-architecture/SKILL.md"
+      ],
+      "source_path": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "source_sha256": "0026900866ed2a542af0559cef11dd7ae707633b75cc6f668c2e7c0a33e35032",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/migrate-to-shoehorn/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "85f28be4e749e978bb89bb1c1c9a6975db17cea142598b7586d1872c6aa4c7b2",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/misc/migrate-to-shoehorn/SKILL.md"
+      ],
+      "source_path": "skills/misc/migrate-to-shoehorn/SKILL.md",
+      "source_sha256": "de4da4c11d924fac79c924b2ee3d2db4a5cb98386eb490a599119463d036ae72",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/obsidian-vault/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "d8fcfae44e167ee06f60659435447331a3fd3a9ff4235cbad2f75e922ccefd2e",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/personal/obsidian-vault/SKILL.md"
+      ],
+      "source_path": "skills/personal/obsidian-vault/SKILL.md",
+      "source_sha256": "7bed1d552aa5e9345e493cd62cb13e65c5d829d153c349afdb2cb91c809fa6c4",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/prototype/LOGIC.md",
+      "before_after_identical": true,
+      "output_sha256": "da91dc92195c00d5dc33863b8c1a030998025a0f8583ebf2babd770825b7f70c",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/prototype/LOGIC.md"
+      ],
+      "source_path": "skills/engineering/prototype/LOGIC.md",
+      "source_sha256": "da91dc92195c00d5dc33863b8c1a030998025a0f8583ebf2babd770825b7f70c",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/prototype/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "b129c5f4bafb9a3f722a9005c0ec976348b686667b10a0b0d490150c7e3da746",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/prototype/SKILL.md"
+      ],
+      "source_path": "skills/engineering/prototype/SKILL.md",
+      "source_sha256": "863611f7fb65b78265188466cacdb365cbad129d36844ec57603c708d2026b50",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/prototype/UI.md",
+      "before_after_identical": true,
+      "output_sha256": "d76d565149ee50456c5ddc5e29c27fec8737637874fe5c37d970db085a200b27",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/prototype/UI.md"
+      ],
+      "source_path": "skills/engineering/prototype/UI.md",
+      "source_sha256": "d76d565149ee50456c5ddc5e29c27fec8737637874fe5c37d970db085a200b27",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/qa/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "d61ef357df4bf870c5f62b7c3f56ef4c72bd6db2ac7368ca848f795acfb413e7",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/deprecated/qa/SKILL.md"
+      ],
+      "source_path": "skills/deprecated/qa/SKILL.md",
+      "source_sha256": "d9727aac6503981bf69bdd8b37e0d85b32b8fbd353a57528c252dac1337ab761",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/request-refactor-plan/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "5349d76f461faa9e44af205399db09c1e18bad8ba6a9efea8185881fe12c8e4f",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/deprecated/request-refactor-plan/SKILL.md"
+      ],
+      "source_path": "skills/deprecated/request-refactor-plan/SKILL.md",
+      "source_sha256": "d59de4ba6cc1fe2dd267e8b9b5a1fd88e3e739e2130bc9dd78061d2a072830b8",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/resolving-merge-conflicts/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "da99f61c8e624b2397edddbffd7fd7d157d7b44649cdba668bca2581ea83da1a",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/resolving-merge-conflicts/SKILL.md"
+      ],
+      "source_path": "skills/engineering/resolving-merge-conflicts/SKILL.md",
+      "source_sha256": "c7c9ba81362a786aac05d2223123bf1bd2f8a99c3243a72882ede9c68bedfb24",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/review/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "2c1161975d50d248cf1360b7f76ef2783ce94d85af76029a4ebcc477f96bb2f4",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/in-progress/review/SKILL.md"
+      ],
+      "source_path": "skills/in-progress/review/SKILL.md",
+      "source_sha256": "0f1c3edf07b730ae7644c68d716faaa43be0fd81a27c06e13baf6b55712e7edb",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/scaffold-exercises/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "1fdf4eb37e4eb5106440e89d41a662faf316d517225e7b694351a6caf51f5c7b",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/misc/scaffold-exercises/SKILL.md"
+      ],
+      "source_path": "skills/misc/scaffold-exercises/SKILL.md",
+      "source_sha256": "75f5c9d771606fb9762f16522efc954df11c324f87148d8ff069bce166257de9",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-matt-pocock-skills/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "6db29bda5be4725fcf7f4a439c4797c2b920a8d031f9d368d325aa5a836901e7",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/setup-matt-pocock-skills/SKILL.md"
+      ],
+      "source_path": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "source_sha256": "16a4b5bfb0a282ed387e8b1609d0026e53e68ebf89bc4b87edf07ce66bb16912",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-matt-pocock-skills/domain.md",
+      "before_after_identical": true,
+      "output_sha256": "25be404b58798b3cb2d51c93dba2ab052fc3a425632185726ac3f5fcff193b99",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/setup-matt-pocock-skills/domain.md"
+      ],
+      "source_path": "skills/engineering/setup-matt-pocock-skills/domain.md",
+      "source_sha256": "25be404b58798b3cb2d51c93dba2ab052fc3a425632185726ac3f5fcff193b99",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-matt-pocock-skills/issue-tracker-github.md",
+      "before_after_identical": true,
+      "output_sha256": "f0e138631d1fc8aedc9e05d25bc688b97679f81eae7a7c760dd35e0790568370",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md"
+      ],
+      "source_path": "skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md",
+      "source_sha256": "f0e138631d1fc8aedc9e05d25bc688b97679f81eae7a7c760dd35e0790568370",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+      "before_after_identical": true,
+      "output_sha256": "94c574647c4755f2a807742f5e78e7cef586c100266d54501d0e55445c1b1807",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/setup-matt-pocock-skills/issue-tracker-gitlab.md"
+      ],
+      "source_path": "skills/engineering/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+      "source_sha256": "94c574647c4755f2a807742f5e78e7cef586c100266d54501d0e55445c1b1807",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-matt-pocock-skills/issue-tracker-local.md",
+      "before_after_identical": true,
+      "output_sha256": "9a052f4599525e581721ec24cb2ae3e0296b79053e39f684b540d34d3a4f6528",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/setup-matt-pocock-skills/issue-tracker-local.md"
+      ],
+      "source_path": "skills/engineering/setup-matt-pocock-skills/issue-tracker-local.md",
+      "source_sha256": "9a052f4599525e581721ec24cb2ae3e0296b79053e39f684b540d34d3a4f6528",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-matt-pocock-skills/triage-labels.md",
+      "before_after_identical": true,
+      "output_sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/setup-matt-pocock-skills/triage-labels.md"
+      ],
+      "source_path": "skills/engineering/setup-matt-pocock-skills/triage-labels.md",
+      "source_sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/setup-pre-commit/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "6d6f64c6351fbe02650a60ab267c21ea83b640974ece445c065e5589645eb6c6",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/misc/setup-pre-commit/SKILL.md"
+      ],
+      "source_path": "skills/misc/setup-pre-commit/SKILL.md",
+      "source_sha256": "872f4037cb7e6e0e340d4175c086550072959925dffc87b160d1a30dc9f63bbd",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/tdd/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "ba78f705b0bbcee36beca06784b3a72009c2d2adddee8ecfcbe2a36807bc6053",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/tdd/SKILL.md"
+      ],
+      "source_path": "skills/engineering/tdd/SKILL.md",
+      "source_sha256": "13722957277ed4960061a2d254a0ed7d86f95693e88b40d1c68307e7fdc98287",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/tdd/mocking.md",
+      "before_after_identical": true,
+      "output_sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/tdd/mocking.md"
+      ],
+      "source_path": "skills/engineering/tdd/mocking.md",
+      "source_sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/tdd/refactoring.md",
+      "before_after_identical": true,
+      "output_sha256": "54fced22dd1911b7094c3fe7979b7c1a40d40be307482c4adf7dc0588f27d6cc",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/tdd/refactoring.md"
+      ],
+      "source_path": "skills/engineering/tdd/refactoring.md",
+      "source_sha256": "54fced22dd1911b7094c3fe7979b7c1a40d40be307482c4adf7dc0588f27d6cc",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/tdd/tests.md",
+      "before_after_identical": true,
+      "output_sha256": "e12182f5c4c6a844b7c6ab4b8d2623b642aaaae5460fe58ed087efd4f3d5fb8a",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/tdd/tests.md"
+      ],
+      "source_path": "skills/engineering/tdd/tests.md",
+      "source_sha256": "e12182f5c4c6a844b7c6ab4b8d2623b642aaaae5460fe58ed087efd4f3d5fb8a",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/teach/GLOSSARY-FORMAT.md",
+      "before_after_identical": true,
+      "output_sha256": "d177def491519d97873291f2e860d8f1d60ead78feecb82eee022177958069c6",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/teach/GLOSSARY-FORMAT.md"
+      ],
+      "source_path": "skills/productivity/teach/GLOSSARY-FORMAT.md",
+      "source_sha256": "d177def491519d97873291f2e860d8f1d60ead78feecb82eee022177958069c6",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/teach/LEARNING-RECORD-FORMAT.md",
+      "before_after_identical": true,
+      "output_sha256": "855f81017625256584bbf62bd5edb9b0c86605c4cc1139c56acc36b802595d17",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/teach/LEARNING-RECORD-FORMAT.md"
+      ],
+      "source_path": "skills/productivity/teach/LEARNING-RECORD-FORMAT.md",
+      "source_sha256": "855f81017625256584bbf62bd5edb9b0c86605c4cc1139c56acc36b802595d17",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/teach/MISSION-FORMAT.md",
+      "before_after_identical": true,
+      "output_sha256": "8da6d3ac84eb2eb19f17c260b6acf01c560d3ac7a4501c415eea0e985602f4d7",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/teach/MISSION-FORMAT.md"
+      ],
+      "source_path": "skills/productivity/teach/MISSION-FORMAT.md",
+      "source_sha256": "8da6d3ac84eb2eb19f17c260b6acf01c560d3ac7a4501c415eea0e985602f4d7",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/teach/RESOURCES-FORMAT.md",
+      "before_after_identical": true,
+      "output_sha256": "2bc634a64b0d0daa10904f9222e7aa0d361420dfacabbf092fbe3a72222edc08",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/teach/RESOURCES-FORMAT.md"
+      ],
+      "source_path": "skills/productivity/teach/RESOURCES-FORMAT.md",
+      "source_sha256": "2bc634a64b0d0daa10904f9222e7aa0d361420dfacabbf092fbe3a72222edc08",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/teach/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "9cb1478de1e2c00752933b7f32df133ac43cc775dcf98b8a25dd9859a5e534f2",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/teach/SKILL.md"
+      ],
+      "source_path": "skills/productivity/teach/SKILL.md",
+      "source_sha256": "d36496c90da9871babf8aef3c4e2fb5de1dddc7fafc79659d2ac0ba567069b3b",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/to-issues/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "d54848ab4bc327e08d2cf3c25acd98bfa2d97c16e6939f3ed4da5cdfb8ae11d3",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/to-issues/SKILL.md"
+      ],
+      "source_path": "skills/engineering/to-issues/SKILL.md",
+      "source_sha256": "f8a72a5bc88aa830ae62b323a52b08934da52851b010984c55829a644c7f6ba6",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/to-prd/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "a82edca96dc62c4fe58188fcd1d829a8222ecc980a6b6e838b69d4a27f126f18",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/to-prd/SKILL.md"
+      ],
+      "source_path": "skills/engineering/to-prd/SKILL.md",
+      "source_sha256": "db7e7188ac4fd47f4925ae6550e0233365b3b05be40f45235ab3a0a6b0165156",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/triage/AGENT-BRIEF.md",
+      "before_after_identical": true,
+      "output_sha256": "1c71c747aa97d938f75ec7a4b8fe87451763b38a3ce6348acf2b222e5819b2e5",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/triage/AGENT-BRIEF.md"
+      ],
+      "source_path": "skills/engineering/triage/AGENT-BRIEF.md",
+      "source_sha256": "1c71c747aa97d938f75ec7a4b8fe87451763b38a3ce6348acf2b222e5819b2e5",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/triage/OUT-OF-SCOPE.md",
+      "before_after_identical": true,
+      "output_sha256": "8ed8cf27833444060c81b3961a83c0e3d8e6cf2fcb2ddf6f8b07c6655cbb0d85",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/triage/OUT-OF-SCOPE.md"
+      ],
+      "source_path": "skills/engineering/triage/OUT-OF-SCOPE.md",
+      "source_sha256": "8ed8cf27833444060c81b3961a83c0e3d8e6cf2fcb2ddf6f8b07c6655cbb0d85",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/triage/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "dda7bc7be5e046da42e25a7339c8fea094bb469f51d25ccfdd170569896ff4bc",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/engineering/triage/SKILL.md"
+      ],
+      "source_path": "skills/engineering/triage/SKILL.md",
+      "source_sha256": "fa78dfc3e6941cea678486514a27d378ff1c5c8e3b0bdfbbff233c49855a53b3",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/ubiquitous-language/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "4dd434e18a39a630daa987f108f740ac46967af144f37028bfd9c3bca62fd673",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/deprecated/ubiquitous-language/SKILL.md"
+      ],
+      "source_path": "skills/deprecated/ubiquitous-language/SKILL.md",
+      "source_sha256": "2449e2345b96b9f1e861c697b5eab50d03ae1254481a4306b6f815684e523b3a",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/writing-beats/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "3e1f16e0dca38835b350ca57c84c97a2eaf8fcd3fbf18b8203f73ef7d16ed723",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/in-progress/writing-beats/SKILL.md"
+      ],
+      "source_path": "skills/in-progress/writing-beats/SKILL.md",
+      "source_sha256": "0843367d0a653bb17e61b3771d0ec08fa463663bc0ab6f3f421141b2687c4429",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/writing-fragments/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "85094038c0636144c43ed8425b0076c6d2643ca39bcf657ef848783a5a266292",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/in-progress/writing-fragments/SKILL.md"
+      ],
+      "source_path": "skills/in-progress/writing-fragments/SKILL.md",
+      "source_sha256": "4ffa34a701caff27da54b9e073fef48471f0ccafee009d404c22ae542d0e8dea",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/writing-great-skills/GLOSSARY.md",
+      "before_after_identical": true,
+      "output_sha256": "df0d042f2b69b8a952bd4b0e6904e2eb316f0203c1a5f09169da7f75a5575a61",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/writing-great-skills/GLOSSARY.md"
+      ],
+      "source_path": "skills/productivity/writing-great-skills/GLOSSARY.md",
+      "source_sha256": "df0d042f2b69b8a952bd4b0e6904e2eb316f0203c1a5f09169da7f75a5575a61",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": true,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "original-byte-preserved",
+      "disposition": "D3",
+      "detail": "Source bytes match; path may have been flattened; execution is unverified."
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/writing-great-skills/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "eca176d890c90d26fd1ab5bad8a12888510ec01dd2d3eff192f9f74d08d68292",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/productivity/writing-great-skills/SKILL.md"
+      ],
+      "source_path": "skills/productivity/writing-great-skills/SKILL.md",
+      "source_sha256": "7c6ba7ec25bb2c0e173c52cdc2da878aef0b083ec19a9c1799934e480c8833cc",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    },
+    {
+      "fixture": "mattpocock-skills",
+      "output": "skills/writing-shape/SKILL.md",
+      "before_after_identical": true,
+      "output_sha256": "ceb3adfe9573266131f680b9d3e899c9c043adcc25b71cb5f508b3be1ce016a4",
+      "output_mode": "0o644",
+      "candidate_paths": [
+        "skills/in-progress/writing-shape/SKILL.md"
+      ],
+      "source_path": "skills/in-progress/writing-shape/SKILL.md",
+      "source_sha256": "81a542b95fa865325835bf5ec7644a98e657c1e0f3374c56cb9f3b42b374660f",
+      "source_tar_mode": "0o664",
+      "source_git_mode": "100644",
+      "bytes_equal_original": false,
+      "mode_verdict": "matches committed Git executable intent",
+      "classification": "structured-source-fields-and-body-preserved",
+      "disposition": "D2/D3",
+      "detail": "Original YAML fields and body equal; output adds generated metadata, and Cursor also adds license.",
+      "source_fields_preserved": true,
+      "body_exact_equal": true,
+      "frontmatter_delta": {
+        "metadata": {
+          "before": null,
+          "after": {
+            "skillset.schema": "1",
+            "version": "0.1.0"
+          }
+        }
+      },
+      "output_added_fields": {
+        "metadata": {
+          "skillset.schema": "1",
+          "version": "0.1.0"
+        }
+      }
+    }
+  ],
+  "classification_counts": {
+    "original-byte-preserved": 37,
+    "generated-agent-plugins-manifest": 4,
+    "derived-license-notice": 3,
+    "structured-mcp-projection": 2,
+    "structured-native-manifest": 1,
+    "structured-source-fields-and-body-preserved": 35,
+    "native-manifest-structural-difference": 1
+  },
+  "method": "Compare before/after 83 identical paths to original tar, mapped via exact source paths or unique preserved skill leaf; parse YAML fields and bodies separately; Git mode from pinned tree; generated outputs classified separately.",
+  "provenance": {
+    "fixture_manifest_sha256": "18086bcdd282790fa62ac1215d366dd1ce370312821df27e0226f9e2e6439814",
+    "source_capture": "original.tar from after fixture capture",
+    "classification_scope": "83 before/after byte-identical projection files; excludes five changed/added files",
+    "mode_note": "tar group-write modes are not committed Git mode; original Git executable intent checked for source byte-preserved files",
+    "provider_runtime": "not invoked"
+  }
+}

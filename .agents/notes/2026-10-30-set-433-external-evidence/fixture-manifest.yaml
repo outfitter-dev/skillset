@@ -1,0 +1,34 @@
+# External fixture repos: real published repos Skillset should adopt cleanly.
+# Managed by scripts/fixtures/external.ts; `update` re-pins refs to upstream HEAD.
+repos:
+  - name: compound-engineering-plugin
+    repo: https://github.com/EveryInc/compound-engineering-plugin
+    ref: 4719dc509fdc45656a830e3ed6060f674e206076
+    notes: "Multi-surface Claude plugin repo: .claude-plugin manifest, .claude and .agents trees, nested plugins/ directory."
+  - name: browserbase-claude-code-plugin
+    repo: https://github.com/browserbase/claude-code-plugin
+    ref: b399af34a1b1cc365d1e1c0089823c4fa5e10ea5
+    notes: "Small root Claude plugin repo with bundled MCP/config surfaces and no project instructions."
+  - name: claude-review-loop
+    repo: https://github.com/hamelsmu/claude-review-loop
+    ref: 244f4c7bc15e98552af7cc5a67e70dfcdea9ab12
+    notes: "Nested marketplace-style Claude plugin under plugins/review-loop."
+  - name: cursor-browser-motion-plugin
+    repo: https://github.com/dusa89/cursor-browser-motion-plugin
+    ref: c892f0982756e4d39ad4a007b0aa0e45908b88f1
+    targets: [cursor]
+    notes: "Root Cursor-native browser-motion plugin with a .cursor-plugin/plugin.json manifest, skill, MCP configuration, and scripts."
+  - name: mattpocock-skills
+    repo: https://github.com/mattpocock/skills
+    ref: 00ff03cac21a8a845b06256d826d183122f58c5e
+    notes: "Root Claude plugin whose plugin.json enumerates a curated skills array referencing nested skills/<category>/<name> directories, alongside many uncurated skills and a repo-level CLAUDE.md. Pinned to release tag mattpocock-skills@1.0.0."
+  - name: emilkowalski-skills
+    repo: https://github.com/emilkowalski/skills
+    ref: de33dbed000212b54400a33767d1e4d03654db2a
+    targets: [claude, codex]
+    notes: "Provider-neutral root skills collection for design and animation, with companion Markdown resources and native skill metadata such as disable-model-invocation."
+  - name: last30days-skill
+    repo: https://github.com/mvanhorn/last30days-skill
+    ref: 3fa91fce9009731ed68e2e8a14ce9683253720e8
+    targets: [claude, codex]
+    notes: "Research assistant plugin repo with Claude plugin metadata, Codex-adjacent .agents metadata, hooks, MCP server sources, repo instructions, and a nested skills/last30days skill with assets, references, and scripts."

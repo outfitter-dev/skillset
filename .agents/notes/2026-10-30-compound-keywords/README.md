@@ -1,0 +1,11 @@
+# Compound discovery-keyword replay
+
+This packet captures product adoption at compiler `7502c14d8c0ff4d99795786a364fc69c8755185e` with a clean execution checkout before and after the run. The pinned Compound original is revision `4719dc509fdc45656a830e3ed6060f674e206076`; its archive is retained in the sibling historical SET-433 evidence packet and referenced by SHA-256. No provider runtime was invoked.
+
+The previous keyword conflict is absent. `coding-tutor` imports and its generated Claude, Agent Plugins and Cursor keyword arrays exactly match their corresponding original native manifests. The capture retains all 22 generated files, including workspace output and locks; that count is not 22 plugin runtime files. All 576 extracted original files and symlink targets retain their bytes/targets and captured modes through adoption. Extraction-mode parity with the raw original tar is not claimed.
+
+The overall operation remains unsuccessful: `compound-engineering` now reaches the independent license-metadata-plus-bundled-notice refusal before import. No generated files for that plugin exist. This demonstrates progress through the prior initialization blocker and one plugin's structural keyword preservation, not complete SET-449 acceptance, a semantic fixture PASS, dependency closure or cross-provider search equivalence.
+
+Run `python3 .agents/notes/2026-10-30-compound-keywords/verify.py` from the repository. It checks packet hashes, retained original references and source bytes, before/after inventory equality, captured output hashes and exact keyword arrays, plus the explicit remaining import failure. It reads archives in memory without extracting or executing them. It validates retained evidence, not an independently reconstructed execution.
+
+`capture.ts` takes compiler checkout, fresh extracted fixture root and capture-output directory as arguments. It invokes product adoption and writes into that disposable fixture and isolated output; rerunning it is a mutating probe, not the offline verifier. The raw report and log retain actual temporary paths and operational timestamps. No raw-report determinism is claimed. The later commit retaining this packet changes evidence only relative to the compiler revision above.

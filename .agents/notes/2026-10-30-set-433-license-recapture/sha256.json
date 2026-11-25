@@ -1,0 +1,10 @@
+{
+  "README.md": "2493c1d7d9ceed13b63a0bed57f7a8742b84e388a3f736665ba27918435fea2e",
+  "capture.log": "739a1dd857dedf974a425d12d8a15245238f291d8f8e3a6458b737dc7e5e6552",
+  "capture.tar.xz": "69a8fdb72b2fc1e5ef6d1f58d868977bb549af502c84e172aba9e469dee8025d",
+  "comparison.json": "c51d9224bd51f1dbe184cf74815f05c4e9560628a8a147b5c1c58f4dc1cf72cb",
+  "install.log": "3ed7f059fdd380c23c8332a83a5c43928aee33eb55e2f2b3526acb736ca2437d",
+  "original-hash-audit.md": "9bdf4d2f5bbe9786f412543eafe16ec7fe322583f7d47c5c0cccffe8c610c24a",
+  "original-refs.json": "723d70d82642afd5ed29edb4d1dc691b9314e1a77154e676627d49db0c8788aa",
+  "verify.py": "d701937e9e3cfab5042a1efd03eb771aa025a9bcfc13faad24442275032b3abd"
+}

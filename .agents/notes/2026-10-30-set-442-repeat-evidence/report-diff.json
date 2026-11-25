@@ -1,0 +1,37 @@
+{
+  "cursor-browser-motion-plugin": [
+    [
+      "/report/stages/4/detail",
+      "wrote 2 generated files under .skillset/cache/latest/",
+      "wrote 0 generated files under .skillset/cache/latest/"
+    ]
+  ],
+  "browserbase-claude-code-plugin": [
+    [
+      "/report/stages/4/detail",
+      "wrote 14 generated files under .skillset/cache/latest/",
+      "wrote 1 generated files under .skillset/cache/latest/"
+    ]
+  ],
+  "mattpocock-skills": [
+    [
+      "/report/stages/4/detail",
+      "wrote 105 generated files under .skillset/cache/latest/",
+      "wrote 1 generated files under .skillset/cache/latest/"
+    ]
+  ],
+  "last30days-skill": [
+    [
+      "/report/stages/4/detail",
+      "wrote 2 generated files under .skillset/cache/latest/",
+      "wrote 0 generated files under .skillset/cache/latest/"
+    ]
+  ],
+  "claude-review-loop": [
+    [
+      "/report/stages/4/detail",
+      "wrote 14 generated files under .skillset/cache/latest/",
+      "wrote 1 generated files under .skillset/cache/latest/"
+    ]
+  ]
+}
