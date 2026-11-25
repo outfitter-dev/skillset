@@ -12,6 +12,9 @@ import {
   SkillsetBuildBlockedError,
 } from "@skillset/core";
 
+import { targetDescriptor, targetNames } from "../targets";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "../plugin-output";
+
 const DEMO_CONFIG = `
 skillset:
   name: deterministic-root
@@ -228,12 +231,62 @@ codex: false
     expect(report.ok).toBe(true);
   });
 
+  it("excludes every runtime root even for disabled targets without prior locks", async () => {
+    const runtimeRoots = [...new Set([
+      ...targetNames().map((target) => targetDescriptor(target).projectRoot),
+      ".agents",
+      DEFAULT_PLUGIN_OUTPUT_ROOT,
+    ])];
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      "skillset.yaml": "skillset:\n  name: clean-runtime-roots\ncompile:\n  targets: [claude]\n",
+      "authored.txt": "keep authored content",
+      "private-data/omit.txt": "caller exclusion",
+      ...Object.fromEntries(runtimeRoots.map((path) => [`${path}/stale-sentinel.txt`, "stale runtime content"])),
+    });
+    const observed: string[] = [];
+    const report = await assertDeterministicProjection(root, {
+      copyExcludePaths: ["private-data"],
+      afterProjection: async (run) => {
+        observed.push(run.name);
+        for (const path of runtimeRoots) {
+          expect(await exists(join(run.workspacePath, path, "stale-sentinel.txt"))).toBe(false);
+        }
+        expect(await exists(join(run.workspacePath, "private-data/omit.txt"))).toBe(false);
+        expect(await Bun.file(join(run.workspacePath, "authored.txt")).text()).toBe("keep authored content\n");
+        expect(await Bun.file(join(run.workspacePath, ".skillset/skills/demo/SKILL.md")).text()).toBe(`${DEMO_SKILL.trim()}\n`);
+      },
+    });
+    expect(observed).toEqual(["left", "right"]);
+    expect(report.ok).toBe(true);
+    for (const path of runtimeRoots) {
+      expect(await Bun.file(join(root, path, "stale-sentinel.txt")).text()).toBe("stale runtime content\n");
+    }
+  });
+
   it("rejects empty source selections before running a projection", async () => {
     const root = await fixture(DEMO_FIXTURE);
 
     await expect(runDeterministicProjection(root, {
       sourcePaths: [],
     })).rejects.toThrow("requires at least one source path");
+  });
+
+  it("omits an excluded runtime symlink without copying its target", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const runtime = await createTestFixtureRoot("skillset-deterministic-runtime-");
+    await Bun.write(join(runtime, "runtime.txt"), "runtime only\n");
+    const path = targetDescriptor("cursor").projectRoot;
+    await symlink(runtime, join(root, path), "dir");
+
+    const report = await assertDeterministicProjection(root, {
+      afterProjection: async (run) => {
+        expect(await exists(join(run.workspacePath, path, "runtime.txt"))).toBe(false);
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    expect(await Bun.file(join(runtime, "runtime.txt")).text()).toBe("runtime only\n");
   });
 });
 

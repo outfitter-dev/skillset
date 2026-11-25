@@ -1,12 +1,17 @@
 import { readFile } from "node:fs/promises";
+import { basename, relative } from "node:path";
 
+import { SKILL_FILE } from "@skillset/provider-evidence";
+
+import { isOutputSelected } from "./config";
 import { compareStrings, isPathInside, resolveInside } from "./path";
 import {
   isPluginManifestOutputPath,
   isTargetMarketplacePath,
-  pluginPathPartsForOutput,
+  pluginPackagePathParts,
   pluginTargetForOutputPath,
 } from "./plugin-output";
+import { targetNames } from "./targets";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -14,7 +19,7 @@ import {
   selectorForRootConfig,
   selectorForStandaloneSkill,
 } from "./source-unit-selector";
-import type { BuildGraph, RenderedFile, SkillsetOptions, TargetName } from "./types";
+import type { BuildGraph, RenderedFile, SkillsetOptions, SourcePlugin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 export const VERSION_DRIFT_STATUS_VALUES = [
@@ -29,6 +34,12 @@ export const VERSION_DRIFT_STATUS_VALUES = [
 
 export type VersionDriftStatus = (typeof VERSION_DRIFT_STATUS_VALUES)[number];
 export type VersionAuthority = "external" | "generated" | "release-state" | "source";
+
+const AUDITED_TARGETS: Readonly<Record<TargetName, boolean>> = {
+  claude: true,
+  codex: true,
+  cursor: false,
+};
 
 export interface VersionAuditReport {
   readonly issues: readonly VersionLocus[];
@@ -121,7 +132,7 @@ function expectedVersionLoci(graph: BuildGraph, file: RenderedFile): readonly Ex
   const field = versionFieldForPath(file.path);
   const expectedVersion = extractVersion(file.path, file.content, { field });
   if (expectedVersion === undefined) return [];
-  const identity = identifyVersionPath(graph, file.path);
+  const identity = identifyVersionPath(graph, file);
   if (identity === undefined) return [];
   return [{
     authority: authorityForScope(graph, identity.scope),
@@ -185,48 +196,43 @@ function authorityForScope(graph: BuildGraph, scope: string): VersionAuthority {
   return graph.releaseState.scopes[scope] === undefined ? "source" : "release-state";
 }
 
+function auditsPluginTarget(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
+  return AUDITED_TARGETS[target] &&
+    plugin.targets[target].enabled &&
+    isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, plugin.id);
+}
+
 function identifyVersionPath(
   graph: BuildGraph,
-  path: string
+  file: RenderedFile
 ): { readonly scope: string; readonly target?: TargetName } | undefined {
-  const target = targetForPath(graph, path);
-  if (isTargetMarketplacePath(path, "claude")) {
-    return { scope: selectorForRootConfig(), target: target ?? "claude" };
+  const target = targetForPath(graph, file.path);
+  if (target !== undefined && !AUDITED_TARGETS[target]) return undefined;
+  const parts = pluginPackagePathParts(file.path);
+  if (target !== undefined && parts !== undefined && isPluginManifestOutputPath(graph, file.path, target)) {
+    // A portable manifest shares the Codex path even when Codex isn't a consumer.
+    const plugin = graph.plugins.find((candidate) => candidate.id === parts.pluginId);
+    return plugin !== undefined && auditsPluginTarget(graph, plugin, target)
+      ? { scope: `plugin:${plugin.id}`, target }
+      : undefined;
   }
-  if (target === "codex" && isPluginManifestOutputPath(graph, path, target)) {
-    const parts = pluginPathPartsForOutput(
-      graph,
-      graph.root.outputs.plugins.codex,
-      target,
-      path
-    );
-    if (parts !== undefined) {
-      return { scope: `plugin:${parts.pluginId}`, target };
+  if (basename(file.path) !== SKILL_FILE || file.sourcePath === undefined) return undefined;
+  const sourcePath = file.sourcePath.replaceAll("\\", "/");
+  // Rendered primary-source identity also covers grouped skills and allocated
+  // project-use copies without inferring ownership from an output folder name.
+  for (const plugin of graph.plugins) {
+    const skill = (plugin.discoveredSkills ?? plugin.skills).find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
+    if (skill !== undefined) {
+      if (target === undefined && !targetNames().some((provider) =>
+        skill.targets[provider].enabled &&
+        auditsPluginTarget(graph, plugin, provider)
+      )) return undefined;
+      return { scope: selectorForPluginSkill(plugin.id, skill.id), ...(target === undefined ? {} : { target }) };
     }
   }
-  const chatGptManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/chatgpt\/plugin\.json$/);
-  if (chatGptManifest?.[1] !== undefined) {
-    return { scope: `plugin:${chatGptManifest[1]}`, target: target ?? "codex" };
-  }
-  const pluginFirstManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/(?:claude|codex)\/\.(?:claude|codex)-plugin\/plugin\.json$/);
-  if (pluginFirstManifest?.[1] !== undefined) {
-    return { scope: `plugin:${pluginFirstManifest[1]}`, ...(target === undefined ? {} : { target }) };
-  }
-  const pluginManifest = path.match(/\/plugins\/([^/]+)\/\.(?:claude|codex)-plugin\/plugin\.json$/);
-  if (pluginManifest?.[1] !== undefined) {
-    return { scope: `plugin:${pluginManifest[1]}`, ...(target === undefined ? {} : { target }) };
-  }
-  const pluginFirstSkill = path.match(/(?:^|\/)plugins\/([^/]+)\/(?:claude|codex)\/skills\/([^/]+)\/SKILL\.md$/);
-  if (pluginFirstSkill?.[1] !== undefined && pluginFirstSkill[2] !== undefined) {
-    return { scope: selectorForPluginSkill(pluginFirstSkill[1], pluginFirstSkill[2]), ...(target === undefined ? {} : { target }) };
-  }
-  const pluginSkill = path.match(/\/plugins\/([^/]+)\/skills\/([^/]+)\/SKILL\.md$/);
-  if (pluginSkill?.[1] !== undefined && pluginSkill[2] !== undefined) {
-    return { scope: selectorForPluginSkill(pluginSkill[1], pluginSkill[2]), ...(target === undefined ? {} : { target }) };
-  }
-  const standaloneSkill = path.match(/\/skills\/([^/]+)\/SKILL\.md$/);
-  if (standaloneSkill?.[1] !== undefined) {
-    return { scope: selectorForStandaloneSkill(standaloneSkill[1]), ...(target === undefined ? {} : { target }) };
+  const skill = (graph.discoveredSkills ?? graph.standaloneSkills).find(candidate => relative(graph.rootPath, candidate.sourcePath).replaceAll("\\", "/") === sourcePath);
+  if (skill !== undefined) {
+    return { scope: selectorForStandaloneSkill(skill.id), ...(target === undefined ? {} : { target }) };
   }
   return undefined;
 }
@@ -234,8 +240,9 @@ function identifyVersionPath(
 function targetForPath(graph: BuildGraph, path: string): TargetName | undefined {
   const pluginTarget = pluginTargetForOutputPath(graph, path);
   if (pluginTarget !== undefined) return pluginTarget;
-  if (isInside(path, graph.root.outputs.skills.claude)) return "claude";
-  if (isInside(path, graph.root.outputs.skills.codex)) return "codex";
+  for (const target of targetNames()) {
+    if (isInside(path, graph.root.outputs.skills[target])) return target;
+  }
   return undefined;
 }
 

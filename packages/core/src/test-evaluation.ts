@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import {
@@ -19,18 +19,18 @@ import {
   pathExists as pathExistsOnDisk,
 } from "./fs-existence";
 import { compareStrings, isPathInside, resolveInside } from "./path";
-import {
-  pluginManifestPath as pluginManifestOutputPath,
-  pluginBundleRoot,
-} from "./plugin-output";
+import { pluginManifestPath as pluginManifestOutputPath } from "./plugin-output";
+import { resolveRenderedSkillCopies } from "./project-use";
 import { renderPluginManifest } from "./render-plugin-manifest";
+import type { SkillsetRenderResult } from "./render-result";
+import { renderedSkillPaths, type RenderedSkillEvidence } from "./rendered-skill-paths";
 import { loadBuildGraph } from "./resolver";
 import {
   renderClaudeAuthor,
   renderCursorAuthor,
 } from "./source-author";
 import { readSourceListing } from "./source-listing";
-import type { SkillsetRenderResult } from "./render-result";
+import { selectorForStandaloneSkill, selectorForPluginSkill } from "./source-unit-selector";
 import { targetDescriptor } from "./targets";
 import {
   type SkillsetActivationExpectation,
@@ -42,6 +42,7 @@ import {
   type SkillsetTestSelection,
   slugifySkillsetTestProbeName,
 } from "./test-declaration";
+import { applySourceSelection } from "./test-source-selection";
 import type {
   BuildGraph,
   JsonRecord,
@@ -52,7 +53,6 @@ import type {
 } from "./types";
 import { pluginVersion } from "./versioning";
 import { isJsonRecord } from "./yaml";
-import { SKILL_FILE } from "@skillset/provider-evidence";
 
 export type { SkillsetTestCheckResult } from "./test-declaration";
 export {
@@ -364,7 +364,8 @@ function outputIncludes(
 async function validateSkillsetActivationExpectations(
   workspacePath: string,
   declaration: SkillsetTestDeclaration,
-  options: SkillsetOptions
+  options: SkillsetOptions,
+  evidence: RenderedSkillEvidence
 ): Promise<void> {
   if (declaration.activationProbes.length === 0) return;
   const graph = await loadBuildGraph(workspacePath, options);
@@ -374,7 +375,8 @@ async function validateSkillsetActivationExpectations(
       const candidates = activationExpectationCandidatePaths(
         graph,
         target,
-        probe.expect
+        probe.expect,
+        evidence
       );
       const matched = await Promise.all(
         candidates.map(async (path) =>
@@ -391,7 +393,8 @@ async function validateSkillsetActivationExpectations(
 function activationExpectationCandidatePaths(
   graph: BuildGraph,
   target: TargetName,
-  expect: SkillsetActivationExpectation
+  expect: SkillsetActivationExpectation,
+  evidence: RenderedSkillEvidence
 ): readonly string[] {
   if (expect.kind === "plugin") {
     return [pluginManifestPath(graph, target, expect.name)];
@@ -413,32 +416,29 @@ function activationExpectationCandidatePaths(
       );
   }
 
-  return [
+  const identities = [
     ...graph.standaloneSkills
       .filter((skill) => skill.id === expect.name)
-      .map((skill) =>
-        join(
-          graph.root.outputs.skills[target],
-          dirname(skill.relativePath),
-          SKILL_FILE
-        )
-      ),
+      .map((skill) => ({
+        sourceUnit: selectorForStandaloneSkill(skill.id),
+        sourcePath: relative(graph.rootPath, skill.sourcePath),
+      })),
     ...graph.plugins.flatMap((plugin) =>
       plugin.skills
         .filter((skill) => skill.id === expect.name)
-        .map((skill) =>
-          join(
-            pluginBundleRoot(
-              graph.root.outputs.plugins[target],
-              target,
-              plugin
-            ),
-            dirname(skill.relativePath),
-            SKILL_FILE
-          )
-        )
+        .map((skill) => ({
+          sourceUnit: selectorForPluginSkill(plugin.id, skill.id),
+          sourcePath: relative(graph.rootPath, skill.sourcePath),
+        }))
     ),
+    ...resolveRenderedSkillCopies(graph)
+      .filter((copy) => copy.skill.id === expect.name)
+      .map((copy) => ({
+        sourceUnit: copy.sourceUnit,
+        sourcePath: relative(graph.rootPath, copy.skill.sourcePath),
+      })),
   ];
+  return renderedSkillPaths(evidence, target, identities);
 }
 
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
@@ -481,75 +481,6 @@ async function copyTestSource(
       ),
     recursive: true,
   });
-}
-
-async function applySourceSelection(
-  graph: BuildGraph,
-  stagingWorkspacePath: string,
-  selection: SkillsetTestSelection
-): Promise<void> {
-  if (!selection.filterSource) return;
-
-  const sourceRootPath = resolveInside(stagingWorkspacePath, graph.sourceRoot);
-  await pruneSelectedChildren(
-    join(sourceRootPath, "agents"),
-    selection.agents.map((agent) => agent.filename)
-  );
-  await pruneSelectedChildren(
-    join(sourceRootPath, "skills"),
-    selection.primarySkills
-  );
-
-  const selectedPluginIds = new Set([
-    ...selection.plugins,
-    ...selection.pluginSkills.map((skill) => skill.pluginId),
-  ]);
-  const pluginSkillsByPlugin = new Map<string, string[]>();
-  for (const skill of selection.pluginSkills) {
-    const skills = pluginSkillsByPlugin.get(skill.pluginId) ?? [];
-    skills.push(skill.skillId);
-    pluginSkillsByPlugin.set(skill.pluginId, skills);
-  }
-
-  const pluginsPath = join(sourceRootPath, "plugins");
-  await pruneSelectedChildren(pluginsPath, [...selectedPluginIds]);
-  for (const [pluginId, skillIds] of pluginSkillsByPlugin) {
-    if (selection.plugins.includes(pluginId)) continue;
-    await prunePluginToSelectedSkills(join(pluginsPath, pluginId), skillIds);
-  }
-
-  await removeIfExists(join(sourceRootPath, "rules"));
-  await removeIfExists(join(sourceRootPath, "_claude"));
-  await removeIfExists(join(sourceRootPath, "_codex"));
-}
-
-async function prunePluginToSelectedSkills(
-  pluginPath: string,
-  skillIds: readonly string[]
-): Promise<void> {
-  await pruneSelectedChildren(join(pluginPath, "skills"), skillIds);
-  if (!(await pathExists(pluginPath))) return;
-  const keep = new Set(["config.yaml", "shared", "skillset.yaml", "skills"]);
-  for (const entry of await readdir(pluginPath, { withFileTypes: true })) {
-    if (keep.has(entry.name)) continue;
-    await rm(join(pluginPath, entry.name), { force: true, recursive: true });
-  }
-}
-
-async function pruneSelectedChildren(
-  directory: string,
-  keepNames: readonly string[]
-): Promise<void> {
-  if (!(await pathExists(directory))) return;
-  const keep = new Set(keepNames);
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (keep.has(entry.name)) continue;
-    await rm(join(directory, entry.name), { force: true, recursive: true });
-  }
-}
-
-async function removeIfExists(path: string): Promise<void> {
-  await rm(path, { force: true, recursive: true });
 }
 
 async function copyWorkspaceManagedFiles(
@@ -645,11 +576,6 @@ export async function stageSkillsetTestWorkspace(
 ): Promise<void> {
   const workspaceLockPath = resolveInside(rootPath, "skillset.lock");
   await copyTestSource(graph, stagingWorkspacePath);
-  await applySourceSelection(
-    graph,
-    stagingWorkspacePath,
-    declaration.selection
-  );
   await copyIfExists(
     workspaceLockPath,
     join(stagingWorkspacePath, "skillset.lock")
@@ -659,6 +585,11 @@ export async function stageSkillsetTestWorkspace(
     stagingWorkspacePath,
     workspaceLockPath,
     graph.sourceDir
+  );
+  await applySourceSelection(
+    graph,
+    stagingWorkspacePath,
+    declaration.selection
   );
 }
 
@@ -727,7 +658,8 @@ export async function evaluateSkillsetTestWorkspace(
     await validateSkillsetActivationExpectations(
       workspacePath,
       declaration,
-      options
+      options,
+      { rendered, renderResults }
     );
   }
   return {
@@ -744,7 +676,8 @@ export async function evaluateSkillsetTestRuntime(
   workspacePath: string,
   declaration: SkillsetTestDeclaration,
   options: SkillsetOptions,
-  runtimeProbe: SkillsetRuntimeProbe
+  runtimeProbe: SkillsetRuntimeProbe,
+  evidence: RenderedSkillEvidence
 ): Promise<readonly SkillsetRuntimeTestResult[]> {
   const graph = await loadBuildGraph(workspacePath, options);
   const results: SkillsetRuntimeTestResult[] = [];
@@ -754,7 +687,8 @@ export async function evaluateSkillsetTestRuntime(
       const candidates = activationExpectationCandidatePaths(
         graph,
         target,
-        probe.expect
+        probe.expect,
+        evidence
       );
       const rendered = await Promise.all(
         candidates.map(async (path) =>

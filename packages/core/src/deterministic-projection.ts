@@ -19,6 +19,8 @@ import {
   type NormalizedTreeComparison,
   type NormalizedOutputTreeOptions,
 } from "./normalized-output-tree";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import { targetDescriptor, targetNames } from "./targets";
 import { loadBuildGraph } from "./resolver";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { stringifyJson } from "./yaml";
@@ -26,13 +28,12 @@ import { stringifyJson } from "./yaml";
 const DEFAULT_SOURCE_PATHS = ["."] as const;
 const DEFAULT_COPY_EXCLUDED_PATHS = [
   ".agents",
-  ".claude",
-  ".codex",
+  ...targetNames().map((target) => targetDescriptor(target).projectRoot),
   ".git",
   ".skillset/cache",
   ".skillset/snapshots",
   "node_modules",
-  "plugins",
+  DEFAULT_PLUGIN_OUTPUT_ROOT,
 ] as const;
 
 const textEncoder = new TextEncoder();
@@ -230,12 +231,13 @@ async function copySourceSelection(
 async function shouldCopyPath(rootPath: string, path: string, copyExcludedPaths: readonly string[]): Promise<boolean> {
   const relativePath = normalizePath(relative(rootPath, path));
   if (relativePath === "") return true;
+  if (copyExcludedPaths.some(
+    (excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`)
+  )) return false;
   if ((await lstat(path)).isSymbolicLink()) {
     throw new Error(`skillset: deterministic projection source does not support symlinks: ${relativePath}`);
   }
-  return !copyExcludedPaths.some(
-    (excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`)
-  );
+  return true;
 }
 
 async function projectionCopyExcludedPaths(
