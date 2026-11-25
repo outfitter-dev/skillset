@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 
+import { createTestFixtureRoot } from "../../test-helpers/fixture-root";
 import {
   authoredCommandDiagnostics,
+  checkAuthoredCommands,
   distributionFrontDoorDiagnostics,
   invariantLinkDiagnostics,
   readmeCommandDiagnostics,
@@ -51,6 +54,22 @@ test("authored docs validate direct and package-runner commands", () => {
   ).toContain(
     "docs/start/quickstart.md documents an invalid command (build --watch)"
   );
+});
+
+test("checks the Bun package README commands with the CLI parser", async () => {
+  const root = await createTestFixtureRoot("skillset-bun-readme-commands-");
+  await Bun.write(join(root, "README.md"), "# Skillset\n");
+  await Bun.write(join(root, "docs/troubleshooting.md"), "# Troubleshooting\n");
+  const readme = join(root, "apps/cli/README.md");
+  await Bun.write(readme, "```bash\nbunx @skillset/cli init\n```\n");
+  expect(await checkAuthoredCommands(root)).toEqual([]);
+
+  await Bun.write(readme, "```bash\nbunx @skillset/cli init --watch\n```\n");
+  expect(await checkAuthoredCommands(root)).toEqual([
+    expect.stringContaining(
+      "apps/cli/README.md documents an invalid command (init --watch)"
+    ),
+  ]);
 });
 
 test("distribution docs keep the global-first route and exact alternatives", () => {

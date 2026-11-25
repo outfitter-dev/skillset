@@ -128,7 +128,7 @@ export function readmeCommandDiagnostics(source: string): readonly string[] {
 export async function checkAuthoredCommands(
   root: string
 ): Promise<readonly string[]> {
-  const paths = ["README.md", "docs/troubleshooting.md"];
+  const paths = ["README.md", "apps/cli/README.md", "docs/troubleshooting.md"];
   for (const pattern of AUTHORED_COMMAND_PATTERNS) {
     const glob = new Bun.Glob(pattern);
     for await (const pagePath of glob.scan({ cwd: root, onlyFiles: true })) {
