@@ -9,6 +9,7 @@ import {
   appendAdaptiveHookAttachmentToYaml,
   planAdaptiveHookCompatibility,
 } from "@skillset/core/internal/adaptive-hook-authoring";
+import { readString } from "@skillset/core/internal/config";
 import {
   loadScaffoldDiscovery,
   resolveAdaptiveHookScriptPath,
@@ -191,7 +192,10 @@ function compatibilityFailureReasons(
 
 export async function listNewAdaptiveHookAttachmentTargets(
   rootPath: string,
-  skillsetOptions: SkillsetOptions = {}
+  skillsetOptions: SkillsetOptions = {},
+  {
+    includeIncompleteAgents = false,
+  }: { readonly includeIncompleteAgents?: boolean } = {}
 ): Promise<readonly NewAdaptiveHookAttachmentTarget[]> {
   let graph: ScaffoldDiscovery;
   try {
@@ -228,6 +232,13 @@ export async function listNewAdaptiveHookAttachmentTargets(
     });
   }
   for (const agent of graph.projectAgents) {
+    if (
+      !includeIncompleteAgents &&
+      (readString(agent.frontmatter, "description") === undefined ||
+        agent.body.trim().length === 0)
+    ) {
+      continue;
+    }
     targets.push({
       description: "Attach to this project agent",
       name: `Project agent: ${agent.outputName}`,

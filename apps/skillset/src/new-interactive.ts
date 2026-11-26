@@ -105,7 +105,9 @@ async function resolveHookIntent(
 }> {
   const targets = await listNewAdaptiveHookAttachmentTargets(
     request.rootPath,
-    request.options
+    request.options,
+    // Keep explicit owners discoverable so the planner reports their validation errors.
+    { includeIncompleteAgents: request.hookAttachment !== undefined }
   );
   if (targets.length === 0) {
     throw new Error(
