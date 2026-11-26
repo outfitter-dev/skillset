@@ -1,5 +1,28 @@
 # skillset
 
+## 0.32.0
+
+### Patch Changes
+
+- 80037cb: Reject malformed and unknown Agent Plugins author members during output conformance while preserving optional author names.
+- e463a39: Give the Bun distribution its own install and runtime guidance, and add native package project links and consistent npm platform labels.
+- 6b0a69a: Report Claude's `notification_type` payload field in `skillset lookup hooks` instead of the incorrect `type` field.
+- af06ba9: Exclude every registered provider runtime root from deterministic projection copies, including stale Cursor state when Cursor is disabled.
+- abfe213: Report formatter-only generated differences separately in check summaries and CI reports, without counting them as target-side edits or provider-format updates. Preserve semantic edit diagnostics and existing repair safeguards.
+- 855efa9: Report hook spawn ENOENT as a missing executable, interpreter, or working-directory possibility rather than always claiming the command is absent. Preserve exit 127 and advisory-hook handling.
+- 897c25c: Create identity-minimal source scaffolds without invented trigger or workflow prose, and direct authors to complete content before building. Keep unfinished project agents from blocking unrelated skill, rule, and hook scaffolding. The guided hook picker lists only project agents with a description and body.
+- 80037cb: Return the normal unsupported-source diagnostic for inherited Claude marketplace source discriminator names such as constructor and **proto**, instead of throwing during conformance validation.
+- 80037cb: Qualify Claude marketplace archive-digest and command-source limits with versioned static parser evidence. Detect drift from the pinned validation artifact and keep static inspection distinct from runtime acceptance.
+- 80037cb: Qualify the pinned marketplace metadata-key and rename-value validator evidence while retaining unmatched entry-field authority as unresolved.
+- 80037cb: Qualify marketplace entry-name evidence against the pinned static strict-validator warning path, keeping it distinct from schema predicates and runtime acceptance.
+- af06ba9: Resolve skill activation and eval output probes from completed build evidence instead of source directory names, preserving target and source ownership for flattened skills and project-use copies.
+- af06ba9: Preserve selected test source units by resolved source path, including grouped and name-mismatched skills. Prune canonical subagents and every provider source island after managed-file staging.
+- b379686: Prevent Claude and Cursor prompt runs from reporting a broken pipe when the provider closes stdin early. Send their prompts only as command-line arguments and keep sending Codex prompts on stdin.
+- af06ba9: Audit current shared plugin manifests and match generated skill versions to their canonical source scope, preserving plugin child release authority for grouped skills and project-use copies.
+- 80037cb: Record Claude marketplace conformance inventories and qualified nested schema evidence in the provider registry. Detect evidence drift independently from schema refreshes while preserving existing conformance diagnostics and generated output.
+- 80037cb: Reject duplicate Claude marketplace plugin names with diagnostics identifying the repeated entry and its first occurrence. Record the pinned static validator evidence separately from runtime acceptance.
+- 80037cb: Validate Claude marketplace archive headers and helper text/conditions using pinned static validator evidence, without expanding standalone plugin manifests or executing helpers. Binary-field fidelity remains unresolved.
+
 ## 0.31.1
 
 ### Patch Changes

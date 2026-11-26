@@ -1,6 +1,6 @@
 {
   "name": "@skillset/cli",
-  "version": "0.31.1",
+  "version": "0.32.0",
   "description": "Bun distribution of the Skillset source-first compiler.",
   "keywords": [
     "agents",
