@@ -72,6 +72,7 @@ import { validateProjectAgentSkills } from "./project-agent-skills";
 import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
+import { selectorForProjectAgent } from "./source-unit-selector";
 import { validateSupports } from "./supports";
 import { TARGET_LIST_TEXT } from "./targets";
 import type {
@@ -155,6 +156,31 @@ interface WorkspaceLayout {
 export async function loadBuildGraph(
   rootPath: string,
   options: SkillsetOptions = {}
+): Promise<BuildGraph> {
+  return loadWorkspaceGraph(rootPath, options);
+}
+
+type ScaffoldDiscovery = Pick<BuildGraph, "plugins" | "projectAgents" | "sourceRootPath" | "standaloneSkills">;
+
+interface ScaffoldDiscoveryOptions {
+  readonly selectedHookOwner: string | undefined;
+}
+
+/** Discover scaffold destinations without requiring content in unrelated project agents. */
+export async function loadScaffoldDiscovery(
+  rootPath: string,
+  options: SkillsetOptions,
+  selectedHookOwner?: string
+): Promise<ScaffoldDiscovery> {
+  const { plugins, projectAgents, sourceRootPath, standaloneSkills } =
+    await loadWorkspaceGraph(rootPath, options, { selectedHookOwner });
+  return { plugins, projectAgents, sourceRootPath, standaloneSkills };
+}
+
+async function loadWorkspaceGraph(
+  rootPath: string,
+  options: SkillsetOptions,
+  scaffold?: ScaffoldDiscoveryOptions
 ): Promise<BuildGraph> {
   const workspace = await resolveWorkspaceLayout(rootPath, options);
   const { sourceDir, sourcePath, sourceRoot, sourceRootDir, sourceRootPath } = workspace;
@@ -271,7 +297,8 @@ export async function loadBuildGraph(
     sourceRootDir,
     filteredTargets,
     warnings,
-    externalInputPaths
+    externalInputPaths,
+    scaffold
   );
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
   const adaptiveHooks = [
@@ -609,7 +636,8 @@ async function loadProjectAgents(
   sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  scaffold: ScaffoldDiscoveryOptions | undefined
 ): Promise<readonly SourceProjectAgent[]> {
   const agentsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PROJECT_AGENTS_DIR));
   if (!(await exists(agentsPath))) return [];
@@ -619,7 +647,7 @@ async function loadProjectAgents(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     const sourcePath = join(agentsPath, entry.name);
-    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings, externalInputPaths));
+    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings, externalInputPaths, scaffold));
   }
 
   validateProjectAgentCollisions(rootPath, agents);
@@ -633,22 +661,34 @@ async function loadProjectAgent(
   sourcePath: string,
   parentTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  externalInputPaths: Set<string>
+  externalInputPaths: Set<string>,
+  scaffold: ScaffoldDiscoveryOptions | undefined
 ): Promise<SourceProjectAgent> {
   const sourceLabel = logicalDiagnosticPath(rootPath, sourcePath);
   const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourceLabel);
-  validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
+  const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
+  const selectedHookOwner = scaffold?.selectedHookOwner;
+  const requireContent = scaffold === undefined ||
+    (selectedHookOwner !== undefined &&
+      selectedHookOwner === selectorForProjectAgent(sanitizeProjectAgentName(name, sourceLabel)));
+  const { diagnostics } = validateAgentFrontmatter(parts.frontmatter, sourceLabel);
+  validateSourceFrontmatter(
+    !requireContent && parts.frontmatter.description === undefined
+      ? diagnostics.filter((diagnostic) => diagnostic.code !== "schema/agent-frontmatter/description")
+      : diagnostics,
+    sourceLabel,
+    parts.frontmatter
+  );
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { externalInputPaths, label: sourceLabel, rootPath, warnings });
-  const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
   const outputName = sanitizeProjectAgentName(name, sourceLabel);
   const scope = { agentId: outputName, kind: "agent" as const };
   const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, sourceLabel);
   const description = readString(parts.frontmatter, "description");
-  if (description === undefined) {
+  if (requireContent && description === undefined) {
     throw new Error(`skillset: ${sourceLabel} project agent requires description`);
   }
-  if (parts.body.trim().length === 0) {
+  if (requireContent && parts.body.trim().length === 0) {
     throw new Error(`skillset: ${sourceLabel} project agent requires a Markdown body`);
   }
   const initialPrompt = readString(parts.frontmatter, "initialPrompt");

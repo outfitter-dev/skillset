@@ -4,7 +4,7 @@ description: Walks through the executable first-author fixture from clean check 
 
 # Walk Through the First-Author Example
 
-The checked-in [`examples/first-author`](../../examples/first-author/README.md) fixture is the smallest complete Skillset [workspace](../glossary.md#workspace) in this repository. It contains one skill, one rule, Claude and Codex [targets](../glossary.md#target), and their committed [generated output](../glossary.md#generated-output). Work in a disposable copy so the canonical fixture stays clean.
+The checked-in [`examples/minimal`](../../examples/minimal/README.md) fixture is the smallest complete Skillset [workspace](../glossary.md#workspace) in this repository. It contains one skill, one rule, Claude and Codex [targets](../glossary.md#target), and their committed [generated output](../glossary.md#generated-output). Work in a disposable copy so the canonical fixture stays clean.
 
 Use this walkthrough to see the full loop without inventing source first.
 
@@ -14,7 +14,7 @@ From the Skillset repository root:
 
 ```bash
 fixture_dir="$(mktemp -d)/first-author"
-cp -R examples/first-author "$fixture_dir"
+cp -R examples/minimal "$fixture_dir"
 ```
 
 ## Inspect the workspace

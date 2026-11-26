@@ -5,7 +5,7 @@ import { createTestGitFixtureRoot } from "../test-helpers/git-remote";
 
 const EDIT_MARKER = "Golden path second-pass edit.";
 const MANAGED_OUTPUTS = [".agents", ".claude", "AGENTS.md", "skillset.lock"];
-// Mirrors examples/first-author/.gitignore so local runtime state never leaks in.
+// Mirrors examples/minimal/.gitignore so local runtime state never leaks in.
 const IGNORED_EXAMPLE_PATHS = [".skillset/cache", ".skillset/snapshots"];
 
 export interface GoldenPathReport {
@@ -18,7 +18,7 @@ export async function runDocsGoldenPath(
 ): Promise<GoldenPathReport> {
   const sandbox = await createTestGitFixtureRoot("skillset-docs-golden-");
   try {
-    const exampleRoot = path.join(repoRoot, "examples", "first-author");
+    const exampleRoot = path.join(repoRoot, "examples", "minimal");
     await cp(exampleRoot, sandbox, {
       filter: (source) => !isIgnoredExamplePath(exampleRoot, source),
       recursive: true,

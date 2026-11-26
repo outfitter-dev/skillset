@@ -3,6 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
+import { buildSkillsetResult } from "@skillset/core";
+
 import { createTestFixtureRoot } from "../../../../scripts/test-helpers/fixture-root";
 import { createInteractiveSession } from "../interactive-session";
 import {
@@ -39,6 +41,26 @@ async function workspace(): Promise<string> {
   const root = await createTestFixtureRoot("skillset-new-interactive-");
   await initSkillset({ cwd: root, rootPath: root, write: true });
   return root;
+}
+
+const unfinishedAgents = [
+  {
+    id: "missing-description",
+    content: "---\nname: missing-description\n---\n\nReview the notes.\n",
+    diagnostic:
+      "frontmatter failed schema validation: agent description is required",
+  },
+  {
+    id: "missing-body",
+    content: "---\nname: missing-body\ndescription: Review the notes.\n---\n\n",
+    diagnostic: "project agent requires a Markdown body",
+  },
+];
+
+async function writeAgent(root: string, id: string, content: string) {
+  const directory = join(root, ".skillset/subagents");
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, `${id}.md`), content);
 }
 
 function request(
@@ -263,7 +285,7 @@ describe("SET-293 derived new-source choices", () => {
     ]);
     expect(
       await Bun.file(join(root, ".skillset/rules/review-guidance.md")).text()
-    ).toBe('---\n# Uncomment paths to scope this rule to matching files.\n# paths:\n#   - "src/**"\n---\n\n# Review Guidance\n\nAdd rules here.\n');
+    ).toBe('---\n---\n');
     expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
     expect(await Bun.file(join(root, ".agents")).exists()).toBe(false);
   });
@@ -383,6 +405,116 @@ describe("SET-293 derived new-source choices", () => {
       ).exists()
     ).toBe(false);
   });
+
+  test("guided Hook lists only complete agents alongside plugin and skill targets", async () => {
+    const root = await workspace();
+    for (const { id, content } of unfinishedAgents) {
+      await writeAgent(root, id, content);
+    }
+    const completeAgent =
+      "---\nname: note-reviewer\ndescription: Review the notes.\n---\n\nSummarize the notes.\n";
+    await writeAgent(root, "note-reviewer", completeAgent);
+    await mkdir(join(root, ".skillset/plugins/journal"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/journal/skillset.yaml"),
+      "skillset:\n  name: journal\n"
+    );
+    for (const directory of [
+      ".skillset/skills/writer",
+      ".skillset/plugins/journal/skills/writer",
+    ]) {
+      await mkdir(join(root, directory), { recursive: true });
+      await writeFile(
+        join(root, directory, "SKILL.md"),
+        "---\nname: writer\ndescription: Write notes.\n---\n\nWrite a short entry.\n"
+      );
+    }
+    const { adapter, output, session } = scriptedSession([
+      { kind: "select", value: "hook" },
+      { kind: "input", value: "Note Policy" },
+      { kind: "search", value: "agent:note-reviewer" },
+      { kind: "search-multiselect", value: ["PreToolUse"] },
+      { kind: "select", value: "command" },
+      { kind: "input", value: "echo reviewing notes" },
+      { kind: "confirm", value: false },
+    ]);
+
+    await runNewCommand(request(root), { interactiveSession: session });
+
+    adapter.assertComplete();
+    expect(adapter.prompts.at(-1)).toMatchObject({
+      kind: "confirm",
+      prompt: { default: false },
+    });
+    expect(output.read(output.readableLength)?.toString()).toContain(
+      "Skillset will:"
+    );
+    expect(
+      await Bun.file(
+        join(root, ".skillset/subagents/note-reviewer/hooks/note-policy.json")
+      ).exists()
+    ).toBe(false);
+    expect(
+      await readFile(join(root, ".skillset/subagents/note-reviewer.md"), "utf8")
+    ).toBe(completeAgent);
+
+    const attachmentPrompt = adapter.prompts.find(
+      (prompt) => prompt.kind === "search"
+    );
+    if (attachmentPrompt?.kind !== "search") {
+      throw new Error("expected searchable attachment prompt");
+    }
+    const choices = attachmentPrompt.prompt.source(undefined, {
+      signal: new AbortController().signal,
+    });
+    expect(choices.map((choice) => choice.value)).toEqual([
+      "agent:note-reviewer",
+      "plugin.journal.skill:writer",
+      "plugin:journal",
+      "skill:writer",
+    ]);
+  });
+
+  test.each(unfinishedAgents)(
+    "explicit Hook and build reject an agent with $id",
+    async ({ id, content, diagnostic }) => {
+      const root = await workspace();
+      await writeAgent(root, id, content);
+      const error = new Error(
+        `skillset: .skillset/subagents/${id}.md ${diagnostic}`
+      );
+      const hook = {
+        hookAttachment: `agent:${id}`,
+        hookCommand: "echo reviewing notes",
+        newKind: "hook",
+        positionalName: "Note Policy",
+      } as const;
+
+      await expect(
+        runNewCommand(request(root, {
+          ...hook,
+          hookEvents: ["PreToolUse"],
+          yes: true,
+        }))
+      ).rejects.toThrow(error);
+
+      const { adapter, output, session } = scriptedSession([
+        { kind: "search-multiselect", value: ["PreToolUse"] },
+      ]);
+      await expect(
+        runNewCommand(request(root, hook), { interactiveSession: session })
+      ).rejects.toThrow(error);
+      adapter.assertComplete();
+      expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+        "search-multiselect",
+      ]);
+      expect(output.read(output.readableLength)?.toString()).not.toContain(
+        "Skillset will:"
+      );
+
+      await expect(buildSkillsetResult(root)).rejects.toThrow(error);
+    }
+  );
 
   test("guided Hook writes byte-equivalent output to the corresponding explicit request", async () => {
     const interactiveRoot = await workspace();
