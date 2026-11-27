@@ -56,7 +56,7 @@ export function distTagForVersion(version: string) {
   return tag;
 }
 
-async function fetchRegistryDocument(
+export async function fetchRegistryDocument(
   name: string,
   signal = AbortSignal.timeout(30_000)
 ) {

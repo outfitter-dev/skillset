@@ -1,0 +1,27 @@
+name: Release Next Dispatch
+
+# Starts the `next` prerelease lane of release.yml on every push to main.
+# This lives outside release.yml because that workflow's concurrency group is
+# held for as long as a stable run waits on `npm` approval; a dispatcher inside
+# it would queue behind that gate. The dispatched run plans itself: it stops
+# when no public Changeset is pending or nothing package-facing changed.
+# Publishing still happens only in release.yml, the npm trusted publisher.
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Dispatch next prerelease lane
+    if: github.repository == 'outfitter-dev/skillset'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start the next lane in its own concurrency group
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run release.yml --ref main -f channel=next
